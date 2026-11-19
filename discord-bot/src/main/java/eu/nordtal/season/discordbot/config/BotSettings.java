@@ -144,7 +144,7 @@ public final class BotSettings {
             }
             net.dv8tion.jda.api.entities.emoji.Emoji.fromFormatted(country.emoji());
             if (!country.glyph().startsWith("flag-") || country.glyph().length() <= 5) {
-                throw new IllegalArgumentException(path + ".glyph must name a country flag.");
+                throw new IllegalArgumentException(path + ".glyph must name a region flag.");
             }
         }
     }

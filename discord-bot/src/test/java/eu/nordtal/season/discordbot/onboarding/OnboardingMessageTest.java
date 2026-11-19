@@ -53,7 +53,7 @@ class OnboardingMessageTest {
         final var tree = MessageComponentTree.of(drawn.components());
         assertEquals(1, tree.findAll(Container.class).size());
         assertEquals(List.of("onboarding.png"), drawn.attachments());
-        assertTrue(drawn.text().contains("Choose your country to start."));
+        assertTrue(drawn.text().contains("Choose your region to start."));
         assertFalse(drawn.text().contains("Wähle"));
         final var select = tree.findAll(StringSelectMenu.class).getFirst();
         assertEquals(Ids.ONBOARD_COUNTRY, select.getCustomId());
@@ -65,15 +65,17 @@ class OnboardingMessageTest {
     }
 
     @Test
-    void theChangeMessageHasATextAndAShowSettingsButtonInEveryLanguage() {
+    void theChangeMessageHasATextAndOneShowSettingsButtonInEnglishOnly() {
         final var drawn = message().change();
         final var tree = MessageComponentTree.of(drawn.components());
-        assertTrue(drawn.text().contains("Change your country or language here."));
-        assertTrue(drawn.text().contains("Hier änderst du dein Land oder deine Sprache."));
+        assertTrue(drawn.text().contains("Change your region or language here."));
         assertTrue(tree.findAll(StringSelectMenu.class).isEmpty());
         assertEquals(
-                List.of(Ids.ONBOARD_SETTINGS + "en", Ids.ONBOARD_SETTINGS + "de"),
+                List.of(Ids.ONBOARD_SETTINGS),
                 tree.findAll(Button.class).stream().map(Button::getCustomId).toList());
+        assertEquals(
+                List.of("Show settings"),
+                tree.findAll(Button.class).stream().map(Button::getLabel).toList());
     }
 
     @Test
@@ -82,7 +84,7 @@ class OnboardingMessageTest {
         final var drawn = OnboardingFlow.dialog(StoredDocumentsStandIn.renderer(), LANGUAGES, CHOICES, draft);
         final var tree = MessageComponentTree.of(drawn.components());
         final List<StringSelectMenu> selects = tree.findAll(StringSelectMenu.class);
-        assertTrue(drawn.text().contains("Prüfe dein Land und deine Sprache"), drawn.text());
+        assertTrue(drawn.text().contains("Prüfe deine Region und deine Sprache"), drawn.text());
         assertFalse(drawn.text().contains("gespeichert"));
         assertEquals(List.of("at"), defaults(selects.getFirst()));
         assertEquals(List.of("de"), defaults(selects.getLast()));
@@ -99,7 +101,7 @@ class OnboardingMessageTest {
     }
 
     @Test
-    void theSettingsDialogShowsTheChoicesAsSelectsSavesWithoutConfirmAndSaysWhenSaved() {
+    void theSettingsDialogShowsOnlyTheChoicesAsSelectsSavesWithoutConfirmAndSaysWhenSaved() {
         final var opened = settings(false);
         final var saved = settings(true);
         final var tree = MessageComponentTree.of(saved.components());
@@ -111,22 +113,19 @@ class OnboardingMessageTest {
         assertEquals(Ids.ONBOARD_SET_LANGUAGE, selects.getLast().getCustomId());
         assertEquals(List.of("at"), defaults(selects.getFirst()));
         assertEquals(List.of("de"), defaults(selects.getLast()));
-        assertEquals(
-                List.of("https://discord.com/channels/789/456"),
-                tree.findAll(Button.class).stream().map(Button::getUrl).toList());
+        assertTrue(tree.findAll(Button.class).isEmpty(), "the settings dialog has no confirm and no rules link");
     }
 
     @Test
     void theSettingsDialogOfAMemberWithoutChoicesPresetsNothing() {
         final var drawn = OnboardingFlow.settings(
-                StoredDocumentsStandIn.renderer(), LANGUAGES, CHOICES, LANGUAGES.fallback(), null, null, false, "789");
+                StoredDocumentsStandIn.renderer(), LANGUAGES, CHOICES, LANGUAGES.fallback(), null, null, false);
         assertTrue(MessageComponentTree.of(drawn.components()).findAll(StringSelectMenu.class).stream()
                 .allMatch(select -> defaults(select).isEmpty()));
     }
 
     private static OnboardingMessage message() {
-        return new OnboardingMessage(
-                LANGUAGES, StoredDocumentsStandIn.renderer().messages(), StoredDocumentsStandIn.none());
+        return new OnboardingMessage(StoredDocumentsStandIn.renderer().messages(), StoredDocumentsStandIn.none());
     }
 
     private static DocumentRenderer.Drawn settings(final boolean saved) {
@@ -137,8 +136,7 @@ class OnboardingMessageTest {
                 LANGUAGES.byTag("de").orElseThrow(),
                 "at",
                 "de",
-                saved,
-                "789");
+                saved);
     }
 
     private static List<String> defaults(final StringSelectMenu select) {

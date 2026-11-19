@@ -53,9 +53,8 @@ public final class OnboardingFlow extends ListenerAdapter {
                     Dialog.class,
                     Slot.select("countries"),
                     Slot.select("languages"),
-                    Slot.button("confirm").optional(),
-                    Slot.link("rules").optional())
-            .titled("Country and language dialog");
+                    Slot.button("confirm").optional())
+            .titled("Region and language dialog");
 
     static final DocumentSpec<DocumentSpec.None> CONFIRMED = DocumentSpec.message(
                     StoredDocuments.NAMESPACE,
@@ -63,7 +62,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                     "Onboarding",
                     Slot.link("change").optional(),
                     Slot.link("rules").optional())
-            .titled("Country and language confirmed");
+            .titled("Region and language confirmed");
 
     private final Onboarding onboarding;
     private final GuildLanguages languages;
@@ -223,8 +222,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                                     held(member, Choices.Kind.LANGUAGE)
                                             .map(Choices.Choice::value)
                                             .orElse(null),
-                                    kind != null,
-                                    member.getGuild().getId())
+                                    kind != null)
                             .edit())
                     .queue();
         } catch (final RuntimeException failure) {
@@ -252,9 +250,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                         "languages",
                         OnboardingMessage.languages(languages, draft.id(Draft.Field.LANGUAGE), draft.language()),
                         "confirm",
-                        new DocumentRenderer.FilledButton(draft.id(Draft.Field.CONFIRM), ButtonStyle.SUCCESS),
-                        "rules",
-                        new DocumentRenderer.FilledNothing()),
+                        new DocumentRenderer.FilledButton(draft.id(Draft.Field.CONFIRM), ButtonStyle.SUCCESS)),
                 languages.byTag(draft.language()).orElse(languages.fallback()).locale());
     }
 
@@ -266,8 +262,7 @@ public final class OnboardingFlow extends ListenerAdapter {
             final GuildLanguages.Language language,
             final @Nullable String country,
             final @Nullable String spoken,
-            final boolean saved,
-            final String guild) {
+            final boolean saved) {
         return documents.render(
                 SETTINGS,
                 new Dialog(false, saved),
@@ -277,9 +272,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                         "languages",
                         OnboardingMessage.languages(languages, Ids.ONBOARD_SET_LANGUAGE, spoken),
                         "confirm",
-                        new DocumentRenderer.FilledNothing(),
-                        "rules",
-                        link(guild, language.rulesChannelId())),
+                        new DocumentRenderer.FilledNothing()),
                 language.locale());
     }
 

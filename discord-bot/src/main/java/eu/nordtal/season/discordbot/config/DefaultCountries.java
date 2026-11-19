@@ -35,7 +35,7 @@ final class DefaultCountries {
                     "en",
                     Mark.flag("US"),
                     "flag-united-states"),
-            country("other", "Anderes Land / Other country", "", "en", Mark.WORLD, "flag-other"));
+            country("other", "Andere Region / Other region", "", "en", Mark.WORLD, "flag-other"));
 
     private DefaultCountries() {}
 

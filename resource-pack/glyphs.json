@@ -33,19 +33,19 @@
         },
         {
           "range": "FE010-FE01F",
-          "title": "Country flags",
-          "about": "Country flags chosen in Steward.",
+          "title": "Region flags",
+          "about": "Region flags chosen in Steward.",
           "height": 7,
           "ascent": 7,
           "status": "keep",
           "glyphs": [
             {
               "code": "FE010",
-              "title": "Other country",
+              "title": "Other region",
               "constant": "FLAG_OTHER",
               "name": "flag-other",
               "texture": "nordtal:flags/other.png",
-              "about": "Any other country, or none."
+              "about": "Any other region, or none."
             },
             {
               "code": "FE011",

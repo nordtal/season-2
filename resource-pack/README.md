@@ -18,12 +18,12 @@ build/pack            the assembled pack: src/ plus the fonts the build writes
 The PNG under `src/` is the image's only source and is edited in place, as _Editing the art_
 describes.
 
-## Country flags
+## Region flags
 
-Draw the flag at the size and style of the existing country flags. Save its PNG under
+Draw the flag at the size and style of the existing region flags. Save its PNG under
 `src/assets/nordtal/textures/flags/` and its Aseprite source at the matching path under `art/`.
-Add a named glyph in the country flags block of `glyphs.json`, then publish the pack with a release.
-Choose the released flag glyph and a Discord emoji for the country in Steward.
+Add a named glyph in the region flags block of `glyphs.json`, then publish the pack with a release.
+Choose the released flag glyph and a Discord emoji for the region in Steward.
 
 ## Editing the art
 

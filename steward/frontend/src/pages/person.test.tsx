@@ -72,7 +72,7 @@ describe("PersonPage - one person on an address of their own", () => {
     expect(await screen.findByText("AliceMC")).toBeTruthy()
     expect(screen.getByText("Language")).toBeTruthy()
     expect(screen.getByText("en")).toBeTruthy()
-    expect(screen.getByText("Country")).toBeTruthy()
+    expect(screen.getByText("Region")).toBeTruthy()
     expect(screen.getByText("us-east")).toBeTruthy()
     expect(screen.getByText("Time zone")).toBeTruthy()
     expect(screen.getByText("America/New_York")).toBeTruthy()

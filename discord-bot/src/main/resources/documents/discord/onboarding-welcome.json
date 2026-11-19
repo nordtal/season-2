@@ -23,12 +23,12 @@
           "lines": [
             {
               "text": {
-                "en": "Choose your country to start."
+                "en": "Choose your region to start."
               }
             },
             {
               "text": {
-                "en": "Then check your country and language and confirm them."
+                "en": "Then check your region and language and confirm them."
               }
             }
           ]
@@ -39,7 +39,7 @@
             {
               "slot": "countries",
               "placeholder": {
-                "en": "Choose your country"
+                "en": "Choose your region"
               }
             }
           ]

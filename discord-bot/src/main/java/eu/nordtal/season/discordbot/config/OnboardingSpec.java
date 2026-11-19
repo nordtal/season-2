@@ -21,7 +21,7 @@ public interface OnboardingSpec {
     @Order(1)
     @Name("Choose channel")
     @Key("channel")
-    @Explain("Only members without a country see it. Its message is in English.")
+    @Explain("Only members without a region see it. Its message is in English.")
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
     default String channel() {
         return "";
@@ -31,7 +31,7 @@ public interface OnboardingSpec {
     @Order(2)
     @Name("Change channel")
     @Key("change-language-channel")
-    @Explain("Locked members do not see it. The bot posts its message here in every language.")
+    @Explain("Locked members do not see it. The bot posts its message here in English.")
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
     default String changeChannel() {
         return "";
@@ -40,7 +40,7 @@ public interface OnboardingSpec {
     @Order(3)
     @Name("Lock")
     @Key("lock")
-    @Explain("On, a member without a country sees only the choose channel.")
+    @Explain("On, a member without a region sees only the choose channel.")
     default boolean lock() {
         return false;
     }
@@ -56,7 +56,7 @@ public interface OnboardingSpec {
 
     /** Each country is a role whose language and time zone apply to a member. */
     @Order(5)
-    @Name("Countries")
+    @Name("Regions")
     @Key("countries")
     @Required
     @Entries(most = BotSettings.MAX_CHOICES)

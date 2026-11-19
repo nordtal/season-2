@@ -8,8 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "Country and language",
-                "de": "Land und Sprache"
+                "en": "Choose your region and language",
+                "de": "Wähle deine Region und Sprache"
               },
               "style": "TITLE"
             }
@@ -21,8 +21,8 @@
           "lines": [
             {
               "text": {
-                "en": "Check your country and language, then confirm.",
-                "de": "Prüfe dein Land und deine Sprache und bestätige dann."
+                "en": "Check your region and language, then confirm.",
+                "de": "Prüfe deine Region und deine Sprache und bestätige dann."
               }
             }
           ]
@@ -45,8 +45,8 @@
             {
               "slot": "countries",
               "placeholder": {
-                "en": "Choose your country",
-                "de": "Land wählen"
+                "en": "Choose your region",
+                "de": "Region wählen"
               }
             }
           ]
@@ -71,13 +71,6 @@
               "label": {
                 "en": "Confirm",
                 "de": "Bestätigen"
-              }
-            },
-            {
-              "slot": "rules",
-              "label": {
-                "en": "Read the rules",
-                "de": "Regeln lesen"
               }
             }
           ]

@@ -2,9 +2,11 @@ package eu.nordtal.season.discordbot;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.discordrendering.OneMessage;
 import java.util.List;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
@@ -61,5 +63,50 @@ class DrawnTest {
                                 List.of(),
                                 List.of())
                         .text());
+    }
+
+    @Test
+    void twoDocumentsMadeOneMessageStandInOrderAndUploadEachImageOnce() {
+        final DocumentRenderer.Drawn first = new DocumentRenderer.Drawn(
+                List.of(Container.of(TextDisplay.of("Rules"))), List.of("rules.png"), List.of());
+        final DocumentRenderer.Drawn second = new DocumentRenderer.Drawn(
+                List.of(Container.of(TextDisplay.of("Guide"))), List.of("rules.png", "guide.png"), List.of());
+
+        final DocumentRenderer.Drawn both = OneMessage.of(first, second);
+
+        assertAll(
+                () -> assertEquals("Rules\nGuide", both.text()),
+                () -> assertEquals(2, both.components().size()),
+                () -> assertEquals(List.of("rules.png", "guide.png"), both.attachments()));
+    }
+
+    @Test
+    void aJoinedMessageOverDiscordsLimitsDoesNotFit() {
+        final DocumentRenderer.Drawn small =
+                new DocumentRenderer.Drawn(List.of(Container.of(TextDisplay.of("Rules"))), List.of(), List.of());
+        final DocumentRenderer.Drawn many = new DocumentRenderer.Drawn(
+                java.util.stream.IntStream.range(0, 40)
+                        .mapToObj(n -> (net.dv8tion.jda.api.components.MessageTopLevelComponent) TextDisplay.of("x"))
+                        .toList(),
+                List.of(),
+                List.of());
+        final DocumentRenderer.Drawn long1 =
+                new DocumentRenderer.Drawn(List.of(TextDisplay.of("x".repeat(2500))), List.of(), List.of());
+        final DocumentRenderer.Drawn images = new DocumentRenderer.Drawn(
+                List.of(TextDisplay.of("x")),
+                java.util.stream.IntStream.range(0, 6).mapToObj(n -> n + ".png").toList(),
+                List.of());
+        final DocumentRenderer.Drawn otherImages = new DocumentRenderer.Drawn(
+                List.of(TextDisplay.of("x")),
+                java.util.stream.IntStream.range(6, 12)
+                        .mapToObj(n -> n + ".png")
+                        .toList(),
+                List.of());
+
+        assertAll(
+                () -> assertTrue(OneMessage.fits(OneMessage.of(small, small))),
+                () -> assertFalse(OneMessage.fits(OneMessage.of(small, many))),
+                () -> assertFalse(OneMessage.fits(OneMessage.of(long1, long1))),
+                () -> assertFalse(OneMessage.fits(OneMessage.of(images, otherImages))));
     }
 }

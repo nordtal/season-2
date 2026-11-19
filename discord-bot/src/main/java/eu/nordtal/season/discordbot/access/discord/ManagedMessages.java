@@ -15,10 +15,12 @@ import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import java.util.Locale;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import org.jdbi.v3.core.Jdbi;
 
+@Slf4j
 public final class ManagedMessages {
 
     /** @param amount the donation that gives the donor role */
@@ -73,8 +75,7 @@ public final class ManagedMessages {
 
     /**
      * Posts or edits the messages of each configured language, in the order the {@code access} group lists them.
-     * The rules channel gets one message with the rules, then the guide, and the guide's own message of an
-     * earlier version is deleted. Failures are logged per message.
+     * The rules channel gets one message with the rules, then the guide. Failures are logged per message.
      */
     public void publishAll() {
         for (final GuildLanguages.Language language : languages.all()) {
@@ -84,12 +85,26 @@ public final class ManagedMessages {
                     language.contributionChannelId(),
                     contribution(renderer, tiers, locale));
             managed.publish(language.linkKind(), language.linkChannelId(), link(renderer, locale));
-            managed.publish(
-                    language.rulesKind(),
-                    language.rulesChannelId(),
-                    rulesAndGuide(renderer, language, guildOf(language)));
-            managed.retire(language.guideKind());
+            rulesAndGuide(language);
         }
+    }
+
+    /**
+     * Shows the rules and the guide as one message and then deletes the guide's former own message.
+     * When the two are too big for one message, each keeps a message of its own.
+     */
+    private void rulesAndGuide(final GuildLanguages.Language language) {
+        final String guild = guildOf(language);
+        final DocumentRenderer.Drawn both = rulesAndGuide(renderer, language, guild);
+        if (OneMessage.fits(both)) {
+            if (managed.publish(language.rulesKind(), language.rulesChannelId(), both)) {
+                managed.retire(language.guideKind());
+            }
+            return;
+        }
+        log.warn("rules and guide too big for one message, posted apart: language={}", language.tag());
+        managed.publish(language.rulesKind(), language.rulesChannelId(), rules(renderer, language.locale()));
+        managed.publish(language.guideKind(), language.rulesChannelId(), guide(renderer, language, guild));
     }
 
     /** Returns the id of the server that holds the language's rules channel, or an empty string. */
@@ -120,7 +135,7 @@ public final class ManagedMessages {
         return renderer.render(RULES, new DocumentSpec.None(), Map.of(), locale);
     }
 
-    /** Draws the rules and the guide under them as one message, so no "edited" mark stands between them. */
+    /** Draws the rules and the guide under them as one message, so no "edited" mark stands between the two. */
     static DocumentRenderer.Drawn rulesAndGuide(
             final DocumentRenderer renderer, final GuildLanguages.Language language, final String guild) {
         return OneMessage.of(rules(renderer, language.locale()), guide(renderer, language, guild));

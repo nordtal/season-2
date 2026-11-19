@@ -22,24 +22,25 @@ public final class ManagedMessage {
     }
 
     /**
-     * Posts or edits the message of {@code kind} in its channel.
-     * An empty channel id means no message.
+     * Posts or edits the message of {@code kind} in its channel; an empty channel id means no message.
      * A failure is logged and never thrown, so one bad channel does not stop the others.
+     *
+     * @return whether the message now shows {@code content}
      */
-    public void publish(final String kind, final String channelId, final DocumentRenderer.Drawn content) {
+    public boolean publish(final String kind, final String channelId, final DocumentRenderer.Drawn content) {
         if (!Configured.isSet(channelId)) {
-            return;
+            return false;
         }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
             log.error("channel missing, managed message publication skipped: kind={} channel={}", kind, channelId);
-            return;
+            return false;
         }
         String step = "lookup";
         try {
             final Optional<String> existing = dao.messageIdOf(kind, channelId);
             if (existing.isPresent() && edit(channel, existing.get(), content)) {
-                return;
+                return true;
             }
             step = "post";
             final String posted =
@@ -47,15 +48,18 @@ public final class ManagedMessage {
             step = "record";
             dao.remember(kind, channelId, posted);
             log.info("managed message posted: kind={} message={} channel={}", kind, posted, channelId);
+            return true;
         } catch (final RuntimeException exception) {
             log.error(
                     "managed message publication failed: kind={} channel={} step={}", kind, channelId, step, exception);
+            return false;
         }
     }
 
     /**
      * Deletes the message of {@code kind} that an earlier version posted and forgets it.
-     * A message that is gone already is forgotten too; any other failure keeps it for the next start.
+     * A message that is gone already is forgotten too. A channel the bot cannot see, or any other failure,
+     * keeps it for the next start.
      */
     public void retire(final String kind) {
         final Optional<String> channelId = dao.channelOf(kind);
@@ -63,9 +67,16 @@ public final class ManagedMessage {
             return;
         }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId.get());
+        if (channel == null) {
+            log.warn(
+                    "channel missing, managed message kept for the next start: kind={} channel={}",
+                    kind,
+                    channelId.get());
+            return;
+        }
         final Optional<String> messageId = dao.messageIdOf(kind, channelId.get());
         try {
-            if (channel != null && messageId.isPresent()) {
+            if (messageId.isPresent()) {
                 channel.deleteMessageById(messageId.get()).complete();
             }
             dao.forget(kind);

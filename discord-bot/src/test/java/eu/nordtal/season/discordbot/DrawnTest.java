@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -77,5 +78,35 @@ class DrawnTest {
                 () -> assertEquals("Rules\nGuide", both.text()),
                 () -> assertEquals(2, both.components().size()),
                 () -> assertEquals(List.of("rules.png", "guide.png"), both.attachments()));
+    }
+
+    @Test
+    void aJoinedMessageOverDiscordsLimitsDoesNotFit() {
+        final DocumentRenderer.Drawn small =
+                new DocumentRenderer.Drawn(List.of(Container.of(TextDisplay.of("Rules"))), List.of(), List.of());
+        final DocumentRenderer.Drawn many = new DocumentRenderer.Drawn(
+                java.util.stream.IntStream.range(0, 40)
+                        .mapToObj(n -> (net.dv8tion.jda.api.components.MessageTopLevelComponent) TextDisplay.of("x"))
+                        .toList(),
+                List.of(),
+                List.of());
+        final DocumentRenderer.Drawn long1 =
+                new DocumentRenderer.Drawn(List.of(TextDisplay.of("x".repeat(2500))), List.of(), List.of());
+        final DocumentRenderer.Drawn images = new DocumentRenderer.Drawn(
+                List.of(TextDisplay.of("x")),
+                java.util.stream.IntStream.range(0, 6).mapToObj(n -> n + ".png").toList(),
+                List.of());
+        final DocumentRenderer.Drawn otherImages = new DocumentRenderer.Drawn(
+                List.of(TextDisplay.of("x")),
+                java.util.stream.IntStream.range(6, 12)
+                        .mapToObj(n -> n + ".png")
+                        .toList(),
+                List.of());
+
+        assertAll(
+                () -> assertTrue(OneMessage.fits(OneMessage.of(small, small))),
+                () -> assertFalse(OneMessage.fits(OneMessage.of(small, many))),
+                () -> assertFalse(OneMessage.fits(OneMessage.of(long1, long1))),
+                () -> assertFalse(OneMessage.fits(OneMessage.of(images, otherImages))));
     }
 }

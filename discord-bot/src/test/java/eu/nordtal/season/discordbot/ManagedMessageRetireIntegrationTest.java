@@ -22,6 +22,7 @@ class ManagedMessageRetireIntegrationTest {
     private final ManagedMessageDao dao = jdbi.onDemand(ManagedMessageDao.class);
     private final List<String> deleted = new ArrayList<>();
     private boolean refuses;
+    private boolean hidden;
 
     @Test
     void aRetiredMessageIsDeletedFromItsChannelAndForgotten() {
@@ -44,6 +45,18 @@ class ManagedMessageRetireIntegrationTest {
         new ManagedMessage(jda(), jdbi).retire("GUIDE_EN");
 
         assertEquals(Optional.of("500"), dao.messageIdOf("GUIDE_EN", "11"));
+    }
+
+    @Test
+    void aMessageInAChannelTheBotCannotSeeIsKeptForTheNextStart() {
+        dao.remember("GUIDE_EN", "11", "500");
+        hidden = true;
+
+        new ManagedMessage(jda(), jdbi).retire("GUIDE_EN");
+
+        assertAll(
+                () -> assertEquals(List.of(), deleted),
+                () -> assertEquals(Optional.of("500"), dao.messageIdOf("GUIDE_EN", "11")));
     }
 
     @Test
@@ -71,7 +84,7 @@ class ManagedMessageRetireIntegrationTest {
             }
             default -> null;
         });
-        return proxy(JDA.class, (name, args) -> name.equals("getChannelById") ? channel : null);
+        return proxy(JDA.class, (name, args) -> name.equals("getChannelById") && !hidden ? channel : null);
     }
 
     private interface Answer {

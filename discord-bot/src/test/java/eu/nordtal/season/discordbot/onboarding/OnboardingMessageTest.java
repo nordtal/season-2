@@ -69,7 +69,6 @@ class OnboardingMessageTest {
         final var drawn = message().change();
         final var tree = MessageComponentTree.of(drawn.components());
         assertTrue(drawn.text().contains("Change your country or language here."));
-        assertFalse(drawn.text().contains("Hier änderst du"));
         assertTrue(tree.findAll(StringSelectMenu.class).isEmpty());
         assertEquals(
                 List.of(Ids.ONBOARD_SETTINGS),

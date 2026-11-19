@@ -8,6 +8,7 @@ import eu.nordtal.season.discordbot.config.Configured;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.discordrendering.OneMessage;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
@@ -72,7 +73,8 @@ public final class ManagedMessages {
 
     /**
      * Posts or edits the messages of each configured language, in the order the {@code access} group lists them.
-     * The rules channel gets the rules, then the guide. Failures are logged per message.
+     * The rules channel gets one message with the rules, then the guide, and the guide's own message of an
+     * earlier version is deleted. Failures are logged per message.
      */
     public void publishAll() {
         for (final GuildLanguages.Language language : languages.all()) {
@@ -82,9 +84,11 @@ public final class ManagedMessages {
                     language.contributionChannelId(),
                     contribution(renderer, tiers, locale));
             managed.publish(language.linkKind(), language.linkChannelId(), link(renderer, locale));
-            managed.publish(language.rulesKind(), language.rulesChannelId(), rules(renderer, locale));
             managed.publish(
-                    language.guideKind(), language.rulesChannelId(), guide(renderer, language, guildOf(language)));
+                    language.rulesKind(),
+                    language.rulesChannelId(),
+                    rulesAndGuide(renderer, language, guildOf(language)));
+            managed.retire(language.guideKind());
         }
     }
 
@@ -114,6 +118,12 @@ public final class ManagedMessages {
 
     static DocumentRenderer.Drawn rules(final DocumentRenderer renderer, final Locale locale) {
         return renderer.render(RULES, new DocumentSpec.None(), Map.of(), locale);
+    }
+
+    /** Draws the rules and the guide under them as one message, so no "edited" mark stands between them. */
+    static DocumentRenderer.Drawn rulesAndGuide(
+            final DocumentRenderer renderer, final GuildLanguages.Language language, final String guild) {
+        return OneMessage.of(rules(renderer, language.locale()), guide(renderer, language, guild));
     }
 
     /** Draws the guide, whose buttons open the language's link and contribution channels where both are known. */

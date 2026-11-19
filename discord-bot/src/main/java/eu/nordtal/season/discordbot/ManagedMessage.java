@@ -6,6 +6,8 @@ import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.jdbi.v3.core.Jdbi;
 
 @Slf4j
@@ -48,6 +50,35 @@ public final class ManagedMessage {
         } catch (final RuntimeException exception) {
             log.error(
                     "managed message publication failed: kind={} channel={} step={}", kind, channelId, step, exception);
+        }
+    }
+
+    /**
+     * Deletes the message of {@code kind} that an earlier version posted and forgets it.
+     * A message that is gone already is forgotten too; any other failure keeps it for the next start.
+     */
+    public void retire(final String kind) {
+        final Optional<String> channelId = dao.channelOf(kind);
+        if (channelId.isEmpty()) {
+            return;
+        }
+        final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId.get());
+        final Optional<String> messageId = dao.messageIdOf(kind, channelId.get());
+        try {
+            if (channel != null && messageId.isPresent()) {
+                channel.deleteMessageById(messageId.get()).complete();
+            }
+            dao.forget(kind);
+            log.info("managed message retired: kind={} channel={}", kind, channelId.get());
+        } catch (final ErrorResponseException exception) {
+            if (exception.getErrorResponse() == ErrorResponse.UNKNOWN_MESSAGE) {
+                dao.forget(kind);
+                log.info("managed message retired, it was gone: kind={} channel={}", kind, channelId.get());
+            } else {
+                log.error("managed message not retired: kind={} channel={}", kind, channelId.get(), exception);
+            }
+        } catch (final RuntimeException exception) {
+            log.error("managed message not retired: kind={} channel={}", kind, channelId.get(), exception);
         }
     }
 

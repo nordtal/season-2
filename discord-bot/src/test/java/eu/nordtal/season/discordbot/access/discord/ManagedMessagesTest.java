@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.IntStream;
+import net.dv8tion.jda.api.components.Component;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.container.Container;
@@ -101,6 +102,31 @@ class ManagedMessagesTest {
                         buttons.stream().map(Button::getUrl).toList()),
                 () -> assertTrue(
                         drawn.text().contains("3. Verbinde dich in Minecraft mit `play.nordtal.eu`."), drawn.text()));
+    }
+
+    @Test
+    void theRulesAndTheGuideAreOneMessageWithinDiscordsLimits() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.rulesAndGuide(RENDERER, GERMAN, "100");
+        final Container rules = (Container) drawn.components().getFirst();
+
+        assertAll(
+                () -> assertEquals(2, drawn.components().size()),
+                () -> assertInstanceOf(MediaGallery.class, rules.getComponents().getFirst()),
+                () -> assertEquals(List.of("rules.png"), drawn.attachments()),
+                () -> assertTrue(
+                        drawn.text().indexOf("Verknüpfe dein Minecraft-Konto")
+                                > drawn.text().indexOf("Spiel fair"),
+                        drawn.text()),
+                () -> assertEquals(
+                        2,
+                        MessageComponentTree.of(drawn.components())
+                                .findAll(Button.class)
+                                .size()),
+                () -> assertTrue(MessageComponentTree.of(drawn.components())
+                                .findAll(Component.class)
+                                .size()
+                        <= DocumentCheck.COMPONENTS),
+                () -> assertTrue(drawn.text().length() <= DocumentCheck.TEXT));
     }
 
     @Test

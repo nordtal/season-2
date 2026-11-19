@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.discordrendering.OneMessage;
 import java.util.List;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
@@ -61,5 +62,20 @@ class DrawnTest {
                                 List.of(),
                                 List.of())
                         .text());
+    }
+
+    @Test
+    void twoDocumentsMadeOneMessageStandInOrderAndUploadEachImageOnce() {
+        final DocumentRenderer.Drawn first = new DocumentRenderer.Drawn(
+                List.of(Container.of(TextDisplay.of("Rules"))), List.of("rules.png"), List.of());
+        final DocumentRenderer.Drawn second = new DocumentRenderer.Drawn(
+                List.of(Container.of(TextDisplay.of("Guide"))), List.of("rules.png", "guide.png"), List.of());
+
+        final DocumentRenderer.Drawn both = OneMessage.of(first, second);
+
+        assertAll(
+                () -> assertEquals("Rules\nGuide", both.text()),
+                () -> assertEquals(2, both.components().size()),
+                () -> assertEquals(List.of("rules.png", "guide.png"), both.attachments()));
     }
 }

@@ -161,7 +161,7 @@ public final class BorderWall implements Listener {
         change.added().forEach((panel, model) -> {
             final int entity = packets.newId();
             viewer.add(panel, entity, model);
-            packets.spawn(id, entity, panel, base, model);
+            packets.spawn(id, entity, panel, base, drawn.look(), model);
         });
     }
 

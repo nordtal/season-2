@@ -21,9 +21,6 @@ final class Band {
     /** How far the band reaches below the feet, in blocks. */
     static final double BELOW = 3;
 
-    /** The height of the band, in blocks. */
-    static final float HEIGHT = 8;
-
     private Band() {}
 
     /** The model of each panel a player at {@code x}, {@code z} sees. */

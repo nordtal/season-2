@@ -48,7 +48,13 @@ final class WallPackets {
         return SpigotReflectionUtil.generateEntityId();
     }
 
-    void spawn(final UUID viewer, final int id, final Panel panel, final double base, final String model) {
+    void spawn(
+            final UUID viewer,
+            final int id,
+            final Panel panel,
+            final double base,
+            final Look look,
+            final String model) {
         send(
                 viewer,
                 new WrapperPlayServerSpawnEntity(
@@ -69,13 +75,13 @@ final class WallPackets {
                                 new EntityData<>(POSITION_INTERPOLATION, EntityDataTypes.INT, FOLLOW_TICKS),
                                 // The model is one block, centred on the entity: it stands from the base up.
                                 new EntityData<>(
-                                        TRANSLATION, EntityDataTypes.VECTOR3F, new Vector3f(0, Band.HEIGHT / 2, 0)),
-                                new EntityData<>(SCALE, EntityDataTypes.VECTOR3F, new Vector3f(1, Band.HEIGHT, 1)),
+                                        TRANSLATION, EntityDataTypes.VECTOR3F, new Vector3f(0, look.height() / 2, 0)),
+                                new EntityData<>(SCALE, EntityDataTypes.VECTOR3F, new Vector3f(1, look.height(), 1)),
                                 new EntityData<>(BRIGHTNESS, EntityDataTypes.INT, FULL_BRIGHT),
                                 new EntityData<>(SHADOW_RADIUS, EntityDataTypes.FLOAT, 0f),
                                 // The box the client culls by, so the panel stays while its foot is out of view.
                                 new EntityData<>(WIDTH, EntityDataTypes.FLOAT, 1.5f),
-                                new EntityData<>(HEIGHT, EntityDataTypes.FLOAT, Band.HEIGHT),
+                                new EntityData<>(HEIGHT, EntityDataTypes.FLOAT, look.height()),
                                 new EntityData<>(ITEM, EntityDataTypes.ITEMSTACK, item(model)))));
     }
 

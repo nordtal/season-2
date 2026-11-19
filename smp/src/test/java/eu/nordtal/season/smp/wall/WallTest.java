@@ -123,6 +123,15 @@ class WallTest {
     }
 
     @Test
+    void theFieldStandsTwoBlocksHigherThanThePixelLookForItsFallingSnow() {
+        final double base = Band.base(64.4);
+
+        assertEquals(61, base);
+        assertEquals(71, base + Look.FIELD.height());
+        assertEquals(69, base + Look.PIXEL.height());
+    }
+
+    @Test
     void theFieldReachesPastTheFadeOfAThirdPersonCamera() {
         final Wall wall = new Wall(List.of(area(0, 0, 100, 0, 100, 10, 0, 10)));
 

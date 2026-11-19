@@ -21,6 +21,15 @@ enum Look {
         return this == FIELD ? Band.RADIUS + Band.CAMERA : Band.RADIUS;
     }
 
+    /**
+     * The height of a panel, in blocks, from the band's base up.
+     *
+     * The field stands 2 blocks taller than the pixel look: that room above the wall holds falling snow only.
+     */
+    float height() {
+        return this == FIELD ? 10 : 8;
+    }
+
     /** The item model, in the namespace {@code nordtal}, of a panel this far from the player. */
     String model(final double distance) {
         if (this == FIELD) {

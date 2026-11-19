@@ -42,6 +42,24 @@ class PassengerEchoesTest {
     }
 
     @Test
+    void aFellowPassengerSpawnedAgainIsSeatedAgain() {
+        echoes.repeats(CART, new int[] {SELF, 5}, SELF);
+        echoes.forget(5);
+
+        assertFalse(echoes.repeats(CART, new int[] {SELF, 5}, SELF), "the client dropped 5 from the seat with it");
+    }
+
+    @Test
+    void onlyVehiclesThePlayerRidesAreRemembered() {
+        echoes.repeats(CART, new int[] {5}, SELF);
+        assertTrue(echoes.empty());
+
+        echoes.repeats(CART, new int[] {SELF}, SELF);
+        echoes.repeats(CART, new int[] {}, SELF);
+        assertTrue(echoes.empty(), "a dismount leaves nothing behind");
+    }
+
+    @Test
     void anotherLevelForgetsEveryVehicle() {
         echoes.repeats(CART, new int[] {SELF}, SELF);
         echoes.forgetAll();

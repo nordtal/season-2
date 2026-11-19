@@ -77,21 +77,19 @@ public final class RiderCartPackets extends PacketListenerAbstract implements Dr
                 }
             }
             case SET_PASSENGERS -> {
+                if (event.isCancelled()) {
+                    return;
+                }
                 final WrapperPlayServerSetPassengers packet = new WrapperPlayServerSetPassengers(event);
                 final User user = event.getUser();
-                if (echoesOf(user).repeats(packet.getEntityId(), packet.getPassengers(), user.getEntityId())) {
+                final PassengerEchoes heard = echoes.computeIfAbsent(user, _ -> new PassengerEchoes());
+                if (heard.repeats(packet.getEntityId(), packet.getPassengers(), user.getEntityId())) {
                     event.setCancelled(true);
+                } else if (heard.empty()) {
+                    echoes.remove(user);
                 }
             }
-            case SPAWN_ENTITY ->
-                echoesOf(event.getUser()).forget(new WrapperPlayServerSpawnEntity(event).getEntityId());
-            case DESTROY_ENTITIES -> {
-                final PassengerEchoes heard = echoesOf(event.getUser());
-                for (final int entity : new WrapperPlayServerDestroyEntities(event).getEntityIds()) {
-                    heard.forget(entity);
-                }
-            }
-            case RESPAWN, JOIN_GAME -> echoesOf(event.getUser()).forgetAll();
+            case SPAWN_ENTITY, DESTROY_ENTITIES, RESPAWN, JOIN_GAME -> forget(event, type);
             default -> {}
         }
     }
@@ -101,7 +99,23 @@ public final class RiderCartPackets extends PacketListenerAbstract implements Dr
         echoes.remove(event.getUser());
     }
 
-    private PassengerEchoes echoesOf(final User user) {
-        return echoes.computeIfAbsent(user, _ -> new PassengerEchoes());
+    /** Forgets what the client heard of the entities that {@code event} removes or shows anew. */
+    private void forget(final PacketSendEvent event, final PacketType.Play.Server type) {
+        final @Nullable PassengerEchoes heard = echoes.get(event.getUser());
+        if (heard == null) {
+            return;
+        }
+        switch (type) {
+            case SPAWN_ENTITY -> heard.forget(new WrapperPlayServerSpawnEntity(event).getEntityId());
+            case DESTROY_ENTITIES -> {
+                for (final int entity : new WrapperPlayServerDestroyEntities(event).getEntityIds()) {
+                    heard.forget(entity);
+                }
+            }
+            default -> heard.forgetAll();
+        }
+        if (heard.empty()) {
+            echoes.remove(event.getUser());
+        }
     }
 }

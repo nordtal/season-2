@@ -102,7 +102,7 @@ class OnboardingMessageTest {
     }
 
     @Test
-    void theSettingsDialogShowsTheChoicesAsSelectsSavesWithoutConfirmAndSaysWhenSaved() {
+    void theSettingsDialogShowsOnlyTheChoicesAsSelectsSavesWithoutConfirmAndSaysWhenSaved() {
         final var opened = settings(false);
         final var saved = settings(true);
         final var tree = MessageComponentTree.of(saved.components());
@@ -114,15 +114,13 @@ class OnboardingMessageTest {
         assertEquals(Ids.ONBOARD_SET_LANGUAGE, selects.getLast().getCustomId());
         assertEquals(List.of("at"), defaults(selects.getFirst()));
         assertEquals(List.of("de"), defaults(selects.getLast()));
-        assertEquals(
-                List.of("https://discord.com/channels/789/456"),
-                tree.findAll(Button.class).stream().map(Button::getUrl).toList());
+        assertTrue(tree.findAll(Button.class).isEmpty(), "the settings dialog has no confirm and no rules link");
     }
 
     @Test
     void theSettingsDialogOfAMemberWithoutChoicesPresetsNothing() {
         final var drawn = OnboardingFlow.settings(
-                StoredDocumentsStandIn.renderer(), LANGUAGES, CHOICES, LANGUAGES.fallback(), null, null, false, "789");
+                StoredDocumentsStandIn.renderer(), LANGUAGES, CHOICES, LANGUAGES.fallback(), null, null, false);
         assertTrue(MessageComponentTree.of(drawn.components()).findAll(StringSelectMenu.class).stream()
                 .allMatch(select -> defaults(select).isEmpty()));
     }
@@ -139,8 +137,7 @@ class OnboardingMessageTest {
                 LANGUAGES.byTag("de").orElseThrow(),
                 "at",
                 "de",
-                saved,
-                "789");
+                saved);
     }
 
     private static List<String> defaults(final StringSelectMenu select) {

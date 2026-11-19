@@ -72,13 +72,6 @@
                 "en": "Confirm",
                 "de": "Bestätigen"
               }
-            },
-            {
-              "slot": "rules",
-              "label": {
-                "en": "Read the rules",
-                "de": "Regeln lesen"
-              }
             }
           ]
         }

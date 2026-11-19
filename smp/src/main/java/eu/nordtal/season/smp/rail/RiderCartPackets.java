@@ -99,10 +99,10 @@ public final class RiderCartPackets extends PacketListenerAbstract implements Dr
         echoes.remove(event.getUser());
     }
 
-    /** Forgets what the client heard of the entities that {@code event} removes or shows anew. */
+    /** Forgets what the client heard of the entities that {@code event} removes or shows anew, if it reaches it. */
     private void forget(final PacketSendEvent event, final PacketType.Play.Server type) {
         final @Nullable PassengerEchoes heard = echoes.get(event.getUser());
-        if (heard == null) {
+        if (heard == null || event.isCancelled()) {
             return;
         }
         switch (type) {

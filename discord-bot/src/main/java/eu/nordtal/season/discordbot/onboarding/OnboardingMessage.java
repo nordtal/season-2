@@ -20,11 +20,11 @@ final class OnboardingMessage {
     static final String CHANGE_KIND = "ONBOARDING_CHANGE";
     static final DocumentSpec<DocumentSpec.None> WELCOME = DocumentSpec.message(
                     StoredDocuments.NAMESPACE, "onboarding-welcome", "Onboarding", Slot.select("countries"))
-            .titled("Welcome and country choice")
+            .titled("Welcome and region choice")
             .inEnglishOnly();
     static final DocumentSpec<DocumentSpec.None> CHANGE = DocumentSpec.message(
                     StoredDocuments.NAMESPACE, "onboarding-change", "Onboarding", Slot.button("settings"))
-            .titled("Change of country and language")
+            .titled("Change of region and language")
             .inEnglishOnly();
     private final DocumentRenderer renderer;
 

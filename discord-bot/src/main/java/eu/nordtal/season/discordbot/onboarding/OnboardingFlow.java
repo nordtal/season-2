@@ -54,7 +54,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                     Slot.select("countries"),
                     Slot.select("languages"),
                     Slot.button("confirm").optional())
-            .titled("Country and language dialog");
+            .titled("Region and language dialog");
 
     static final DocumentSpec<DocumentSpec.None> CONFIRMED = DocumentSpec.message(
                     StoredDocuments.NAMESPACE,
@@ -62,7 +62,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                     "Onboarding",
                     Slot.link("change").optional(),
                     Slot.link("rules").optional())
-            .titled("Country and language confirmed");
+            .titled("Region and language confirmed");
 
     private final Onboarding onboarding;
     private final GuildLanguages languages;

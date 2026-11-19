@@ -53,7 +53,7 @@ class OnboardingMessageTest {
         final var tree = MessageComponentTree.of(drawn.components());
         assertEquals(1, tree.findAll(Container.class).size());
         assertEquals(List.of("onboarding.png"), drawn.attachments());
-        assertTrue(drawn.text().contains("Choose your country to start."));
+        assertTrue(drawn.text().contains("Choose your region to start."));
         assertFalse(drawn.text().contains("Wähle"));
         final var select = tree.findAll(StringSelectMenu.class).getFirst();
         assertEquals(Ids.ONBOARD_COUNTRY, select.getCustomId());
@@ -68,7 +68,7 @@ class OnboardingMessageTest {
     void theChangeMessageHasATextAndOneShowSettingsButtonInEnglishOnly() {
         final var drawn = message().change();
         final var tree = MessageComponentTree.of(drawn.components());
-        assertTrue(drawn.text().contains("Change your country or language here."));
+        assertTrue(drawn.text().contains("Change your region or language here."));
         assertTrue(tree.findAll(StringSelectMenu.class).isEmpty());
         assertEquals(
                 List.of(Ids.ONBOARD_SETTINGS),
@@ -84,7 +84,7 @@ class OnboardingMessageTest {
         final var drawn = OnboardingFlow.dialog(StoredDocumentsStandIn.renderer(), LANGUAGES, CHOICES, draft);
         final var tree = MessageComponentTree.of(drawn.components());
         final List<StringSelectMenu> selects = tree.findAll(StringSelectMenu.class);
-        assertTrue(drawn.text().contains("Prüfe dein Land und deine Sprache"), drawn.text());
+        assertTrue(drawn.text().contains("Prüfe deine Region und deine Sprache"), drawn.text());
         assertFalse(drawn.text().contains("gespeichert"));
         assertEquals(List.of("at"), defaults(selects.getFirst()));
         assertEquals(List.of("de"), defaults(selects.getLast()));

@@ -8,13 +8,13 @@
           "lines": [
             {
               "text": {
-                "en": "Country and language"
+                "en": "Choose your region and language"
               },
               "style": "TITLE"
             },
             {
               "text": {
-                "en": "Change your country or language here."
+                "en": "Change your region or language here."
               }
             }
           ]

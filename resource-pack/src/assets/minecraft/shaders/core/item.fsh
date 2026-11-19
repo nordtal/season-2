@@ -46,7 +46,7 @@ const float WALL_BAND = 10.0;       // blocks: the panel's height, from 3 below 
 const float WALL_ROOM = 2.0;        // blocks at the band's upper end where only the flakes are, above the wall
 const float WALL_TOP = 5.0;         // blocks over which the wall fades in below its upper end
 const float WALL_BOTTOM = 1.75;     // blocks over which it fades out above the band's lower end
-const float WALL_SNOW_IN = 0.6;     // blocks below the band's upper end where a flake has come in whole
+const float WALL_SNOW_IN = 1.0;     // blocks below the band's upper end where a flake has come in whole: half the room
 const float WALL_SNOW_OUT = 0.25;   // blocks above the band's lower end where a flake starts to go
 const float WALL_FADE_START = 24.0; // blocks from the camera where the wall starts to fade along its length
 const float WALL_FADE_END = 30.0;   // and where it is gone
@@ -110,9 +110,10 @@ float wallDepth(float fromTop) {
     return min(clamp(fromTop - WALL_ROOM, 0.0, WALL_TOP), clamp((WALL_BAND - fromTop) * (WALL_TOP / WALL_BOTTOM), 0.0, WALL_TOP));
 }
 
-// How much of a flake shows at this depth below the band's upper end: it comes in over the first
-// WALL_SNOW_IN blocks, at the top of the room above the wall, and keeps all of it until the last
-// WALL_SNOW_OUT blocks of the band. So no flake fades on its way down.
+// How much of a flake shows at this depth below the band's upper end: none at the band's upper end,
+// all of it WALL_SNOW_IN blocks below, half way down the room above the wall, and all of it from
+// there until the last WALL_SNOW_OUT blocks of the band. So the snow fades in from the top and no
+// flake fades on its way down.
 float wallSnowShows(float fromTop) {
     return wallEase(0.0, WALL_SNOW_IN, fromTop) * wallEase(0.0, WALL_SNOW_OUT, WALL_BAND - fromTop);
 }

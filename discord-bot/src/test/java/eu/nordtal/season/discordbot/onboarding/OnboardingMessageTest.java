@@ -65,15 +65,18 @@ class OnboardingMessageTest {
     }
 
     @Test
-    void theChangeMessageHasATextAndAShowSettingsButtonInEveryLanguage() {
+    void theChangeMessageHasATextAndOneShowSettingsButtonInEnglishOnly() {
         final var drawn = message().change();
         final var tree = MessageComponentTree.of(drawn.components());
         assertTrue(drawn.text().contains("Change your country or language here."));
-        assertTrue(drawn.text().contains("Hier änderst du dein Land oder deine Sprache."));
+        assertFalse(drawn.text().contains("Hier änderst du"));
         assertTrue(tree.findAll(StringSelectMenu.class).isEmpty());
         assertEquals(
-                List.of(Ids.ONBOARD_SETTINGS + "en", Ids.ONBOARD_SETTINGS + "de"),
+                List.of(Ids.ONBOARD_SETTINGS),
                 tree.findAll(Button.class).stream().map(Button::getCustomId).toList());
+        assertEquals(
+                List.of("Show settings"),
+                tree.findAll(Button.class).stream().map(Button::getLabel).toList());
     }
 
     @Test
@@ -125,8 +128,7 @@ class OnboardingMessageTest {
     }
 
     private static OnboardingMessage message() {
-        return new OnboardingMessage(
-                LANGUAGES, StoredDocumentsStandIn.renderer().messages(), StoredDocumentsStandIn.none());
+        return new OnboardingMessage(StoredDocumentsStandIn.renderer().messages(), StoredDocumentsStandIn.none());
     }
 
     private static DocumentRenderer.Drawn settings(final boolean saved) {

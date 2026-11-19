@@ -4,38 +4,29 @@
       "type": "CONTAINER",
       "parts": [
         {
-          "type": "LANGUAGES",
-          "slot": "each",
-          "parts": [
+          "type": "TEXT",
+          "lines": [
             {
-              "type": "TEXT",
-              "lines": [
-                {
-                  "text": {
-                    "en": "Country and language",
-                    "de": "Land und Sprache"
-                  },
-                  "style": "TITLE"
-                },
-                {
-                  "text": {
-                    "en": "Change your country or language here.",
-                    "de": "Hier änderst du dein Land oder deine Sprache."
-                  }
-                }
-              ]
+              "text": {
+                "en": "Country and language"
+              },
+              "style": "TITLE"
             },
             {
-              "type": "ROW",
-              "items": [
-                {
-                  "slot": "settings",
-                  "label": {
-                    "en": "Show settings",
-                    "de": "Einstellungen anzeigen"
-                  }
-                }
-              ]
+              "text": {
+                "en": "Change your country or language here."
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "settings",
+              "label": {
+                "en": "Show settings"
+              }
             }
           ]
         }

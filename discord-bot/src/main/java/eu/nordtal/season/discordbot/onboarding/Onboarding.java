@@ -111,7 +111,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         this.channels = new LockedChannels(this.alerts);
         this.languageChannels = new LanguageChannels(jdbi, this.alerts);
         this.visibility = new ChannelVisibility(this.alerts);
-        this.message = new OnboardingMessage(languages, messages, documents);
+        this.message = new OnboardingMessage(messages, documents);
         this.managed = new ManagedMessage(jda, jdbi);
         this.lane = lane;
         this.choices = Choices.of(languages, setting.get());

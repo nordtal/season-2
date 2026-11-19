@@ -14,7 +14,7 @@ import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** The managed messages of the choose channel, in English with a country select, and of the change channel. */
+/** The managed messages of the choose channel, with a country select, and of the change channel, both in English. */
 final class OnboardingMessage {
     static final String KIND = "ONBOARDING";
     static final String CHANGE_KIND = "ONBOARDING_CHANGE";
@@ -23,17 +23,12 @@ final class OnboardingMessage {
             .titled("Welcome and country choice")
             .inEnglishOnly();
     static final DocumentSpec<DocumentSpec.None> CHANGE = DocumentSpec.message(
-                    StoredDocuments.NAMESPACE,
-                    "onboarding-change",
-                    "Onboarding",
-                    Slot.languages("each"),
-                    Slot.button("settings"))
-            .titled("Change of country and language");
-    private final GuildLanguages languages;
+                    StoredDocuments.NAMESPACE, "onboarding-change", "Onboarding", Slot.button("settings"))
+            .titled("Change of country and language")
+            .inEnglishOnly();
     private final DocumentRenderer renderer;
 
-    OnboardingMessage(final GuildLanguages languages, final DiscordRenderer messages, final StoredDocuments documents) {
-        this.languages = languages;
+    OnboardingMessage(final DiscordRenderer messages, final StoredDocuments documents) {
         this.renderer = new DocumentRenderer(messages, documents);
     }
 
@@ -54,14 +49,8 @@ final class OnboardingMessage {
         return renderer.render(
                 CHANGE,
                 new DocumentSpec.None(),
-                Map.of(
-                        "each",
-                        new DocumentRenderer.FilledLanguages(languages.all().stream()
-                                .map(GuildLanguages.Language::locale)
-                                .toList()),
-                        "settings",
-                        new DocumentRenderer.FilledButton(Ids.ONBOARD_SETTINGS)),
-                languages.fallback().locale());
+                Map.of("settings", new DocumentRenderer.FilledButton(Ids.ONBOARD_SETTINGS)),
+                Locale.ENGLISH);
     }
 
     static DocumentRenderer.FilledSelect countries(

@@ -37,12 +37,12 @@ release, or add an exception on `main` and run the release again with `gh workfl
 [Trivy ignore file](https://trivy.dev/docs/latest/configuration/filtering/#trivyignoreyaml). Add an exception only
 when no upstream release contains the fix. Each entry under `vulnerabilities` holds these keys:
 
-| Key | Value |
-| --- | --- |
-| `id` | The vulnerability, as the summary names it. |
-| `paths` | The binary in the image, as the summary's **Path** column names it. |
+| Key          | Value                                                               |
+| ------------ | ------------------------------------------------------------------- |
+| `id`         | The vulnerability, as the summary names it.                         |
+| `paths`      | The binary in the image, as the summary's **Path** column names it. |
 | `expired_at` | The date the exception ends. The scan refuses an entry without one. |
-| `statement` | Why the finding is accepted. The summary shows it. |
+| `statement`  | Why the finding is accepted. The summary shows it.                  |
 
 The scan lists the finding as accepted until `expired_at`, and then fails on it again. To renew an exception,
 check that no upstream release contains the fix yet and set a new date.

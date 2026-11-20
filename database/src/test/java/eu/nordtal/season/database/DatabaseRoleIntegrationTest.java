@@ -400,8 +400,10 @@ class DatabaseRoleIntegrationTest {
                         own, allowed(role, publish(service, "probe")), role.roleName() + " publishes " + service));
                 checks.add(() -> assertEquals(
                         own ? 1 : 0,
-                        updated(role, "UPDATE setting_group SET problem = 'x' WHERE service = '" + service + "'"
-                                + " AND name = 'probe-held'"),
+                        updated(
+                                role,
+                                "UPDATE setting_group SET problem = 'x' WHERE service = '" + service + "'"
+                                        + " AND name = 'probe-held'"),
                         role.roleName() + " marks a problem of " + service));
             }
         }
@@ -429,7 +431,9 @@ class DatabaseRoleIntegrationTest {
     /** pg_dump reads every table with row security off, which fails for a role that a policy would filter. */
     @Test
     void theBackupRoleReadsPastEveryRowPolicy() {
-        assertEquals("", database.socketAs(DatabaseRole.BACKUP, "SET row_security = off; SELECT count(*) FROM setting_group"));
+        assertEquals(
+                "",
+                database.socketAs(DatabaseRole.BACKUP, "SET row_security = off; SELECT count(*) FROM setting_group"));
     }
 
     @Test

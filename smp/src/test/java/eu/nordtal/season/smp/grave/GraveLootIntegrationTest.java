@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.grave;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,6 +50,18 @@ class GraveLootIntegrationTest {
                 + "', '" + OWNER + "', 'nordtal', 1, 2, 3, '\\x00', 7)");
 
         dao = Jdbis.over(dataSource).onDemand(GraveDao.class);
+    }
+
+    @Test
+    void creatingAGraveReturnsOnlyTheNewRow() {
+        final UUID ownerUuid = UUID.randomUUID();
+        final GraveRow row = dao.createGrave(OWNER, ownerUuid, "nordtal", 4, 5, 6, new byte[] {1, 2}, 9);
+
+        assertEquals(ownerUuid, row.ownerUuid());
+        assertEquals(4, row.x());
+        assertEquals(9, row.experience());
+        assertArrayEquals(new byte[] {1, 2}, row.contents());
+        assertTrue(dao.openGraves().stream().anyMatch(open -> open.id().equals(row.id())));
     }
 
     @Test

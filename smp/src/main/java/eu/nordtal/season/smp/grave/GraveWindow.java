@@ -44,6 +44,7 @@ final class GraveWindow extends Menu {
     private final Graves graves;
     private final UUID graveId;
     private final int contentRows;
+    private final boolean awaitingLoot;
     private final Inventory inventory;
 
     /** @param experience the header's mark, null for none */
@@ -51,12 +52,14 @@ final class GraveWindow extends Menu {
             final Graves graves,
             final UUID graveId,
             final int contentRows,
+            final boolean awaitingLoot,
             final String name,
             final @Nullable String experience,
             final String takeAll) {
         this.graves = graves;
         this.graveId = graveId;
         this.contentRows = contentRows;
+        this.awaitingLoot = awaitingLoot;
         this.inventory = frame(GravePanel.rows(contentRows), GravePanel.title(name, contentRows, experience, takeAll));
     }
 
@@ -68,10 +71,11 @@ final class GraveWindow extends Menu {
         return contentRows;
     }
 
-    /** Leaves the content slots and the player's own inventory free to move items. */
+    /** Allows items to move in a grave that still holds loot. */
     @Override
     protected boolean leavesFree(final int rawSlot) {
-        return rawSlot < 0 || rawSlot >= inventory.getSize() || GravePanel.isContent(rawSlot, contentRows);
+        return !awaitingLoot
+                && (rawSlot < 0 || rawSlot >= inventory.getSize() || GravePanel.isContent(rawSlot, contentRows));
     }
 
     @Override
@@ -79,7 +83,9 @@ final class GraveWindow extends Menu {
         if (!GravePanel.takeAllSlots(contentRows).contains(slot)) {
             return MenuClick.nothing();
         }
-        graves.takeAll(player, this);
+        if (!awaitingLoot) {
+            graves.takeAll(player, this);
+        }
         // Closing the window lets Graves settle the grave, also if it is empty.
         return MenuClick.closing();
     }

@@ -13,12 +13,16 @@ import org.jspecify.annotations.Nullable;
 /** Reads and writes the table {@code smp_grave}. Blocking, so call it off the main thread only. */
 public interface GraveDao {
 
-    @SqlUpdate("""
+    @SqlQuery("""
             INSERT INTO smp_grave (owner_id, world, x, y, z, contents, experience)
             VALUES (:ownerId, :world, :x, :y, :z, :contents, :experience)
+            RETURNING id, owner_id AS ownerId, CAST(:ownerUuid AS uuid) AS ownerUuid,
+                      world, x, y, z, contents, experience, created
             """)
-    void createGrave(
+    @RegisterRowMapper(GraveRowMapper.class)
+    GraveRow createGrave(
             @Bind("ownerId") String ownerId,
+            @Bind("ownerUuid") UUID ownerUuid,
             @Bind("world") String world,
             @Bind("x") int x,
             @Bind("y") int y,

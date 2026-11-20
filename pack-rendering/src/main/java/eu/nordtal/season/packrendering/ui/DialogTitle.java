@@ -1,7 +1,6 @@
 package eu.nordtal.season.packrendering.ui;
 
 import eu.nordtal.season.packrendering.Glyphs;
-import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -40,9 +39,11 @@ public final class DialogTitle {
     private final DialogPanel panel;
     private final int top;
     private final int left;
-    private final List<FocusRing.Open> ink = new ArrayList<>();
-    private int inkTop = -1;
-    private int inkBottom = -1;
+    private @Nullable Header header;
+
+    /** What the header drew, so a body line can draw it again over its focus cover. */
+    private record Header(
+            @Nullable Symbol symbol, String name, List<Mark> marks, int margin, int nameX, int right) {}
 
     private DialogTitle(final DialogPanel panel, final int top) {
         final String font = Glyphs.FONT_UI_DIALOG.get(top);
@@ -85,26 +86,30 @@ public final class DialogTitle {
         }
         final String shown = Letters.cut(name, room);
         pen.moveTo(left + nameX).text(shift, shown, Colours.INK);
-        inkTop = margin;
-        inkBottom = margin + HEADER_INK;
-        ink.add(open(symbol == null ? nameX : margin, nameX + Letters.width(shown)));
-        if (!marks.isEmpty()) {
-            ink.add(open(marksLeft, right + 1));
-        }
+        header = new Header(symbol, shown, List.copyOf(marks), margin, nameX, right);
         return this;
     }
 
     /**
-     * The header's ink that lies on panel row {@code row}, as columns a body line's focus ring leaves open there.
-     * Each reaches a pixel further on either side, so the panel's and the line's centring cannot cut a stroke.
+     * The header drawn again for a body line whose box's top lies on panel row {@code row}, where its focus cover
+     * would hide the header's ink, or nothing when the cover misses it. Its capitals stand {@code textRow} under the
+     * box's top less than the line's text row does; its x counts from the panel's centre, and it advances 0.
      */
-    public List<FocusRing.Open> ink(final int row) {
-        return row >= inkTop && row <= inkBottom ? List.copyOf(ink) : List.of();
-    }
-
-    private FocusRing.Open open(final int from, final int to) {
+    public Component ink(final int row, final int textRow) {
+        final Header header = this.header;
+        if (header == null || row < header.margin() || row > header.margin() + HEADER_INK) {
+            return Component.empty();
+        }
+        final int shift = header.margin() - row - textRow;
         final int centre = panel.width() / 2;
-        return new FocusRing.Open(from - centre - 1, to - centre + 1);
+        final Pen ink = Pen.start(Pen.Layer.INK);
+        Mark.draw(ink, header.marks(), header.right(), shift, x -> x - centre);
+        final Symbol symbol = header.symbol();
+        if (symbol != null) {
+            ink.moveTo(header.margin() - centre).symbol(shift, symbol, Colours.INK);
+        }
+        ink.moveTo(header.nameX() - centre).text(shift, header.name(), Colours.INK);
+        return ink.build(0);
     }
 
     /** Draws {@code text} centred on the panel, its capitals at screen y {@code y}, such as the station's refusal. */

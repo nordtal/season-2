@@ -34,4 +34,12 @@ class RaisedSheetTest {
     fun theCopyIsNamedAfterItsSheetAndHeight() {
         assertEquals("nordtal:font/raised_64_ascii.png", RaisedSheet.id("minecraft:font/ascii.png", 64))
     }
+
+    @Test
+    fun aPackTextureIsNamedAfterItsWholePath() {
+        assertEquals(
+            "nordtal:font/raised_12_nordtal_ui_kit_symbols.png",
+            RaisedSheet.id("nordtal:ui/kit/symbols.png", 12),
+        )
+    }
 }

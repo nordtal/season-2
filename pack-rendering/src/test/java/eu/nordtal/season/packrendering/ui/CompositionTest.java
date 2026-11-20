@@ -150,30 +150,39 @@ class CompositionTest {
     }
 
     @Test
-    void aFootLineKeepsThePanelsBlackBorderUnderItsBottomRow() {
+    void aRingCoversTheWholeOutlineAndKeepsThePanelsBlackBorderUnderAFootLine() {
         final List<String> ring = Glyphs.UI_RING_26;
         for (final FocusRing.Ground ground : FocusRing.Ground.values()) {
             final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, ground));
             final boolean bevel = ground == FocusRing.Ground.BEVEL || ground == FocusRing.Ground.BEVEL_FOOT;
             final boolean foot = ground == FocusRing.Ground.PANEL_FOOT || ground == FocusRing.Ground.BEVEL_FOOT;
-            assertEquals(!bevel, drawn.contains(ring.get(0)), ground + " side");
+            assertEquals(bevel ? 0 : 2, drawn.split(java.util.regex.Pattern.quote(ring.get(0)), -1).length - 1,
+                    ground + " sides");
             assertEquals(bevel && !foot, drawn.contains(ring.get(1)), ground + " shade");
             assertEquals(bevel && foot, drawn.contains(ring.get(2)), ground + " shade foot");
-            assertEquals(100, columns(drawn, ring.subList(3, 12)), ground + " top runs");
-            assertEquals(!foot, ring.subList(12, 21).stream().anyMatch(drawn::contains), ground + " bottom runs");
-            assertEquals(foot, ring.subList(21, 30).stream().anyMatch(drawn::contains), ground + " foot runs");
+            // The box is 110 wide; on the bevel its left column is white, where the outline cannot be seen.
+            assertEquals(bevel ? 108 : 110, columns(drawn, ring.subList(3, 12)), ground + " top runs");
+            assertEquals(foot ? 0 : bevel ? 108 : 110, columns(drawn, ring.subList(12, 21)), ground + " bottom runs");
+            assertEquals(foot ? (bevel ? 109 : 110) : 0, columns(drawn, ring.subList(21, 30)), ground + " foot runs");
         }
     }
 
     @Test
-    void aRingLeavesItsTopRowOpenOverAHeadersInkAndKeepsItsBottomWhole() {
-        final List<String> ring = Glyphs.UI_RING_26;
-        final List<FocusRing.Open> open = List.of(new FocusRing.Open(-40, -20), new FocusRing.Open(30, 80));
-        final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, FocusRing.Ground.PANEL, open));
-
-        // The box is 110 wide from -55: the top row runs from -50 to -40, from -20 to 30, and stops there.
-        assertEquals(10 + 50, columns(drawn, ring.subList(3, 12)));
-        assertEquals(100, columns(drawn, ring.subList(12, 21)));
+    void theFirstColumnDrawsTheHeaderAgainWhereItsCoverLiesOnIt() {
+        final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
+        panels.addAll(DialogPanel.DRAFT_PREVIEW_ROWS);
+        for (final DialogPanel panel : panels) {
+            final int count = (panel.height() - 22) / BodyColumn.STEP;
+            final BodyColumn column = BodyColumn.of(panel.width() - 16, false)
+                    .rows(count, 0, index -> line -> line.button(PREVIOUS, part -> part.star(true)));
+            final DialogTitle title =
+                    DialogTitle.of(panel, column.panelTop()).header(Symbol.RAIL, "Fahrtziel", List.of());
+            final String drawn = text(column.build(FocusRing.Ground.BEVEL_FOOT, title));
+            final int boxTop = BodyColumn.PANEL_TO_CONTENT - column.top();
+            final boolean onInk = boxTop >= DialogTitle.MARGIN && boxTop <= DialogTitle.MARGIN + 7;
+            assertEquals(onInk, drawn.contains("Fahrtziel"), panel + ", box top on panel row " + boxTop);
+            assertEquals(onInk, drawn.contains(Symbol.RAIL.glyph()), panel + ", the symbol");
+        }
     }
 
     @Test

@@ -44,7 +44,10 @@ class InternalServerTest {
 
     @Test
     void onlyHealthAnswersWithoutTheSecret() {
-        running = SERVER.create("the-secret", config -> config.routes.get("/api/thing", ctx -> ctx.result("thing")))
+        running = SERVER.create("the-secret", config -> {
+                    config.routes.get("/api/thing", ctx -> ctx.result("thing"));
+                    config.routes.get("/elsewhere", ctx -> ctx.result("elsewhere"));
+                })
                 .start("127.0.0.1", 0);
         final String base = "http://127.0.0.1:" + running.port();
 
@@ -54,9 +57,15 @@ class InternalServerTest {
                 401,
                 assertThrows(InternalClient.Failure.class, () -> stranger.get("/api/thing"))
                         .status());
+        assertEquals(
+                401,
+                assertThrows(InternalClient.Failure.class, () -> stranger.get("/elsewhere"))
+                        .status(),
+                "a route outside /api/ is guarded too");
 
         final InternalClient steward = new InternalClient("steward-bunq", base, "the-secret", Duration.ofSeconds(5));
         assertEquals("thing", steward.get("/api/thing"));
+        assertEquals("elsewhere", steward.get("/elsewhere"));
     }
 
     /** A body whose constructor refuses some values, as the agent's wire records do. */

@@ -30,7 +30,11 @@ public enum DatabaseRole {
     /** The shared read models. Every role above is a member of it. Nobody logs in as it. */
     READ(Login.NONE),
 
-    /** {@code pg_dump}, through the socket of the postgres container and without a password. */
+    /**
+     * {@code pg_dump}, through the socket of the postgres container and without a password.
+     *
+     * It passes every row policy, because pg_dump reads with row security off.
+     */
     BACKUP(Login.SOCKET);
 
     public static final String PREFIX = "nordtal_";
@@ -86,7 +90,7 @@ public enum DatabaseRole {
     }
 
     /**
-     * Creates every missing role and sets each password.
+     * Creates every missing role and sets each password and the backup role's BYPASSRLS.
      *
      * @param passwords one per role that {@link #hasPassword()}
      * @throws IllegalArgumentException when a password is missing or blank
@@ -113,7 +117,8 @@ public enum DatabaseRole {
     private String alter() {
         return switch (login) {
             case PASSWORD -> "SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', ?, ?)";
-            case SOCKET -> "SELECT format('ALTER ROLE %I LOGIN PASSWORD NULL', ?)";
+            // A dump holds no role attribute, so a restored cluster gets BYPASSRLS from here alone.
+            case SOCKET -> "SELECT format('ALTER ROLE %I LOGIN PASSWORD NULL BYPASSRLS', ?)";
             case NONE -> "SELECT format('ALTER ROLE %I NOLOGIN', ?)";
         };
     }

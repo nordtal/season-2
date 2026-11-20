@@ -7,11 +7,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.network.SnapshotDirectory;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -368,6 +371,102 @@ class DatabaseRoleIntegrationTest {
                         () -> SnapshotDirectory.using(database.dataSourceAs(role))
                                 .snapshot(),
                         role.name())));
+    }
+
+    /** The service each login publishes its setting groups under, beside the network's. */
+    private static final Map<DatabaseRole, String> SETTING_OWNERS = Map.of(
+            DatabaseRole.DISCORD_BOT, "discord-bot",
+            DatabaseRole.PROXY, "proxy",
+            DatabaseRole.LIMBO, "limbo",
+            DatabaseRole.HUNGER_GAMES, "hunger-games",
+            DatabaseRole.SMP, "smp",
+            DatabaseRole.STEWARD, "steward");
+
+    /** A leaked password of one service changes no setting group of another, while each still publishes its own. */
+    @Test
+    void aServiceWritesItsOwnSettingGroupsAndTheNetworksAndNoOther() throws SQLException {
+        final List<String> services = new ArrayList<>(SETTING_OWNERS.values());
+        services.add("network");
+        services.add("steward-agent");
+        try (Connection owner = database.dataSource().getConnection();
+                Statement statement = owner.createStatement()) {
+            for (final String service : services) {
+                statement.execute(publish(service, "probe-held"));
+            }
+        }
+        final List<Executable> checks = new ArrayList<>();
+        for (final Map.Entry<DatabaseRole, String> login : SETTING_OWNERS.entrySet()) {
+            for (final String service : services) {
+                final boolean own = service.equals(login.getValue()) || service.equals("network");
+                final DatabaseRole role = login.getKey();
+                checks.add(() -> assertEquals(
+                        own, allowed(role, publish(service, "probe")), role.roleName() + " publishes " + service));
+                checks.add(() -> assertEquals(
+                        own ? 1 : 0,
+                        updated(
+                                role,
+                                "UPDATE setting_group SET problem = 'x' WHERE service = '" + service + "'"
+                                        + " AND name = 'probe-held'"),
+                        role.roleName() + " marks a problem of " + service));
+            }
+        }
+        assertAll(checks);
+    }
+
+    private static String publish(final String service, final String name) {
+        return "INSERT INTO setting_group (service, name, schema, defaults, environment, live, published)"
+                + " VALUES ('" + service + "', '" + name + "', '{}', '{}', '{}', false, now())"
+                + " ON CONFLICT (service, name) DO UPDATE SET published = excluded.published";
+    }
+
+    /** Runs the statement, rolls it back and returns how many rows it changed. */
+    private static int updated(final DatabaseRole role, final String sql) throws SQLException {
+        try (Connection connection = database.dataSourceAs(role).getConnection()) {
+            connection.setAutoCommit(false);
+            try (Statement statement = connection.createStatement()) {
+                return statement.executeUpdate(sql);
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
+    /** pg_dump reads every table with row security off, which fails for a role that a policy would filter. */
+    @Test
+    void theBackupRoleReadsPastEveryRowPolicy() {
+        assertEquals(
+                "",
+                database.socketAs(DatabaseRole.BACKUP, "SET row_security = off; SELECT count(*) FROM setting_group"));
+    }
+
+    /** A cluster restored from a dump holds no role attribute, so provisioning alone lets pg_dump pass the policies. */
+    @Test
+    void provisioningLetsTheBackupRoleAloneBypassRowSecurity() throws SQLException {
+        final String prefix = "provisioned_" + UUID.randomUUID().toString().substring(0, 8) + "_";
+        final Map<DatabaseRole, String> passwords = new EnumMap<>(DatabaseRole.class);
+        for (final DatabaseRole role : DatabaseRole.values()) {
+            if (role.hasPassword()) {
+                passwords.put(role, role.key());
+            }
+        }
+        try (Connection owner = database.dataSource().getConnection();
+                Statement statement = owner.createStatement()) {
+            try {
+                DatabaseRole.provision(database.dataSource(), prefix, passwords);
+                final List<String> bypassing = new ArrayList<>();
+                try (ResultSet row = statement.executeQuery(
+                        "SELECT rolname FROM pg_roles WHERE rolbypassrls AND rolname LIKE '" + prefix + "%'")) {
+                    while (row.next()) {
+                        bypassing.add(row.getString(1));
+                    }
+                }
+                assertEquals(List.of(DatabaseRole.BACKUP.roleName(prefix)), bypassing);
+            } finally {
+                for (final DatabaseRole role : DatabaseRole.values()) {
+                    statement.execute("DROP ROLE IF EXISTS " + role.roleName(prefix));
+                }
+            }
+        }
     }
 
     @Test

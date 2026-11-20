@@ -273,6 +273,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void enable() {
+        getServer().getPluginManager().registerEvents(new PlayerTextListener(), this);
         protectedAreas = ConfigBoxes.of(spawnSettings.get().protectedAreas());
         trackRows = jdbi().onDemand(TrackDao.class);
         aura = jdbi().onDemand(AuraDao.class);

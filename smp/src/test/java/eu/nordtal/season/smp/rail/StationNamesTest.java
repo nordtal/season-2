@@ -50,6 +50,13 @@ class StationNamesTest {
     }
 
     @Test
+    void aTypedNameLosesPrivateUseCodePoints() {
+        final String glyph = Character.toString(0xFE000);
+        assertEquals("Mine", StationNames.typed(" Mi" + glyph + "ne "));
+        assertEquals(Verdict.EMPTY, StationNames.judgeTyped(" " + glyph + " ", new UUID(0, 1), List.of(), List.of()));
+    }
+
+    @Test
     void aStationMayTakeItsOwnNameInAnotherCaseButNotAnotherStationsName() {
         final List<StationRow> network = List.of(row(1, "Spawn"), row(2, "Mine"));
 

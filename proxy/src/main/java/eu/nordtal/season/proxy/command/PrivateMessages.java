@@ -10,6 +10,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import eu.nordtal.season.common.PlayerText;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.context.PlayerContext;
@@ -139,8 +140,12 @@ public final class PrivateMessages {
 
     /** Sends the message to both players and sets them as each other's reply partner. */
     private void deliver(final Player sender, final Player recipient, final String text) {
-        sender.sendMessage(line(Half.SENT, localeOf(sender), recipient, text));
-        recipient.sendMessage(line(Half.RECEIVED, localeOf(recipient), sender, text));
+        final String filtered = PlayerText.withoutPrivateUse(text);
+        if (filtered.isEmpty()) {
+            return;
+        }
+        sender.sendMessage(line(Half.SENT, localeOf(sender), recipient, filtered));
+        recipient.sendMessage(line(Half.RECEIVED, localeOf(recipient), sender, filtered));
         remember(sender.getUniqueId(), recipient.getUniqueId());
     }
 

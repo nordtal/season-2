@@ -330,7 +330,8 @@ public final class StationMenus implements Listener {
         }
         sounds.play(player, Feedback.SMALL_SUCCESS);
         player.closeDialog();
-        player.sendActionBar(Lines.joined(renderer.format(locale(player), NAMED.with(new Named(typed.strip())))));
+        final String name = StationNames.typed(typed);
+        player.sendActionBar(Lines.joined(renderer.format(locale(player), NAMED.with(new Named(name)))));
     }
 
     /** The label that says why a save was refused, or {@code null} for an accepted one. */

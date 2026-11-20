@@ -73,6 +73,7 @@ import eu.nordtal.season.smp.state.SeasonState;
 import eu.nordtal.season.smp.takein.ItemTakeIn;
 import eu.nordtal.season.smp.takein.PositionTake;
 import eu.nordtal.season.smp.wall.BorderWall;
+import eu.nordtal.season.smp.wheel.ItemHandout;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.world.Datapacks;
@@ -158,6 +159,9 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Nullable
     Duels duels;
+
+    @Nullable
+    ItemHandout handout;
 
     @Nullable
     Wheel wheel;
@@ -297,6 +301,7 @@ public final class SmpPlugin extends NordtalPlugin {
         final SmpStart.Activities activities = SmpStart.wireActivities(this, wired.effects());
         graves = activities.graves();
         duels = activities.duels();
+        handout = activities.handout();
         wheel = activities.wheel();
         SmpStart.registerActivityListeners(this, activities);
         npcDialogues = SmpStart.wireNpc(this);
@@ -463,6 +468,10 @@ public final class SmpPlugin extends NordtalPlugin {
         final Wheel turning = wheel;
         if (turning != null) {
             quietly("wheel.stop", turning::stop);
+        }
+        final ItemHandout handing = handout;
+        if (handing != null) {
+            quietly("handout.stop", handing::stop);
         }
         quietly("itemWork.close", itemWork::close);
         final Duels running = duels;

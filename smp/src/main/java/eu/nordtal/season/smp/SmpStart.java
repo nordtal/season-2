@@ -154,7 +154,7 @@ final class SmpStart {
         return new Progress(engine, poller, gates);
     }
 
-    record Activities(Supplier<DeathPenalty> penalty, Wheel wheel, Graves graves, Duels duels) {}
+    record Activities(Supplier<DeathPenalty> penalty, ItemHandout handout, Wheel wheel, Graves graves, Duels duels) {}
 
     static Activities wireActivities(final SmpPlugin plugin, final WorldEffects effects) {
         final DeathsSpec deaths = plugin.deathSettings.get();
@@ -207,7 +207,7 @@ final class SmpStart {
                 plugin.dialogs(),
                 WheelTimetable.load(),
                 plugin.clock());
-        return new Activities(penalty, wheel, graves, duels);
+        return new Activities(penalty, handout, wheel, graves, duels);
     }
 
     static void registerActivityListeners(final SmpPlugin plugin, final Activities activities) {

@@ -68,6 +68,15 @@ class CaddyPolicyTest {
             final String hash = Base64.getEncoder().encodeToString(digest);
             final String policy = policy(directives());
             assertTrue(policy.contains("'sha256-" + hash + "'"));
+            final var handlers = Pattern.compile(" on[a-z]+=\"([^\"]*)\"").matcher(page);
+            while (handlers.find()) {
+                final String handler = Base64.getEncoder()
+                        .encodeToString(MessageDigest.getInstance("SHA-256")
+                                .digest(handlers.group(1).getBytes(StandardCharsets.UTF_8)));
+                assertTrue(
+                        policy.contains("'unsafe-hashes'") && policy.contains("'sha256-" + handler + "'"),
+                        "the policy blocks the inline handler " + handlers.group(1));
+            }
         }
     }
 

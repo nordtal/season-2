@@ -713,12 +713,12 @@ configs:
       http://${STEWARD_HOST} {
       	encode zstd gzip
 
-      	# The script hash allows the startup error listener in index.html.
+      	# The script hashes allow the startup error listener and the reload button in index.html.
       	header {
       		Strict-Transport-Security "max-age=31536000"
       		X-Content-Type-Options nosniff
       		Referrer-Policy no-referrer
-      		Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-GnzYpFx83cmlxryecnwMPf97aSdL9d7002QB+mqc/tY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+      		Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-GnzYpFx83cmlxryecnwMPf97aSdL9d7002QB+mqc/tY=' 'unsafe-hashes' 'sha256-4TpZ3Tx5SLybDXPQaSHGuP1RU4D+pzck+02JLVY61BY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
       	}
 
       	# Only steward is exposed here; the internal APIs must never get a route.

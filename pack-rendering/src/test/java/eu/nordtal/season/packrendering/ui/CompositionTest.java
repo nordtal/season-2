@@ -156,17 +156,20 @@ class CompositionTest {
             final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, ground));
             final boolean bevel = ground == FocusRing.Ground.BEVEL || ground == FocusRing.Ground.BEVEL_FOOT;
             final boolean foot = ground == FocusRing.Ground.PANEL_FOOT || ground == FocusRing.Ground.BEVEL_FOOT;
-            assertEquals(
-                    bevel ? 0 : 2,
-                    drawn.split(java.util.regex.Pattern.quote(ring.get(0)), -1).length - 1,
-                    ground + " sides");
+            assertEquals(bevel || foot ? 0 : 2, count(drawn, ring.get(0)), ground + " sides");
+            assertEquals(!bevel && foot ? 2 : 0, count(drawn, ring.get(30)), ground + " sides over the foot");
+            assertEquals(bevel && foot ? 1 : 0, count(drawn, ring.get(31)), ground + " bevel over the foot");
             assertEquals(bevel && !foot, drawn.contains(ring.get(1)), ground + " shade");
             assertEquals(bevel && foot, drawn.contains(ring.get(2)), ground + " shade foot");
             // The box is 110 wide; on the bevel its left column is white, where the outline cannot be seen.
             assertEquals(bevel ? 108 : 110, columns(drawn, ring.subList(3, 12)), ground + " top runs");
             assertEquals(foot ? 0 : bevel ? 108 : 110, columns(drawn, ring.subList(12, 21)), ground + " bottom runs");
-            assertEquals(foot ? (bevel ? 109 : 110) : 0, columns(drawn, ring.subList(21, 30)), ground + " foot runs");
+            assertEquals(foot ? (bevel ? 108 : 110) : 0, columns(drawn, ring.subList(21, 30)), ground + " foot runs");
         }
+    }
+
+    private static int count(final String drawn, final String glyph) {
+        return drawn.split(java.util.regex.Pattern.quote(glyph), -1).length - 1;
     }
 
     @Test

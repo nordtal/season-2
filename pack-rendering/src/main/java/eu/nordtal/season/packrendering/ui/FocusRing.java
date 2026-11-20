@@ -48,6 +48,8 @@ public final class FocusRing {
     private static final int BOTTOM_RUNS = 12;
     private static final int FOOT_RUNS = 21;
     private static final int RUN_COUNT = 9;
+    private static final int SIDE_FOOT = 30;
+    private static final int BEVEL_FOOT = 31;
 
     private static final Map<Integer, List<String>> RINGS = Map.ofEntries(
             Map.entry(26, Glyphs.UI_RING_26),
@@ -100,20 +102,20 @@ public final class FocusRing {
         final int left = -(width / 2);
         final String font = Glyphs.FONT_UI_RING;
         final Pen pen = Pen.start();
-        // The left column on the white bevel needs no cover; its corner on the black border does.
+        // The bevel's white column needs a cover only at the rounded foot; a side over a foot keeps its shade.
         final int from = ground.bevel ? left + 1 : left;
         final int to = ground.bevel ? left + width - 1 : left + width;
+        final int side = ground.foot ? SIDE_FOOT : SIDE;
         if (!ground.bevel) {
-            pen.moveTo(left).art(font, ring.get(SIDE), 1);
+            pen.moveTo(left).art(font, ring.get(side), 1);
+        } else if (ground.foot) {
+            pen.moveTo(left).art(font, ring.get(BEVEL_FOOT), 1);
         }
-        final int right = ground.bevel ? (ground.foot ? SHADE_FOOT : SHADE) : SIDE;
+        final int right = ground.bevel ? (ground.foot ? SHADE_FOOT : SHADE) : side;
         pen.moveTo(left + width - 1).art(font, ring.get(right), 1);
         pen.moveTo(from).runs(font, ring.subList(TOP_RUNS, TOP_RUNS + RUN_COUNT), to - from);
-        if (ground.foot) {
-            pen.moveTo(left).runs(font, ring.subList(FOOT_RUNS, FOOT_RUNS + RUN_COUNT), to - left);
-        } else {
-            pen.moveTo(from).runs(font, ring.subList(BOTTOM_RUNS, BOTTOM_RUNS + RUN_COUNT), to - from);
-        }
+        final int bottom = ground.foot ? FOOT_RUNS : BOTTOM_RUNS;
+        pen.moveTo(from).runs(font, ring.subList(bottom, bottom + RUN_COUNT), to - from);
         pen.moveTo(left + (width - art) / 2).append(line, art);
         pen.moveTo(0).append(over, 0);
         Component framed = pen.build(0)

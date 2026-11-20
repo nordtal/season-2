@@ -5,7 +5,7 @@ paper = "26.3.build.227-stable"
 # Tracks the build Fill ships in the 4.0.0 family the proxy follows.
 velocity = "4.3.1"
 # :display-tags compiles against these; the servers install PacketEvents, the other two are optional.
-packetevents = "2.13.0"
+packetevents = "2.14.0"
 tab-api = "6.1.2"
 jda = "6.7.0"
 bunq = "1.28.0.6"

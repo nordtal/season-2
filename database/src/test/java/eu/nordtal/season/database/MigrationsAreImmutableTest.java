@@ -402,6 +402,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V139__a_pack_build_records_the_npc_artworks_it_draws.sql",
                 "a4ac2c8d1d6e3445bd046a097f201b5fc93f6fb65f5f770acd261b3d79910ae3");
+        FROZEN.put(
+                "V140__the_settings_and_roles_the_country_onboarding_replaced_are_deleted.sql",
+                "a7882fe435d62fdc26b91cb7ac4056b2a04b8b67035dde9730c5e8d779456572");
     }
 
     @Test

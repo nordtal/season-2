@@ -117,6 +117,28 @@ class StandbysTest {
     }
 
     @Test
+    void aPluginsDirectoryThatIsASymbolicLinkOnEitherSideIsNeitherReadNorWritten() throws IOException {
+        write("outside/secrets", "secret");
+        write("outside/world/level.dat", "world");
+        write("limbo/plugins/limbo-0.9.3.jar", "new");
+        Files.createDirectories(volumes.resolve("proxy"));
+        Files.createDirectories(volumes.resolve("proxy-standby"));
+        Files.createSymbolicLink(volumes.resolve("proxy/plugins"), volumes.resolve("outside"));
+        Files.createDirectories(volumes.resolve("limbo-standby"));
+        Files.createSymbolicLink(volumes.resolve("limbo-standby/plugins"), volumes.resolve("outside/world"));
+
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.PROXY, Topology.LIMBO), DeclaredTopology.topology());
+
+        assertEquals(2, outcomes.size(), detail(outcomes));
+        assertTrue(
+                outcomes.stream().allMatch(outcome -> outcome.status() == ApplyResult.Status.FAILED), detail(outcomes));
+        assertFalse(Files.exists(volumes.resolve("proxy-standby/plugins/secrets"), LinkOption.NOFOLLOW_LINKS));
+        assertEquals("world", read("outside/world/level.dat"));
+        assertFalse(Files.exists(volumes.resolve("outside/world/limbo-0.9.3.jar"), LinkOption.NOFOLLOW_LINKS));
+    }
+
+    @Test
     void aPluginsScratchDirectoryIsNeitherCopiedNorRemovedSoTheRunningStandbyKeepsItsOwn() throws IOException {
         // spark, which Paper bundles, writes its profile into plugins/spark/tmp while the standby runs.
         write("limbo/plugins/limbo-0.9.3.jar", "new");

@@ -77,6 +77,17 @@ public final class Standbys {
 
     private static ApplyResult.Outcome mirror(
             final Path source, final Path target, final String standby, final String directory) {
+        // Either side belongs to the game's account, which could point it at the agent's secrets or a world.
+        final Path link = Files.isSymbolicLink(source) ? source : target;
+        if (Files.isSymbolicLink(link)) {
+            log.error("standby file copy refused, symbolic link: service={} dir={} path={}", standby, directory, link);
+            return new ApplyResult.Outcome(
+                    standby,
+                    directory,
+                    ApplyResult.Status.FAILED,
+                    link + " is a symbolic link, so nothing was copied. Started for a swap, this"
+                            + " service would come up on whatever is still lying in it.");
+        }
         final Tally tally = new Tally();
         try {
             Files.createDirectories(target);
@@ -136,7 +147,7 @@ public final class Standbys {
                     Files.createDirectories(destination);
                     copyInto(entry, destination, depth + 1, tally);
                 } else if (isDifferent(entry, destination)) {
-                    Files.copy(entry, destination, StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(entry, destination, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
                     tally.copied++;
                 } else {
                     tally.same++;

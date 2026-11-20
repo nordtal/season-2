@@ -7,6 +7,17 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Check that every exception expires
+      shell: bash
+      env:
+        IGNORE_FILE: ${{ github.action_path }}/.trivyignore.yaml
+      run: |
+        missing="$(yq '[.vulnerabilities[] | select(has("expired_at") | not) | .id] | join(" ")' "$IGNORE_FILE")"
+        if [[ -n "$missing" ]]; then
+          printf 'Image scan refused. The exception for %s in .github/actions/scan-image/.trivyignore.yaml has no expired_at date. Add one.\n' "$missing" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
+        fi
+
     - name: Scan for vulnerabilities
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       env:

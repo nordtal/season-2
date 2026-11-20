@@ -2,14 +2,11 @@ package eu.nordtal.season.database.access;
 
 import java.security.SecureRandom;
 
-/**
- * Generates the four-character codes shown on the login screen.
- * The 31-symbol alphabet is safe only with the bot's {@code RedemptionLimit}. The caller retries collisions.
- */
+/** Generates the codes shown on the login screen. */
 final class LinkCodes {
 
     private static final String ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-    private static final int LENGTH = 4;
+    static final int LENGTH = 12;
 
     private LinkCodes() {}
 

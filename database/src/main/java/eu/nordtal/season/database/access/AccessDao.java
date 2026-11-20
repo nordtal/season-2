@@ -313,7 +313,7 @@ interface AccessDao {
                 VALUES (:code, :mcUuid, :expires)
                 ON CONFLICT (mc_uuid) DO UPDATE
                     SET code = EXCLUDED.code, created = now(), expires = EXCLUDED.expires
-                    WHERE link_code.expires <= now()
+                    WHERE link_code.expires <= now() OR length(link_code.code) <> :length
                 RETURNING code, mc_uuid, expires
             )
             SELECT code, mc_uuid, expires FROM upsert
@@ -322,7 +322,11 @@ interface AccessDao {
             WHERE mc_uuid = :mcUuid AND NOT EXISTS (SELECT 1 FROM upsert)
             """)
     @RegisterRowMapper(LinkCodeMapper.class)
-    LinkCode upsertLinkCode(@Bind("code") String code, @Bind("mcUuid") UUID mcUuid, @Bind("expires") Instant expires);
+    LinkCode upsertLinkCode(
+            @Bind("code") String code,
+            @Bind("mcUuid") UUID mcUuid,
+            @Bind("expires") Instant expires,
+            @Bind("length") int length);
 
     @SqlQuery("SELECT mc_uuid FROM link_code WHERE code = :code AND expires > now()")
     Optional<UUID> mcUuidForActiveCode(@Bind("code") String code);

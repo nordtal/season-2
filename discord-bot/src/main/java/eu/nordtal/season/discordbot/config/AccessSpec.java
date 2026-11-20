@@ -73,9 +73,6 @@ public interface AccessSpec {
         return 10;
     }
 
-    /**
-     * Raising it lowers the four-character link code's brute-force resistance from decades to weeks.
-     */
     @Order(8)
     @Name("Link code attempts per hour")
     @Key("link-code-attempts-per-hour")

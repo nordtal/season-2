@@ -11,7 +11,7 @@ import java.util.Map;
 
 /**
  * Caps how many wrong link codes one Discord account may try per hour.
- * A four-character code is safe only with the cap. Only a code that matched nothing counts.
+ * Only a code that matched nothing counts.
  * The counters are in memory, and every method is synchronized.
  */
 public final class RedemptionLimit {

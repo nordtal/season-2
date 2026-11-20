@@ -50,6 +50,7 @@ class LinkCodeIntegrationTest {
         final LinkCode code = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
         assertEquals(MC_UUID, code.mcUuid());
+        assertTrue(code.code().matches("[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{12}"));
         assertTrue(code.isValidAt(Instant.now()));
         assertWithinSeconds(Instant.now().plus(Duration.ofMinutes(10)), code.expires(), 5);
     }
@@ -60,6 +61,17 @@ class LinkCodeIntegrationTest {
         final LinkCode second = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
 
         assertEquals(first.code(), second.code(), "join-spam must not mint a fresh code every attempt");
+    }
+
+    @Test
+    void issuingReplacesAnActiveShortCode() {
+        final LinkCode issued = directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10));
+        execute("UPDATE link_code SET code = 'ABCD' WHERE code = '" + issued.code() + "'");
+
+        assertFalse(directory.redeemLinkCode(DiscordId.of(DISCORD_ID), "ABCD").linked());
+        assertEquals(
+                12,
+                directory.issueLinkCode(MC_UUID, Duration.ofMinutes(10)).code().length());
     }
 
     @Test

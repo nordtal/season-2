@@ -763,6 +763,33 @@ got=$(DATA="$dir" bash -c 'source "$1"; refusal' seeding-test "$ENTRYPOINT")
 [[ "$got" == "smp is not starting: the milestones group is broken" ]] || bad "read as '${got}'"
 ok "the reason is one line"
 
+case_begin "Paper and Velocity start with bStats disabled"
+for kind in paper velocity; do
+    dir=$(volume "bstats-$kind")
+    if [[ "$kind" == paper ]]; then
+        file="$dir/plugins/bStats/config.yml"
+        enabled='enabled: false'
+        active='enabled: true # active'
+        id='serverUuid: '
+    else
+        file="$dir/plugins/bStats/config.txt"
+        enabled='enabled=false'
+        active='enabled=true'
+        id='server-uuid='
+    fi
+    if ! DATA="$dir" SERVER_KIND="$kind" bash -c 'source "$1"; disable_bstats' seeding-test "$ENTRYPOINT"; then
+        bad "$kind startup has no bStats configuration"
+        continue
+    fi
+    grep -qx "$enabled" "$file" || bad "$kind fresh config enables metrics"
+    grep -q "^${id}[0-9a-fA-F-]\{36\}$" "$file" || bad "$kind fresh config lacks an ID"
+    printf '# Metrics settings\n%s\n%skeep-me' "$active" "$id" > "$file"
+    DATA="$dir" SERVER_KIND="$kind" bash -c 'source "$1"; disable_bstats' seeding-test "$ENTRYPOINT"
+    grep -qx "$enabled" "$file" || bad "$kind existing config enables metrics"
+    grep -qx "${id}keep-me" "$file" || bad "$kind existing ID was lost"
+done
+ok "fresh and existing configs disable metrics"
+
 if (( failed > 0 )); then
     printf '\n%d case(s) failed\n' "$failed" >&2
     exit 1

@@ -104,7 +104,8 @@ abstract class GenerateGlyphs : DefaultTask() {
                         val ascent = sheet.ascent - lower
                         if (ascent > sheet.height) {
                             val source = GlyphAdvances.texture(vanilla.get().asFile, sheet.file)
-                            providers += bitmap(raise(root, sheet.file, source, sheet.chars.size, sheet.height, ascent), ascent, ascent, sheet.chars)
+                            providers +=
+                                bitmap(raise(root, sheet.file, source, sheet.chars.size, sheet.height, ascent), ascent, ascent, sheet.chars)
                         } else {
                             providers += bitmap(sheet.file, ascent, sheet.height, sheet.chars)
                         }

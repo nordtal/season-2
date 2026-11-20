@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import eu.nordtal.season.packrendering.Glyphs;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -168,10 +169,6 @@ class CompositionTest {
         }
     }
 
-    private static int count(final String drawn, final String glyph) {
-        return drawn.split(java.util.regex.Pattern.quote(glyph), -1).length - 1;
-    }
-
     @Test
     void theFirstColumnDrawsTheHeaderAgainWhereItsCoverLiesOnIt() {
         final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
@@ -216,10 +213,14 @@ class CompositionTest {
     }
 
     /** The columns {@code drawn} covers with the runs of {@code runs}, which run 1, 2, 4 to 256 wide. */
+    private static int count(final String drawn, final String glyph) {
+        return drawn.split(Pattern.quote(glyph), -1).length - 1;
+    }
+
     private static int columns(final String drawn, final List<String> runs) {
         int columns = 0;
         for (int index = 0; index < runs.size(); index++) {
-            columns += (1 << index) * (drawn.split(java.util.regex.Pattern.quote(runs.get(index)), -1).length - 1);
+            columns += (1 << index) * (drawn.split(Pattern.quote(runs.get(index)), -1).length - 1);
         }
         return columns;
     }

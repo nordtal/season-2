@@ -47,6 +47,31 @@ public final class Letters {
         return Math.max(width(text) - 1, 0);
     }
 
+    /**
+     * Returns how far {@code text} in bold moves the cursor.
+     * The client widens every character by one column, a space as much as a letter.
+     */
+    public static int boldWidth(final String text) {
+        return width(text) + text.codePointCount(0, text.length());
+    }
+
+    /** Returns the columns {@code text} inks in bold. */
+    public static int boldVisibleWidth(final String text) {
+        return Math.max(boldWidth(text) - 1, 0);
+    }
+
+    /** Returns {@code text}, or its start and an ellipsis where it inks more than {@code room} columns in bold. */
+    public static String boldCut(final String text, final int room) {
+        if (boldVisibleWidth(text) <= room) {
+            return text;
+        }
+        String start = text;
+        while (!start.isEmpty() && boldVisibleWidth(start.stripTrailing() + ELLIPSIS) > room) {
+            start = start.substring(0, start.offsetByCodePoints(start.length(), -1));
+        }
+        return start.stripTrailing() + ELLIPSIS;
+    }
+
     /** Returns {@code text}, or its start ending in an ellipsis where its visible width exceeds {@code room}. */
     public static String cut(final String text, final int room) {
         if (visibleWidth(text) <= room) {

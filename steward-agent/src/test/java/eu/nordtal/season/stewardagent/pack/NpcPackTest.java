@@ -38,32 +38,49 @@ class NpcPackTest {
 
         final Path textures = root.resolve("assets/nordtal/textures/npc/" + NPC);
         assertTrue(java.util.Arrays.equals(png, Files.readAllBytes(textures.resolve("skin.png"))));
-        for (final NpcPack.Portrait portrait : NpcPack.PORTRAITS) {
-            final BufferedImage drawn =
-                    ImageIO.read(textures.resolve(portrait.file() + ".png").toFile());
-            assertEquals(24, drawn.getWidth());
-            assertEquals(portrait.height(), drawn.getHeight());
-            assertEquals(Color.RED.getRGB(), drawn.getRGB(23, 23));
-        }
+        final BufferedImage drawn =
+                ImageIO.read(textures.resolve("portrait.png").toFile());
+        assertEquals(46, drawn.getWidth());
+        assertEquals(64, drawn.getHeight());
+        assertEquals(Color.RED.getRGB(), drawn.getRGB(23, 18), "the face in the middle of the well");
+        assertEquals(0, drawn.getRGB(23, 50), "the padding below the frame");
         final JsonObject font = JsonParser.parseString(
                         Files.readString(root.resolve("assets/nordtal/font/npc/" + NPC + ".json")))
                 .getAsJsonObject();
-        assertEquals(3, font.getAsJsonArray("providers").size());
-        assertEquals(
-                "nordtal:npc/" + NPC + "/portrait_3.png",
-                font.getAsJsonArray("providers")
-                        .get(2)
-                        .getAsJsonObject()
-                        .get("file")
-                        .getAsString());
+        assertEquals(NpcPack.PORTRAITS.size(), font.getAsJsonArray("providers").size());
+        for (final JsonElement provider : font.getAsJsonArray("providers")) {
+            assertEquals(
+                    "nordtal:npc/" + NPC + "/portrait.png",
+                    provider.getAsJsonObject().get("file").getAsString());
+            assertEquals(64, provider.getAsJsonObject().get("height").getAsInt());
+        }
     }
 
     @Test
     void theHatLayerCoversTheFace() throws IOException {
-        final BufferedImage face = NpcPack.face(skin(Color.RED, Color.BLUE));
+        final BufferedImage bust = NpcPack.bust(skin(Color.RED, Color.BLUE), false);
 
-        assertEquals(Color.BLUE.getRGB(), face.getRGB(0, 0));
-        assertEquals(Color.BLUE.getRGB(), face.getRGB(23, 23));
+        assertEquals(Color.BLUE.getRGB(), bust.getRGB(20, 15));
+        assertEquals(Color.BLUE.getRGB(), bust.getRGB(9, 28));
+    }
+
+    @Test
+    void anOwnPortraitHasTheFrameOfTheDefaultPortrait() throws IOException {
+        final BufferedImage own = NpcPack.portrait(NpcPack.bust(skin(Color.RED, null), true));
+        final BufferedImage standard =
+                ImageIO.read(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/textures/npc/portrait.png")
+                        .toFile());
+
+        assertEquals(standard.getWidth(), own.getWidth());
+        assertEquals(standard.getHeight(), own.getHeight());
+        for (int y = 0; y < own.getHeight(); y++) {
+            for (int x = 0; x < own.getWidth(); x++) {
+                final boolean well = x >= 3 && x < 43 && y >= 3 && y < 43;
+                if (!well) {
+                    assertEquals(standard.getRGB(x, y), own.getRGB(x, y), "at " + x + ", " + y);
+                }
+            }
+        }
     }
 
     @Test
@@ -78,12 +95,11 @@ class NpcPackTest {
             for (final JsonElement block : font.getAsJsonObject().getAsJsonArray("blocks")) {
                 for (final JsonElement each : block.getAsJsonObject().getAsJsonArray("glyphs")) {
                     final JsonObject glyph = each.getAsJsonObject();
-                    final String texture = glyph.get("texture").getAsString();
-                    if (texture.startsWith("nordtal:npc/portrait")) {
+                    if (("nordtal:npc/" + NpcPack.FILE + ".png")
+                            .equals(glyph.get("texture").getAsString())) {
+                        assertEquals(NpcPack.HEIGHT, glyph.get("height").getAsInt());
                         declared.add(new NpcPack.Portrait(
-                                texture.substring("nordtal:npc/".length(), texture.length() - ".png".length()),
                                 Integer.parseInt(glyph.get("code").getAsString(), 16),
-                                glyph.get("height").getAsInt(),
                                 glyph.get("ascent").getAsInt()));
                     }
                 }

@@ -25,7 +25,7 @@ class DialogueRunTest {
 
     private static final Feel FEEL = new Feel(30, 0.8, 3.0, 120);
     private static final Labels LABELS =
-            new Labels("Next", "Choose", "Answer", "Don't show again", Map.of("objectives", "Open objectives"));
+            new Labels("Next", "More", "Choose", "Answer", "Don't show again", Map.of("objectives", "Open objectives"));
 
     /** The tick the panel first shows and typing begins: the fourth stage, two ticks each. */
     private static final int FIRST_TYPING_TICK = 7;
@@ -71,10 +71,10 @@ class DialogueRunTest {
         final List<Frame> frames = ticks(run, 40);
         final int typed = FIRST_TYPING_TICK + 4;
 
-        assertFalse(panel(frames, typed - 1).holdMark(), "no mark while typing");
-        assertTrue(panel(frames, typed).holdMark());
-        assertFalse(panel(frames, typed + 10).holdMark(), "the mark blinks off after 10 ticks");
-        assertTrue(panel(frames, typed + 20).holdMark());
+        assertFalse(panel(frames, typed - 1).more(), "no mark while typing");
+        assertTrue(panel(frames, typed).more());
+        assertFalse(panel(frames, typed + 10).more(), "the mark blinks off after 10 ticks");
+        assertTrue(panel(frames, typed + 20).more());
         assertFalse(at(frames, typed + 27).effects().contains(sound(Effect.Cue.NEXT_TEXT)));
         assertTrue(at(frames, typed + 28).effects().contains(sound(Effect.Cue.NEXT_TEXT)));
     }
@@ -325,6 +325,50 @@ class DialogueRunTest {
         final List<Frame> frames = ticks(play(speaking("start", "Hello there", null)), 20);
 
         assertTrue(frames.stream().anyMatch(frame -> frame.effects().contains(sound(Effect.Cue.TYPE))));
+    }
+
+    private static final String LONG = "The mine to the north has been buried since last winter, and nobody dares to go"
+            + " in any more. Whoever opens it again gets a whole sack of iron from me and a place by the fire. But"
+            + " be careful: things live down in the tunnels that do not like the light, and they are hungry.";
+
+    @Test
+    void aLongTextShowsPageByPageWithItsCountAndTheMoreHint() {
+        final DialogueRun run = play(speaking("start", LONG, null));
+        final Frame first = ticks(run, FIRST_TYPING_TICK).getLast();
+
+        final DialogueScreen.Page page = first.panel().page();
+        assertNotNull(page);
+        assertEquals(1, page.number());
+        assertTrue(page.count() > 1);
+        assertEquals(List.of(new Hint(Mark.NEXT, "More")), first.hints());
+        run.rightClick();
+        ticks(run, DialogueRun.DEBOUNCE);
+        run.rightClick();
+        final Frame second = run.tick(Where.STILL);
+        assertEquals(2, second.panel().page().number());
+        assertTrue(second.effects().contains(sound(Effect.Cue.NEXT_TEXT)));
+        assertTrue(line(second).length() < 5, "the new page types from its start");
+    }
+
+    @Test
+    void aPageTurnsByItselfAfterItsHold() {
+        final DialogueRun run = play(speaking("start", LONG, null));
+        for (int tick = 0; tick < 400; tick++) {
+            final Frame frame = run.tick(Where.STILL);
+            if (frame.panel() != null && frame.panel().page().number() == 2) {
+                return;
+            }
+        }
+        throw new AssertionError("the first page never turned");
+    }
+
+    @Test
+    void aQuestionKeepsTheRoomOfItsAnswersWhileItTypes() {
+        final DialogueRun run = play(question("start", "Will you come?", answer("Yes", null), answer("No", null)));
+        final Frame typing = ticks(run, FIRST_TYPING_TICK).getLast();
+
+        assertEquals(2, typing.panel().rows());
+        assertTrue(typing.panel().answers().isEmpty());
     }
 
     @Test

@@ -129,8 +129,8 @@ class NpcApiTest extends WebTestSupport {
         assertEquals(200, measured.statusCode(), measured.body());
         final JsonArray answers = GSON.fromJson(measured.body(), JsonArray.class);
         assertTrue(answers.get(0).getAsJsonObject().get("fits").getAsBoolean());
-        assertFalse(answers.get(1).getAsJsonObject().get("fits").getAsBoolean());
-        assertEquals(2, answers.get(1).getAsJsonObject().get("lineLimit").getAsInt());
+        assertTrue(answers.get(1).getAsJsonObject().get("fits").getAsBoolean(), "a long text turns its pages");
+        assertEquals(3, answers.get(1).getAsJsonObject().get("lineLimit").getAsInt());
         assertEquals(
                 400,
                 post("/api/npc-text/measure", "[{\"text\":\"Hi\",\"kind\":\"BODY\",\"answers\":5}]")

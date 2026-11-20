@@ -38,7 +38,7 @@ class NpcMenusTest {
 
     @Test
     void aMenuWithoutAHintShowsTheNextWord() {
-        final Labels labels = new Labels("Next", "Choose", "Answer", "Don't show again", Map.of());
+        final Labels labels = new Labels("Next", "More", "Choose", "Answer", "Don't show again", Map.of());
         assertEquals("Next", labels.menu("objectives"));
     }
 }

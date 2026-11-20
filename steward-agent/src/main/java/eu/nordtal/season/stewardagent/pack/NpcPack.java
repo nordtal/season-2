@@ -3,8 +3,6 @@ package eu.nordtal.season.stewardagent.pack;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.database.npc.NpcSkin;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -20,22 +18,57 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 
 /**
- * Writes the pack files of each NPC with an uploaded skin: its body texture and its portrait font.
- * The figure's profile names the texture, and the font replaces the three portrait glyphs of {@code nordtal:npc}.
- * Both are keyed by the NPC's id, and smp dresses an NPC in a skin only once the active pack holds it.
+ * Writes each skinned NPC's body texture and portrait font, keyed by its id; smp dresses it once the pack holds them.
+ * The font replaces the portrait glyphs of {@code nordtal:npc}, one per panel height, which draw one texture.
  */
 final class NpcPack {
 
-    /** The face's side on the panel: the skin's 8 by 8 face drawn three times as large. */
-    private static final int FACE = 24;
+    /** The picture's side inside the frame. */
+    static final int PICTURE = 40;
 
-    private static final int SKIN = 64;
+    /** The frame's side: the picture and a bevel of 3 on each side. */
+    static final int FRAME = PICTURE + 6;
+
+    /** The texture's height: the frame padded below, so every panel height can raise it by its ascent. */
+    static final int HEIGHT = 64;
+
+    /** The texture every portrait glyph draws, beside the body texture. */
+    static final String FILE = "portrait";
 
     /** The portrait glyphs of {@code nordtal:npc} in resource-pack/glyphs.json, which each NPC's font replaces. */
     static final List<Portrait> PORTRAITS = List.of(
-            new Portrait("portrait_speak", 0xFE6A2, 24, 13),
-            new Portrait("portrait_2", 0xFE6A5, 44, 44),
-            new Portrait("portrait_3", 0xFE6A8, 64, 64));
+            new Portrait(0xFE6E0, 4),
+            new Portrait(0xFE6E1, 9),
+            new Portrait(0xFE6E2, 14),
+            new Portrait(0xFE6E3, 16),
+            new Portrait(0xFE6E4, 19),
+            new Portrait(0xFE6E5, 24),
+            new Portrait(0xFE6E6, 26),
+            new Portrait(0xFE6E7, 28),
+            new Portrait(0xFE6E8, 36),
+            new Portrait(0xFE6E9, 38),
+            new Portrait(0xFE6EA, 48));
+
+    private static final int SKIN = 64;
+
+    private static final int OPAQUE = 255;
+
+    private static final int BLACK = 0xFF000000;
+
+    private static final int WHITE = 0xFFFFFFFF;
+
+    private static final int FILL = 0xFFC6C6C6;
+
+    private static final int SHADE = 0xFF555555;
+
+    private static final int WELL_TOP = 0x9A9A9A;
+
+    private static final int WELL_LOW = 0x6E6E6E;
+
+    /** The line that sinks the well's top and left edge: #373737 at alpha 160. */
+    private static final int WELL_EDGE = 0xA0373737;
+
+    private static final int OUTLINE = 0xFF101014;
 
     private NpcPack() {}
 
@@ -47,13 +80,10 @@ final class NpcPack {
             final Path body = asset(root, "textures", NpcSkin.bodyTexture(entry.getKey()), ".png");
             final Path textures = Files.createDirectories(Objects.requireNonNull(body.getParent(), "folder"));
             Files.write(body, png);
-            final BufferedImage face = face(png);
-            for (final Portrait portrait : PORTRAITS) {
-                ImageIO.write(
-                        padded(face, portrait.height()),
-                        "png",
-                        textures.resolve(portrait.file() + ".png").toFile());
-            }
+            ImageIO.write(
+                    portrait(bust(png, entry.getValue().model() == NpcSkin.SkinModel.SLIM)),
+                    "png",
+                    textures.resolve(FILE + ".png").toFile());
             final Path font = asset(root, "font", NpcSkin.portraitFont(entry.getKey()), ".json");
             Files.createDirectories(Objects.requireNonNull(font.getParent(), "folder"));
             Files.writeString(font, font(npc), StandardCharsets.UTF_8);
@@ -69,35 +99,245 @@ final class NpcPack {
                 .resolve(key.substring(colon + 1) + extension);
     }
 
-    /** Draws the face and the hat layer of a 64 by 64 skin three times as large, pixel for pixel. */
-    static BufferedImage face(final byte[] png) throws IOException {
+    /**
+     * Draws a chibi bust of a 64 by 64 skin, {@value #PICTURE} pixels square.
+     * The front of the head and its hat layer are three times as large, the upper body and arms twice, with a dark
+     * outline around the figure and light from above: the default portrait's drawing of the design kit's skin.
+     */
+    static BufferedImage bust(final byte[] png, final boolean slim) throws IOException {
         final BufferedImage skin = ImageIO.read(new ByteArrayInputStream(png));
         if (skin == null || skin.getWidth() != SKIN || skin.getHeight() != SKIN) {
             throw new IOException("an NPC skin is not a 64 by 64 PNG");
         }
-        final BufferedImage face = new BufferedImage(FACE, FACE, BufferedImage.TYPE_INT_ARGB);
-        final Graphics2D drawing = face.createGraphics();
-        try {
-            drawing.setRenderingHint(
-                    RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            drawing.drawImage(skin, 0, 0, FACE, FACE, 8, 8, 16, 16, null);
-            drawing.drawImage(skin, 0, 0, FACE, FACE, 40, 8, 48, 16, null);
-        } finally {
-            drawing.dispose();
+        final int arm = slim ? 3 : 4;
+        final BufferedImage head = scaled(part(skin, 8, 8, 8, 8, 40, 8), 3);
+        final BufferedImage torso = scaled(part(skin, 20, 20, 8, 6, 20, 36), 2);
+        final BufferedImage right = scaled(part(skin, 44, 20, arm, 6, 44, 36), 2);
+        final BufferedImage left = scaled(part(skin, 36, 52, arm, 6, 52, 52), 2);
+        final BufferedImage figure = blank(PICTURE, PICTURE);
+        final int middle = PICTURE / 2;
+        final int body = PICTURE - 12;
+        blit(figure, shaded(right, 0.78), middle - 8 - 2 * arm, body + 1);
+        blit(figure, shaded(left, 0.70), middle + 8, body + 1);
+        blit(figure, shaded(torso, 0.88), middle - 8, body);
+        final int top = body - 23;
+        blit(figure, head, middle - 12, top);
+        for (int x = middle - 12; x < middle + 12; x++) {
+            figure.setRGB(x, top, scaledColour(figure.getRGB(x, top), 1.12));
+            figure.setRGB(x, top + 23, scaledColour(figure.getRGB(x, top + 23), 0.8));
         }
-        return face;
+        final BufferedImage outlined = blank(PICTURE, PICTURE);
+        for (int y = 0; y < PICTURE; y++) {
+            for (int x = 0; x < PICTURE; x++) {
+                if (alpha(figure.getRGB(x, y)) == 0 && touchesInk(figure, x, y)) {
+                    outlined.setRGB(x, y, OUTLINE);
+                }
+            }
+        }
+        blit(outlined, figure, 0, 0);
+        final BufferedImage lowered = blank(PICTURE, PICTURE);
+        blit(lowered, outlined, 0, 1);
+        return lowered;
     }
 
-    /** The face on top of a transparent sheet {@code height} tall, as the pack's own portraits are padded below. */
-    private static BufferedImage padded(final BufferedImage face, final int height) {
-        final BufferedImage padded = new BufferedImage(FACE, height, BufferedImage.TYPE_INT_ARGB);
-        final Graphics2D drawing = padded.createGraphics();
-        try {
-            drawing.drawImage(face, 0, 0, null);
-        } finally {
-            drawing.dispose();
+    /** Frames a {@value #PICTURE} square picture as the panel's bevel and well, padded below to {@value #HEIGHT}. */
+    static BufferedImage portrait(final BufferedImage picture) {
+        final BufferedImage frame = blank(FRAME, HEIGHT);
+        bevel(frame);
+        for (int y = 0; y < PICTURE; y++) {
+            final double t = y / (double) (PICTURE - 1);
+            final int colour = OPAQUE << 24 | mix(WELL_TOP, WELL_LOW, t);
+            for (int x = 0; x < PICTURE; x++) {
+                frame.setRGB(3 + x, 3 + y, colour);
+            }
         }
-        return padded;
+        blit(frame, picture, 3, 3);
+        for (int i = 0; i < PICTURE; i++) {
+            over(frame, 3 + i, 3, WELL_EDGE);
+        }
+        for (int i = 0; i < PICTURE; i++) {
+            over(frame, 3, 3 + i, WELL_EDGE);
+        }
+        return frame;
+    }
+
+    /** Draws the chest window's outline, light and shade on the top {@value #FRAME} rows, as the pack's panels do. */
+    private static void bevel(final BufferedImage frame) {
+        final int n = FRAME;
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                frame.setRGB(x, y, FILL);
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            frame.setRGB(i, 0, BLACK);
+            frame.setRGB(i, n - 1, BLACK);
+            frame.setRGB(0, i, BLACK);
+            frame.setRGB(n - 1, i, BLACK);
+        }
+        for (int y = 1; y < n - 1; y++) {
+            for (final int x : new int[] {1, 2}) {
+                frame.setRGB(x, y, y <= n - 4 ? WHITE : SHADE);
+            }
+            for (final int x : new int[] {n - 3, n - 2}) {
+                frame.setRGB(x, y, y >= 3 ? SHADE : WHITE);
+            }
+        }
+        for (int x = 1; x < n - 1; x++) {
+            for (final int y : new int[] {1, 2}) {
+                if (x <= n - 4) {
+                    frame.setRGB(x, y, WHITE);
+                }
+            }
+            for (final int y : new int[] {n - 3, n - 2}) {
+                if (x >= 3) {
+                    frame.setRGB(x, y, SHADE);
+                }
+            }
+        }
+        frame.setRGB(n - 4, n - 4, SHADE);
+        corners(frame);
+        for (int y = 3; y < n - 3; y++) {
+            for (int x = 3; x < n - 3; x++) {
+                frame.setRGB(x, y, BLACK);
+            }
+        }
+    }
+
+    /** Rounds the frame's corners: clear outside, black inside, and the fill where light and shade meet. */
+    private static void corners(final BufferedImage frame) {
+        final int n = FRAME;
+        final int[][] clear = {
+            {0, 0},
+            {1, 0},
+            {0, 1},
+            {n - 1, 0},
+            {n - 2, 0},
+            {n - 1, 1},
+            {0, n - 1},
+            {1, n - 1},
+            {0, n - 2},
+            {n - 1, n - 1},
+            {n - 2, n - 1},
+            {n - 1, n - 2}
+        };
+        for (final int[] corner : clear) {
+            frame.setRGB(corner[0], corner[1], 0);
+        }
+        for (final int[] corner : new int[][] {{1, 1}, {n - 2, 1}, {1, n - 2}, {n - 2, n - 2}}) {
+            frame.setRGB(corner[0], corner[1], BLACK);
+        }
+        frame.setRGB(n - 3, 2, FILL);
+        frame.setRGB(2, n - 3, FILL);
+    }
+
+    /** Returns a part of the skin, {@code width} by {@code height} from its top left, with its outer layer on top. */
+    private static BufferedImage part(
+            final BufferedImage skin,
+            final int x,
+            final int y,
+            final int width,
+            final int height,
+            final int outerX,
+            final int outerY) {
+        final BufferedImage part = blank(width, height);
+        for (int j = 0; j < height; j++) {
+            for (int i = 0; i < width; i++) {
+                part.setRGB(i, j, skin.getRGB(x + i, y + j));
+                over(part, i, j, skin.getRGB(outerX + i, outerY + j));
+            }
+        }
+        return part;
+    }
+
+    private static BufferedImage scaled(final BufferedImage image, final int factor) {
+        final BufferedImage scaled = blank(image.getWidth() * factor, image.getHeight() * factor);
+        for (int y = 0; y < scaled.getHeight(); y++) {
+            for (int x = 0; x < scaled.getWidth(); x++) {
+                scaled.setRGB(x, y, image.getRGB(x / factor, y / factor));
+            }
+        }
+        return scaled;
+    }
+
+    private static BufferedImage shaded(final BufferedImage image, final double factor) {
+        final BufferedImage shaded = blank(image.getWidth(), image.getHeight());
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                shaded.setRGB(x, y, scaledColour(image.getRGB(x, y), factor));
+            }
+        }
+        return shaded;
+    }
+
+    /** Returns {@code argb} with its colour channels times {@code factor}, or as it is where it is clear. */
+    private static int scaledColour(final int argb, final double factor) {
+        if (alpha(argb) == 0) {
+            return argb;
+        }
+        int scaled = argb & 0xFF000000;
+        for (int shift = 0; shift <= 16; shift += 8) {
+            scaled |= (int) Math.min(255, Math.round((argb >> shift & 0xFF) * factor)) << shift;
+        }
+        return scaled;
+    }
+
+    private static boolean touchesInk(final BufferedImage image, final int x, final int y) {
+        final int[][] sides = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (final int[] side : sides) {
+            final int nx = x + side[0];
+            final int ny = y + side[1];
+            if (nx >= 0
+                    && nx < image.getWidth()
+                    && ny >= 0
+                    && ny < image.getHeight()
+                    && alpha(image.getRGB(nx, ny)) != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void blit(final BufferedImage target, final BufferedImage source, final int x, final int y) {
+        for (int j = 0; j < source.getHeight(); j++) {
+            for (int i = 0; i < source.getWidth(); i++) {
+                over(target, x + i, y + j, source.getRGB(i, j));
+            }
+        }
+    }
+
+    /** Lays {@code argb} over the pixel at {@code x}, {@code y} by its alpha; outside the image it is lost. */
+    private static void over(final BufferedImage image, final int x, final int y, final int argb) {
+        if (x < 0 || y < 0 || x >= image.getWidth() || y >= image.getHeight()) {
+            return;
+        }
+        final int alpha = alpha(argb);
+        if (alpha == OPAQUE) {
+            image.setRGB(x, y, argb);
+        } else if (alpha != 0) {
+            final int below = image.getRGB(x, y);
+            final int kept = alpha(below) < OPAQUE ? Math.max(alpha(below), alpha) : OPAQUE;
+            image.setRGB(x, y, kept << 24 | mix(below & 0xFFFFFF, argb & 0xFFFFFF, alpha / 255.0));
+        }
+    }
+
+    /** Returns the colour {@code share} of the way from {@code from} to {@code to}, both without alpha. */
+    private static int mix(final int from, final int to, final double share) {
+        int mixed = 0;
+        for (int shift = 0; shift <= 16; shift += 8) {
+            final int a = from >> shift & 0xFF;
+            final int b = to >> shift & 0xFF;
+            mixed |= (int) Math.round(a + (b - a) * share) << shift;
+        }
+        return mixed;
+    }
+
+    private static int alpha(final int argb) {
+        return argb >>> 24;
+    }
+
+    private static BufferedImage blank(final int width, final int height) {
+        return new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
     }
 
     private static String font(final String npc) {
@@ -105,8 +345,8 @@ final class NpcPack {
         for (final Portrait portrait : PORTRAITS) {
             final JsonObject provider = new JsonObject();
             provider.addProperty("type", "bitmap");
-            provider.addProperty("file", "nordtal:npc/" + npc + "/" + portrait.file() + ".png");
-            provider.addProperty("height", portrait.height());
+            provider.addProperty("file", "nordtal:npc/" + npc + "/" + FILE + ".png");
+            provider.addProperty("height", HEIGHT);
             provider.addProperty("ascent", portrait.ascent());
             final JsonArray chars = new JsonArray();
             chars.add(Character.toString(portrait.code()));
@@ -118,6 +358,6 @@ final class NpcPack {
         return font.toString();
     }
 
-    /** One portrait glyph: its file name, code point, height and ascent. */
-    record Portrait(String file, int code, int height, int ascent) {}
+    /** One portrait glyph: its code point and its ascent, which raises the portrait onto one panel height. */
+    record Portrait(int code, int ascent) {}
 }

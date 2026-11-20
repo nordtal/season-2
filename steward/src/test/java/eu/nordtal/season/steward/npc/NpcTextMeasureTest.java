@@ -15,30 +15,33 @@ class NpcTextMeasureTest {
     private static final String SENTENCE = "The wheel turns once a day, and every turn may bring a prize. ";
 
     @Test
-    void aBodyFitsInThreeLinesAloneAndTwoAboveAnswers() {
+    void aBodyLongerThanAPageStillFitsBecauseItsPagesTurn() {
         String text = "";
-        while (Letters.wrapVisible(text, DialogueRoom.BODY).size() < 3) {
+        while (Letters.wrapVisible(text, DialogueRoom.BODY).size() < DialogueRoom.SPEAK_LINES + 1) {
             text += "turn ";
         }
         final NpcTextMeasure.Measurement alone =
                 NpcTextMeasure.measure(new NpcTextMeasure.Request(text, NpcTextMeasure.Kind.BODY, 0));
         assertEquals(DialogueRoom.SPEAK_LINES, alone.lineLimit());
         assertEquals(DialogueRoom.BODY, alone.room());
-        assertEquals(3, alone.lines().size(), alone.lines().toString());
+        assertEquals(
+                DialogueRoom.SPEAK_LINES + 1,
+                alone.lines().size(),
+                alone.lines().toString());
         assertTrue(alone.fits());
         assertTrue(alone.width() <= DialogueRoom.BODY);
 
         final NpcTextMeasure.Measurement asking =
                 NpcTextMeasure.measure(new NpcTextMeasure.Request(text, NpcTextMeasure.Kind.BODY, 2));
         assertEquals(DialogueRoom.QUESTION_LINES, asking.lineLimit());
-        assertFalse(asking.fits(), "three lines do not fit above answers");
+        assertTrue(asking.fits(), "a question's text pages too, and its answers come with the last page");
     }
 
     @Test
     void aNameOrAnswerIsOneLineMeasuredWithTheLetterWidths() {
         final NpcTextMeasure.Measurement name =
                 NpcTextMeasure.measure(new NpcTextMeasure.Request("Ida", NpcTextMeasure.Kind.NAME, 0));
-        assertEquals(Letters.visibleWidth("Ida"), name.width());
+        assertEquals(Letters.boldVisibleWidth("Ida"), name.width(), "the tab sets the name in bold");
         assertTrue(name.fits());
         final NpcTextMeasure.Measurement answer =
                 NpcTextMeasure.measure(new NpcTextMeasure.Request(SENTENCE.repeat(2), NpcTextMeasure.Kind.ANSWER, 0));

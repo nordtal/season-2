@@ -9,6 +9,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEventSource;
 import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -77,6 +78,38 @@ public final class Pen {
         return move(-1);
     }
 
+    /** Draws {@code glyph} as {@link #art(String, String, int)} does, tinted in {@code colour}. */
+    public Pen art(final String font, final String glyph, final int width, final TextColor colour) {
+        if (layer == Layer.INK) {
+            return move(width);
+        }
+        put(font, colour, glyph, width + 1);
+        return move(-1);
+    }
+
+    /** Draws {@code glyphs} of {@code font} in {@code colour} on every layer, moving the cursor {@code advance}. */
+    public Pen draw(final String font, final String glyphs, final TextColor colour, final int advance) {
+        put(font, colour, glyphs, advance);
+        return this;
+    }
+
+    /**
+     * Draws {@code text} in bold in {@code font}, a font of vanilla's letters, and moves by its bold advance.
+     * The bold piece stands alone, so no move joins it and grows by the client's bold column.
+     */
+    public Pen bold(final String font, final String text, final TextColor colour) {
+        final int advance = Letters.boldWidth(text);
+        if (layer == Layer.ART) {
+            return move(advance);
+        }
+        final Component piece = Component.text(text)
+                .font(Key.key(font))
+                .color(colour)
+                .decoration(TextDecoration.BOLD, true)
+                .shadowColor(ShadowColor.none());
+        return append(piece, advance);
+    }
+
     /** Draws {@code glyph} as {@link #art(String, String, int)} does, showing {@code hover} under the mouse. */
     public Pen art(final String font, final String glyph, final int width, final HoverEventSource<?> hover) {
         if (layer == Layer.INK) {
@@ -131,6 +164,11 @@ public final class Pen {
 
     /** Draws runs of 1, 2, 4 to 256 columns from {@code glyphs}, smallest first, that fill {@code width} columns. */
     Pen runs(final String font, final List<String> glyphs, final int width) {
+        return runs(font, glyphs, width, Colours.ART);
+    }
+
+    /** Draws runs as {@link #runs(String, List, int)} does, tinted in {@code colour}. */
+    public Pen runs(final String font, final List<String> glyphs, final int width, final TextColor colour) {
         int rest = width;
         for (final int length : RUNS) {
             final int index = Integer.numberOfTrailingZeros(length);
@@ -138,7 +176,7 @@ public final class Pen {
                 continue;
             }
             while (rest >= length) {
-                art(font, glyphs.get(index), length);
+                art(font, glyphs.get(index), length, colour);
                 rest -= length;
             }
         }

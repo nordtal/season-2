@@ -1,19 +1,23 @@
 package eu.nordtal.season.packrendering.npc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.npc.DialogueScreen.Hint;
+import eu.nordtal.season.packrendering.npc.DialogueScreen.Icon;
 import eu.nordtal.season.packrendering.npc.DialogueScreen.Mark;
+import eu.nordtal.season.packrendering.npc.DialogueScreen.Page;
 import eu.nordtal.season.packrendering.npc.DialogueScreen.Panel;
+import eu.nordtal.season.packrendering.npc.DialogueScreen.Speaker;
 import eu.nordtal.season.packrendering.npc.DialogueScreen.Switch;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.Letters;
 import java.util.List;
 import java.util.stream.IntStream;
-import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.junit.jupiter.api.Test;
 
@@ -21,288 +25,309 @@ import org.junit.jupiter.api.Test;
 class DialogueScreenTest {
 
     private static final String NPC = Glyphs.FONT_NPC;
+    private static final Speaker ALMA = new Speaker("Alma");
     private static final List<String> THREE = List.of("Ja", "Nein", "Vielleicht");
-
-    private static Placed.Ink ink(final String font, final TextColor colour, final int x, final String text) {
-        return new Placed.Ink(font, colour, x, text);
-    }
-
-    private static Placed.Ink art(final int x, final String glyph) {
-        return new Placed.Ink(NPC, Colours.ART, x, glyph);
-    }
+    private static final List<Integer> HEIGHTS = List.of(43, 48, 53, 55, 58, 63, 65, 67, 75, 77, 87);
 
     private static String text(final int shift) {
         return Glyphs.FONT_NPC_TEXT.get(shift);
+    }
+
+    private static String art(final int shift) {
+        return Glyphs.FONT_NPC_ART.get(shift);
+    }
+
+    private static String small(final int shift) {
+        return Glyphs.FONT_NPC_SMALL.get(shift);
     }
 
     private static Placed last(final Panel panel) {
         return Placed.of(DialogueScreen.bottom(DialogueScreen.STAGES, panel, List.of(), null));
     }
 
-    private static Panel answers(final List<String> answers, final int selected) {
-        return new Panel("Alma", List.of("Kommst du mit?"), false, answers, selected);
+    private static int index(final int height) {
+        return HEIGHTS.indexOf(height);
     }
 
     @Test
-    void theSpeakingPanelDrawsItsArtNameAndLinesOnTheirRows() {
-        final Placed line = last(new Panel("Alma Berg", List.of("Eins", "Zwei", "Drei"), false, List.of(), 0));
+    void theSpeakingPanelDrawsItsArtPortraitAndLinesOnTheirRows() {
+        final Placed placed = last(Panel.speaking(ALMA, List.of("Hallo", "du", "da"), false));
 
-        assertEquals(262, line.advance());
-        assertTrue(line.inks().contains(art(0, Glyphs.NPC_PANEL_SPEAK_0)));
-        assertTrue(line.inks().contains(art(256, Glyphs.NPC_PANEL_SPEAK_1)));
-        assertTrue(line.inks().contains(art(7, Glyphs.NPC_PORTRAIT_SPEAK)));
-        assertEquals(ink(text(-6), Colours.INK, 36, "Alma Berg"), line.only("Alma Berg"));
-        assertEquals(ink(text(5), Colours.INK, 36, "Eins"), line.only("Eins"));
-        assertEquals(ink(text(14), Colours.INK, 36, "Zwei"), line.only("Zwei"));
-        assertEquals(ink(text(23), Colours.INK, 36, "Drei"), line.only("Drei"));
-        assertTrue(line.in(NPC).stream().noneMatch(ink -> ink.text().equals(Glyphs.NPC_HOLD)));
+        assertEquals(0, placed.only(Glyphs.NPC_PANELS_LEFT.get(index(48))).x());
+        assertEquals(256, placed.only(Glyphs.NPC_PANELS_RIGHT.get(index(48))).x());
+        assertEquals(7, placed.only(Glyphs.NPC_PORTRAITS.get(index(48))).x());
+        assertEquals(new Placed.Ink(text(21), DialogueScreen.INK, 60, "Hallo", false), placed.only("Hallo"));
+        assertEquals(text(31), placed.only("du").font());
+        assertEquals(text(41), placed.only("da").font());
     }
 
     @Test
-    void theHoldMarkStandsOnTheContentsLastColumns() {
-        final Placed line = last(new Panel("Alma", List.of("Eins"), true, List.of(), 0));
+    void aFourthLineTakesTheTallerSpeakingPanel() {
+        final Placed placed = last(Panel.speaking(ALMA, List.of("a1", "a2", "a3", "a4"), false));
 
-        assertEquals(art(250, Glyphs.NPC_HOLD), line.only(Glyphs.NPC_HOLD));
+        assertEquals(0, placed.only(Glyphs.NPC_PANELS_LEFT.get(index(58))).x());
+        assertEquals(text(11), placed.only("a1").font());
+        assertEquals(text(41), placed.only("a4").font());
     }
 
     @Test
-    void twoAnswersStandOnTheSecondAndThirdPlatesWhicheverIsSelected() {
-        for (int selected = 0; selected < 2; selected++) {
-            final Placed line = last(answers(THREE.subList(0, 2), selected));
+    void theNameTabCarriesTheBoldWhiteNameInItsColourAndFitsIt() {
+        final Speaker speaker = new Speaker("Alma", TextColor.color(0xA83232), null, NPC);
+        final Placed placed = last(Panel.speaking(speaker, List.of("Hallo"), false));
+        final int width = 6 + Letters.boldVisibleWidth("Alma") + 6;
 
-            assertEquals(262, line.advance());
-            assertTrue(line.inks().contains(art(0, Glyphs.NPC_PANEL_2_0)));
-            assertTrue(line.inks().contains(art(7, Glyphs.NPC_PORTRAIT_2)));
-            assertEquals(ink(text(-37), Colours.INK, 36, "Alma"), line.only("Alma"));
-            assertEquals(ink(text(-26), Colours.INK, 36, "Kommst du mit?"), line.only("Kommst du mit?"));
-            plate(line, selected, 0, Glyphs.NPC_PLATE_2, Glyphs.NPC_PLATE_ON_2, -1);
-            plate(line, selected, 1, Glyphs.NPC_PLATE_3, Glyphs.NPC_PLATE_ON_3, 19);
-        }
-    }
-
-    @Test
-    void threeAnswersStandOnTheirOwnPlatesWhicheverIsSelected() {
-        for (int selected = 0; selected < 3; selected++) {
-            final Placed line = last(answers(THREE, selected));
-
-            assertEquals(262, line.advance());
-            assertTrue(line.inks().contains(art(0, Glyphs.NPC_PANEL_3_0)));
-            assertTrue(line.inks().contains(art(256, Glyphs.NPC_PANEL_3_1)));
-            assertTrue(line.inks().contains(art(7, Glyphs.NPC_PORTRAIT_3)));
-            assertEquals(ink(text(-57), Colours.INK, 36, "Alma"), line.only("Alma"));
-            assertEquals(ink(text(-46), Colours.INK, 36, "Kommst du mit?"), line.only("Kommst du mit?"));
-            plate(line, selected, 0, Glyphs.NPC_PLATE_1, Glyphs.NPC_PLATE_ON_1, -21);
-            plate(line, selected, 1, Glyphs.NPC_PLATE_2, Glyphs.NPC_PLATE_ON_2, -1);
-            plate(line, selected, 2, Glyphs.NPC_PLATE_3, Glyphs.NPC_PLATE_ON_3, 19);
-        }
-    }
-
-    @Test
-    void oneAnswerStandsOnTheFirstPlateOfThePanelForTwo() {
-        final Placed line = last(answers(List.of("Ja"), 0));
-
-        assertTrue(line.inks().contains(art(0, Glyphs.NPC_PANEL_2_0)));
-        plate(line, 0, 0, Glyphs.NPC_PLATE_2, Glyphs.NPC_PLATE_ON_2, -1);
-        assertTrue(line.in(NPC).stream().noneMatch(ink -> ink.text().equals(Glyphs.NPC_PLATE_3)));
-    }
-
-    private static void plate(
-            final Placed line,
-            final int selected,
-            final int answer,
-            final String normal,
-            final String on,
-            final int shift) {
-        final boolean chosen = answer == selected;
-        final String number = String.valueOf(answer + 1);
-        final String label = THREE.get(answer);
-        assertEquals(art(7, chosen ? on : normal), line.only(chosen ? on : normal), label);
-        assertEquals(ink(text(shift), chosen ? Colours.ON_ACCENT : Colours.INK, 11, label), line.only(label));
+        final Placed.Ink name = placed.only("Alma");
+        assertEquals(new Placed.Ink(text(68 - 64), NamedTextColor.WHITE, 62, "Alma", true), name);
+        final List<Placed.Ink> ends = placed.in(art(65 - 64)).stream()
+                .filter(ink -> ink.text().equals(Glyphs.NPC_TAB_END))
+                .toList();
         assertEquals(
-                ink(text(shift), chosen ? Colours.ON_ACCENT : Colours.SOFT, 251 - Letters.visibleWidth(number), number),
-                line.only(number));
+                List.of(56, 56 + width - 1), ends.stream().map(Placed.Ink::x).toList());
+        assertEquals(
+                DialogueScreen.darker(TextColor.color(0xA83232), 0.45),
+                ends.getFirst().colour());
+        assertTrue(placed.in(art(65 - 64)).stream()
+                .anyMatch(ink -> ink.colour().equals(TextColor.color(0xA83232)) && ink.x() == 57));
     }
 
     @Test
-    void hintsEndOnTheContentsLastColumnWithTheMainActionLast() {
-        final List<Hint> hints = List.of(new Hint(Mark.CHOOSE, "Wählen"), new Hint(Mark.ANSWER, "Antworten"));
-        final Placed line = Placed.of(DialogueScreen.bottom(4, answers(THREE, 0), hints, null));
+    void anIconStandsBeforeTheNameInTheTab() {
+        final Speaker speaker = new Speaker("Alma", DialogueScreen.DEFAULT_TAB, Icon.PICKAXE, NPC);
+        final Placed placed = last(Panel.speaking(speaker, List.of("Hallo"), false));
 
-        final int answer = 255 - Letters.visibleWidth("Antworten");
-        assertEquals(ink(text(53), Colours.TOOLTIP_TITLE, answer, "Antworten"), line.only("Antworten"));
-        assertEquals(art(answer - 4 - 9, Glyphs.NPC_MOUSE_LEFT), line.only(Glyphs.NPC_MOUSE_LEFT));
-        final int choose = answer - 4 - 9 - 10 - Letters.visibleWidth("Wählen");
-        assertEquals(ink(text(53), Colours.TOOLTIP_TITLE, choose, "Wählen"), line.only("Wählen"));
-        assertEquals(art(choose - 4 - 15, Glyphs.NPC_MOUSE_WHEEL), line.only(Glyphs.NPC_MOUSE_WHEEL));
-        assertEquals(262, line.advance());
+        assertEquals(62, placed.only(Icon.PICKAXE.glyph()).x());
+        assertEquals(73, placed.only("Alma").x());
     }
 
     @Test
-    void theNextHintStandsAloneAtTheRight() {
-        final Placed line = Placed.of(DialogueScreen.bottom(4, null, List.of(new Hint(Mark.NEXT, "Weiter")), null));
+    void aLongNameIsCutInBoldToItsRoom() {
+        final String name = "Wilhelmine Augusta von Kranichfeld-Oberhausen zu Altenstein";
+        final Placed placed = last(Panel.speaking(new Speaker(name), List.of("Hallo"), false));
 
-        final int word = 255 - Letters.visibleWidth("Weiter");
-        assertEquals(word, line.only("Weiter").x());
-        assertEquals(art(word - 13, Glyphs.NPC_MOUSE_RIGHT), line.only(Glyphs.NPC_MOUSE_RIGHT));
+        final String drawn = DialogueScreen.boldCut(name, DialogueScreen.NAME_ROOM);
+        assertTrue(drawn.endsWith(Letters.ELLIPSIS), drawn);
+        assertTrue(Letters.boldVisibleWidth(placed.only(drawn).text()) <= DialogueScreen.NAME_ROOM);
     }
 
     @Test
-    void theSwitchShowsItsKeyItsBoxAndItsLabelOnTheBarsLeftEnd() {
-        for (final boolean ticked : List.of(false, true)) {
-            final Placed line =
-                    Placed.of(DialogueScreen.bottom(4, null, List.of(), new Switch("Nicht mehr zeigen", ticked)));
-            final String box = ticked ? Glyphs.NPC_CHECK_ON : Glyphs.NPC_CHECK_OFF;
-            final String other = ticked ? Glyphs.NPC_CHECK_OFF : Glyphs.NPC_CHECK_ON;
+    void theSelectedAnswerShowsItsStripChevronAndBoldAccentLabel() {
+        final Placed placed = last(Panel.question(ALMA, List.of("Kommst du mit?"), THREE, 1));
 
-            assertEquals(art(7, Glyphs.NPC_KEY_SHIFT), line.only(Glyphs.NPC_KEY_SHIFT));
-            assertEquals(art(41, box), line.only(box));
-            assertTrue(line.inks().stream().noneMatch(ink -> ink.text().equals(other)));
-            assertEquals(ink(text(53), Colours.TOOLTIP_TITLE, 54, "Nicht mehr zeigen"), line.only("Nicht mehr zeigen"));
-            assertEquals(262, line.advance());
+        // Answer 2 of 3 stands on row 1 from the bottom, whose top is 45 rows up.
+        assertEquals(
+                new Placed.Ink(art(72 - 45), Colours.ART, 56, Glyphs.NPC_STRIP, false), placed.only(Glyphs.NPC_STRIP));
+        assertEquals(
+                new Placed.Ink(art(72 - 43), Colours.ART, 60, Glyphs.NPC_CHEVRON, false),
+                placed.only(Glyphs.NPC_CHEVRON));
+        assertEquals(new Placed.Ink(text(72 - 43), DialogueScreen.ACCENT, 68, "Nein", true), placed.only("Nein"));
+        assertEquals(new Placed.Ink(text(72 - 55), DialogueScreen.SOFT, 68, "Ja", false), placed.only("Ja"));
+        assertEquals(
+                new Placed.Ink(text(72 - 31), DialogueScreen.SOFT, 68, "Vielleicht", false), placed.only("Vielleicht"));
+    }
+
+    @Test
+    void theAnswersKeepTheirPlacesWhicheverIsSelected() {
+        for (int selected = 0; selected < 3; selected++) {
+            final Placed placed = last(Panel.question(ALMA, List.of("Kommst du mit?"), THREE, selected));
+            for (int answer = 0; answer < 3; answer++) {
+                final Placed.Ink label = placed.only(THREE.get(answer));
+                assertEquals(68, label.x());
+                assertEquals(text(72 - (31 + 12 * (2 - answer))), label.font());
+            }
         }
     }
 
     @Test
-    void everyStageDrawsItsBottomBarAcrossTheScreenAndAdvances262() {
-        final List<String> bars = List.of(Glyphs.NPC_BAR_1, Glyphs.NPC_BAR_2, Glyphs.NPC_BAR_3, Glyphs.NPC_BAR_4);
-        for (int stage = 0; stage <= DialogueScreen.STAGES; stage++) {
-            final Placed line = Placed.of(DialogueScreen.bottom(stage, null, List.of(), null));
-            final String bar = stage == 0 ? "" : bars.get(stage - 1);
+    void theNumbersEndBeforeTheMarkColumnInTheSmallLetters() {
+        final Placed placed = last(Panel.question(ALMA, List.of("Kommst du mit?"), THREE, 0));
 
-            assertEquals(262, line.advance(), "stage " + stage);
-            final List<Placed.Ink> expected = stage == 0
-                    ? List.of()
-                    : IntStream.range(0, 12)
-                            .mapToObj(tile -> art(-1405 + 256 * tile, bar))
-                            .toList();
-            assertEquals(expected, line.inks(), "stage " + stage);
+        for (int answer = 0; answer < 3; answer++) {
+            final Placed.Ink number = placed.only(String.valueOf(answer + 1));
+            assertEquals(291, number.x() + SmallFont.visibleWidth(number.text()));
+            assertEquals(small(72 - (30 + 12 * (2 - answer))), number.font());
+            assertEquals(answer == 0 ? DialogueScreen.ACCENT : DialogueScreen.FAINT, number.colour());
         }
     }
 
     @Test
-    void beforeTheLastStageOnlyTheBarShows() {
-        final Panel panel = new Panel("Alma", List.of("Eins"), true, List.of(), 0);
-        final List<Hint> hints = List.of(new Hint(Mark.NEXT, "Weiter"));
-        final Placed line = Placed.of(DialogueScreen.bottom(3, panel, hints, new Switch("Aus", false)));
+    void aQuestionTypingKeepsTheHeightItsAnswersWillTake() {
+        final Panel typing = new Panel(ALMA, List.of("Kommst"), 3, List.of(), 0, false, null);
+        final Placed placed = last(typing);
 
-        assertEquals(12, line.inks().size());
-        assertTrue(line.inks().stream().allMatch(ink -> ink.text().equals(Glyphs.NPC_BAR_3)));
-        assertEquals(262, line.advance());
+        assertEquals(0, placed.only(Glyphs.NPC_PANELS_LEFT.get(index(67))).x());
+        assertTrue(placed.inks().stream().noneMatch(ink -> ink.text().equals(Glyphs.NPC_STRIP)));
     }
 
     @Test
-    void everyFullScreenAdvances262WhateverItDraws() {
-        final List<Hint> hints = List.of(new Hint(Mark.CHOOSE, "Wählen"), new Hint(Mark.ANSWER, "Antworten"));
-        final List<Panel> panels = List.of(
-                new Panel(
-                        "Ein sehr, sehr langer Name, der nicht mehr auf die Zeile passt",
-                        List.of(),
-                        false,
-                        List.of(),
-                        0),
-                new Panel("Alma", List.of("Eins", "Zwei", "Drei"), true, List.of(), 0),
-                answers(List.of("Ja"), 0),
-                answers(THREE.subList(0, 2), 1),
-                answers(THREE, 2));
-        for (final Panel panel : panels) {
-            final Component line = DialogueScreen.bottom(4, panel, hints, new Switch("Nicht mehr zeigen", true));
-            assertEquals(262, Placed.of(line).advance(), panel.toString());
+    void everyQuestionShapeHasItsPanelAndPortrait() {
+        for (int lines = 1; lines <= 3; lines++) {
+            for (int answers = 1; answers <= 3; answers++) {
+                final List<String> text =
+                        IntStream.range(0, lines).mapToObj(i -> "z" + i).toList();
+                final Panel panel = Panel.question(ALMA, text, THREE.subList(0, answers), 0);
+                final Placed placed = last(panel);
+                final int height = 26 + 10 * (lines - 1) + 12 * (answers - 1) + 17;
+                assertEquals(
+                        0,
+                        placed.only(Glyphs.NPC_PANELS_LEFT.get(index(height))).x(),
+                        lines + "/" + answers);
+                // The question's lines stand above the answers, 10 rows apart.
+                final int first = 16 + height - 13;
+                assertEquals(text(72 - first), placed.only("z0").font());
+            }
         }
     }
 
     @Test
-    void theTopBarSpansTheBandAtEveryStageAndIsEmptyBeforeIt() {
-        final List<String> bars =
-                List.of(Glyphs.NPC_TOP_BAR_1, Glyphs.NPC_TOP_BAR_2, Glyphs.NPC_TOP_BAR_3, Glyphs.NPC_TOP_BAR_4);
+    void theMoreMarkAndTheCountStandAtTheRightOfTheLastLine() {
+        final Panel panel = new Panel(ALMA, List.of("a", "b", "c", "d"), 0, List.of(), 0, true, new Page(1, 2));
+        final Placed placed = last(panel);
 
-        assertEquals(Component.empty(), DialogueScreen.top(0));
+        assertEquals(new Placed.Ink(NPC, Colours.ART, 288, Glyphs.NPC_MORE, false), placed.only(Glyphs.NPC_MORE));
+        final Placed.Ink count = placed.only("1/2");
+        assertEquals(new Placed.Ink(small(43), DialogueScreen.FAINT, count.x(), "1/2", false), count);
+        assertEquals(284, count.x() + SmallFont.visibleWidth("1/2"));
+    }
+
+    @Test
+    void theLastPageShowsNoCount() {
+        final Panel panel = new Panel(ALMA, List.of("a"), 0, List.of(), 0, true, new Page(2, 2));
+
+        assertTrue(last(panel).inks().stream().noneMatch(ink -> ink.text().contains("/")));
+    }
+
+    @Test
+    void hintsEndAtTheRightWithTheMainActionLast() {
+        final List<Hint> hints = List.of(new Hint(Mark.CHOOSE, "Choose"), new Hint(Mark.ANSWER, "Answer"));
+        final Placed placed = Placed.of(DialogueScreen.bottom(DialogueScreen.STAGES, null, hints, null));
+
+        final Placed.Ink answer = placed.only("Answer");
+        assertEquals(new Placed.Ink(small(62), DialogueScreen.HINT, answer.x(), "Answer", false), answer);
+        assertEquals(298, answer.x() + SmallFont.visibleWidth("Answer"));
+        assertEquals(answer.x() - 3 - 7, placed.only(Glyphs.NPC_MOUSE_LEFT).x());
+        final Placed.Ink choose = placed.only("Choose");
+        assertEquals(placed.only(Glyphs.NPC_MOUSE_LEFT).x() - 9, choose.x() + SmallFont.visibleWidth("Choose"));
+        assertEquals(choose.x() - 10, placed.only(Glyphs.NPC_MOUSE_WHEEL).x());
+    }
+
+    @Test
+    void theSwitchShowsItsBoxItsWordAndTheShiftKey() {
+        final Placed placed =
+                Placed.of(DialogueScreen.bottom(DialogueScreen.STAGES, null, List.of(), new Switch("Skip", true)));
+
+        assertEquals(2, placed.only(Glyphs.NPC_CHECK_ON).x());
+        assertEquals(13, placed.only("Skip").x());
+        assertEquals(
+                13 + SmallFont.visibleWidth("Skip") + 4,
+                placed.only(Glyphs.NPC_KEY_SHIFT).x());
+    }
+
+    @Test
+    void everyStageDrawsItsBandAcrossTheScreen() {
         for (int stage = 1; stage <= DialogueScreen.STAGES; stage++) {
-            final Placed line = Placed.of(DialogueScreen.top(stage));
-            final String bar = bars.get(stage - 1);
+            final String tile = Glyphs.NPC_BANDS.get(stage - 1);
+            final List<Integer> xs = Placed.of(DialogueScreen.bottom(stage, null, List.of(), null)).inks().stream()
+                    .filter(ink -> ink.text().equals(tile))
+                    .map(Placed.Ink::x)
+                    .toList();
+            assertEquals(IntStream.range(0, 12).mapToObj(i -> -1386 + 256 * i).toList(), xs);
+        }
+        assertEquals(
+                List.of(),
+                Placed.of(DialogueScreen.bottom(0, null, List.of(), null)).inks());
+    }
 
-            assertEquals(3072, line.advance(), "stage " + stage);
+    @Test
+    void beforeTheLastStageOnlyTheBandShows() {
+        final Panel panel = Panel.speaking(ALMA, List.of("Hallo"), true);
+        final Placed placed = Placed.of(DialogueScreen.bottom(2, panel, List.of(new Hint(Mark.NEXT, "Next")), null));
+
+        assertTrue(placed.inks().stream().allMatch(ink -> ink.text().equals(Glyphs.NPC_BANDS.get(1))));
+    }
+
+    @Test
+    void everyScreenAdvancesThePanelsWidth() {
+        final List<Hint> hints = List.of(new Hint(Mark.NEXT, "Next"));
+        for (int stage = 0; stage <= DialogueScreen.STAGES; stage++) {
             assertEquals(
-                    IntStream.range(0, 12)
-                            .mapToObj(tile -> art(256 * tile, bar))
-                            .toList(),
-                    line.inks());
+                    300,
+                    Placed.of(DialogueScreen.bottom(stage, null, hints, null)).advance());
+            assertEquals(
+                    300,
+                    Placed.of(DialogueScreen.bottom(
+                                    stage,
+                                    Panel.question(
+                                            new Speaker("Alma", DialogueScreen.DEFAULT_TAB, Icon.STAR, NPC),
+                                            List.of("Kommst du mit?"),
+                                            THREE,
+                                            2),
+                                    hints,
+                                    new Switch("Skip", false)))
+                            .advance());
         }
     }
 
     @Test
     void aStageOutsideTheOpeningIsRefused() {
-        assertThrows(IllegalArgumentException.class, () -> DialogueScreen.top(5));
+        assertThrows(IllegalArgumentException.class, () -> DialogueScreen.bottom(5, null, List.of(), null));
         assertThrows(IllegalArgumentException.class, () -> DialogueScreen.bottom(-1, null, List.of(), null));
     }
 
     @Test
-    void textTooLongForItsRoomEndsInAnEllipsis() {
-        final String name = "Ein sehr, sehr langer Name, der nicht mehr auf die Zeile passt";
-        final String label = "Eine Antwort, die viel zu lang ist, um auf eine einzige Platte zu passen";
-        final Placed line = last(new Panel(name, List.of(), false, List.of(label), 0));
-
-        final Placed.Ink shown = line.in(text(-37)).getFirst();
-        assertTrue(shown.text().endsWith(Letters.ELLIPSIS));
-        assertTrue(Letters.visibleWidth(shown.text()) <= DialogueScreen.NAME_ROOM);
-        final Placed.Ink plate = line.in(text(-1)).getFirst();
-        assertTrue(plate.text().endsWith(Letters.ELLIPSIS));
-        assertTrue(Letters.visibleWidth(plate.text()) <= DialogueScreen.LABEL_ROOM);
-    }
-
-    @Test
-    void aPanelHoldsAtMostThreeAnswersAndTheLinesOfItsHeight() {
-        assertThrows(IllegalArgumentException.class, () -> answers(List.of("a", "b", "c", "d"), 0));
-        assertThrows(IllegalArgumentException.class, () -> answers(THREE, 3));
+    void aPanelHoldsTheLinesAndAnswersOfItsShape() {
+        assertThrows(
+                IllegalArgumentException.class, () -> Panel.speaking(ALMA, List.of("1", "2", "3", "4", "5"), false));
+        assertThrows(IllegalArgumentException.class, () -> Panel.question(ALMA, List.of("1", "2", "3", "4"), THREE, 0));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new Panel("Alma", List.of("1", "2", "3", "4"), false, List.of(), 0));
-        assertThrows(IllegalArgumentException.class, () -> new Panel("Alma", List.of("1", "2", "3"), false, THREE, 0));
-        assertThrows(IllegalArgumentException.class, () -> new Panel("Alma", List.of(), true, THREE, 0));
+                () -> Panel.question(ALMA, List.of("1"), List.of("a", "b", "c", "d"), 0));
+        assertThrows(IllegalArgumentException.class, () -> Panel.question(ALMA, List.of("1"), THREE, 3));
+        assertThrows(IllegalArgumentException.class, () -> new Panel(ALMA, List.of("1"), 2, THREE, 0, false, null));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new Panel(ALMA, List.of("1"), 3, THREE, 0, false, new Page(1, 2)));
     }
 
     @Test
-    void wrapBreaksAtSpacesSoEveryLineInksWithinItsRoom() {
-        final String text = "Der Wind kommt heute von Norden, und die Fähre fährt erst, wenn er nachlässt.";
-
-        final List<String> lines = DialogueScreen.wrap(text, DialogueScreen.BODY_ROOM);
-
-        assertTrue(lines.size() > 1);
-        assertEquals(text, String.join(" ", lines));
-        lines.forEach(line -> assertTrue(Letters.visibleWidth(line) <= DialogueScreen.BODY_ROOM, line));
-        final String joined =
-                lines.get(0) + " " + lines.get(1).substring(0, lines.get(1).indexOf(' '));
-        assertTrue(Letters.visibleWidth(joined) > DialogueScreen.BODY_ROOM, "the first line takes every word it can");
+    void theCountRoomHoldsTheWidestCountAndItsGap() {
+        assertEquals(SmallFont.visibleWidth("9/9") + 5, DialogueScreen.COUNT_ROOM);
     }
 
     @Test
-    void wrapBreaksAWordOnlyWhenItAloneIsWiderThanTheRoom() {
-        final String word = "Donaudampfschifffahrtsgesellschaftskapitän";
+    void aTextThatFitsItsLastPageIsOnePage() {
+        assertEquals(List.of(List.of("Hallo du da")), DialogueScreen.pages("Hallo du da", 4));
+    }
 
-        final List<String> lines = DialogueScreen.wrap("ab " + word, 60);
+    @Test
+    void aLongTextBreaksIntoPagesThatFitTheirRoomAndLoseNothing() {
+        final String text = "Die Mine im Norden ist seit dem letzten Winter verschüttet, und niemand traut sich mehr"
+                + " hinein. Wer sie wieder öffnet, bekommt von mir einen ganzen Sack Eisen und einen Platz am Feuer."
+                + " Aber sei vorsichtig: In den Gängen hausen Dinge, die das Licht nicht mögen.";
+        for (final int lastHolds : List.of(3, 4)) {
+            final List<List<String>> pages = DialogueScreen.pages(text, lastHolds);
 
-        assertEquals("ab", lines.getFirst());
-        assertEquals(word, String.join("", lines.subList(1, lines.size())));
-        lines.forEach(line -> assertTrue(Letters.visibleWidth(line) <= 60, line));
+            assertTrue(pages.size() > 1, pages.toString());
+            for (int page = 0; page < pages.size(); page++) {
+                final List<String> lines = pages.get(page);
+                final boolean lastPage = page == pages.size() - 1;
+                assertTrue(lines.size() <= (lastPage ? lastHolds : DialogueScreen.SPEAK_LINES), lines.toString());
+                lines.forEach(line -> assertTrue(Letters.visibleWidth(line) <= DialogueScreen.BODY_ROOM, line));
+                if (!lastPage) {
+                    assertTrue(Letters.visibleWidth(lines.getLast())
+                            <= DialogueScreen.BODY_ROOM - DialogueScreen.COUNT_ROOM);
+                }
+            }
+            assertEquals(
+                    text, String.join(" ", pages.stream().flatMap(List::stream).toList()));
+        }
     }
 
     @Test
     void cutKeepsAShortTextAndEndsALongOneInAnEllipsisWithinTheRoom() {
-        assertEquals("Alma", DialogueScreen.cut("Alma", DialogueScreen.NAME_ROOM));
-        final String cut = DialogueScreen.cut("Ein Name, der für diese Zeile viel zu lang ist", 60);
+        assertEquals("Alma", DialogueScreen.cut("Alma", 40));
+        final String cut = DialogueScreen.cut("Wilhelmine von Kranichfeld", 40);
         assertTrue(cut.endsWith(Letters.ELLIPSIS));
-        assertTrue(Letters.visibleWidth(cut) <= 60);
-    }
-
-    @Test
-    void aPageTooLongForItsLinesEndsItsLastLineInAnEllipsis() {
-        final String text = "Eins zwei drei vier fünf sechs sieben acht neun zehn elf zwölf dreizehn vierzehn "
-                + "fünfzehn sechzehn siebzehn achtzehn neunzehn zwanzig einundzwanzig zweiundzwanzig";
-
-        final List<String> page = DialogueScreen.page(text, DialogueScreen.QUESTION_LINES);
-
-        assertEquals(DialogueScreen.QUESTION_LINES, page.size());
-        assertTrue(page.getLast().endsWith(Letters.ELLIPSIS));
-        page.forEach(line -> assertTrue(Letters.visibleWidth(line) <= DialogueScreen.BODY_ROOM, line));
-        assertEquals(List.of("Eins zwei"), DialogueScreen.page("Eins zwei", DialogueScreen.SPEAK_LINES));
+        assertTrue(Letters.visibleWidth(cut) <= 40);
+        assertFalse(DialogueScreen.boldCut("Wilhelmine", 40).equals("Wilhelmine"));
     }
 }

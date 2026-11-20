@@ -49,23 +49,20 @@ export function Heading({ children, actions }: { children: string; actions?: Rea
 }
 
 /** How much of the panel's room a text takes, and the sentence that says what the panel cuts. */
-export function Room({ measurement, answers }: { measurement: NpcTextMeasurement | undefined; answers?: boolean }) {
+export function Room({ measurement }: { measurement: NpcTextMeasurement | undefined }) {
   if (measurement === undefined) return <div className="h-1 rounded-full bg-muted" />
   const share = Math.min(1, measurement.room === 0 ? 0 : measurement.width / measurement.room)
-  const lines = measurement.lines.length > measurement.lineLimit
   return (
     <>
       <div className="h-1 overflow-hidden rounded-full bg-muted">
         <div
           className={cn("h-full rounded-full", measurement.fits ? "bg-success" : "bg-warning")}
-          style={{ width: `${(lines ? 1 : share) * 100}%` }}
+          style={{ width: `${share * 100}%` }}
         />
       </div>
       {measurement.fits ? null : (
         <p role="status" className="text-xs text-warning">
-          {lines
-            ? t("steward.npcs.cut-lines", { limit: measurement.lineLimit, answers: answers === true })
-            : t("steward.npcs.cut-width")}
+          {t("steward.npcs.cut-width")}
         </p>
       )}
     </>
@@ -107,7 +104,11 @@ function StepText({
         </Label>
         {measurement ? (
           <span className="text-xs text-muted-foreground tnum">
-            {t("steward.npcs.lines", { lines: measurement.lines.length, limit: measurement.lineLimit })}
+            {t("steward.npcs.lines", {
+              lines: measurement.lines.length,
+              limit: measurement.lineLimit,
+              pages: measurement.pages.length,
+            })}
           </span>
         ) : null}
       </div>
@@ -119,7 +120,7 @@ function StepText({
         className={cn("min-h-10 resize-none", measurement && !measurement.fits && "border-warning")}
         onChange={(event) => edit((npc) => setStepText(npc, step.id, language, event.target.value))}
       />
-      <Room measurement={measurement} answers={step.answers.length > 0} />
+      <Room measurement={measurement} />
     </div>
   )
 }

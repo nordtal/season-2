@@ -26,4 +26,18 @@ class LettersTest {
     void aLetterWiderThanTheRoomStillTakesALineOfItsOwn() {
         assertEquals(List.of("w", "w"), Letters.wrapVisible("ww", 0).subList(0, 2));
     }
+
+    @Test
+    void boldWidensEveryCharacterBySpacesIncluded() {
+        assertEquals(Letters.width("A b") + 3, Letters.boldWidth("A b"));
+    }
+
+    @Test
+    void aBoldCutInksWithinItsRoomInBold() {
+        final String cut = Letters.boldCut("Wilhelmine von Kranichfeld-Oberhausen", 80);
+
+        assertTrue(cut.endsWith(Letters.ELLIPSIS), cut);
+        assertTrue(Letters.boldVisibleWidth(cut) <= 80, cut);
+        assertEquals("Ana", Letters.boldCut("Ana", 80));
+    }
 }

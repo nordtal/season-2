@@ -29,26 +29,48 @@ public interface NpcStore {
      */
     default void follow(final SignalHub hub, final Consumer<List<Npc>> apply) {
         hub.watch(Channel.NPC, "the NPCs", null, this::shown, apply);
-        hub.watch(Channel.PACK, "the NPCs' skins in the pack", null, this::shown, apply);
+        hub.watch(Channel.PACK, "the NPCs' skins and artworks in the pack", null, this::shown, apply);
     }
 
-    /** Returns every NPC as the active pack draws it: see {@link #shown(Npc, Map)}. */
+    /** Returns every NPC as the active pack draws it: see {@link #shown(Npc, Packed)}. */
     default List<Npc> shown() {
-        final Map<UUID, UUID> packed = packed();
+        final Packed packed = packed();
         return npcs().stream().map(npc -> shown(npc, packed)).toList();
     }
 
     /**
      * Returns {@code npc} as a pack holding {@code packed} draws it.
      * A skin the pack does not hold yet would draw as a missing texture, so the NPC wears the default until then.
+     * For an artwork it does not hold yet, the NPC shows the artwork the pack holds, or none.
      */
-    static Npc shown(final Npc npc, final Map<UUID, UUID> packed) {
+    static Npc shown(final Npc npc, final Packed packed) {
         final UUID skin = npc.skin();
-        return skin == null || skin.equals(packed.get(npc.id())) ? npc : npc.withSkin(null);
+        final UUID artwork = npc.artwork();
+        final Npc dressed = skin == null || skin.equals(packed.skins().get(npc.id())) ? npc : npc.withSkin(null);
+        return artwork == null || artwork.equals(packed.artworks().get(npc.id()))
+                ? dressed
+                : dressed.withLook(dressed.plate(), packed.artworks().get(npc.id()));
     }
 
-    /** Returns the skin each NPC has in the active pack, by NPC; empty before the first pack is built. */
-    Map<UUID, UUID> packed();
+    /** Returns what the active pack holds of each NPC; empty before the first pack is built. */
+    Packed packed();
+
+    /**
+     * What the active pack draws of the NPCs.
+     *
+     * @param skins the skin id of each NPC the pack dresses, by NPC
+     * @param artworks the artwork id of each NPC whose portrait the pack draws from an upload, by NPC
+     */
+    record Packed(Map<UUID, UUID> skins, Map<UUID, UUID> artworks) {
+
+        /** What a pack built before any NPC had a skin or artwork holds. */
+        public static final Packed NONE = new Packed(Map.of(), Map.of());
+
+        public Packed {
+            skins = Map.copyOf(skins);
+            artworks = Map.copyOf(artworks);
+        }
+    }
 
     /** Returns every NPC, the one left unchanged longest first. */
     List<Npc> npcs();

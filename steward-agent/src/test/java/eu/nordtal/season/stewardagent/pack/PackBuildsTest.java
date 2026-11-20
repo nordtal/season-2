@@ -43,7 +43,7 @@ class PackBuildsTest {
     private final MemorySettingStore settings = new MemorySettingStore();
     private final Recorded record = new Recorded();
     private final AtomicReference<PackInputs> inputs = new AtomicReference<>(
-            new PackInputs("[{\"item\":\"diamond\",\"amount\":2}]", "{}", Map.of("de", "Drehen"), "{}"));
+            new PackInputs("[{\"item\":\"diamond\",\"amount\":2}]", "{}", Map.of("de", "Drehen"), "{}", "{}"));
     private final AtomicInteger zips = new AtomicInteger();
     private final ManualScheduler scheduler = new ManualScheduler();
     private boolean failing;
@@ -79,7 +79,7 @@ class PackBuildsTest {
     }
 
     private static PackInputs inputsOf(final String prizes) {
-        return new PackInputs(prizes, "{}", Map.of("de", "Drehen"), "{}");
+        return new PackInputs(prizes, "{}", Map.of("de", "Drehen"), "{}", "{}");
     }
 
     /** The active build as the database returns it: jsonb spaces the prizes and orders their keys by length. */
@@ -91,6 +91,7 @@ class PackBuildsTest {
                 Instant.EPOCH,
                 prizes,
                 Map.of("de", "Drehen"),
+                "{}",
                 "{}",
                 sha1,
                 4L,
@@ -274,7 +275,7 @@ class PackBuildsTest {
         final String first = builds.build().orElseThrow();
         final PackState before = PackState.read(settings);
 
-        inputs.set(new PackInputs("[{\"item\":\"emerald\",\"amount\":1}]", "{}", Map.of("de", "Drehen"), "{}"));
+        inputs.set(new PackInputs("[{\"item\":\"emerald\",\"amount\":1}]", "{}", Map.of("de", "Drehen"), "{}", "{}"));
         failing = true;
         final Optional<String> after = builds.build();
 
@@ -416,7 +417,11 @@ class PackBuildsTest {
 
         @Override
         public long start(
-                final Instant started, final String prizes, final Map<String, String> label, final String npcs) {
+                final Instant started,
+                final String prizes,
+                final Map<String, String> label,
+                final String npcs,
+                final String artworks) {
             calls.add("start");
             return calls.size();
         }

@@ -9,7 +9,6 @@ import {
   type NpcPlace,
   type NpcSkinUploaded,
   type PlateColour,
-  type PlateIcon,
   type PlateStyle,
   type Pose,
   type Slot,
@@ -27,7 +26,7 @@ import { TakeInButton } from "@/components/steward/game-groups/take-in"
 import { FixedPlace } from "@/components/steward/game-groups/places"
 import { SettingsService } from "@/components/steward/reference-picker"
 import { German, germanKey } from "@/components/steward/npc/german"
-import { FigureCard, PLATE_RGB, PlateSketch } from "@/components/steward/npc/preview"
+import { FigureCard, PLATE_ICONS, PLATE_RGB, PlateSketch, PlateSymbol } from "@/components/steward/npc/preview"
 import { Heading, Room, useKept, type Measured } from "@/components/steward/npc/step-panel"
 import { Hint } from "@/components/steward/status"
 import { Button } from "@/components/ui/button"
@@ -355,22 +354,6 @@ function Skin({ npc, published, edit }: { npc: Npc; published: Npc | undefined; 
 }
 
 const STYLES: readonly PlateStyle[] = ["PILL", "DARK", "RIBBON", "BADGE"]
-const ICONS: readonly PlateIcon[] = [
-  "STAR",
-  "PIN",
-  "RAIL",
-  "MEDAL",
-  "FLAG",
-  "WHEEL",
-  "SWORDS",
-  "SHIELD",
-  "HAND_IN",
-  "CHEST",
-  "EYE",
-  "PICKAXE",
-  "BOX",
-  "HEART",
-]
 const PLATE_COLOURS: readonly PlateColour[] = ["BLUE", "RED", "AMBER", "GREEN", "TEAL", "VIOLET", "ROSE", "SLATE"]
 const NO_ICON = "none"
 
@@ -412,7 +395,7 @@ function Plate({ npc, edit }: { npc: Npc; edit: Edit }) {
           <Select
             value={npc.plate.icon ?? NO_ICON}
             onValueChange={(value) => {
-              const picked = ICONS.find((each) => each === value)
+              const picked = PLATE_ICONS.find((each) => each === value)
               edit((draft) => {
                 const { icon: _icon, ...rest } = draft.plate
                 return { ...draft, plate: picked === undefined ? rest : { ...rest, icon: picked } }
@@ -424,8 +407,9 @@ function Plate({ npc, edit }: { npc: Npc; edit: Edit }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NO_ICON}>{t("steward.npcs.no-icon")}</SelectItem>
-              {ICONS.map((each) => (
+              {PLATE_ICONS.map((each) => (
                 <SelectItem key={each} value={each}>
+                  <PlateSymbol icon={each} size={14} />
                   {t("steward.npcs.plate-icon-of", { icon: choice(each) })}
                 </SelectItem>
               ))}

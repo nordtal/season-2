@@ -200,7 +200,7 @@ public final class PackBuilds {
         }
         record.active()
                 .filter(active -> sha1.equals(active.sha1()))
-                .ifPresent(active -> built = new PackInputs(active.prizes(), "", active.label(), active.npcs()));
+                .ifPresent(active -> built = PackInputs.drawnBy(active));
     }
 
     /**
@@ -209,7 +209,7 @@ public final class PackBuilds {
      */
     public void listen(final SignalHub signals, final DocumentStore store) {
         signals.on(Channel.SETTINGS, "the wheel prizes", this::requestIfChanged);
-        signals.on(Channel.NPC, "the NPC skins", this::requestIfChanged);
+        signals.on(Channel.NPC, "the NPC skins and artworks", this::requestIfChanged);
         // The hub re-reads on every wake, so a build runs only when the ask moved on since the last read.
         signals.watch(
                 Channel.PACK_BUILD, "a pack build asked for", askedAtListen(), record::asked, asked -> buildNow());
@@ -272,8 +272,7 @@ public final class PackBuilds {
             if (builtFromThisImage()) {
                 record.active()
                         .filter(active -> sha1.equals(active.sha1()))
-                        .ifPresent(
-                                active -> built = new PackInputs(active.prizes(), "", active.label(), active.npcs()));
+                        .ifPresent(active -> built = PackInputs.drawnBy(active));
             } else {
                 log.info("pack inputs changed, rebuild selected");
             }
@@ -343,7 +342,7 @@ public final class PackBuilds {
     private Optional<String> build(final PackInputs inputs) {
         final long id;
         try {
-            id = record.start(clock.instant(), inputs.prizes(), inputs.label(), inputs.npcs());
+            id = record.start(clock.instant(), inputs.prizes(), inputs.label(), inputs.npcs(), inputs.artworks());
         } catch (final RuntimeException unwritten) {
             log.warn("pack build record not written, build not started: cause={}", unwritten.getMessage());
             return active();
@@ -355,7 +354,7 @@ public final class PackBuilds {
             final Path texts = Files.writeString(work.resolve("texts.json"), inputs.texts(), StandardCharsets.UTF_8);
             final Path zip = work.resolve("pack.zip");
             final Path npcRoot = Files.createDirectories(work.resolve("npc"));
-            NpcPack.write(npcRoot, inputs.skins());
+            NpcPack.write(npcRoot, inputs.skins(), inputs.pictures());
             zipper.zip(
                     facts,
                     prizes,

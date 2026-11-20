@@ -24,7 +24,7 @@ final class JdbiPackBuildStore implements PackBuildStore {
 
     private static final String COLUMNS = """
             SELECT id, state, started, finished, prizes::text AS prizes, label::text AS label, npcs::text AS npcs,
-                   sha1, size_bytes, duration_ms, error
+                   artworks::text AS artworks, sha1, size_bytes, duration_ms, error
             FROM pack_build""";
 
     private final Jdbi jdbi;
@@ -34,16 +34,22 @@ final class JdbiPackBuildStore implements PackBuildStore {
     }
 
     @Override
-    public long start(final Instant started, final String prizes, final Map<String, String> label, final String npcs) {
+    public long start(
+            final Instant started,
+            final String prizes,
+            final Map<String, String> label,
+            final String npcs,
+            final String artworks) {
         return jdbi.inTransaction(handle -> {
             final long id = handle.createUpdate("""
-                            INSERT INTO pack_build (state, started, prizes, label, npcs)
+                            INSERT INTO pack_build (state, started, prizes, label, npcs, artworks)
                             VALUES ('BUILDING', :started, CAST(:prizes AS jsonb), CAST(:label AS jsonb),
-                                CAST(:npcs AS jsonb))""")
+                                CAST(:npcs AS jsonb), CAST(:artworks AS jsonb))""")
                     .bind("started", at(started))
                     .bind("prizes", prizes)
                     .bind("label", Json.encode(label))
                     .bind("npcs", npcs)
+                    .bind("artworks", artworks)
                     .executeAndReturnGeneratedKeys("id")
                     .mapTo(Long.class)
                     .one();
@@ -157,6 +163,7 @@ final class JdbiPackBuildStore implements PackBuildStore {
                 rows.getString("prizes"),
                 Json.decode(rows.getString("label"), LABEL),
                 rows.getString("npcs"),
+                rows.getString("artworks"),
                 rows.getString("sha1"),
                 sized ? size : null,
                 timed ? Duration.ofMillis(duration) : null,

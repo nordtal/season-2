@@ -279,10 +279,7 @@ final class SmpStart {
                         plugin.identities()::languageOf,
                         DialogueTexts.labels(plugin.renderer(), menus),
                         menus,
-                        new NpcNamePlates(
-                                plugin.nameTags.getNameTagManager(),
-                                plugin.identities()::languageOf,
-                                plugin.renderer()),
+                        new NpcNamePlates(plugin.nameTags.getNameTagManager(), plugin.identities()::languageOf),
                         () -> Feel.of(plugin.npcDialogueSettings.get())));
         dialogues.start();
         final PaperScheduler scheduler = PaperScheduler.of(plugin);

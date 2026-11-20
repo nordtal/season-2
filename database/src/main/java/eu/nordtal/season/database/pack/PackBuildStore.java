@@ -26,8 +26,9 @@ public interface PackBuildStore {
      * @param prizes the wheel's prize list as JSON, as the build reads it
      * @param label the spin button's label, by language
      * @param npcs the NPC skins by NPC id, as the build reads them
+     * @param artworks the NPC portrait artworks by NPC id, as the build reads them
      */
-    long start(Instant started, String prizes, Map<String, String> label, String npcs);
+    long start(Instant started, String prizes, Map<String, String> label, String npcs, String artworks);
 
     /** Makes the build the active pack and supersedes the one before it. */
     void succeed(long id, Instant finished, String sha1, long sizeBytes);
@@ -62,6 +63,8 @@ public interface PackBuildStore {
      * One build of the resource pack.
      *
      * @param prizes the prize list as JSON
+     * @param npcs the skin id the build drew for each NPC, as a JSON object by NPC id
+     * @param artworks the artwork id the build drew as each NPC's portrait, as a JSON object by NPC id
      * @param sha1 the zip's hash, set once the build made it
      */
     record PackBuild(
@@ -72,6 +75,7 @@ public interface PackBuildStore {
             String prizes,
             Map<String, String> label,
             String npcs,
+            String artworks,
             @Nullable String sha1,
             @Nullable Long sizeBytes,
             @Nullable Duration duration,

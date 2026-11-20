@@ -122,6 +122,10 @@ final class Placed {
             return SmallFont.advance(codePoint);
         }
         final Integer advance = TABLES.computeIfAbsent(font, Placed::table).get(codePoint);
+        if (advance == null && Glyphs.FONT_UI_TEXT.containsValue(font)) {
+            // The ui text fonts reference vanilla's letters too, which the pack does not list.
+            return Letters.advance(codePoint);
+        }
         if (advance == null) {
             throw new AssertionError("%s has no U+%X".formatted(font, codePoint));
         }

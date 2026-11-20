@@ -190,12 +190,35 @@ class NpcStoreIntegrationTest {
         assertNull(shown(smp).skin(), "no pack holds the skin yet");
 
         final PackBuildStore builds = PackBuildStore.using(database.dataSource());
-        final long build =
-                builds.start(Instant.now(), "[]", Map.of(), "{\"" + smith("Hi").id() + "\":\"" + uploaded.id() + "\"}");
+        final long build = builds.start(
+                Instant.now(), "[]", Map.of(), "{\"" + smith("Hi").id() + "\":\"" + uploaded.id() + "\"}", "{}");
         assertNull(shown(smp).skin(), "a pack still building is not offered");
         builds.succeed(build, Instant.now(), "0".repeat(40), 1);
         assertEquals(uploaded.id(), shown(smp).skin());
         assertEquals(NpcSkin.SkinModel.SLIM, shown(smp).skinModel());
+    }
+
+    @Test
+    void anNpcShowsItsArtworkOnlyOnceTheActivePackHoldsIt() {
+        final TestDatabase database = TestDatabase.fresh();
+        final NpcStore store = NpcStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final NpcArtwork uploaded = new NpcArtwork(UUID.fromString("00000000-0000-0000-0000-0000000000cc"), "cG5n");
+        store.upload(uploaded, ADMIN);
+        store.save(smith("Hi").withLook(Npc.Plate.DEFAULT, uploaded.id()), ADMIN);
+        final NpcStore smp = NpcStore.using(database.dataSourceAs(DatabaseRole.SMP));
+        assertNull(shown(smp).artwork(), "no pack holds the artwork yet");
+
+        final PackBuildStore builds = PackBuildStore.using(database.dataSource());
+        final long build = builds.start(
+                Instant.now(), "[]", Map.of(), "{}", "{\"" + smith("Hi").id() + "\":\"" + uploaded.id() + "\"}");
+        builds.succeed(build, Instant.now(), "0".repeat(40), 1);
+        assertEquals(uploaded.id(), shown(smp).artwork());
+        assertEquals(Map.of(smith("Hi").id(), uploaded.id()), smp.packed().artworks());
+
+        final NpcArtwork another = new NpcArtwork(UUID.fromString("00000000-0000-0000-0000-0000000000cd"), "cG5n");
+        store.upload(another, ADMIN);
+        store.save(smith("Hi").withLook(Npc.Plate.DEFAULT, another.id()), ADMIN);
+        assertEquals(uploaded.id(), shown(smp).artwork(), "the pack still draws the first upload");
     }
 
     private static Npc shown(final NpcStore store) {

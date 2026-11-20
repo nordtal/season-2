@@ -188,7 +188,7 @@ final class Band {
     /**
      * The height the field's entities stand at in a world whose blocks end below {@code maxHeight}.
      *
-     * The client draws an entity in the world's blocks only once their section is built, which takes a look.
+     * The client draws an entity inside the world's height only once the section around it is built and has faded in.
      */
     static double anchor(final int maxHeight) {
         return maxHeight + OVER;

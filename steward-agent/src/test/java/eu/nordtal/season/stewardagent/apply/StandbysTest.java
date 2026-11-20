@@ -9,6 +9,7 @@ import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,60 @@ class StandbysTest {
                 Files.exists(volumes.resolve("limbo-standby/plugins/limbo-0.9.2.jar")),
                 "the standby still carries the superseded jar, so it would start on two versions of"
                         + " the same plugin - which is a server that does not start at all");
+    }
+
+    @Test
+    void symbolicLinksOnEitherSideAreSkippedWithoutTouchingTheirTargets() throws IOException {
+        write("proxy/plugins/proxy-0.9.3.jar", "new");
+        write("proxy/plugins/proxy/config.json", "{}");
+        write("outside/source-file", "source secret");
+        write("outside/source-directory/secret", "source directory secret");
+        write("outside/standby-file", "standby secret");
+        write("outside/standby-directory/keep", "keep");
+        final Path source = volumes.resolve("proxy/plugins");
+        final Path standby = volumes.resolve("proxy-standby/plugins");
+        Files.createDirectories(standby);
+        Files.createSymbolicLink(source.resolve("file-link"), volumes.resolve("outside/source-file"));
+        Files.createSymbolicLink(source.resolve("directory-link"), volumes.resolve("outside/source-directory"));
+        Files.createSymbolicLink(standby.resolve("proxy-0.9.3.jar"), volumes.resolve("outside/standby-file"));
+        Files.createSymbolicLink(standby.resolve("proxy"), volumes.resolve("outside/standby-directory"));
+        Files.createSymbolicLink(standby.resolve("old-file-link"), volumes.resolve("outside/standby-file"));
+        Files.createSymbolicLink(standby.resolve("old-directory-link"), volumes.resolve("outside/standby-directory"));
+
+        Standbys.fill(volumes, List.of(Topology.PROXY), DeclaredTopology.topology());
+
+        assertFalse(Files.exists(standby.resolve("file-link"), LinkOption.NOFOLLOW_LINKS));
+        assertFalse(Files.exists(standby.resolve("directory-link"), LinkOption.NOFOLLOW_LINKS));
+        assertTrue(Files.isSymbolicLink(standby.resolve("proxy-0.9.3.jar")));
+        assertTrue(Files.isSymbolicLink(standby.resolve("proxy")));
+        assertTrue(Files.isSymbolicLink(standby.resolve("old-file-link")));
+        assertTrue(Files.isSymbolicLink(standby.resolve("old-directory-link")));
+        assertEquals("source secret", read("outside/source-file"));
+        assertEquals("source directory secret", read("outside/source-directory/secret"));
+        assertEquals("standby secret", read("outside/standby-file"));
+        assertEquals("keep", read("outside/standby-directory/keep"));
+    }
+
+    @Test
+    void aPluginsDirectoryThatIsASymbolicLinkOnEitherSideIsNeitherReadNorWritten() throws IOException {
+        write("outside/secrets", "secret");
+        write("outside/world/level.dat", "world");
+        write("limbo/plugins/limbo-0.9.3.jar", "new");
+        Files.createDirectories(volumes.resolve("proxy"));
+        Files.createDirectories(volumes.resolve("proxy-standby"));
+        Files.createSymbolicLink(volumes.resolve("proxy/plugins"), volumes.resolve("outside"));
+        Files.createDirectories(volumes.resolve("limbo-standby"));
+        Files.createSymbolicLink(volumes.resolve("limbo-standby/plugins"), volumes.resolve("outside/world"));
+
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.PROXY, Topology.LIMBO), DeclaredTopology.topology());
+
+        assertEquals(2, outcomes.size(), detail(outcomes));
+        assertTrue(
+                outcomes.stream().allMatch(outcome -> outcome.status() == ApplyResult.Status.FAILED), detail(outcomes));
+        assertFalse(Files.exists(volumes.resolve("proxy-standby/plugins/secrets"), LinkOption.NOFOLLOW_LINKS));
+        assertEquals("world", read("outside/world/level.dat"));
+        assertFalse(Files.exists(volumes.resolve("outside/world/limbo-0.9.3.jar"), LinkOption.NOFOLLOW_LINKS));
     }
 
     @Test

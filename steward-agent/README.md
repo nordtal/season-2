@@ -24,6 +24,8 @@ steward-agent run ID
 steward-agent request KIND [a,b] [MIN]
 # Switch the game mode, as the Router tab does.
 steward-agent request SWITCH_MODE SMP|HUNGER_GAMES
+# Remove a plugin an admin added, as its Remove button does, with the same journal entry.
+steward-agent request remove-plugin SERVICE PLUGIN
 # Print the status and stage of a run, then each step with its facts.
 steward-agent status ID
 ```

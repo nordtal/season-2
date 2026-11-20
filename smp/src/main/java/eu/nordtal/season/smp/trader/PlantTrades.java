@@ -25,7 +25,7 @@ public final class PlantTrades implements Listener {
         final Set<Material> existing =
                 recipes.stream().map(recipe -> recipe.getResult().getType()).collect(Collectors.toSet());
         for (final Material plant : missingFrom(existing)) {
-            final MerchantRecipe recipe = new MerchantRecipe(ItemStack.of(plant), 0, 12, false, 0, 0.05f);
+            final MerchantRecipe recipe = new MerchantRecipe(ItemStack.of(plant), 0, 12, true, 1, 0.05f);
             recipe.addIngredient(ItemStack.of(Material.EMERALD));
             recipes.add(recipe);
         }

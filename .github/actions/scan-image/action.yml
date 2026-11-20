@@ -29,18 +29,19 @@ runs:
         jq -er --arg image "$IMAGE_REF" '
           def cell: gsub("[[:cntrl:]]"; " ") | @html | gsub("[|]"; "&#124;") | gsub("`"; "&#96;");
           def findings:
-            .Results[]? |
-            (.Vulnerabilities[]? | . + {Exception: ""}),
-            (.ExperimentalModifiedFindings[]? | select(.Type == "vulnerability" and .Status == "ignored") |
-              .Finding + {Exception: ("Accepted. " + .Statement)});
+            .Results[]? | .Target as $target |
+            ((.Vulnerabilities[]? | . + {Exception: ""}),
+             (.ExperimentalModifiedFindings[]? | select(.Type == "vulnerability" and .Status == "ignored") |
+               .Finding + {Exception: ("Accepted. " + .Statement)})) |
+            . + {Path: (.PkgPath // $target)};
           "### Image scan: `\($image)`", "",
-          ([findings] | unique_by(.Severity, .VulnerabilityID, .PkgName, .InstalledVersion, .FixedVersion, .Exception) |
+          ([findings] | unique_by(.Severity, .VulnerabilityID, .PkgName, .Path, .InstalledVersion, .FixedVersion, .Exception) |
             if length == 0 then
               "Trivy found no vulnerabilities."
             else
-              "| Severity | Vulnerability | Package | Installed version | Fixed version | Exception |",
-              "| --- | --- | --- | --- | --- | --- |",
-              (.[] | [.Severity, .VulnerabilityID, .PkgName, .InstalledVersion,
+              "| Severity | Vulnerability | Package | Path | Installed version | Fixed version | Exception |",
+              "| --- | --- | --- | --- | --- | --- | --- |",
+              (.[] | [.Severity, .VulnerabilityID, .PkgName, .Path, .InstalledVersion,
                       (if (.FixedVersion // "") == "" then "No fix available" else .FixedVersion end), .Exception] |
                 map(cell) | "| " + join(" | ") + " |")
             end)

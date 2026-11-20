@@ -40,12 +40,18 @@ x-confined: &confined
   cap_drop: [ALL]
   security_opt: ["no-new-privileges:true"]
 
+# Every JVM service of ours takes half its memory limit as its heap. Left alone, the JVM takes a quarter, and below
+# 1792 MiB it also picks the serial collector instead of G1.
+x-jvm-heap: &jvm-heap "-XX:MaxRAMPercentage=50 -XX:+UseG1GC"
+
 # Shared by the four Minecraft services, which differ only in environment.
 x-minecraft: &minecraft
   <<: *confined
   # The account deploy/minecraft/Dockerfile makes; the servers run third-party plugins.
   user: "10000:10000"
   profiles: ["mc"]
+  # Paper and Velocity start threads for worldgen, chunks and every plugin; a refused thread stops the server.
+  pids_limit: 1024
   # For local development only; a deploy pulls.
   build:
     context: ./deploy/minecraft
@@ -115,6 +121,14 @@ services:
     # The version the integration tests run against.
     image: ${POSTGRES_IMAGE:-postgres:17-alpine@sha256:526f86d93c6ea08fd3f1fe5605650cacc781b2c6013169a0ad8f42c7d3d84f32}
     restart: unless-stopped
+    # Root, because steward-agent hands the dump directory to `postgres` through exec. The entrypoint chowns
+    # and chmods the data directory, which belongs to `postgres`, and switches to that account.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_READ_SEARCH, FOWNER, SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
+    # The page cache counts too and gives way; shared_buffers and a backend per connection do not.
+    mem_limit: 1g
+    pids_limit: 256
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
@@ -155,6 +169,8 @@ services:
       <<: *jvm-build
       args: { MODULE: discord-bot }
     restart: unless-stopped
+    mem_limit: 768m
+    pids_limit: 256
     depends_on:
       # The bot refuses an unmigrated database.
       migrate:
@@ -171,6 +187,7 @@ services:
       start_period: 180s
     environment:
       TZ: ${TZ:-Europe/Berlin}
+      JAVA_OPTS: *jvm-heap
 
       # The database group
       NORDTAL_DATABASE_JDBC_URL: *db-url
@@ -208,6 +225,8 @@ services:
       eu.nordtal.stores-in: postgres
     # Holds nothing that cannot be rebuilt, so the OOM killer should take it first.
     oom_score_adj: 500
+    # Half again the heap, which HEAP sets; .env.example says how the two go together.
+    mem_limit: ${PROXY_MEMORY:-2g}
     # Anchored so proxy-standby reuses this exact node.
     environment: &proxy-env
       <<: *minecraft-env
@@ -248,6 +267,8 @@ services:
     labels: { eu.nordtal.standby-of: proxy }
     # OomLightningRodTest holds this equal to the proxy's.
     oom_score_adj: 500
+    # The proxy's heap, so the proxy's limit.
+    mem_limit: ${PROXY_MEMORY:-2g}
     # Started by name only.
     profiles: ["standby"]
     # The one setting a process cannot infer about itself.
@@ -273,6 +294,8 @@ services:
       eu.nordtal.stores-in: postgres
     # Holds nothing that cannot be rebuilt, so the OOM killer should take it first.
     oom_score_adj: 500
+    # Half again the heap, which HEAP sets; .env.example says how the two go together.
+    mem_limit: ${LIMBO_MEMORY:-2g}
     # Anchored so limbo-standby reuses this exact node.
     environment: &limbo-env
       <<: *minecraft-env
@@ -299,6 +322,7 @@ services:
     labels: { eu.nordtal.standby-of: limbo }
     # Equal to limbo's.
     oom_score_adj: 500
+    mem_limit: ${LIMBO_MEMORY:-2g}
     profiles: ["standby"]
     environment: *limbo-env
     volumes:
@@ -318,6 +342,8 @@ services:
       eu.nordtal.backup: stop
       eu.nordtal.section: Paper
       eu.nordtal.stores-in: postgres
+    # As the proxy's.
+    mem_limit: ${HUNGER_GAMES_MEMORY:-6g}
     environment:
       <<: *minecraft-env
       SERVER_KIND: *hunger-games-kind
@@ -351,6 +377,8 @@ services:
       eu.nordtal.backup: stop
       eu.nordtal.section: Paper
       eu.nordtal.stores-in: postgres
+    # As the proxy's.
+    mem_limit: ${SMP_MEMORY:-9g}
     environment:
       <<: *minecraft-env
       SERVER_KIND: *smp-kind
@@ -391,6 +419,8 @@ services:
       args: { MODULE: steward }
     image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/steward:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     restart: unless-stopped
+    mem_limit: 1536m
+    pids_limit: 512
     # It reaches Docker and payments only through `agent` and `bank`, which are its alone.
     networks: ["steward", "agent", "bank"]
     command: ["serve"]
@@ -406,6 +436,7 @@ services:
       start_period: 60s
     environment:
       TZ: ${TZ:-Europe/Berlin}
+      JAVA_OPTS: *jvm-heap
       # The database group.
       NORDTAL_STEWARD_DATABASE_JDBC_URL: *db-url
       NORDTAL_STEWARD_DATABASE_USERNAME: nordtal_steward
@@ -476,6 +507,13 @@ services:
       args: { MODULE: steward-agent }
     image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/steward-agent:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     restart: unless-stopped
+    # Root with Docker's default capabilities: the socket is root on the host whatever the uid, and it hands every
+    # other service's volumes to that service's `user:`. Nothing it runs needs a setuid binary.
+    security_opt: ["no-new-privileges:true"]
+    # Its runs count here too: compose, tar and zstd over the worlds, restic and ssh. The page cache they fill
+    # gives way at the limit.
+    mem_limit: 2g
+    pids_limit: 512
     # `agent` is steward's way in, `agent-database` reaches postgres alone, `agent-egress` the release sources.
     networks: ["agent", "agent-database", "agent-egress"]
     depends_on:
@@ -491,6 +529,7 @@ services:
       start_period: 120s
     environment:
       TZ: ${TZ:-Europe/Berlin}
+      JAVA_OPTS: *jvm-heap
       # Required; it refuses to serve without one.
       NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
       # Must match the host's project, or a deploy starts a second, empty stack.
@@ -575,6 +614,8 @@ services:
       args: { MODULE: steward-bunq }
     image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/steward-bunq:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     restart: unless-stopped
+    mem_limit: 768m
+    pids_limit: 256
     # `bank` is steward's way in, `bank-egress` its own way out to bunq; nobody else is on either.
     networks: ["bank", "bank-egress"]
     healthcheck:
@@ -586,6 +627,7 @@ services:
       start_period: 30s
     environment:
       TZ: ${TZ:-Europe/Berlin}
+      JAVA_OPTS: *jvm-heap
       # Required; it refuses to serve without one.
       NORDTAL_STEWARD_BUNQ_TOKEN: ${STEWARD_BUNQ_TOKEN:?set STEWARD_BUNQ_TOKEN in .env - the secret steward and steward-bunq share, `openssl rand -hex 32`}
       # A new value whenever deploy/nordtal.sh changes its own secrets below, so the next run recreates it.
@@ -616,6 +658,12 @@ services:
     # Named by the hash of deploy/caddy, not the release: a release that leaves it alone keeps Caddy running.
     image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:490add809f98
     restart: unless-stopped
+    # Root, as its volumes are root's. The binary carries cap_net_bind_service, without which it does not start.
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    pids_limit: 128
     # `steward` for the interface, `default` for the proxies.
     networks: ["steward", "default"]
     # No depends_on: Caddy retries upstreams itself.

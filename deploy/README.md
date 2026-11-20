@@ -40,7 +40,7 @@ when no upstream release contains the fix. Each entry under `vulnerabilities` ho
 | Key | Value |
 | --- | --- |
 | `id` | The vulnerability, as the summary names it. |
-| `paths` | The file in the image, as the summary's **Path** column names it. |
+| `paths` | The binary in the image, as the summary's **Path** column names it. |
 | `expired_at` | The date the exception ends. The scan refuses an entry without one. |
 | `statement` | Why the finding is accepted. The summary shows it. |
 

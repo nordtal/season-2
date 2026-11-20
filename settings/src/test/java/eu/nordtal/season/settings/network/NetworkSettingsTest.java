@@ -157,6 +157,7 @@ class NetworkSettingsTest {
         assertEquals(0.8, dialogue.zoom());
         assertEquals(3.0, dialogue.endDistance());
         assertEquals(120.0, dialogue.endAngle());
+        assertEquals(1.0, dialogue.tickPitch());
     }
 
     @Test
@@ -175,6 +176,13 @@ class NetworkSettingsTest {
         values.put("zoom", 1.2);
 
         assertRefused(NetworkSettings.NPC_DIALOGUE, "zoom must be at most 1.0");
+    }
+
+    @Test
+    void aTickPitchTheClientDoesNotPlayIsRefused() {
+        values.put("tick-pitch", 2.5);
+
+        assertRefused(NetworkSettings.NPC_DIALOGUE, "tick-pitch must be from 0.5 to 2.0");
     }
 
     @Test

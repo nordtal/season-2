@@ -62,10 +62,16 @@ public final class NetworkSettings {
     /** The narrowest zoom, which the speed the zoom rides on still holds above standing still. */
     public static final double LEAST_ZOOM = 0.55;
 
+    /** The lowest and the highest pitch the client plays a sound at. */
+    public static final double LEAST_PITCH = 0.5;
+
+    public static final double MOST_PITCH = 2.0;
+
     private NetworkSettings() {}
 
     /**
-     * Refuses a zoom that widens the view or narrows it below {@link #LEAST_ZOOM}, which the rules cannot say.
+     * Refuses a zoom outside {@link #LEAST_ZOOM} and {@link #MOST_ZOOM}, and a tick pitch the client does not play.
+     * The rules cannot say either.
      *
      * @throws IllegalArgumentException naming the wrong value
      */
@@ -80,6 +86,10 @@ public final class NetworkSettings {
         }
         if (spec.endAngle() > 180) {
             throw new IllegalArgumentException("end-angle must be at most 180 degrees, was " + spec.endAngle());
+        }
+        if (spec.tickPitch() < LEAST_PITCH || spec.tickPitch() > MOST_PITCH) {
+            throw new IllegalArgumentException("tick-pitch must be from " + LEAST_PITCH + " to " + MOST_PITCH
+                    + ", the pitches the client plays, was " + spec.tickPitch());
         }
     }
 

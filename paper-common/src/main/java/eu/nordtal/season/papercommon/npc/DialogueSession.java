@@ -109,7 +109,7 @@ final class DialogueSession {
         final List<Effect> left = new ArrayList<>();
         for (final Effect effect : frame.effects()) {
             switch (effect) {
-                case Effect.Sound sound -> sounds.play(player, sound.cue(), npc.pitch());
+                case Effect.Sound sound -> sounds.play(player, sound.cue(), npc.pitch() * (float) feel.tickPitch());
                 case Effect.HoldSlot _ -> holdSlot();
                 case Effect.ReleaseSlot _ -> releaseSlot();
                 case Effect.HandOff handOff -> left.add(handOff);

@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 /** The dialogue tick by tick: opening, typing, holds, answers, the hand-off, its switch and the soft end. */
 class DialogueRunTest {
 
-    private static final Feel FEEL = new Feel(30, 0.8, 3.0, 120);
+    private static final Feel FEEL = new Feel(30, 1.0, 0.8, 3.0, 120);
     private static final Labels LABELS =
             new Labels("Next", "More", "Choose", "Answer", "Don't show again", Map.of("objectives", "Open objectives"));
 

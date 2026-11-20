@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-/** Every cue has a sound with a valid key, and the switch sounds higher on than off. */
+/** Every cue has a sound with a valid key, the switch sounds higher on than off, and a tick keeps to its voice. */
 class DialogueSoundsTest {
 
     @Test
@@ -24,5 +24,12 @@ class DialogueSoundsTest {
         assertEquals(
                 "minecraft:block.note_block.hat",
                 DialogueSounds.tone(Effect.Cue.TYPE).key());
+    }
+
+    @Test
+    void aTypingTickStraysAtMostThreePercentFromTheVoice() {
+        assertEquals(1.5f, DialogueSounds.typing(1.5f, 0), 1e-6);
+        assertEquals(1.5f * 1.03f, DialogueSounds.typing(1.5f, 1), 1e-6);
+        assertEquals(1.5f * 0.97f, DialogueSounds.typing(1.5f, -1), 1e-6);
     }
 }

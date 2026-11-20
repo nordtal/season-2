@@ -151,8 +151,6 @@ float wallNormal(uint h) {
     return (float(h & 255u) + float((h >> 8u) & 255u) + float((h >> 16u) & 255u) + float(h >> 24u) - 510.0) / 147.8;
 }
 
-const bool WALL_SNOW_STEPPED = false;   // true: the flakes move in whole texels and stay on the world's texel grid
-
 // The flakes of one lane of a layer, see wallFlakes(). across and height are the fragment's place
 // in texels; the flake may reach up to two texels into the next lane. 1 on a texel of a flake.
 float wallLane(float across, float height, float laneAt, float gameTime, float lane, float cell, float share, int kind, float pace, int seed) {
@@ -164,10 +162,6 @@ float wallLane(float across, float height, float laneAt, float gameTime, float l
     float lanes = floor(3840.0 * wallNormal(c2) * pace / lane + 0.5);
     float fallen = gameTime * loops * cell + float(c3 & 65535u) / 65536.0 * cell;
     float drifted = gameTime * lanes * lane + float(c3 >> 16u) / 65536.0 * lane;
-    if (WALL_SNOW_STEPPED) {
-        fallen = floor(fallen);
-        drifted = floor(drifted);
-    }
     float y = height + fallen;
     float cellAt = floor(y / cell);
     uint h = wallHash2(column, wallWrap(cellAt, loops) + 16);
@@ -219,8 +213,8 @@ float wallSnow(vec2 texel, float gameTime) {
     return max(max(near, mid), 0.5 * far);
 }
 
-// ---- The wall's look: a body of pixel-art ice below, rays of light above, everything on the
-// ---- world's texel grid, 16 texels a block; a texel is flat in colour.
+// The wall's look: a body of pixel-art ice below, rays of light above, everything on the world's
+// texel grid, 16 texels a block; a texel is flat in colour.
 
 // The five shades of the body, darkest first, each with its alpha.
 const vec4 WALL_SHADE[5] = vec4[5](

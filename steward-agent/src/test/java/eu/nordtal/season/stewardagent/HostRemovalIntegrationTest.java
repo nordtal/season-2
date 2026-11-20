@@ -2,6 +2,7 @@ package eu.nordtal.season.stewardagent;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
@@ -61,7 +62,7 @@ class HostRemovalIntegrationTest {
     }
 
     @Test
-    void anAddedPluginGetsTheRunAndTheJournalEntryOfSteward_sRemoveAsTheHost() {
+    void anAddedPluginGetsTheRunAndTheJournalEntryOfStewardsRemoveAsTheHost() {
         final int exit = remove("smp", "chunky");
 
         assertEquals(0, exit, err());
@@ -100,6 +101,13 @@ class HostRemovalIntegrationTest {
         assertNothingWritten();
         assertTrue(err().contains("smpp"), err());
         assertTrue(err().contains("smp: chunky, worldedit"), err());
+    }
+
+    @Test
+    void theHostNamesTheRemovalInEitherSpelling() {
+        assertTrue(HostRequests.isRemoval("remove-plugin"));
+        assertTrue(HostRequests.isRemoval("REMOVE_PLUGIN"));
+        assertFalse(HostRequests.isRemoval("UPDATE"));
     }
 
     @Test

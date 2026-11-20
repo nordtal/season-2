@@ -159,8 +159,8 @@ final class HostRequests {
         final String service = args.get(2);
         final String artifact = args.get(3);
         if (added.on(service).stream().noneMatch(plugin -> plugin.artifact().equals(artifact))) {
-            err.println("Request not submitted: nobody added " + artifact + " to " + service
-                    + ". Name one of the added plugins. " + addedList(added));
+            err.println("Request not submitted: an admin added no plugin " + artifact + " to " + service
+                    + ". Name a service and one of its added plugins. " + addedList(added));
             return 2;
         }
         final UpdateRequest written;
@@ -174,11 +174,17 @@ final class HostRequests {
             err.println(refused.getMessage());
             return 2;
         }
-        journal.record(AuditLine.of(
-                JournalAction.REMOVE_PLUGIN,
-                Actor.HOST,
-                new JournalDetail.PluginRemoved(written.id(), service, artifact)));
         out.println(written.id());
+        try {
+            journal.record(AuditLine.of(
+                    JournalAction.REMOVE_PLUGIN,
+                    Actor.HOST,
+                    new JournalDetail.PluginRemoved(written.id(), service, artifact)));
+        } catch (final RuntimeException failed) {
+            // The run is queued, so a retry would queue a second one; Steward too answers without its entry.
+            err.println("Run " + written.id() + " is submitted, but its journal entry was not written ("
+                    + failed.getMessage() + "). Do not submit it again.");
+        }
         return 0;
     }
 

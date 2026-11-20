@@ -42,8 +42,7 @@ public final class DialogTitle {
     private @Nullable Header header;
 
     /** What the header drew, so a body line can draw it again over its focus cover. */
-    private record Header(
-            @Nullable Symbol symbol, String name, List<Mark> marks, int margin, int nameX, int right) {}
+    private record Header(@Nullable Symbol symbol, String name, List<Mark> marks, int margin, int nameX, int right) {}
 
     private DialogTitle(final DialogPanel panel, final int top) {
         final String font = Glyphs.FONT_UI_DIALOG.get(top);
@@ -91,9 +90,9 @@ public final class DialogTitle {
     }
 
     /**
-     * The header drawn again for a body line whose box's top lies on panel row {@code row}, where its focus cover
-     * would hide the header's ink, or nothing when the cover misses it. Its capitals stand {@code textRow} under the
-     * box's top less than the line's text row does; its x counts from the panel's centre, and it advances 0.
+     * The header drawn again for a body line whose box's top lies on panel row {@code row}.
+     * It is empty when the line's focus cover misses the header's ink. Its capitals stand {@code textRow} under the
+     * box's top less than the line's text row does; its x counts from the panel's centre; it advances 0.
      */
     public Component ink(final int row, final int textRow) {
         final Header header = this.header;

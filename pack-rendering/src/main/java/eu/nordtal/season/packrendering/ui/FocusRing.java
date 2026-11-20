@@ -7,9 +7,8 @@ import net.kyori.adventure.text.Component;
 
 /**
  * Frames a dialog body line so the client's white focus outline never shows: no menu draws a focus mark.
- * The outline is drawn first, so a cover row in the colours under it hides all of it, and the line's art and any
- * ink of the title that the cover lies on are drawn again on top. That row advances 0 and is centred on the box;
- * a second row, a move as wide as the box's text, keeps the width.
+ * The outline comes first, so a cover row in the colours under it hides all of it; the line's art and the title's
+ * ink under the cover are drawn again on top. The row advances 0, centred on the box; a move keeps the width.
  */
 public final class FocusRing {
 

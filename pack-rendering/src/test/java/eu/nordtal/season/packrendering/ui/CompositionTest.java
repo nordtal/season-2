@@ -156,7 +156,9 @@ class CompositionTest {
             final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, ground));
             final boolean bevel = ground == FocusRing.Ground.BEVEL || ground == FocusRing.Ground.BEVEL_FOOT;
             final boolean foot = ground == FocusRing.Ground.PANEL_FOOT || ground == FocusRing.Ground.BEVEL_FOOT;
-            assertEquals(bevel ? 0 : 2, drawn.split(java.util.regex.Pattern.quote(ring.get(0)), -1).length - 1,
+            assertEquals(
+                    bevel ? 0 : 2,
+                    drawn.split(java.util.regex.Pattern.quote(ring.get(0)), -1).length - 1,
                     ground + " sides");
             assertEquals(bevel && !foot, drawn.contains(ring.get(1)), ground + " shade");
             assertEquals(bevel && foot, drawn.contains(ring.get(2)), ground + " shade foot");

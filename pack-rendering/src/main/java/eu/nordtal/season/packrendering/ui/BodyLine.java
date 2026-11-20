@@ -87,7 +87,7 @@ public final class BodyLine {
     }
 
     /**
-     * Returns a native button's label: its rim at rest but for the corners, which turn white on hover, and the plate.
+     * Returns a native button's label: its rim in the rest colours over the client's hover and focus mark, and a plate.
      * It advances 0, so the client centres it on the button's middle and neither scrolls nor clips it.
      */
     private static Component nativeButton(final String label, final String plate, final Look look) {

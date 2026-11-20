@@ -79,7 +79,7 @@ public final class Graves {
 
     private final Map<UUID, UUID> byInteraction = new HashMap<>();
 
-    private final Map<UUID, GraveRow> open = new HashMap<>();
+    private final Map<UUID, OpenGrave> open = new HashMap<>();
 
     /** Maps a grave id to its countdown hologram. It has no entry if decay is off. */
     private final Map<UUID, PillHologram> holograms = new HashMap<>();
@@ -117,7 +117,10 @@ public final class Graves {
     public void restore() {
         PaperScheduler.of(plugin).execute(() -> {
             final List<GraveRow> rows = dao.openGraves();
-            PaperScheduler.of(plugin).onMain(() -> draw(rows));
+            PaperScheduler.of(plugin).onMain(() -> {
+                draw(rows);
+                plugin.getLogger().info("graves restored: count=" + open.size());
+            });
         });
     }
 
@@ -129,7 +132,6 @@ public final class Graves {
             }
             draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
         }
-        plugin.getLogger().info("graves restored: count=" + open.size());
     }
 
     /**
@@ -150,24 +152,16 @@ public final class Graves {
                 java.util.Objects.requireNonNull(at.getBlock().getLocation()).add(0.5, 0, 0.5);
 
         PaperScheduler.of(plugin).execute(() -> {
-            dao.createGrave(
+            final GraveRow row = dao.createGrave(
                     ownerId,
+                    ownerUuid,
                     grave.getWorld().getName(),
                     grave.getBlockX(),
                     grave.getBlockY(),
                     grave.getBlockZ(),
                     bytes,
                     experience);
-            final List<GraveRow> rows = dao.openGraves();
-            PaperScheduler.of(plugin)
-                    .onMain(() -> rows.stream()
-                            .filter(row -> !open.containsKey(row.id()))
-                            .forEach(row -> {
-                                final World world = Bukkit.getWorld(row.world());
-                                if (world != null) {
-                                    draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
-                                }
-                            }));
+            PaperScheduler.of(plugin).onMain(() -> draw(List.of(row)));
         });
     }
 
@@ -227,7 +221,7 @@ public final class Graves {
 
         parts.put(row.id(), entities);
         byInteraction.put(click.getUniqueId(), row.id());
-        open.put(row.id(), row);
+        open.put(row.id(), new OpenGrave(row));
     }
 
     private void spawnHologramIfDecaying(
@@ -287,10 +281,11 @@ public final class Graves {
             if (dueAt != null && now < dueAt) {
                 continue;
             }
-            final GraveRow row = open.get(graveId);
-            if (row == null) {
+            final OpenGrave grave = open.get(graveId);
+            if (grave == null) {
                 continue;
             }
+            final GraveRow row = grave.row();
             final Duration timeLeft = timeLeft(row);
             entry.getValue().text(hologramText(row, timeLeft));
             nextHologramUpdate.put(graveId, now + refreshInterval(timeLeft));
@@ -315,6 +310,7 @@ public final class Graves {
     /** Sets the block to air if it is a barrier and no other open grave is at the position. */
     private void clearBarrier(final World world, final int x, final int y, final int z) {
         final boolean anotherGraveThere = open.values().stream()
+                .map(OpenGrave::row)
                 .anyMatch(other ->
                         other.world().equals(world.getName()) && other.x() == x && other.y() == y && other.z() == z);
         blockOf(world, x, y, z)
@@ -376,33 +372,40 @@ public final class Graves {
 
     /** Opens the grave window for the player. Main thread only. */
     public void open(final Player player, final UUID graveId) {
-        final GraveRow row = open.get(graveId);
-        if (row == null) {
+        final OpenGrave grave = open.get(graveId);
+        if (grave == null) {
             return;
         }
         // The first opener's language and zone draw the window, which the others share while it is open.
         final Viewer viewer = identities.viewer(player.getUniqueId());
 
-        shown.computeIfAbsent(graveId, id -> window(row, viewer)).open(player);
+        shown.computeIfAbsent(graveId, id -> window(grave, viewer)).open(player);
 
         // The sound plays at the grave location.
+        final GraveRow row = grave.row();
         final org.bukkit.World world = Bukkit.getWorld(row.world());
         if (world != null) {
             effects.graveOpened(new org.bukkit.Location(world, row.x(), row.y(), row.z()));
         }
     }
 
-    private GraveWindow window(final GraveRow row, final Viewer viewer) {
-        final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
+    private GraveWindow window(final OpenGrave grave, final Viewer viewer) {
+        final GraveRow row = grave.row();
+        final ItemStack[] contents = grave.contentsForWindow()
+                .map(ItemStack::deserializeItemsFromBytes)
+                .orElseGet(() -> new ItemStack[0]);
+        final boolean awaitingLoot = grave.awaitingLoot();
+        final int experience = awaitingLoot ? 0 : row.experience();
         final int contentRows = GravePanel.contentRows(contents.length);
         final GameDocument document = new GameDocument(
-                renderer, documents.applied(GraveWindow.DOCUMENT), viewer, new GraveWindow.Window(row.experience()));
+                renderer, documents.applied(GraveWindow.DOCUMENT), viewer, new GraveWindow.Window(experience));
         final GraveWindow menu = new GraveWindow(
                 this,
                 row.id(),
                 contentRows,
+                awaitingLoot,
                 PlainTextComponentSerializer.plainText().serialize(document.title()),
-                row.experience() > 0 ? document.label("experience-line") : null,
+                experience > 0 ? document.label("experience-line") : null,
                 document.label("take-all-button"));
         final Inventory window = menu.getInventory();
 
@@ -411,7 +414,9 @@ public final class Graves {
             window.setItem(slot, contents[slot]);
         }
 
-        window.setItem(GravePanel.headSlot(contentRows), head(row, document));
+        if (!awaitingLoot) {
+            window.setItem(GravePanel.headSlot(contentRows), head(row, document));
+        }
 
         final ItemStack takeAll = BlankItem.silent();
         GravePanel.takeAllSlots(contentRows).forEach(slot -> window.setItem(slot, takeAll));
@@ -471,8 +476,8 @@ public final class Graves {
         if (!shown.remove(graveId, window)) {
             return;
         }
-        final GraveRow row = open.get(graveId);
-        if (row == null) {
+        final OpenGrave grave = open.get(graveId);
+        if (grave == null || grave.awaitingLoot()) {
             return;
         }
 
@@ -480,33 +485,16 @@ public final class Graves {
         final boolean contentGone = java.util.Arrays.stream(left)
                 .allMatch(stack -> stack == null || stack.getType().isAir());
 
-        // The head does not count as content.
         if (!contentGone) {
-            keepRemainder(graveId, row, left);
+            final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
+            grave.settle(Optional.of(remaining));
+            PaperScheduler.of(plugin).execute(() -> dao.updateGraveContents(graveId, remaining));
             return;
         }
 
+        grave.settle(Optional.empty());
         returnHeadToPlayer(inventory, player);
-        finishLooting(graveId, row, player);
-    }
-
-    /** Stores the remaining items in {@link #open} and in the database. */
-    private void keepRemainder(final UUID graveId, final GraveRow row, final ItemStack[] left) {
-        final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
-        open.put(
-                graveId,
-                new GraveRow(
-                        row.id(),
-                        row.ownerId(),
-                        row.ownerUuid(),
-                        row.world(),
-                        row.x(),
-                        row.y(),
-                        row.z(),
-                        remaining,
-                        row.experience(),
-                        row.created()));
-        PaperScheduler.of(plugin).execute(() -> dao.updateGraveContents(graveId, remaining));
+        finishLooting(graveId, grave.row(), player);
     }
 
     private void returnHeadToPlayer(final Inventory inventory, final Player player) {

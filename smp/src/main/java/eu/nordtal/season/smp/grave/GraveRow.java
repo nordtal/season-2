@@ -72,6 +72,10 @@ public final class GraveRow {
         return contents.clone();
     }
 
+    GraveRow withContents(final byte[] remaining) {
+        return new GraveRow(id, ownerId, ownerUuid, world, x, y, z, remaining, experience, created);
+    }
+
     public int experience() {
         return experience;
     }

@@ -26,9 +26,11 @@ import eu.nordtal.season.smp.region.Box;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
@@ -37,8 +39,12 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.AbstractArrow;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
@@ -101,6 +107,9 @@ public final class Duels implements Arenas {
     /** {@link #respawned} restores the saved state of a fighter who died in the arena. */
     private final Map<UUID, SavedState> pending = new HashMap<>();
 
+    /** Teleports started by the duel itself, only while their event is running. */
+    private final Set<UUID> ownTeleports = new HashSet<>();
+
     public Duels(
             final Plugin plugin,
             final AuraDao aura,
@@ -133,6 +142,7 @@ public final class Duels implements Arenas {
             Box arena,
             Map<UUID, SavedState> saved,
             Map<UUID, String> discordIds,
+            Set<UUID> projectiles,
             long startedAt) {
 
         UUID opponentOf(final UUID player) {
@@ -173,6 +183,15 @@ public final class Duels implements Arenas {
         return active != null;
     }
 
+    /** A placed kit block outside the arena would survive the restore. */
+    public boolean refusesPlacement(final Player player, final Block block) {
+        final ActiveDuel duel = active;
+        final boolean fights = duel != null && duel.fights(player.getUniqueId());
+        final boolean inside = duel != null
+                && duel.arena().contains(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+        return DuelContainment.refusesBlockPlacement(fights, inside);
+    }
+
     /** Places back a copy of the arena that a crash left behind. Main thread, once the worlds are loaded. */
     public void restoreLeftover() {
         copy.restore();
@@ -180,6 +199,35 @@ public final class Duels implements Arenas {
 
     public void moved(final PlayerMoveEvent event) {
         negotiation.moved(event);
+        final ActiveDuel duel = active;
+        final Player player = event.getPlayer();
+        final Location to = event.getTo();
+        final World world = to.getWorld();
+        final boolean fights = duel != null && duel.fights(player.getUniqueId());
+        final boolean inside = duel != null
+                && world != null
+                && duel.arena().contains(world.getName(), to.getBlockX(), to.getBlockY(), to.getBlockZ());
+        final boolean ownTeleport = event instanceof PlayerTeleportEvent && ownTeleports.contains(player.getUniqueId());
+        if (!DuelContainment.leavesArena(fights, ownTeleport, inside)) {
+            return;
+        }
+        event.setCancelled(true);
+        PaperScheduler.of(plugin).onMain(() -> decide(player));
+    }
+
+    /** Tracks projectiles so none survives the duel or can be collected by another player. */
+    public void launched(final Projectile projectile) {
+        final ActiveDuel duel = active;
+        if (duel == null || !(projectile.getShooter() instanceof final Player shooter)) {
+            return;
+        }
+        if (!duel.fights(shooter.getUniqueId())) {
+            return;
+        }
+        duel.projectiles().add(projectile.getUniqueId());
+        if (projectile instanceof final AbstractArrow arrow) {
+            arrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+        }
     }
 
     /** A player sent a chat line or a command. */
@@ -247,7 +295,14 @@ public final class Duels implements Arenas {
         identities.discordIdOf(second.getUniqueId()).ifPresent(id -> discordIds.put(second.getUniqueId(), id.value()));
 
         final ActiveDuel duel = new ActiveDuel(
-                first.getUniqueId(), second.getUniqueId(), kit.name(), arena, saved, discordIds, clock.millis());
+                first.getUniqueId(),
+                second.getUniqueId(),
+                kit.name(),
+                arena,
+                saved,
+                discordIds,
+                new HashSet<>(),
+                clock.millis());
         active = duel;
 
         if (!enter(first, startFirst, kit.loadout()) || !enter(second, startSecond, kit.loadout())) {
@@ -271,6 +326,7 @@ public final class Duels implements Arenas {
     /** Books no stake. */
     private void abort(final ActiveDuel duel) {
         active = null;
+        removeProjectiles(duel);
         restore(duel, duel.first(), null);
         restore(duel, duel.second(), null);
         copy.restore();
@@ -279,9 +335,14 @@ public final class Duels implements Arenas {
     /** Returns false when the player is not in the arena. */
     private boolean enter(final Player player, final Location at, final List<DuelLoadoutItemSpec> loadout) {
         SavedState.clear(player);
-        if (!player.teleport(at)) {
-            plugin.getLogger().warning("participant teleport failed, duel cancelled: player=" + player.getName());
-            return false;
+        ownTeleports.add(player.getUniqueId());
+        try {
+            if (!player.teleport(at)) {
+                plugin.getLogger().warning("participant teleport failed, duel cancelled: player=" + player.getName());
+                return false;
+            }
+        } finally {
+            ownTeleports.remove(player.getUniqueId());
         }
         player.setGameMode(GameMode.ADVENTURE);
         giveLoadout(player, loadout);
@@ -352,6 +413,7 @@ public final class Duels implements Arenas {
 
     private void finish(final ActiveDuel duel, final UUID winnerId, final UUID loserId) {
         active = null;
+        removeProjectiles(duel);
         restore(duel, winnerId, Feedback.BIG_SUCCESS);
         restore(duel, loserId, Feedback.LOSS);
         copy.restore();
@@ -384,6 +446,16 @@ public final class Duels implements Arenas {
         }
     }
 
+    private static void removeProjectiles(final ActiveDuel duel) {
+        for (final UUID id : duel.projectiles()) {
+            final Entity projectile = Bukkit.getEntity(id);
+            if (projectile != null) {
+                projectile.remove();
+            }
+        }
+        duel.projectiles().clear();
+    }
+
     private void book(final UUID winnerId, final UUID loserId, final ActiveDuel duel) {
         // A disconnect has already cleared the identity cache.
         final String winner = duel.discordIds().get(winnerId);
@@ -405,6 +477,7 @@ public final class Duels implements Arenas {
         final ActiveDuel duel = active;
         if (duel != null) {
             active = null;
+            removeProjectiles(duel);
             restore(duel, duel.first(), null);
             restore(duel, duel.second(), null);
         }

@@ -614,7 +614,7 @@ services:
       # Caddy with the layer 4 app built in.
       context: ./deploy/caddy
     # Named by the hash of deploy/caddy, not the release: a release that leaves it alone keeps Caddy running.
-    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:2133a6485114
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:490add809f98
     restart: unless-stopped
     # `steward` for the interface, `default` for the proxies.
     networks: ["steward", "default"]

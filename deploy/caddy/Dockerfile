@@ -7,14 +7,14 @@
 # The tag is a hash of this directory, so a release that leaves it alone keeps the running Caddy and every
 # player connected through it. Every input is pinned for the same reason. After a change here, `check`
 # fails and names the new tag for compose.yml.
-FROM caddy:2.11.7-builder-alpine@sha256:d6161a2c82fd58b3205048958fb6246d0c5d892beee8a47e90944610c4efd100 AS builder
+FROM caddy:2.11.9-builder-alpine@sha256:646fee578e680989ca5c7fd1ce6f1de574d19fd71ef2221810cc0510a9f40c86 AS builder
 
 # Leaves cores for the servers on the same host.
 ENV GOMAXPROCS=2
 
-RUN xcaddy build --with github.com/mholt/caddy-l4@v0.1.2
+RUN xcaddy build --with github.com/mholt/caddy-l4@v0.1.3
 
-FROM caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+FROM caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
 
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 

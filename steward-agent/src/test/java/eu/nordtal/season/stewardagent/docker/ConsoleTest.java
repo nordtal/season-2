@@ -9,6 +9,7 @@ import eu.nordtal.season.common.time.TestScheduler;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -47,6 +48,19 @@ class ConsoleTest {
         try (FakeDaemon daemon = new FakeDaemon(scratch)) {
             assertThrows(IllegalArgumentException.class, () -> console(daemon).send("smp", "  ", Actor.STEWARD));
             assertTrue(daemon.execs.isEmpty());
+        }
+    }
+
+    @Test
+    void aLineWithAControlCharacterIsRefused() throws IOException {
+        try (FakeDaemon daemon = new FakeDaemon(scratch)) {
+            for (final String line : List.of("list\nstop", "\u0003", "say a\u007f", "say\ta")) {
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> console(daemon).send("smp", line, Actor.STEWARD),
+                        "accepted " + line.codePoints().boxed().toList());
+            }
+            assertTrue(daemon.execs.isEmpty(), "a refused line reached the daemon");
         }
     }
 

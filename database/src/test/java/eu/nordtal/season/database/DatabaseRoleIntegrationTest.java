@@ -7,11 +7,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.network.SnapshotDirectory;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -434,6 +437,36 @@ class DatabaseRoleIntegrationTest {
         assertEquals(
                 "",
                 database.socketAs(DatabaseRole.BACKUP, "SET row_security = off; SELECT count(*) FROM setting_group"));
+    }
+
+    /** A cluster restored from a dump holds no role attribute, so provisioning alone lets pg_dump pass the policies. */
+    @Test
+    void provisioningLetsTheBackupRoleAloneBypassRowSecurity() throws SQLException {
+        final String prefix = "provisioned_" + UUID.randomUUID().toString().substring(0, 8) + "_";
+        final Map<DatabaseRole, String> passwords = new EnumMap<>(DatabaseRole.class);
+        for (final DatabaseRole role : DatabaseRole.values()) {
+            if (role.hasPassword()) {
+                passwords.put(role, role.key());
+            }
+        }
+        try (Connection owner = database.dataSource().getConnection();
+                Statement statement = owner.createStatement()) {
+            try {
+                DatabaseRole.provision(database.dataSource(), prefix, passwords);
+                final List<String> bypassing = new ArrayList<>();
+                try (ResultSet row = statement.executeQuery(
+                        "SELECT rolname FROM pg_roles WHERE rolbypassrls AND rolname LIKE '" + prefix + "%'")) {
+                    while (row.next()) {
+                        bypassing.add(row.getString(1));
+                    }
+                }
+                assertEquals(List.of(DatabaseRole.BACKUP.roleName(prefix)), bypassing);
+            } finally {
+                for (final DatabaseRole role : DatabaseRole.values()) {
+                    statement.execute("DROP ROLE IF EXISTS " + role.roleName(prefix));
+                }
+            }
+        }
     }
 
     @Test

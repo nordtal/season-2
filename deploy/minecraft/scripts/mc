@@ -12,5 +12,10 @@ if [ "$#" -eq 0 ]; then
     exit 2
 fi
 session="${MC_TMUX_SESSION:-mc}"
-exec tmux -S "${MC_TMUX_SOCKET:-/run/mc/tmux.sock}" send-keys -t "$session" -l -- "$*" \; \
+line="$*"
+# tmux ends a command at an argument's last `;` and reads a last `\;` as `;`, so a last `;` is escaped.
+if [[ "$line" == *";" ]]; then
+    line="${line%;}\\;"
+fi
+exec tmux -S "${MC_TMUX_SOCKET:-/run/mc/tmux.sock}" send-keys -t "$session" -l -- "$line" \; \
     send-keys -t "$session" Enter

@@ -32,7 +32,8 @@ public final class Console {
      *
      * @param command the line as typed, without a leading slash
      * @param actor who typed it, logged as kind and Discord id
-     * @throws IllegalArgumentException if the service has no console, naming those that have one
+     * @throws IllegalArgumentException if the service has no console, naming those that have one, or the line is
+     *     blank or holds a control character
      * @throws DockerException if the container is not there or the exec failed
      */
     public void send(final String service, final String command, final Actor actor) {
@@ -43,6 +44,10 @@ public final class Console {
         }
         if (command.isBlank()) {
             throw new IllegalArgumentException("an empty line is not a command");
+        }
+        // tmux types a control character as a key, so a line break would run two lines and U+0003 stop the server.
+        if (command.chars().anyMatch(c -> c < 0x20 || c == 0x7f)) {
+            throw new IllegalArgumentException("a command holds no control character, such as a line break");
         }
         final String containerId = docker.running(project, service)
                 .orElseThrow(() -> new DockerException(

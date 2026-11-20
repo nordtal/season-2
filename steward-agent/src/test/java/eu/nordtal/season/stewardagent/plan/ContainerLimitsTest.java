@@ -10,8 +10,12 @@ import eu.nordtal.season.internalapi.BankWire;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /** The rights and limits compose.yml gives each container, beside the accounts {@link TopologyDeploymentTest} holds. */
@@ -58,7 +62,7 @@ class ContainerLimitsTest {
     /** Every service that keeps running has a memory and a pids limit, so a runaway takes only itself down. */
     @Test
     void everyServiceThatKeepsRunningHasAMemoryAndAPidsLimit() {
-        final Map<String, ComposeFile.Service> running = new java.util.LinkedHashMap<>();
+        final Map<String, ComposeFile.Service> running = new LinkedHashMap<>();
         compose.services().forEach((name, service) -> {
             if (!service.text("restart")
                     .orElseThrow(() -> new AssertionError("'" + name + "' sets no restart"))
@@ -96,7 +100,7 @@ class ContainerLimitsTest {
     @Test
     void everyMinecraftServersMemoryLimitLeavesRoomAboveItsHeap() {
         final String example = RepositoryRoot.read(".env.example");
-        final List<String> servers = new java.util.ArrayList<>();
+        final List<String> servers = new ArrayList<>();
         compose.services().forEach((name, service) -> {
             if ("./deploy/minecraft".equals(service.block("build").get("context"))) {
                 servers.add(name);
@@ -111,8 +115,7 @@ class ContainerLimitsTest {
             assertTrue(
                     limit >= Math.max(heap * 3 / 2, heap + (1L << 30)),
                     "'" + name + "' gets " + limit + " bytes for a heap of " + heap);
-            final java.util.regex.Matcher variable =
-                    java.util.regex.Pattern.compile("\\$\\{(\\w+):-").matcher(limitText);
+            final Matcher variable = Pattern.compile("\\$\\{(\\w+):-").matcher(limitText);
             assertTrue(variable.find(), "'" + name + "' takes its limit from no variable: " + limitText);
             assertTrue(
                     example.contains("#" + variable.group(1) + "=" + ComposeFile.defaultOf(limitText) + "\n"),
@@ -122,8 +125,7 @@ class ContainerLimitsTest {
 
     /** A size as compose and the JVM write it: digits and k, m or g. */
     private static long bytes(final String size) {
-        final java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("(\\d+)([kKmMgG])").matcher(size);
+        final Matcher matcher = Pattern.compile("(\\d+)([kKmMgG])").matcher(size);
         assertTrue(matcher.matches(), size + " is no size");
         final int shift = switch (Character.toLowerCase(matcher.group(2).charAt(0))) {
             case 'k' -> 10;

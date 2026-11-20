@@ -3,11 +3,13 @@ package eu.nordtal.season.steward.bunq;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
@@ -38,6 +40,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
@@ -63,6 +67,8 @@ class PaymentsTest {
     /** The recent payments that the stand-in returns. */
     private static final List<BankWire.Payment> RECENT = new CopyOnWriteArrayList<>();
 
+    private static final AtomicInteger CREATES = new AtomicInteger();
+
     private static Javalin bunq;
     private static Bank bank;
     private static DataSource owner;
@@ -70,6 +76,7 @@ class PaymentsTest {
 
     private PaymentRequests requests;
     private Payments payments;
+    private final AtomicReference<Instant> now = new AtomicReference<>(Instant.EPOCH);
 
     @BeforeAll
     static void start() {
@@ -79,9 +86,13 @@ class PaymentsTest {
                             BankWire.TAB_PAYMENTS,
                             ctx -> ctx.json(TAB_PAYMENTS.getOrDefault(Long.parseLong(ctx.pathParam("id")), List.of())));
                     config.routes.get(BankWire.RECENT, ctx -> ctx.json(RECENT));
+                    config.routes.post(BankWire.TABS, ctx -> {
+                        CREATES.incrementAndGet();
+                        ctx.status(502).json(new BankWire.Refused(429, "Too many requests."));
+                    });
                     config.routes.post(
-                            BankWire.TABS,
-                            ctx -> ctx.status(502).json(new BankWire.Refused(429, "Too many requests.")));
+                            BankWire.CANCEL,
+                            ctx -> ctx.json(new BankWire.Cancelled("4343".equals(ctx.pathParam("id")))));
                 });
         bank = new Bank(
                 new InternalClient(BankWire.SERVICE, "http://127.0.0.1:" + bunq.port(), TOKEN, Duration.ofSeconds(5)));
@@ -102,6 +113,7 @@ class PaymentsTest {
     void freshTables() {
         TAB_PAYMENTS.clear();
         RECENT.clear();
+        CREATES.set(0);
         owner().useHandle(handle -> handle.execute("TRUNCATE access_grant, payment_request, journal_entry, bot_inbox,"
                 + " bank_inbox, journal_entry, discord_user CASCADE"));
         requests = new PaymentRequests(owner);
@@ -113,7 +125,19 @@ class PaymentsTest {
                 AlertBook.using(steward),
                 Inbox.over(steward, BankRequest.TABLE),
                 Instant.EPOCH,
-                20);
+                20,
+                new Waiting() {
+                    @Override
+                    public Instant now() {
+                        return now.get();
+                    }
+
+                    @Override
+                    public boolean sleep(final Duration duration) {
+                        now.updateAndGet(time -> time.plus(duration));
+                        return true;
+                    }
+                });
     }
 
     @Test
@@ -155,6 +179,58 @@ class PaymentsTest {
                         1,
                         count("SELECT count(*) FROM bank_cancel_tab WHERE request = " + cancelled.id()
                                 + " AND tab = 4343")));
+    }
+
+    @Test
+    void aRefusedCancellationLeavesTheTabUncancelledAndFailsTheInboxRequest() {
+        final PaymentRequest request = requests.open(PAYER, 30, 300, 0, 24);
+        requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
+        assertTrue(requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED, Actor.person(PAYER)));
+
+        payments.pass();
+
+        assertNull(requests.byId(request.id()).orElseThrow().tabCancelled());
+        assertEquals(
+                InboxStatus.FAILED,
+                Inbox.<BankRequest>over(owner, BankRequest.TABLE)
+                        .recent(BankRequest.CancelTab.class, 1)
+                        .getFirst()
+                        .status());
+    }
+
+    @Test
+    void onePayerCannotConsumeAnotherPayersTabAllowance() {
+        final PaymentRequest first = requests.open(PAYER, 30, 300, 0, 24);
+        for (int attempt = 0; attempt < 4; attempt++) {
+            assertTrue(requests.requestTab(first.id(), Actor.person(PAYER)));
+            payments.pass();
+            now.updateAndGet(time -> time.plusSeconds(3));
+        }
+        assertEquals(3, CREATES.get());
+
+        final PaymentRequest other = requests.open(OTHER, 30, 300, 0, 24);
+        assertTrue(requests.requestTab(other.id(), Actor.person(OTHER)));
+        payments.pass();
+        assertEquals(4, CREATES.get());
+
+        now.updateAndGet(time -> time.plusSeconds(60));
+        assertTrue(requests.requestTab(first.id(), Actor.person(PAYER)));
+        payments.pass();
+        assertEquals(5, CREATES.get());
+    }
+
+    @Test
+    void aBurstAcrossPayersWaitsForTheBankInsteadOfRefusing() {
+        final Actor steward = Actor.STEWARD;
+        for (long payer = 100000000000000010L; payer < 100000000000000013L; payer++) {
+            final PaymentRequest request = requests.open(DiscordId.of(Long.toString(payer)), 30, 300, 0, 24);
+            assertTrue(requests.requestTab(request.id(), steward));
+        }
+
+        payments.pass();
+
+        assertEquals(3, CREATES.get());
+        assertTrue(!now.get().isBefore(Instant.EPOCH.plusSeconds(3)), "the third tab did not wait: " + now.get());
     }
 
     @Test

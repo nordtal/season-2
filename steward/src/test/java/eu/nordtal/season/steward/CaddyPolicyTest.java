@@ -2,57 +2,42 @@ package eu.nordtal.season.steward;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.ComposeFile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
-/**
- * Checks four security headers of the public Steward site, and the image CDN in a policy that restricts images.
- *
- * A restricting policy without the CDN blanks the plugin icons. A policy without an image directive needs no CDN.
- */
+/** Checks the security headers of the public Steward site and the resources its policy allows. */
 class CaddyPolicyTest {
 
-    private static final Path COMPOSE = Path.of("..", "compose.yml");
-
-    /** Reads only the Caddyfile out of {@code compose.yml}, because the {@code smp} service names the CDN too. */
-    private static String caddyfileIn(final String compose) {
-        final int block = compose.indexOf("caddyfile:");
-        return block < 0 ? "" : compose.substring(block);
-    }
-
-    private static String withoutComments(final String text) {
-        return text.lines()
-                .filter(line -> !line.strip().startsWith("#"))
-                .reduce(
-                        new StringBuilder(),
-                        (builder, line) -> builder.append(line).append('\n'),
-                        StringBuilder::append)
-                .toString();
-    }
-
-    private static final String CDN = "cdn.modrinth.com";
-
-    private static String directives() throws IOException {
-        return withoutComments(caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8)))
-                .toLowerCase(Locale.ROOT);
+    private static String directives() {
+        return ComposeFile.get()
+                .configContent("caddyfile")
+                .lines()
+                .map(String::strip)
+                .filter(line -> !line.startsWith("#"))
+                .collect(Collectors.joining("\n"));
     }
 
     private static String policy(final String directives) {
         return directives
                 .lines()
                 .map(String::strip)
-                .filter(line -> line.startsWith("content-security-policy"))
+                .filter(line -> line.toLowerCase(Locale.ROOT).startsWith("content-security-policy"))
                 .findFirst()
                 .orElse("");
     }
 
     @Test
-    void theSiteSendsHstsNosniffAReferrerPolicyAndFrameAncestors() throws IOException {
-        final String directives = directives();
+    void theSiteSendsHstsNosniffAReferrerPolicyAndFrameAncestors() {
+        final String directives = directives().toLowerCase(Locale.ROOT);
 
         assertTrue(directives.contains("strict-transport-security \"max-age="), "HSTS is sent");
         assertTrue(directives.contains("x-content-type-options nosniff"), "a response is never sniffed");
@@ -63,27 +48,41 @@ class CaddyPolicyTest {
     }
 
     @Test
-    void aPolicyThatRestrictsImagesNamesTheImageCdn() throws IOException {
+    void thePolicyRestrictsScriptsAndConnectionsToSteward() {
         final String policy = policy(directives());
 
-        final boolean restrictsImages = policy.contains("img-src") || policy.contains("default-src");
-
-        assertTrue(
-                !restrictsImages || policy.contains(CDN),
-                "compose.yml sets a Content-Security-Policy that restricts images and does not name " + CDN + "."
-                        + " The plugin thumbnails on every service page are loaded from that host by the browser,"
-                        + " and a policy without it does not fail: the pictures silently stay blank and only a reader"
-                        + " of the browser console finds out. Add it to img-src.");
+        assertTrue(policy.contains("default-src 'self'"), policy);
+        assertTrue(policy.contains("script-src 'self'"), policy);
+        assertTrue(policy.contains("object-src 'none'"), policy);
     }
 
     @Test
-    void theCaddyfileCarriesTheWarning() throws IOException {
-        final String compose = caddyfileIn(Files.readString(COMPOSE, StandardCharsets.UTF_8));
+    void thePolicyAllowsTheStartupScriptInTheServedPage() throws IOException, NoSuchAlgorithmException {
+        try (final var resource = Objects.requireNonNull(getClass().getResourceAsStream("/web/index.html"))) {
+            final String page = new String(resource.readAllBytes(), StandardCharsets.UTF_8);
+            final var inline =
+                    Pattern.compile("<script>(.*?)</script>", Pattern.DOTALL).matcher(page);
+            assertTrue(inline.find());
+            final byte[] digest =
+                    MessageDigest.getInstance("SHA-256").digest(inline.group(1).getBytes(StandardCharsets.UTF_8));
+            final String hash = Base64.getEncoder().encodeToString(digest);
+            final String policy = policy(directives());
+            assertTrue(policy.contains("'sha256-" + hash + "'"));
+            final var handlers = Pattern.compile(" on[a-z]+=\"([^\"]*)\"").matcher(page);
+            while (handlers.find()) {
+                final String handler = Base64.getEncoder()
+                        .encodeToString(MessageDigest.getInstance("SHA-256")
+                                .digest(handlers.group(1).getBytes(StandardCharsets.UTF_8)));
+                assertTrue(
+                        policy.contains("'unsafe-hashes'") && policy.contains("'sha256-" + handler + "'"),
+                        "the policy blocks the inline handler " + handlers.group(1));
+            }
+        }
+    }
 
-        assertTrue(
-                compose.contains(CDN),
-                "the Caddyfile in compose.yml no longer mentions " + CDN + ". That note is what"
-                        + " tells whoever adds an image directive to the Content-Security-Policy that the plugin"
-                        + " thumbnails depend on it.");
+    @Test
+    void theImagePolicyAllowsHttpsMediaInDocumentPreviews() {
+        final String policy = policy(directives());
+        assertTrue(policy.contains("img-src 'self' data: blob: https:;"), policy);
     }
 }

@@ -42,19 +42,7 @@ public final class Sessions {
         this.dao = Jdbis.over(dataSource).onDemand(SessionDao.class);
     }
 
-    /** Creates a row that holds only the OAuth state and returns the cookie's id. */
-    public String begin(final String oauthState) {
-        final String id = random();
-        dao.begin(stored(id), Objects.requireNonNull(oauthState, "oauthState"), random(), SIGN_IN_WINDOW.toSeconds());
-        return id;
-    }
-
-    /** Missing, expired and used states return empty. */
-    public Optional<String> consumeState(final @Nullable String id) {
-        return id == null ? Optional.empty() : dao.consumeState(stored(id));
-    }
-
-    /** The caller {@link #end}s the row of {@link #begin}. */
+    /** Creates a signed-in session and returns the cookie's id. */
     public String signIn(final DiscordId discordId, final String name) {
         final String id = random();
         dao.signIn(
@@ -147,7 +135,7 @@ public final class Sessions {
             @ColumnName("verified_at") @Nullable Instant verifiedAt,
             @ColumnName("step_up_until") @Nullable Instant stepUpUntil) {
 
-        /** Returns false for a row of {@link Sessions#begin} that no sign-in has completed. */
+        /** Returns false for a row that no sign-in has completed. */
         public boolean signedIn() {
             return discordId != null && displayName != null;
         }

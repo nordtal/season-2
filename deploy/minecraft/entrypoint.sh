@@ -500,6 +500,36 @@ check_server_settings() {
     # SERVER_BUILD does not exist: an empty cache gets the newest STABLE build.
 }
 
+# Disables bStats before plugins load their shared configuration.
+disable_bstats() {
+    local dir="$DATA/plugins/bStats" file separator enabled id tmp
+    if [[ "$SERVER_KIND" == "velocity" ]]; then
+        file="$dir/config.txt"
+        separator='='
+        enabled='enabled=false'
+        id='server-uuid='
+    else
+        file="$dir/config.yml"
+        separator=':'
+        enabled='enabled: false'
+        id='serverUuid: '
+    fi
+    mkdir -p "$dir"
+    tmp=$(mktemp "$dir/.config.XXXXXX")
+    if [[ -f "$file" ]]; then
+        awk -v separator="$separator" '$0 !~ ("^[[:space:]]*enabled[[:space:]]*" separator)' "$file" > "$tmp"
+    fi
+    if ! grep -q "^${id}[^[:space:]]" "$tmp"; then
+        if [[ -r /proc/sys/kernel/random/uuid ]]; then
+            printf '%s%s\n' "$id" "$(< /proc/sys/kernel/random/uuid)" >> "$tmp"
+        else
+            printf '%s%s\n' "$id" "$(uuidgen)" >> "$tmp"
+        fi
+    fi
+    printf '%s\n' "$enabled" >> "$tmp"
+    mv "$tmp" "$file"
+}
+
 # entrypoint-test.sh sources the definitions above. The guard keeps a sourcing shell from starting a server.
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
@@ -629,6 +659,8 @@ if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
         log "plugins present, SERVER_PLUGINS unset: count=${#installed[@]}"
     fi
 fi
+
+disable_bstats
 
 JAVA_ARGS=()
 if [[ "$SERVER_KIND" == "paper" ]]; then

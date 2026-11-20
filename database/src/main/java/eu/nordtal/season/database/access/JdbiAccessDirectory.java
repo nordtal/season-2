@@ -226,7 +226,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
         for (int attempt = 0; attempt < MAX_LINK_CODE_ATTEMPTS; attempt++) {
             final String candidate = LinkCodes.random();
             try {
-                return dao.upsertLinkCode(candidate, mcUuid, clock.instant().plus(ttl));
+                return dao.upsertLinkCode(candidate, mcUuid, clock.instant().plus(ttl), LinkCodes.LENGTH);
             } catch (final UnableToExecuteStatementException exception) {
                 if (!isUniqueViolation(exception)) {
                     throw exception;
@@ -245,6 +245,10 @@ final class JdbiAccessDirectory implements AccessDirectory {
     public LinkRedemption redeemLinkCode(final DiscordId discordId, final String code) {
         Objects.requireNonNull(discordId, "discordId");
         Objects.requireNonNull(code, "code");
+
+        if (code.length() != LinkCodes.LENGTH) {
+            return LinkRedemption.invalidCode();
+        }
 
         return jdbi.inTransaction(handle -> {
             final AccessDao transactional = handle.attach(AccessDao.class);

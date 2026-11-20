@@ -11,11 +11,14 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.Context;
 import io.javalin.http.Cookie;
 import io.javalin.http.SameSite;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Objects;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,24 +63,40 @@ public final class AuthFlow {
         return Optional.of("discord.root-id (nobody is an admin yet)");
     }
 
+    /** Redirects to Discord with a new OAuth state, which only the cookie carries until the callback. */
     public void login(final Context ctx) {
         final Optional<String> missing = whatIsMissing();
         if (missing.isPresent()) {
             throw new RequestRefused(503, ANSWER.signInUnconfigured(missing.get()));
         }
         final String state = random();
-        setSessionCookie(ctx, sessions.begin(state), Sessions.SIGN_IN_WINDOW);
+        setSessionCookie(ctx, state, Sessions.SIGN_IN_WINDOW);
         ctx.redirect(discord.authorizeUrl(state).toString());
     }
 
     public void callback(final Context ctx) {
-        final String started = ctx.cookie(Sessions.COOKIE);
-        final Optional<String> expected = sessions.consumeState(started);
+        final String expected = ctx.cookie(Sessions.COOKIE);
         final String state = ctx.queryParam("state");
-        if (expected.isEmpty() || !expected.get().equals(state)) {
+        if (expected == null
+                || state == null
+                || !MessageDigest.isEqual(
+                        expected.getBytes(StandardCharsets.UTF_8), state.getBytes(StandardCharsets.UTF_8))) {
             throw new RequestRefused(400, ANSWER.signInElsewhere());
         }
-        final String code = ctx.queryParam("code");
+        final String id;
+        try {
+            id = signIn(ctx.queryParam("code"));
+        } catch (final RuntimeException failed) {
+            // The state is used once, so a failed callback cannot be answered again with another code.
+            ctx.removeCookie(Sessions.COOKIE, "/");
+            throw failed;
+        }
+        setSessionCookie(ctx, id, lifetime());
+        ctx.redirect("/");
+    }
+
+    /** Returns the new session's id. A new id prevents session fixation. */
+    private String signIn(final @Nullable String code) {
         if (code == null || code.isBlank()) {
             throw new RequestRefused(400, ANSWER.noCode());
         }
@@ -92,11 +111,7 @@ public final class AuthFlow {
             log.info("sign-in refused, not an admin: actor=\"{}\" member={}", who.name(), signingIn);
             throw new RequestRefused(403, ANSWER.notAnAdmin(who.name()));
         }
-        // A new session id prevents session fixation.
-        final String id = sessions.signIn(DiscordId.of(who.id()), who.name());
-        sessions.end(started);
-        setSessionCookie(ctx, id, lifetime());
-        ctx.redirect("/");
+        return sessions.signIn(DiscordId.of(who.id()), who.name());
     }
 
     private boolean claimRoot(final DiscordAuth.Account who) {

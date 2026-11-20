@@ -4,6 +4,7 @@ import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.journal.Journaling;
+import eu.nordtal.season.steward.push.PushDestination;
 import eu.nordtal.season.steward.push.PushSubscriptions;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
@@ -57,6 +58,9 @@ public final class PushEndpoints {
                 || body.keys.auth.isBlank()) {
             throw new BadRequestResponse(
                     "that is not a PushSubscription - endpoint and keys.p256dh/keys.auth are required");
+        }
+        if (!PushDestination.allowed(body.endpoint)) {
+            throw new BadRequestResponse("This push service is unsupported.");
         }
         // The User-Agent becomes a system and a browser; the raw string is stored nowhere.
         pushSubscriptions.subscribe(

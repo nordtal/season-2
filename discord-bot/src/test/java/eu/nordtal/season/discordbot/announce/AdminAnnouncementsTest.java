@@ -40,11 +40,6 @@ class AdminAnnouncementsTest {
                 }
 
                 @Override
-                public void send(final String channelId, final String text) {
-                    sent.add(channelId + ": " + text);
-                }
-
-                @Override
                 public void send(final String channelId, final MessageCreateData message) throws ExecutionException {
                     if (channelId.equals("444")) {
                         throw new ExecutionException(new IllegalStateException("missing access"));

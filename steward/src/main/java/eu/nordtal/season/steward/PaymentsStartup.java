@@ -89,7 +89,8 @@ final class PaymentsStartup {
                         AlertBook.using(database.dataSource()),
                         Inbox.over(database.dataSource(), BankRequest.TABLE),
                         watermark,
-                        settings.recentPaymentCount()),
+                        settings.recentPaymentCount(),
+                        waiting),
                 poll,
                 scheduler);
     }

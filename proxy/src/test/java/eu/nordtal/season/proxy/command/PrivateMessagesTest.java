@@ -39,11 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * The private message commands: the tree a client receives, the two lines of a message, and the reply partner.
- *
- * Delivery needs two Velocity players on a running proxy and is not tested.
- */
+/** The private message commands: their tree, message lines, delivery filtering and reply partners. */
 class PrivateMessagesTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PrivateMessagesTest.class);
@@ -129,6 +125,40 @@ class PrivateMessagesTest {
         assertTrue(
                 flat(line).contains("<red>look at me</red>"),
                 "the tags reached the reader as the characters they typed: " + flat(line));
+    }
+
+    @Test
+    void aPrivateMessageLosesPrivateUseCodePoints() throws ReflectiveOperationException {
+        roster.remember(ONE, session(ONE, Locale.ENGLISH, false));
+        roster.remember(TWO, session(TWO, Locale.ENGLISH, false));
+        final List<Component> sent = new ArrayList<>();
+        final List<Component> received = new ArrayList<>();
+
+        deliver(
+                player(ONE, "eins", sent),
+                player(TWO, "zwei", received),
+                "hello " + Character.toString(0xFE000) + " world");
+
+        assertEquals(1, sent.size());
+        assertEquals(1, received.size());
+        assertTrue(flat(sent.getFirst()).contains("hello  world"));
+        assertTrue(flat(received.getFirst()).contains("hello  world"));
+        assertFalse(flat(sent.getFirst()).contains(Character.toString(0xFE000)));
+        assertFalse(flat(received.getFirst()).contains(Character.toString(0xFE000)));
+    }
+
+    @Test
+    void aPrivateMessageThatIsEmptyAfterFilteringIsNotDelivered() throws ReflectiveOperationException {
+        roster.remember(ONE, session(ONE, Locale.ENGLISH, false));
+        roster.remember(TWO, session(TWO, Locale.ENGLISH, false));
+        final List<Component> sent = new ArrayList<>();
+        final List<Component> received = new ArrayList<>();
+
+        deliver(player(ONE, "eins", sent), player(TWO, "zwei", received), Character.toString(0xFE000));
+
+        assertTrue(sent.isEmpty());
+        assertTrue(received.isEmpty());
+        assertEquals(Optional.empty(), commands.partnerOf(ONE));
     }
 
     // the reply partner
@@ -251,13 +281,29 @@ class PrivateMessagesTest {
                 new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
-    /** A name and a UUID, which is all {@link PrivateMessages#line} asks a player for. */
+    private void deliver(final Player sender, final Player recipient, final String text)
+            throws ReflectiveOperationException {
+        final java.lang.reflect.Method method =
+                PrivateMessages.class.getDeclaredMethod("deliver", Player.class, Player.class, String.class);
+        method.setAccessible(true);
+        method.invoke(commands, sender, recipient, text);
+    }
+
     private static Player player(final UUID uuid, final String name) {
+        return player(uuid, name, null);
+    }
+
+    /** A name, a UUID and optionally the messages sent to the player. */
+    private static Player player(final UUID uuid, final String name, final @Nullable List<Component> messages) {
         return (Player) Proxy.newProxyInstance(
                 PrivateMessagesTest.class.getClassLoader(), new Class<?>[] {Player.class}, (InvocationHandler)
                         (self, method, arguments) -> switch (method.getName()) {
                             case "getUniqueId" -> uuid;
                             case "getUsername" -> name;
+                            case "sendMessage" -> {
+                                messages.add((Component) arguments[0]);
+                                yield null;
+                            }
                             default -> throw new UnsupportedOperationException(method.getName());
                         });
     }

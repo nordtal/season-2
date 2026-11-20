@@ -69,8 +69,14 @@ public final class SystemLines implements Listener {
     /** Renders the chat line for each recipient: the speaker's flag, a hairline rule and the text. */
     @EventHandler(ignoreCancelled = true)
     public void onChat(final AsyncChatEvent event) {
+        final Component message = PlayerTextComponents.withoutPrivateUse(event.message());
+        if (GameLines.text(message).isEmpty()) {
+            event.setCancelled(true);
+            return;
+        }
+        event.message(message);
         final PlayerContext sender = context(event.getPlayer());
-        event.renderer((source, displayName, message, viewer) ->
+        event.renderer((source, displayName, original, viewer) ->
                 renderer.format(localeOf(viewer), CHAT_LINE.with(new Said(sender, GameLines.text(message)))));
     }
 

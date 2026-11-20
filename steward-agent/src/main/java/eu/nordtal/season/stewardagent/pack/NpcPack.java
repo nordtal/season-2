@@ -195,13 +195,7 @@ final class NpcPack {
                 }
             }
         }
-        frame.setRGB(n - 4, n - 4, SHADE);
         corners(frame);
-        for (int y = 3; y < n - 3; y++) {
-            for (int x = 3; x < n - 3; x++) {
-                frame.setRGB(x, y, BLACK);
-            }
-        }
     }
 
     /** Rounds the frame's corners: clear outside, black inside, and the fill where light and shade meet. */

@@ -6,6 +6,7 @@ import eu.nordtal.season.papercommon.hud.Hud;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -20,9 +21,6 @@ import org.jspecify.annotations.Nullable;
  * Call it on the main thread only; {@link #stopNow} puts everything back.
  */
 final class DialogueSession {
-
-    /** The look point above an NPC's feet: its eyes. */
-    static final double LOOK_HEIGHT = 1.62;
 
     /** How far below the line to the NPC's eyes the view aims, so the head stands above the panel. */
     static final double LOOK_BELOW = 8.0;
@@ -90,7 +88,7 @@ final class DialogueSession {
 
     /** Runs one tick at {@code figure} and returns the effects the caller carries out: hand-offs and the end. */
     List<Effect> tick(final Mannequin figure) {
-        final Location look = figure.getLocation().add(0, LOOK_HEIGHT, 0);
+        final Location look = figure.getEyeLocation();
         final Location eye = player.getEyeLocation();
         final double dx = look.getX() - eye.getX();
         final double dy = look.getY() - eye.getY();
@@ -152,8 +150,14 @@ final class DialogueSession {
         hideHands();
     }
 
-    /** Keeps the held slot and the off hand showing nothing, again after the slot moved and every so often. */
+    /**
+     * Keeps the held slot and the off hand showing nothing, again after the slot moved and every so often.
+     * A creative client writes its slots back to the server and would keep the blank item, so its hands stay put.
+     */
     private void hideHands() {
+        if (player.getGameMode() == GameMode.CREATIVE) {
+            return;
+        }
         final int held = player.getInventory().getHeldItemSlot();
         sinceHands++;
         if (held == handSlot && sinceHands < VIGNETTE_EVERY) {

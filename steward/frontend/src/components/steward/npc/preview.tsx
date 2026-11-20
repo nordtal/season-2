@@ -67,6 +67,9 @@ function pagesOf(measurement: NpcTextMeasurement | undefined, text: string): str
 }
 
 /** A line in the game's face. It is pressed into `room` when the browser's face sets it wider than the game's does. */
+/** The columns the speaker's name takes in its tab, as DialogueRoom.NAME in the game. */
+const NAME_ROOM = 210
+
 function Line({
   x,
   y,
@@ -262,8 +265,8 @@ export function DialoguePreview({
   const row = (b: number) => SCREEN.height - b
   const skin = skinAddress(npc)
   const scale = 6
-  // The game sizes the tab by the bold name's width; the letter count stands in until Steward has measured it.
-  const nameWidth = measured?.get(measureKey(name))?.width ?? name.text.length * (ADVANCE + 1)
+  // The tab fits the bold name, cut to its room as in the game; the letter count stands in until it is measured.
+  const nameWidth = Math.min(NAME_ROOM, measured?.get(measureKey(name))?.width ?? name.text.length * (ADVANCE + 1))
   const tab = TAB.padding + nameWidth + TAB.padding
   return (
     <svg
@@ -314,7 +317,7 @@ export function DialoguePreview({
           height={1}
           fill={shade(TAB_COLOUR, 0.25, true)}
         />
-        <Line x={left + PANEL.tab + TAB.padding} y={row(top + 4)} room={210} fill="#ffffff" bold>
+        <Line x={left + PANEL.tab + TAB.padding} y={row(top + 4)} room={NAME_ROOM} fill="#ffffff" bold>
           {name.text}
         </Line>
       </g>

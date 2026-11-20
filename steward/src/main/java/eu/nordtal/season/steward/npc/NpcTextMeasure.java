@@ -6,8 +6,8 @@ import java.util.List;
 
 /**
  * Measures an NPC text exactly as the dialogue panel draws it.
- * A body wraps and turns its pages by itself, so it fits when no word is wider than a line; a name and an answer stay
- * on one line, set in bold.
+ * A body wraps, breaks a word wider than a line and turns its pages by itself, so it always fits; a name and an answer
+ * stay on one line, set in bold, and fit when that line keeps to its room.
  */
 public final class NpcTextMeasure {
 

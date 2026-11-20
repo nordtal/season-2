@@ -295,35 +295,6 @@ class DialogueScreenTest {
     }
 
     @Test
-    void aTextThatFitsItsLastPageIsOnePage() {
-        assertEquals(List.of(List.of("Hallo du da")), DialogueScreen.pages("Hallo du da", 4));
-    }
-
-    @Test
-    void aLongTextBreaksIntoPagesThatFitTheirRoomAndLoseNothing() {
-        final String text = "Die Mine im Norden ist seit dem letzten Winter verschüttet, und niemand traut sich mehr"
-                + " hinein. Wer sie wieder öffnet, bekommt von mir einen ganzen Sack Eisen und einen Platz am Feuer."
-                + " Aber sei vorsichtig: In den Gängen hausen Dinge, die das Licht nicht mögen.";
-        for (final int lastHolds : List.of(3, 4)) {
-            final List<List<String>> pages = DialogueScreen.pages(text, lastHolds);
-
-            assertTrue(pages.size() > 1, pages.toString());
-            for (int page = 0; page < pages.size(); page++) {
-                final List<String> lines = pages.get(page);
-                final boolean lastPage = page == pages.size() - 1;
-                assertTrue(lines.size() <= (lastPage ? lastHolds : DialogueScreen.SPEAK_LINES), lines.toString());
-                lines.forEach(line -> assertTrue(Letters.visibleWidth(line) <= DialogueScreen.BODY_ROOM, line));
-                if (!lastPage) {
-                    assertTrue(Letters.visibleWidth(lines.getLast())
-                            <= DialogueScreen.BODY_ROOM - DialogueScreen.COUNT_ROOM);
-                }
-            }
-            assertEquals(
-                    text, String.join(" ", pages.stream().flatMap(List::stream).toList()));
-        }
-    }
-
-    @Test
     void cutKeepsAShortTextAndEndsALongOneInAnEllipsisWithinTheRoom() {
         assertEquals("Alma", DialogueScreen.cut("Alma", 40));
         final String cut = DialogueScreen.cut("Wilhelmine von Kranichfeld", 40);

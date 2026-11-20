@@ -27,16 +27,16 @@ public final class DialogueRoom {
     private DialogueRoom() {}
 
     /**
-     * Breaks {@code text} into pages of the body's room.
-     * The last page holds {@code lastHolds} lines, the others {@link #SPEAK_LINES}, and the last line of each page
-     * that others follow keeps {@link #COUNT} free. A text that fits the last page is one page.
+     * Breaks {@code text} into pages, without the spaces around it.
+     * The last page holds {@code lastHolds} lines, the others {@link #SPEAK_LINES}, and the last line of a page that
+     * others follow keeps {@link #COUNT} free.
      */
     public static List<List<String>> pages(final String text, final int lastHolds) {
         if (lastHolds < 1 || lastHolds > SPEAK_LINES) {
             throw new IllegalArgumentException("a last page holds 1 to " + SPEAK_LINES + " lines, not " + lastHolds);
         }
         final List<List<String>> pages = new ArrayList<>();
-        String rest = text;
+        String rest = text.strip();
         while (true) {
             final List<String> rows = Letters.wrapVisible(rest, BODY);
             if (rows.size() <= lastHolds) {

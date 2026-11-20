@@ -5,7 +5,7 @@ name: steward-ui
 services:
   # Throwaway: the data lives in memory, and every start of the preview drops what the last one left.
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:526f86d93c6ea08fd3f1fe5605650cacc781b2c6013169a0ad8f42c7d3d84f32
     environment:
       POSTGRES_PASSWORD: postgres
     tmpfs:

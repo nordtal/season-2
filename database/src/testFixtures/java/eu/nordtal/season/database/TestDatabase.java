@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 import org.postgresql.ds.PGSimpleDataSource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 /**
  * A database with the schema applied, for any test that needs PostgreSQL.
@@ -24,7 +25,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 public final class TestDatabase {
 
     /** The image, held against {@code compose.yml}'s default by {@code TestDatabaseImageTest}. */
-    public static final String IMAGE = "postgres:17-alpine";
+    public static final String IMAGE =
+            "postgres:17-alpine@sha256:526f86d93c6ea08fd3f1fe5605650cacc781b2c6013169a0ad8f42c7d3d84f32";
 
     /** The migrated database every fresh one is cloned from; nothing connects to it after the migration. */
     private static final String TEMPLATE = "schema";
@@ -194,7 +196,8 @@ public final class TestDatabase {
     private record Contained(PostgreSQLContainer<?> container) implements Server {
 
         static Contained start() {
-            final PostgreSQLContainer<?> container = new PostgreSQLContainer<>(IMAGE).withDatabaseName(TEMPLATE);
+            final var image = DockerImageName.parse("postgres" + IMAGE.substring(IMAGE.indexOf('@')));
+            final PostgreSQLContainer<?> container = new PostgreSQLContainer<>(image).withDatabaseName(TEMPLATE);
             container.start();
             return new Contained(container);
         }

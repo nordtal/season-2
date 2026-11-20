@@ -113,7 +113,7 @@ services:
     # On every network a process with a database login is on; see `networks:` at the foot.
     networks: ["default", "steward", "agent-database"]
     # The version the integration tests run against.
-    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine@sha256:526f86d93c6ea08fd3f1fe5605650cacc781b2c6013169a0ad8f42c7d3d84f32}
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}

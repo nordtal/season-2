@@ -19,7 +19,8 @@ final class DuelContainment {
             Material.JUKEBOX,
             Material.LECTERN,
             Material.RESPAWN_ANCHOR,
-            Material.SOUL_CAMPFIRE);
+            Material.SOUL_CAMPFIRE,
+            Material.VAULT);
 
     private DuelContainment() {}
 
@@ -49,6 +50,11 @@ final class DuelContainment {
 
     static boolean refusesBlockHandOff(
             final boolean fights, final boolean hasHeldItem, final Action action, final Material block) {
-        return fights && hasHeldItem && action == Action.RIGHT_CLICK_BLOCK && BLOCKS_TAKING_HELD_ITEM.contains(block);
+        return fights && hasHeldItem && action == Action.RIGHT_CLICK_BLOCK && takesHeldItem(block);
+    }
+
+    /** A shelf swaps the held item with the one it holds, whatever its wood. */
+    private static boolean takesHeldItem(final Material block) {
+        return BLOCKS_TAKING_HELD_ITEM.contains(block) || block.name().endsWith("_SHELF");
     }
 }

@@ -49,7 +49,11 @@ class DuelContainmentTest {
                 Material.JUKEBOX,
                 Material.LECTERN,
                 Material.RESPAWN_ANCHOR,
-                Material.SOUL_CAMPFIRE);
+                Material.SOUL_CAMPFIRE,
+                Material.VAULT,
+                Material.OAK_SHELF,
+                Material.PALE_OAK_SHELF,
+                Material.WARPED_SHELF);
         for (final Material block : blocks) {
             assertTrue(DuelContainment.refusesBlockHandOff(true, true, Action.RIGHT_CLICK_BLOCK, block), block::name);
         }
@@ -90,5 +94,6 @@ class DuelContainmentTest {
         assertFalse(
                 DuelContainment.refusesBlockHandOff(true, true, Action.RIGHT_CLICK_BLOCK, Material.SUSPICIOUS_GRAVEL));
         assertFalse(DuelContainment.refusesBlockHandOff(true, true, Action.RIGHT_CLICK_BLOCK, Material.STONE));
+        assertFalse(DuelContainment.refusesBlockHandOff(true, true, Action.RIGHT_CLICK_BLOCK, Material.BOOKSHELF));
     }
 }

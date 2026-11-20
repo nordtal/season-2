@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.steward.RequestLimit;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -11,7 +12,9 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.Context;
 import io.javalin.http.Cookie;
 import io.javalin.http.SameSite;
+import io.javalin.http.TooManyRequestsResponse;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Objects;
@@ -34,18 +37,21 @@ public final class AuthFlow {
     private final Data data;
     private final Sessions sessions;
     private final AdminTree admins;
+    private final RequestLimit<Boolean> logins;
 
     public AuthFlow(
             final WebSpec config,
             final DiscordAuth discord,
             final Data data,
             final Sessions sessions,
-            final AdminTree admins) {
+            final AdminTree admins,
+            final Clock clock) {
         this.config = config;
         this.discord = discord;
         this.data = data;
         this.sessions = sessions;
         this.admins = admins;
+        this.logins = new RequestLimit<>(clock, Duration.ofMinutes(1), 60, 60);
     }
 
     /** An empty admin tree without {@code discord.root-id} counts as missing. */
@@ -61,6 +67,10 @@ public final class AuthFlow {
     }
 
     public void login(final Context ctx) {
+        if (!logins.acquire(Boolean.TRUE)) {
+            ctx.header("Retry-After", "60");
+            throw new TooManyRequestsResponse();
+        }
         final Optional<String> missing = whatIsMissing();
         if (missing.isPresent()) {
             throw new RequestRefused(503, ANSWER.signInUnconfigured(missing.get()));

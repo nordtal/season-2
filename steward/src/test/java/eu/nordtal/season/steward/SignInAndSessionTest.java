@@ -143,6 +143,25 @@ class SignInAndSessionTest extends WebTestSupport {
     }
 
     @Test
+    void excessAnonymousSignInsDoNotCreateSessions() throws Exception {
+        restartTheInterface();
+        try {
+            final HttpClient stranger = browser();
+            final long before = count("SELECT count(*) FROM steward_session");
+            for (int attempt = 0; attempt < 60; attempt++) {
+                assertEquals(302, get(stranger, "/auth/login").statusCode());
+            }
+
+            final HttpResponse<String> refused = get(stranger, "/auth/login");
+            assertEquals(429, refused.statusCode());
+            assertTrue(refused.headers().firstValue("Retry-After").isPresent());
+            assertEquals(before + 60, count("SELECT count(*) FROM steward_session"));
+        } finally {
+            restartTheInterface();
+        }
+    }
+
+    @Test
     void theCookieSurvivesTheAppBeingClosed() throws Exception {
         // The assertion is on the wire, not on a setter, because Jetty's defaults are wrong for a home-screen web app.
         final HttpClient browser = browser();

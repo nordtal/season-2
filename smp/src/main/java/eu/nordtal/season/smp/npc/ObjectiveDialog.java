@@ -2,11 +2,13 @@ package eu.nordtal.season.smp.npc;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.GameDocument;
+import eu.nordtal.season.messagerendering.GameLines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
@@ -64,6 +66,21 @@ public final class ObjectiveDialog {
             @Example("Iron ingots") String objective,
             @Example("20") double percent) {}
 
+    record RewardHover(
+            @Example("Mine deepslate diamond ore") String title,
+            @Example("Finished") String detail,
+            @Example("1") int amount,
+
+            @Example("item.minecraft.buried_ancient_city_map")
+            GameContent item,
+
+            boolean hasHint,
+            @Example("Hand in items") String hint) {}
+
+    static final DocumentSpec<RewardHover> REWARD_HOVER = DocumentSpec.game(
+                    "smp", "objective-reward-hover", "Menus", DocumentSpec.Shape.CHAT, RewardHover.class)
+            .titled("Objective reward tooltip");
+
     static final DocumentSpec<DocumentSpec.None> DOCUMENT = DocumentSpec.menu(
                     "smp",
                     "objectives",
@@ -77,7 +94,6 @@ public final class ObjectiveDialog {
                     Slot.label("part", Part.class),
                     Slot.label("hand-in-hint"),
                     Slot.label("counted"),
-                    Slot.label("item-reward"),
                     Slot.label("hand-in-words", Counts.class),
                     Slot.label("hand-in-words-shared", HandInWords.class),
                     Slot.label("counted-words"),
@@ -277,18 +293,18 @@ public final class ObjectiveDialog {
             return Tooltip.hover(name, detail, hint);
         }
         final var displayed = TakenItems.one(reward.item(), reward.data());
-        final Component item = displayed == null ? Component.text(reward.item()) : displayed.effectiveName();
-        Component tooltip = Component.text(name, Colours.TOOLTIP_TITLE)
-                .append(Component.newline())
-                .append(Component.text(detail, Colours.TOOLTIP_TEXT))
-                .append(Component.newline())
-                .append(Component.text(document.label("item-reward"), Colours.TOOLTIP_TITLE))
-                .append(Component.newline())
-                .append(Component.text(reward.amount() + " × ").append(item).color(Colours.TOOLTIP_TEXT));
-        if (hint != null) {
-            tooltip = tooltip.append(Component.newline()).append(Component.text(hint, Colours.HINT));
+        if (displayed == null) {
+            return Tooltip.hover(name, detail, hint);
         }
-        return tooltip;
+        return renderer.format(
+                locale,
+                REWARD_HOVER.with(new RewardHover(
+                        name,
+                        detail,
+                        reward.amount(),
+                        GameLines.of(displayed.effectiveName()),
+                        hint != null,
+                        hint == null ? "" : hint)));
     }
 
     /** A statistic that counts kills shows the swords, any other the pickaxe; an advancement shows its flag. */

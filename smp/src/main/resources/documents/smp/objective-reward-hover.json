@@ -1,0 +1,22 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>{title}</emphasis><newline><muted>{detail}</muted><newline><emphasis>Reward</emphasis><newline>{amount} × {item}",
+            "de": "<emphasis>{title}</emphasis><newline><muted>{detail}</muted><newline><emphasis>Belohnung</emphasis><newline>{amount} × {item}"
+          }
+        },
+        {
+          "when": "hasHint",
+          "text": {
+            "en": "<muted>{hint}</muted>",
+            "de": "<muted>{hint}</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

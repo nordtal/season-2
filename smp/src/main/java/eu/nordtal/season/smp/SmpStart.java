@@ -143,7 +143,7 @@ final class SmpStart {
                 plugin.sounds,
                 effects,
                 plugin.announcer,
-                handout::handOutIfOnline);
+                handout);
         final StatisticPoller poller = new StatisticPoller(plugin, () -> plugin.track, engine, plugin.identities());
         poller.start();
         final GateHolders gates = new GateHolders(

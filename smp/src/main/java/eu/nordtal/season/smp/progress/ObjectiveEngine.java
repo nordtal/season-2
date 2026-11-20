@@ -24,10 +24,10 @@ import eu.nordtal.season.smp.milestone.Payout;
 import eu.nordtal.season.smp.milestone.TrackDao;
 import eu.nordtal.season.smp.milestone.Unlock;
 import eu.nordtal.season.smp.port.Contributions;
+import eu.nordtal.season.smp.port.ItemRewards;
 import eu.nordtal.season.smp.port.OwnContributionRow;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.state.SeasonState;
-import eu.nordtal.season.smp.wheel.PendingItems;
 import eu.nordtal.season.smp.world.Worlds;
 import java.time.Duration;
 import java.util.Comparator;
@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.kyori.adventure.title.Title;
@@ -83,8 +82,7 @@ public final class ObjectiveEngine implements Contributions {
     private final SmpSounds sounds;
     private final WorldEffects effects;
     private final Announcer announcer;
-    private final PendingItems pendingItems;
-    private final Consumer<DiscordId> handOutIfOnline;
+    private final ItemRewards itemRewards;
 
     /** The fade in, stay and fade out of the milestone title. */
     private static final Title.Times CEREMONY =
@@ -112,15 +110,14 @@ public final class ObjectiveEngine implements Contributions {
             final SmpSounds sounds,
             final WorldEffects effects,
             final Announcer announcer,
-            final Consumer<DiscordId> handOutIfOnline) {
+            final ItemRewards itemRewards) {
         this.announcer = java.util.Objects.requireNonNull(announcer, "announcer");
         this.plugin = plugin;
         this.jdbi = jdbi;
         this.rows = jdbi.onDemand(TrackDao.class);
         this.progress = jdbi.onDemand(ProgressDao.class);
         this.aura = jdbi.onDemand(AuraDao.class);
-        this.pendingItems = jdbi.onDemand(PendingItems.class);
-        this.handOutIfOnline = handOutIfOnline;
+        this.itemRewards = itemRewards;
         this.track = track;
         this.season = season;
         this.worlds = worlds;
@@ -267,7 +264,7 @@ public final class ObjectiveEngine implements Contributions {
             return;
         }
         try {
-            finished.itemRecipients().forEach(handOutIfOnline);
+            finished.itemRecipients().forEach(itemRewards::handOutIfOnline);
             announceObjective(finished.milestoneKey(), finished.objectiveKey());
             // Runs after the commit so that two objectives completed at once see each other.
             checkMilestone(finished.milestoneKey(), completedBy);
@@ -318,8 +315,7 @@ public final class ObjectiveEngine implements Contributions {
         final List<DiscordId> recipients = Payout.itemRecipients(auraShares, spinShares).stream()
                 .map(DiscordId::of)
                 .toList();
-        recipients.forEach(
-                id -> pendingItems.store(id, reward.item(), reward.amount(), reward.data(), reward.structure(), true));
+        recipients.forEach(id -> itemRewards.queue(id, reward));
         return recipients;
     }
 

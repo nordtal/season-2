@@ -106,7 +106,7 @@ class OneUnlockStartsTheSeasonIntegrationTest {
                         messages.locales(),
                         Runnable::run,
                         (message, failure) -> {}),
-                ignored -> {});
+                null);
         final SmpAdmin admin = new SmpAdmin(
                 rows,
                 jdbi.onDemand(AuraDao.class),

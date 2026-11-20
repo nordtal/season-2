@@ -19,6 +19,7 @@ import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.Objective;
 import eu.nordtal.season.smp.milestone.ObjectiveType;
 import eu.nordtal.season.smp.milestone.Unlock;
+import eu.nordtal.season.smp.port.ItemRewards;
 import eu.nordtal.season.smp.port.OwnContributionRow;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.wheel.ExtraSpins;
@@ -152,7 +153,20 @@ class ObjectivePayoutIntegrationTest {
                 null,
                 null,
                 announcer,
-                ignored -> {});
+                itemRewards());
+    }
+
+    private ItemRewards itemRewards() {
+        final PendingItems pending = jdbi.onDemand(PendingItems.class);
+        return new ItemRewards() {
+            @Override
+            public void queue(final DiscordId recipient, final Objective.ItemReward reward) {
+                pending.storeReward(recipient, reward);
+            }
+
+            @Override
+            public void handOutIfOnline(final DiscordId recipient) {}
+        };
     }
 
     @Test

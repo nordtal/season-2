@@ -9,6 +9,8 @@ import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.TakenItems;
+import eu.nordtal.season.smp.milestone.Objective.ItemReward;
+import eu.nordtal.season.smp.port.ItemRewards;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import java.util.Base64;
 import java.util.List;
@@ -38,7 +40,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-public final class ItemHandout implements Listener {
+public final class ItemHandout implements Listener, ItemRewards {
 
     record Won(
             @Example("16") int amount,
@@ -110,6 +112,11 @@ public final class ItemHandout implements Listener {
                 List.of(new PendingItems.Item(item.getType().getKey().asString(), item.getAmount(), data, "", false)));
     }
 
+    @Override
+    public void queue(final DiscordId recipient, final ItemReward reward) {
+        pending.storeReward(recipient, reward);
+    }
+
     void storeMap(final DiscordId discordId, final String item, final int amount, final String structure) {
         put(discordId, List.of(new PendingItems.Item(item, amount, "", structure, false)));
     }
@@ -137,6 +144,7 @@ public final class ItemHandout implements Listener {
     }
 
     /** A player who joined while the write was in flight gets the items now instead of at the next join. */
+    @Override
     public void handOutIfOnline(final DiscordId discordId) {
         try {
             PaperScheduler.of(plugin)

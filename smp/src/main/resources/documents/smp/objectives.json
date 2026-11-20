@@ -86,18 +86,6 @@
     },
     {
       "type": "LABEL",
-      "slot": "item-reward",
-      "lines": [
-        {
-          "text": {
-            "en": "Reward",
-            "de": "Belohnung"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
       "slot": "counted",
       "lines": [
         {

@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.wheel;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.smp.milestone.Objective.ItemReward;
 import java.util.List;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -13,6 +14,10 @@ public interface PendingItems {
 
     default void store(final DiscordId discordId, final String item, final int amount, final String data) {
         store(discordId, item, amount, data, "", false);
+    }
+
+    default void storeReward(final DiscordId recipient, final ItemReward reward) {
+        store(recipient, reward.item(), reward.amount(), reward.data(), reward.structure(), true);
     }
 
     @SqlUpdate("""

@@ -37,6 +37,7 @@ import eu.nordtal.season.smp.command.SmpAdmin;
 import eu.nordtal.season.smp.config.AdvancementAwardsSpec;
 import eu.nordtal.season.smp.config.BoardsSpec;
 import eu.nordtal.season.smp.config.BorderSpec;
+import eu.nordtal.season.smp.config.CustomBorderSpec;
 import eu.nordtal.season.smp.config.DeathsSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.config.Milestones;
@@ -70,6 +71,7 @@ import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.state.SeasonState;
 import eu.nordtal.season.smp.takein.ItemTakeIn;
 import eu.nordtal.season.smp.takein.PositionTake;
+import eu.nordtal.season.smp.wall.BorderWall;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.world.Datapacks;
@@ -100,6 +102,7 @@ public final class SmpPlugin extends NordtalPlugin {
     Setting<SpawnSpec> spawnSettings;
     Setting<DeathsSpec> deathSettings;
     Setting<RailsSpec> railSettings;
+    Setting<CustomBorderSpec> customBorderSettings;
 
     /** The protected areas of the spawn, rebuilt when the spawn group changes. */
     volatile Boxes protectedAreas;
@@ -148,6 +151,9 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Nullable
     MapPortals portals;
+
+    @Nullable
+    BorderWall borderWall;
 
     @Nullable
     Duels duels;
@@ -229,6 +235,9 @@ public final class SmpPlugin extends NordtalPlugin {
         spawnSettings = setting(Group.of("spawn", SpawnSpec.class).whileRunning());
         deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
         railSettings = setting(Group.of("rails", RailsSpec.class).whileRunning());
+        customBorderSettings = setting(Group.of("custom-border", CustomBorderSpec.class)
+                .checkedBy(SmpSettings::checkCustomBorder)
+                .whileRunning());
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
                 .checkedBy(SmpSettings::checkMilestones)
                 .whileRunning());
@@ -288,6 +297,7 @@ public final class SmpPlugin extends NordtalPlugin {
         SmpStart.restoreGravesAndRegisterWorld(this);
         rails = SmpStart.wireRails(this, wired.effects());
         portals = SmpStart.wireMapPortals(this);
+        borderWall = SmpStart.wireBorderWall(this);
 
         admin = admin();
         // Steward signals a reset here, and this runs before the surface handler, so one pass resets and draws.
@@ -461,6 +471,10 @@ public final class SmpPlugin extends NordtalPlugin {
             quietly("riderCartPackets.stop", tracked.packets()::stop);
             quietly("rails.stop", tracked.networks()::stop);
         }
+        final BorderWall wall = borderWall;
+        if (wall != null) {
+            quietly("borderWall.stop", () -> wall.stop(getServer().getOnlinePlayers()));
+        }
         final MapPortals scanning = portals;
         if (scanning != null) {
             quietly("portals.stop", scanning::stop);
@@ -607,6 +621,12 @@ public final class SmpPlugin extends NordtalPlugin {
                 }));
         // The boards draw themselves again on the next refresh.
         reload(problems, "the boards", boardSettings, () -> scheduler.onMain(Objects.requireNonNull(boards)::stop));
+        reload(
+                problems,
+                "the custom border",
+                customBorderSettings,
+                () -> scheduler.onMain(() -> Objects.requireNonNull(borderWall)
+                        .apply(customBorderSettings.get(), getServer().getOnlinePlayers())));
         // A dialogue reads the settings as it starts, so a reload alone applies them.
         reload(problems, "the NPC dialogues", npcDialogueSettings, () -> {});
         reload(

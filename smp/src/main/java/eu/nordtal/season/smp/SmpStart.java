@@ -4,6 +4,7 @@ import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcStore;
+import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.packrendering.wheel.WheelTimetable;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.npc.DialogueTexts;
@@ -18,6 +19,7 @@ import eu.nordtal.season.smp.config.DeathsSpec;
 import eu.nordtal.season.smp.duel.DuelListener;
 import eu.nordtal.season.smp.duel.Duels;
 import eu.nordtal.season.smp.eye.MapPortals;
+import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.grave.GraveDao;
 import eu.nordtal.season.smp.grave.GraveListener;
@@ -45,6 +47,7 @@ import eu.nordtal.season.smp.rail.StationMenus;
 import eu.nordtal.season.smp.rail.StationRailListener;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.travel.PortalGate;
+import eu.nordtal.season.smp.wall.BorderWall;
 import eu.nordtal.season.smp.welcome.SeasonWelcome;
 import eu.nordtal.season.smp.welcome.WelcomeDao;
 import eu.nordtal.season.smp.wheel.ExtraSpins;
@@ -304,6 +307,22 @@ final class SmpStart {
         plugin.getServer().getPluginManager().registerEvents(portals, plugin);
         portals.start(plugin.getServer().getWorlds());
         return portals;
+    }
+
+    /** Starts the custom border's wall with the settings it has. */
+    static BorderWall wireBorderWall(final SmpPlugin plugin) {
+        final PaperScheduler scheduler = PaperScheduler.of(plugin);
+        final BorderWall wall =
+                new BorderWall(plugin.clock(), task -> scheduler.onMainAfter(PaperScheduler.TICK, task), player -> {
+                    // Read on each push: the sounds are set up after the wall and reloaded in place.
+                    final SmpSounds sounds = plugin.sounds;
+                    if (sounds != null) {
+                        sounds.play(player, Feedback.REFUSED);
+                    }
+                });
+        plugin.getServer().getPluginManager().registerEvents(wall, plugin);
+        wall.apply(plugin.customBorderSettings.get(), plugin.getServer().getOnlinePlayers());
+        return wall;
     }
 
     /** The rail networks and the rides on them, which stop together. */

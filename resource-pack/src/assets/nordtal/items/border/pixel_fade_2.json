@@ -1,0 +1,6 @@
+{
+    "model": {
+        "type": "minecraft:model",
+        "model": "nordtal:item/border/pixel_fade_2"
+    }
+}

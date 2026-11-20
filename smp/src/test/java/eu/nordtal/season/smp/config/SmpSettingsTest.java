@@ -44,6 +44,7 @@ class SmpSettingsTest {
     private static final Group<BoardsSpec> BOARDS = Group.of("boards", BoardsSpec.class);
     private static final Group<DuelsSpec> DUELS = Group.of("duels", DuelsSpec.class);
     private static final Group<RailsSpec> RAILS = Group.of("rails", RailsSpec.class);
+    private static final Group<CustomBorderSpec> CUSTOM_BORDER = Group.of("custom-border", CustomBorderSpec.class);
 
     /** Every smp group but the milestones, whose own tests cover them. */
     private static final List<Group<?>> GROUPS = List.of(
@@ -56,6 +57,7 @@ class SmpSettingsTest {
             SPAWN,
             Group.of("deaths-and-graves", DeathsSpec.class),
             RAILS,
+            CUSTOM_BORDER,
             Group.of("sounds", SoundsSpec.class));
 
     private final MemorySettingStore store = new MemorySettingStore();
@@ -86,6 +88,35 @@ class SmpSettingsTest {
                 () -> assertRefused(RAILS, Map.of("junction-switch", 17), "junction-switch must be at most 16"),
                 () -> assertRefused(RAILS, Map.of("crawl-speed", 0), "crawl-speed must be at least 1"),
                 () -> assertRefused(RAILS, Map.of("crawl-speed", 11), "crawl-speed must be at most 10"));
+    }
+
+    @Test
+    void theCustomBorderIsOffWithoutAreasByDefaultAndReadsAWorldsAreas() throws Exception {
+        assertEquals(List.of(), store.checked("smp", CUSTOM_BORDER, Map.of()).worlds());
+
+        final CustomBorderSpec read = store.checked(
+                "smp",
+                CUSTOM_BORDER,
+                Map.of(
+                        "worlds",
+                        List.of(Map.of(
+                                "world",
+                                "nordtal",
+                                "enabled",
+                                true,
+                                "polygons",
+                                List.of(Map.of(
+                                        "name",
+                                        "spawn",
+                                        "corners",
+                                        List.of(
+                                                Map.of("x", 1, "z", 2),
+                                                Map.of("x", 3, "z", 4),
+                                                Map.of("x", 5, "z", 0))))))));
+
+        final CustomBorderSpec.World world = read.worlds().getFirst();
+        assertTrue(world.enabled());
+        assertEquals(3, world.polygons().getFirst().corners().get(1).x());
     }
 
     /** Steward writes every item it saves as a namespaced key, so a default in the other form shows as a change. */
@@ -282,6 +313,22 @@ class SmpSettingsTest {
                         SPAWN, Map.of("protected-areas", List.of(area)), "protected-areas[0].world must not be empty"));
     }
 
+    @Test
+    void theCustomBorderRefusesAnAreaOfTwoCornersAndAWorldTwice() {
+        final Group<CustomBorderSpec> checked = CUSTOM_BORDER.checkedBy(SmpSettings::checkCustomBorder);
+        final Map<String, Object> line =
+                Map.of("name", "spawn", "corners", List.of(Map.of("x", 1, "z", 2), Map.of("x", 3, "z", 4)));
+        assertAll(
+                () -> assertRefused(
+                        checked,
+                        Map.of("worlds", List.of(Map.of("world", "nordtal", "polygons", List.of(line)))),
+                        "the area \"spawn\" in nordtal needs at least 3 corners, has 2"),
+                () -> assertRefused(
+                        checked,
+                        Map.of("worlds", List.of(Map.of("world", "nordtal"), Map.of("world", "nordtal"))),
+                        "holds nordtal twice"));
+    }
+
     private void assertRefused(final Group<?> group, final Map<String, ?> values, final String sentence) {
         final SettingsException refused =
                 assertThrows(SettingsException.class, () -> new MemorySettingStore().checked("smp", group, values));
@@ -409,6 +456,7 @@ class SmpSettingsTest {
         assertEquals(
                 Map.ofEntries(
                         Map.entry("border.border-centre", Position.Shape.CENTRE),
+                        Map.entry("custom-border.worlds.polygons.corners", Position.Shape.CENTRE),
                         Map.entry("wheel.wheel-blocks", Position.Shape.BLOCK),
                         Map.entry("duels.negotiation-area", Position.Shape.AREA),
                         Map.entry("duels.arena", Position.Shape.AREA),

@@ -24,6 +24,33 @@ final class Stack {
             + " rm -f \"$old\"; echo \"removed superseded ${old##*/}\"; done;"
             + " cp " + MOUNTED_JAR + " \"$dir/$name\"; chown --reference=\"$dir\" \"$dir/$name\"";
 
+    /**
+     * The local world's test wall, an L of 60 by 40 blocks around the spawn at 106, 88.
+     *
+     * Its inner corner is at 116, 93.
+     */
+    private static final String TEST_WALL = "[{\"world\":\"nordtal\",\"enabled\":true,\"polygons\":"
+            + "[{\"name\":\"Test\",\"corners\":[{\"x\":76,\"z\":68},{\"x\":136,\"z\":68},{\"x\":136,\"z\":108},"
+            + "{\"x\":116,\"z\":108},{\"x\":116,\"z\":93},{\"x\":76,\"z\":93}]}]}]";
+
+    /** Writes the test wall once smp has published its group, and tells smp; a row the owner wrote stays. */
+    private static final String SEED_SQL = "WITH added AS ("
+            + " INSERT INTO setting_override (service, name, path, actor_kind, actor_id, changed)"
+            + " VALUES ('smp', 'custom-border', 'worlds', 'HOST', NULL, now()) ON CONFLICT DO NOTHING RETURNING 1)"
+            + " INSERT INTO setting_override_node"
+            + " (service, name, path, node, parent, field, ordinal, kind, string, number, flag)"
+            + " SELECT 'smp', 'custom-border', 'worlds', n.* FROM added"
+            + " CROSS JOIN LATERAL setting_override_nodes(CAST('" + TEST_WALL + "' AS jsonb)) AS n;"
+            + " NOTIFY nordtal_settings, 'smp';";
+
+    /** Waits in the database container, for up to 15 minutes, until smp has published the group. */
+    private static final String SEED_SCRIPT =
+            "psql_=\"psql -qtA -v ON_ERROR_STOP=1 -U $POSTGRES_USER -d $POSTGRES_DB\";"
+                    + " for i in $(seq 180); do"
+                    + " $psql_ -c \"SELECT 1 FROM setting_group WHERE service = 'smp' AND name = 'custom-border'\" 2>/dev/null"
+                    + " | grep -q 1 && exec $psql_ -c \"$1\";"
+                    + " sleep 5; done";
+
     private final Path root;
     private final LocalProject compose;
     private final Processes processes;
@@ -45,6 +72,7 @@ final class Stack {
         compose.run("build");
         ResetGuard.SERVICES.forEach(this::install);
         compose.run("up", "-d");
+        compose.run(seedArguments().toArray(String[]::new));
         terminal.log("stack started");
         terminal.log("Follow startup progress with dev logs.");
     }
@@ -220,6 +248,11 @@ final class Stack {
                 "sh",
                 jar.getFileName().toString(),
                 module);
+    }
+
+    /** Returns the compose arguments that seed the local world's test wall in the background. */
+    static List<String> seedArguments() {
+        return List.of("exec", "-d", "-T", "postgres", "sh", "-c", SEED_SCRIPT, "sh", SEED_SQL);
     }
 
     private static List<String> lines(final String output) {

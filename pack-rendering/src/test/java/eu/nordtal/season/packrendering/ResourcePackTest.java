@@ -314,9 +314,10 @@ class ResourcePackTest {
         try (Stream<Path> walk = Files.walk(textures)) {
             walk.filter(path -> path.toString().endsWith(".png")).forEach(path -> {
                 final String relative = RepositoryRoot.relative(textures, path);
-                // Sprites go through the gui atlas, wheel art through its models, npc vignettes as camera overlays.
+                // Sprites go through the gui atlas, wheel and border art through models, npc vignettes as overlays.
                 if (!relative.startsWith("gui/sprites/")
                         && !relative.startsWith("item/wheel/")
+                        && !relative.startsWith("item/border/")
                         && !relative.startsWith("npc/vignette_")
                         && !referenced.contains("nordtal:" + relative)) {
                     orphans.add("nordtal:" + relative);

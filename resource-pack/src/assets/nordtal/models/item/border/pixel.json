@@ -1,0 +1,17 @@
+{
+    "textures": {
+        "layer0": "nordtal:item/border/pixel",
+        "particle": "nordtal:item/border/pixel"
+    },
+    "elements": [
+        {
+            "from": [0, 0, 8],
+            "to": [16, 16, 8],
+            "shade": false,
+            "faces": {
+                "north": { "uv": [0, 0, 16, 16], "texture": "#layer0" },
+                "south": { "uv": [0, 0, 16, 16], "texture": "#layer0" }
+            }
+        }
+    ]
+}

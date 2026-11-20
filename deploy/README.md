@@ -267,6 +267,10 @@ replace the jar this way.
 - steward-agent builds the resource pack from its image into `deploy/pack/`, and Caddy serves it at
   `http://localhost`. After a change under `resource-pack/src/`, `dev up` builds a new image, which
   builds the pack at its start (see [resource-pack/README.md](../resource-pack/README.md)).
+- `dev up` turns on the custom border in the world `nordtal` with a test area, an L of 60 by 40
+  blocks around the spawn, once smp has published its settings. It writes only while the setting
+  has no row, so an edit in Steward stays; after a reset to the default, the next `dev up` writes it
+  again.
 - `console` types into a server from the Run window of IntelliJ. In a terminal,
   `docker compose --env-file deploy/dev.env exec smp console` attaches.
 

@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.bunq;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.JournalDetail.PaymentFlagged;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
@@ -22,7 +23,6 @@ import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.steward.RequestLimit;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.InstantSource;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -37,6 +37,8 @@ import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 @Slf4j
 public final class Payments {
 
+    private static final Duration BANK_PACE = Duration.ofMillis(250);
+
     private final Bank bunq;
     private final PaymentRequests requests;
     private final Bookings bookings;
@@ -45,7 +47,9 @@ public final class Payments {
     private final Inbox<BankRequest> inbox;
     private final Instant watermark;
     private final int recentPaymentCount;
-    private final RequestLimit<DiscordId> tabStarts;
+    private final Waiting waiting;
+    private final RequestLimit<DiscordId> payerStarts;
+    private final RequestLimit<Boolean> bankStarts;
 
     /** @param watermark payments created before it are ignored */
     public Payments(
@@ -57,7 +61,7 @@ public final class Payments {
             final Inbox<BankRequest> inbox,
             final Instant watermark,
             final int recentPaymentCount,
-            final InstantSource clock) {
+            final Waiting waiting) {
         this.bunq = bunq;
         this.requests = requests;
         this.bookings = bookings;
@@ -66,8 +70,10 @@ public final class Payments {
         this.inbox = inbox;
         this.watermark = watermark;
         this.recentPaymentCount = recentPaymentCount;
+        this.waiting = waiting;
+        this.payerStarts = new RequestLimit<>(waiting::now, Duration.ofMinutes(1), 3, Integer.MAX_VALUE);
         // Each creation makes a POST and a GET. Leave room for bunq reads in the three-second window.
-        this.tabStarts = new RequestLimit<>(clock, Duration.ofMinutes(1), 3, Duration.ofSeconds(3), 2);
+        this.bankStarts = new RequestLimit<>(waiting::now, Duration.ofSeconds(3), 2, 2);
     }
 
     public void pass() {
@@ -108,11 +114,17 @@ public final class Payments {
         if (request.status() != PaymentRequestStatus.OPEN || request.tab().isPresent()) {
             return Outcome.done(new BankRequest.OpenTab.Answer(null));
         }
-        if (!tabStarts.acquire(request.discordId())) {
+        if (!payerStarts.acquire(request.discordId())) {
             if (requests.failTab(request.id(), TabRefusal.TOO_MANY_REQUESTS)) {
                 log.warn("payment tab rate limited: reference={}", request.reference());
             }
             return Outcome.failed(null);
+        }
+        // A burst across payers waits for room, so no payer is refused for another's purchase.
+        while (!bankStarts.acquire(Boolean.TRUE)) {
+            if (!waiting.sleep(BANK_PACE)) {
+                return Outcome.failed(null);
+            }
         }
         final BankWire.Tab tab;
         try {

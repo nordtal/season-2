@@ -90,7 +90,7 @@ final class PaymentsStartup {
                         Inbox.over(database.dataSource(), BankRequest.TABLE),
                         watermark,
                         settings.recentPaymentCount(),
-                        waiting::now),
+                        waiting),
                 poll,
                 scheduler);
     }

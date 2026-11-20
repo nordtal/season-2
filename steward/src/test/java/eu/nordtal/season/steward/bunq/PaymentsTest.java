@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
@@ -125,7 +126,18 @@ class PaymentsTest {
                 Inbox.over(steward, BankRequest.TABLE),
                 Instant.EPOCH,
                 20,
-                now::get);
+                new Waiting() {
+                    @Override
+                    public Instant now() {
+                        return now.get();
+                    }
+
+                    @Override
+                    public boolean sleep(final Duration duration) {
+                        now.updateAndGet(time -> time.plus(duration));
+                        return true;
+                    }
+                });
     }
 
     @Test
@@ -208,7 +220,7 @@ class PaymentsTest {
     }
 
     @Test
-    void tabCreationHasASharedLimitAcrossPayers() {
+    void aBurstAcrossPayersWaitsForTheBankInsteadOfRefusing() {
         final Actor steward = Actor.STEWARD;
         for (long payer = 100000000000000010L; payer < 100000000000000013L; payer++) {
             final PaymentRequest request = requests.open(DiscordId.of(Long.toString(payer)), 30, 300, 0, 24);
@@ -217,7 +229,8 @@ class PaymentsTest {
 
         payments.pass();
 
-        assertEquals(2, CREATES.get());
+        assertEquals(3, CREATES.get());
+        assertTrue(!now.get().isBefore(Instant.EPOCH.plusSeconds(3)), "the third tab did not wait: " + now.get());
     }
 
     @Test

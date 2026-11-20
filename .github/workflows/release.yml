@@ -32,6 +32,7 @@ jobs:
       packages: write
     outputs:
       images: ${{ steps.images.outputs.images }}
+      assets-digest: ${{ steps.assets.outputs.digest }}
     # The tag is a dispatch input or a tag name, so it reaches scripts as a variable and never as text in a script.
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -227,6 +228,14 @@ jobs:
             + ["ghcr.io/nordtal/caddy:\($caddy)"]')"
           echo "images=$images" >> "$GITHUB_OUTPUT"
 
+      # A job output cannot be changed by a later job, unlike an artifact, so the publish job checks the assets
+      # against this digest before it releases them.
+      - name: Record the digest of the release assets
+        id: assets
+        run: |
+          digest="$({ (cd dist && sha256sum -- *); sha256sum < "$RUNNER_TEMP/notes.md"; } | sha256sum | cut -d' ' -f1)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
       - name: Keep the release assets for the publish job
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -288,6 +297,16 @@ jobs:
         with:
           name: release-notes
           path: ${{ runner.temp }}
+
+      - name: Check the assets are the ones the release job built
+        env:
+          EXPECTED: ${{ needs.release.outputs.assets-digest }}
+        run: |
+          digest="$({ (cd dist && sha256sum -- *); sha256sum < "$RUNNER_TEMP/notes.md"; } | sha256sum | cut -d' ' -f1)"
+          if [[ -z "$EXPECTED" || "$digest" != "$EXPECTED" ]]; then
+            echo "The downloaded release assets have digest $digest, but the release job recorded ${EXPECTED:-none}." >&2
+            exit 1
+          fi
 
       - name: Publish the release with its artifacts
         env:

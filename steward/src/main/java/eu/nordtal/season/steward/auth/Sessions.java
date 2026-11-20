@@ -42,6 +42,7 @@ public final class Sessions {
         this.dao = Jdbis.over(dataSource).onDemand(SessionDao.class);
     }
 
+    /** Creates a signed-in session and returns the cookie's id. */
     public String signIn(final DiscordId discordId, final String name) {
         final String id = random();
         dao.signIn(

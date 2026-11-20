@@ -63,7 +63,7 @@ public final class AuthFlow {
         return Optional.of("discord.root-id (nobody is an admin yet)");
     }
 
-    /** The cookie carries the OAuth state until the callback, so an anonymous start writes no row. */
+    /** Redirects to Discord with a new OAuth state, which only the cookie carries until the callback. */
     public void login(final Context ctx) {
         final Optional<String> missing = whatIsMissing();
         if (missing.isPresent()) {
@@ -86,10 +86,10 @@ public final class AuthFlow {
         final String id;
         try {
             id = signIn(ctx.queryParam("code"));
-        } catch (final RequestRefused refused) {
-            // The state is used once, so a refused callback cannot be answered again with another code.
+        } catch (final RuntimeException failed) {
+            // The state is used once, so a failed callback cannot be answered again with another code.
             ctx.removeCookie(Sessions.COOKIE, "/");
-            throw refused;
+            throw failed;
         }
         setSessionCookie(ctx, id, lifetime());
         ctx.redirect("/");

@@ -4,6 +4,7 @@ import com.destroystokyo.paper.event.player.PlayerAdvancementCriterionGrantEvent
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -141,12 +142,20 @@ public final class DuelListener implements Listener {
         final ItemStack item = event.getItem();
         final boolean fights = duels.isInArena(event.getPlayer());
         final boolean hasHeldItem = item != null && !item.getType().isAir();
-        final boolean refusesBlock =
-                DuelContainment.refusesBlockHandOff(fights, hasHeldItem, event.getAction(), block.getType());
-        final boolean refusesEgg =
-                item != null && DuelContainment.refusesSpawnEgg(fights, event.getAction(), item.getType());
-        if (refusesBlock || refusesEgg) {
+        if (DuelContainment.refusesBlockHandOff(fights, hasHeldItem, event.getAction(), block.getType())) {
             event.setCancelled(true);
+        }
+    }
+
+    /** Bukkit fires a click on air, such as an egg used on water, as cancelled, so this handler reads the item use. */
+    @EventHandler
+    public void onSpawnEgg(final PlayerInteractEvent event) {
+        final ItemStack item = event.getItem();
+        if (item == null || event.useItemInHand() == Event.Result.DENY) {
+            return;
+        }
+        if (DuelContainment.refusesSpawnEgg(duels.isInArena(event.getPlayer()), event.getAction(), item.getType())) {
+            event.setUseItemInHand(Event.Result.DENY);
         }
     }
 

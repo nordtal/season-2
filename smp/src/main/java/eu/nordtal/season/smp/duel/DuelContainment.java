@@ -41,7 +41,8 @@ final class DuelContainment {
     }
 
     static boolean refusesSpawnEgg(final boolean fights, final Action action, final Material item) {
-        return fights && action == Action.RIGHT_CLICK_BLOCK && item.name().endsWith("_SPAWN_EGG");
+        final boolean rightClick = action == Action.RIGHT_CLICK_BLOCK || action == Action.RIGHT_CLICK_AIR;
+        return fights && rightClick && item.name().endsWith("_SPAWN_EGG");
     }
 
     static boolean refusesBlockPlacement(final boolean fights, final boolean inside) {

@@ -75,6 +75,7 @@ class DuelContainmentTest {
     @Test
     void aFighterSpawnsNoMobFromAKitEgg() {
         assertTrue(DuelContainment.refusesSpawnEgg(true, Action.RIGHT_CLICK_BLOCK, Material.CREEPER_SPAWN_EGG));
+        assertTrue(DuelContainment.refusesSpawnEgg(true, Action.RIGHT_CLICK_AIR, Material.AXOLOTL_SPAWN_EGG));
         assertFalse(DuelContainment.refusesSpawnEgg(false, Action.RIGHT_CLICK_BLOCK, Material.CREEPER_SPAWN_EGG));
         assertFalse(DuelContainment.refusesSpawnEgg(true, Action.LEFT_CLICK_BLOCK, Material.CREEPER_SPAWN_EGG));
         assertFalse(DuelContainment.refusesSpawnEgg(true, Action.RIGHT_CLICK_BLOCK, Material.STONE));

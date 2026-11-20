@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.bunq;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -82,6 +83,9 @@ class PaymentsTest {
                     config.routes.post(
                             BankWire.TABS,
                             ctx -> ctx.status(502).json(new BankWire.Refused(429, "Too many requests.")));
+                    config.routes.post(
+                            BankWire.CANCEL,
+                            ctx -> ctx.json(new BankWire.Cancelled("4343".equals(ctx.pathParam("id")))));
                 });
         bank = new Bank(
                 new InternalClient(BankWire.SERVICE, "http://127.0.0.1:" + bunq.port(), TOKEN, Duration.ofSeconds(5)));
@@ -155,6 +159,23 @@ class PaymentsTest {
                         1,
                         count("SELECT count(*) FROM bank_cancel_tab WHERE request = " + cancelled.id()
                                 + " AND tab = 4343")));
+    }
+
+    @Test
+    void aRefusedCancellationLeavesTheTabUncancelledAndFailsTheInboxRequest() {
+        final PaymentRequest request = requests.open(PAYER, 30, 300, 0, 24);
+        requests.attachTab(request.id(), 4242L, "https://bunq.me/x");
+        assertTrue(requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED, Actor.person(PAYER)));
+
+        payments.pass();
+
+        assertNull(requests.byId(request.id()).orElseThrow().tabCancelled());
+        assertEquals(
+                InboxStatus.FAILED,
+                Inbox.<BankRequest>over(owner, BankRequest.TABLE)
+                        .recent(BankRequest.CancelTab.class, 1)
+                        .getFirst()
+                        .status());
     }
 
     @Test

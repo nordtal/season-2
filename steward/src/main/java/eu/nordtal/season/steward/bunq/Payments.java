@@ -120,7 +120,9 @@ public final class Payments {
         }
 
         // The request closed after it was read, so the new tab is cancelled.
-        bunq.cancelTab(tab.id());
+        if (!bunq.cancelTab(tab.id())) {
+            return Outcome.failed(null);
+        }
         log.warn(
                 "payment request closed during tab creation, tab cancelled: reference={} tab={}",
                 request.reference(),
@@ -133,11 +135,11 @@ public final class Payments {
             return Outcome.done(new BankRequest.CancelTab.Answer(null));
         }
         final long tabId = request.tab().orElseThrow();
-        final boolean accepted = bunq.cancelTab(tabId);
-
-        // cancelTab returns false for an already cancelled tab, so the cancel is recorded anyway.
+        if (!bunq.cancelTab(tabId)) {
+            return Outcome.failed(null);
+        }
         if (requests.recordCancelled(request.id())) {
-            log.info("bunq tab cancelled: tab={} reference={} accepted={}", tabId, request.reference(), accepted);
+            log.info("bunq tab cancelled: tab={} reference={}", tabId, request.reference());
         }
         return Outcome.done(new BankRequest.CancelTab.Answer(tabId));
     }

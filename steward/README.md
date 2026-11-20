@@ -29,8 +29,8 @@ gates.
 
 - Most reads and easily undone changes require a signed-in admin with a second factor in this session
   (`KEY_HELD`).
-- Backup downloads, plugin-file writes and saves to `steward/steward` or `steward-agent/runs` require
-  a valid step-up (`KEY_FRESH`). Grants of access or money, changes of admins or keys, and destructive
+- Backup downloads, plugin-file writes and saves to `steward/steward`, `steward/web`,
+  `steward-agent/runs` or `proxy/pack` require a valid step-up (`KEY_FRESH`). Grants of access or money, changes of admins or keys, and destructive
   or irreversible changes also require a step-up.
 - `GateTest` names the gate of every write. `Updates.needsStepUp` sets the step-up per kind of run.
 - A second factor is a security key (WebAuthn) or an authenticator app (`auth/Totp`, RFC 6238: SHA-1,
@@ -228,7 +228,7 @@ applies at the next reading.
 | `steward`     | `NORDTAL_STEWARD_*`                                     | the schedules and payment polling                                                              |
 | `web`         | `NORDTAL_STEWARD_WEB_*`                                 | the port, the public address, Discord sign-in, WebAuthn, Web Push, the authenticator app's key |
 | `alerts`      | `NORDTAL_STEWARD_ALERTS_*`                              | the thresholds steward's measured alerts fire on                                               |
-| `connections` | `NORDTAL_STEWARD_AGENT_URL`, `NORDTAL_STEWARD_BUNQ_URL` | the environment-only endpoints of steward-agent and steward-bunq                               |
+| `connections` | `NORDTAL_STEWARD_AGENT_URL`, `NORDTAL_STEWARD_BUNQ_URL` | the endpoints of steward-agent and steward-bunq, set by compose.yml, with no default          |
 | `database`    | `NORDTAL_STEWARD_DATABASE_*`                            | the connection, from the environment alone                                                     |
 
 ## Tests

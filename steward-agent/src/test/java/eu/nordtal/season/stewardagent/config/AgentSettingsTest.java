@@ -28,8 +28,12 @@ class AgentSettingsTest {
         final String schema =
                 store.group(AgentSettings.SERVICE, "runs").orElseThrow().schema();
         assertFalse(schema.contains("\"season-repo\""), schema);
-        assertEquals(
-                "nordtal/season-2", AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(key -> null)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(key -> null)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(key -> "https://evil.example/x")));
         assertEquals(
                 "deployment/season",
                 AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(

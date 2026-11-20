@@ -225,7 +225,8 @@ public final class StewardAgent {
         final DatabaseSpec databaseConfig;
         try {
             databaseConfig = AgentSettings.database().get();
-        } catch (final SettingsException broken) {
+            AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT);
+        } catch (final SettingsException | IllegalArgumentException broken) {
             log.error("settings unreadable, database not touched: cause={}", broken.getMessage());
             return 1;
         }
@@ -294,7 +295,8 @@ public final class StewardAgent {
         final DatabaseSpec databaseConfig;
         try {
             databaseConfig = AgentSettings.database().get();
-        } catch (final SettingsException broken) {
+            AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT);
+        } catch (final SettingsException | IllegalArgumentException broken) {
             log.error("settings unreadable, database not touched: cause={}", broken.getMessage());
             return 1;
         }

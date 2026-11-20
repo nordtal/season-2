@@ -38,9 +38,13 @@ class StewardSettingsTest {
                 store.group(StewardSettings.SERVICE, "steward").orElseThrow().schema();
         assertFalse(schema.contains("\"url\""), schema);
 
-        final ConnectionSpec defaults = StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(key -> null));
-        assertEquals("http://steward-agent:8081", defaults.agentUrl());
-        assertEquals("http://steward-bunq:8082", defaults.bunqUrl());
+        assertThrows(
+                SettingsException.class,
+                () -> StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(key -> null)));
+        assertThrows(
+                SettingsException.class,
+                () -> StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(Map.of(
+                        "NORDTAL_STEWARD_AGENT_URL", "http://deployment-agent:8081")::get)));
 
         final ConnectionSpec endpoints = StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(Map.of(
                 "NORDTAL_STEWARD_AGENT_URL", "http://deployment-agent:8081",

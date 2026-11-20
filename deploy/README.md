@@ -82,10 +82,9 @@ installation directory and holds every secret that compose passes to a service. 
 mounts its directory, so the next compose command reads every edit. The next update run recreates the
 services whose values changed.
 
-`SEASON_REPO` selects the GitHub repository that steward-agent reads for season releases.
-`STEWARD_AGENT_URL` and `STEWARD_BUNQ_URL` select the internal endpoints that Steward uses.
-Set these in the shared environment file before installing the release. The local sample is
-`deploy/dev.env.example`.
+`SEASON_REPO` names the GitHub repository whose latest release every update installs, as
+`owner/name`. Only this file sets it, and compose refuses to start without it. The installer writes
+`nordtal/season-2` when it is missing.
 
 **A secret that only one service reads:** it is in `secrets.env` of that service. The file lies in
 the service's directory of `NORDTAL_SECRETS_DIR` (`/etc/nordtal-secrets/season-2/<service>/`), has

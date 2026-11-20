@@ -56,10 +56,22 @@ public final class StewardSettings {
         return settings.load(Group.of("web", WebSpec.class).checkedBy(StewardSettings::checkWeb));
     }
 
+    /** Reads both endpoints from the environment alone. A missing one stops the start. */
     public static ConnectionSpec connections(final Environment environment) throws SettingsException {
         return EnvironmentSettings.of(environment.withMain("connections"))
-                .load(Group.of("connections", ConnectionSpec.class))
+                .load(Group.of("connections", ConnectionSpec.class).checkedBy(StewardSettings::checkConnections))
                 .get();
+    }
+
+    private static void checkConnections(final ConnectionSpec config) {
+        requireEndpoint("NORDTAL_STEWARD_AGENT_URL", config.agentUrl());
+        requireEndpoint("NORDTAL_STEWARD_BUNQ_URL", config.bunqUrl());
+    }
+
+    private static void requireEndpoint(final String variable, final @Nullable String url) {
+        if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) {
+            throw new IllegalArgumentException(variable + " is not an http(s) URL, was '" + url + "'");
+        }
     }
 
     public static Setting<DatabaseSpec> database() throws SettingsException {

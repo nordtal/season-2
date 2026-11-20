@@ -28,6 +28,7 @@ import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.auth.SecondFactor;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.auth.TestAuthenticator;
+import eu.nordtal.season.steward.config.ConnectionSpec;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.stack.StackApi;
@@ -67,6 +68,19 @@ import org.slf4j.LoggerFactory;
 public final class StewardPreview {
 
     static final String ADMIN = "100000000000000001";
+
+    /** The preview talks to its stand-in agent directly and reaches no bank, so these are never called. */
+    private static final ConnectionSpec STAND_IN_ENDPOINTS = new ConnectionSpec() {
+        @Override
+        public String agentUrl() {
+            return "http://127.0.0.1:9";
+        }
+
+        @Override
+        public String bunqUrl() {
+            return "http://127.0.0.1:9";
+        }
+    };
 
     private static final String ADMIN_NAME = "Preview";
 
@@ -155,7 +169,8 @@ public final class StewardPreview {
             furnishWhatIsNeverListed(agent.volumes.resolve("smp/plugins"));
             copyJars(options.jars(), agent.configs);
             final Steward.Configs configs = java.util.Objects.requireNonNull(
-                    Steward.configsOf(asSteward(postgres), database), "the stored settings were refused");
+                    Steward.configsOf(asSteward(postgres), STAND_IN_ENDPOINTS, database),
+                    "the stored settings were refused");
             final Data data = new Data(database, Clock.systemUTC());
             final AgentClient client = new AgentClient(agent.client());
             final WebSpec config = config(options.port(), discord);

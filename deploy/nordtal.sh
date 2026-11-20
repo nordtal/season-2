@@ -1374,6 +1374,8 @@ default_for COMPOSE_PROFILES     "db,bot,mc,steward"
 default_for COMPOSE_PROJECT_NAME "$DEFAULT_PROJECT"
 default_for POSTGRES_DB          "nordtal"
 default_for POSTGRES_USER        "nordtal"
+# The repository whose latest release every update installs. compose.yml refuses to start without it.
+default_for SEASON_REPO          "nordtal/season-2"
 # steward-agent mounts the file that the deployment is configured from. Section 3 checks it.
 default_for STEWARD_ENV_FILE     "$ENV_FILE"
 # Absolute, because compose resolves a relative bind inside the image of steward-agent.

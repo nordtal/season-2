@@ -4,19 +4,19 @@ import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 
-/** Holds the internal endpoints that the deployment sets for Steward. */
+/** Holds the internal endpoints that the deployment sets for Steward. Neither has a default. */
 @ConfigSpec
 public interface ConnectionSpec {
 
     @Key("agent-url")
     @NoExplanationNeeded
     default String agentUrl() {
-        return "http://steward-agent:8081";
+        return "";
     }
 
     @Key("bunq-url")
     @NoExplanationNeeded
     default String bunqUrl() {
-        return "http://steward-bunq:8082";
+        return "";
     }
 }

@@ -86,6 +86,13 @@ public final class Steward {
         if (databaseConfig == null) {
             return 1;
         }
+        final ConnectionSpec connections;
+        try {
+            connections = StewardSettings.connections(StewardSettings.ENVIRONMENT);
+        } catch (final SettingsException broken) {
+            log.error("settings unreadable, steward not started: cause={}", broken.getMessage());
+            return 1;
+        }
         final Database opened = DatabaseWaiting.openDatabase(databaseConfig, SERVE, Waiting.on(CLOCK));
         if (opened == null) {
             return 1;
@@ -94,7 +101,7 @@ public final class Steward {
         try (Database database = opened;
                 ProcessScheduler scheduler =
                         new ProcessScheduler("steward", failure -> log.error("task failed", failure))) {
-            final Configs configs = configsOf(databaseConfig, database);
+            final Configs configs = configsOf(databaseConfig, connections, database);
             if (configs == null) {
                 return 1;
             }
@@ -124,8 +131,9 @@ public final class Steward {
             Languages languages,
             Tiers tiers) {}
 
-    /** Loads the deployment endpoints and Steward settings, or returns {@code null}. */
-    static @Nullable Configs configsOf(final DatabaseSpec databaseConfig, final Database database) {
+    /** Loads Steward's stored settings beside the deployment's endpoints, or returns {@code null}. */
+    static @Nullable Configs configsOf(
+            final DatabaseSpec databaseConfig, final ConnectionSpec connections, final Database database) {
         final DatabaseSettings settings = StewardSettings.stored(database.dataSource(), SETTINGS_LOG);
         try {
             final Setting<StewardSpec> handle = StewardSettings.steward(settings);
@@ -142,7 +150,7 @@ public final class Steward {
                     handle,
                     handle.get(),
                     web,
-                    StewardSettings.connections(StewardSettings.ENVIRONMENT),
+                    connections,
                     alerts,
                     databaseConfig,
                     settings,

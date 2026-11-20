@@ -48,11 +48,6 @@ public final class AgentSettings {
     }
 
     public static Setting<RunSpec> runs(final Settings settings) throws SettingsException {
-        try {
-            seasonRepository(ENVIRONMENT);
-        } catch (final IllegalArgumentException invalid) {
-            throw new SettingsException(String.valueOf(invalid.getMessage()), invalid);
-        }
         return settings.load(runsGroup());
     }
 
@@ -83,16 +78,19 @@ public final class AgentSettings {
         Checks.requirePositive("maximum-pool-size", config.maximumPoolSize());
     }
 
-    /** Reads the GitHub release repository from the deployment environment. */
+    /**
+     * Reads the GitHub release repository from the deployment environment alone. No stored setting and no
+     * default stands in for it, so a deployment without it does not start.
+     *
+     * @throws IllegalArgumentException when the variable is missing or not owner/name
+     */
     public static String seasonRepository(final Environment environment) {
         final String key = "NORDTAL_STEWARD_AGENT_SEASON_REPO";
         final String configured = environment.variables().apply(key);
-        if (configured == null || configured.isBlank()) {
-            return "nordtal/season-2";
-        }
-        final String repository = configured.strip();
+        final String repository = configured == null ? "" : configured.strip();
         if (!REPO.matcher(repository).matches()) {
-            throw new IllegalArgumentException("Set " + key + " to the GitHub repository in owner/name form.");
+            throw new IllegalArgumentException(
+                    key + " is not a GitHub repository in owner/name form, was '" + repository + "'");
         }
         return repository;
     }

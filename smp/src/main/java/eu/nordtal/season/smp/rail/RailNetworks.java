@@ -281,7 +281,7 @@ public final class RailNetworks {
         final StationNames.Verdict verdict =
                 StationNames.judgeTyped(typed, station.id(), network(current.get()), spawnNames);
         if (verdict == StationNames.Verdict.ACCEPTED) {
-            final StationRow named = current.get().renamed(typed.strip(), clock.instant());
+            final StationRow named = current.get().renamed(StationNames.typed(typed), clock.instant());
             networks.addStation(named);
             unseen.remove(named.id());
             if (chunkLoaded(named)) {

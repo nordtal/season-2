@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.rail;
 
+import eu.nordtal.season.common.PlayerText;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
@@ -56,7 +57,12 @@ public final class StationNames {
                 .filter(row -> !row.id().equals(station))
                 .flatMap(row -> row.spawn() ? spawnNames.stream() : Stream.ofNullable(row.name()))
                 .toList();
-        return judge(typed.strip(), others);
+        return judge(typed(typed), others);
+    }
+
+    /** Returns the name a player typed as the rules judge and store it: without private-use code points, stripped. */
+    public static String typed(final String typed) {
+        return PlayerText.withoutPrivateUse(typed).strip();
     }
 
     /**

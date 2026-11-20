@@ -18,7 +18,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
@@ -61,12 +64,16 @@ public final class ItemHandout implements Listener {
         }
     }
 
+    private static final long STOP_WAIT_SECONDS = 10;
+
     private final Plugin plugin;
     private final PendingItems pending;
     private final Identities identities;
     private final MessageRenderer renderer;
     private final Executor background;
     private final Set<Claim> claims = ConcurrentHashMap.newKeySet();
+    /** One party for {@link #stop} and one for each write or claim still running. */
+    private final Phaser running = new Phaser(1);
 
     public ItemHandout(
             final Plugin plugin,
@@ -101,7 +108,7 @@ public final class ItemHandout implements Listener {
             // smp stops: the write lands before the item work closes, and the next join hands it out.
             CompletableFuture.runAsync(write, background).join();
         } else {
-            background.execute(() -> {
+            inBackground(() -> {
                 write.run();
                 handOutIfOnline(discordId);
             });
@@ -132,7 +139,7 @@ public final class ItemHandout implements Listener {
 
     /** Claims the rows off the main thread and gives them on it; a claim smp cannot give goes back to the store. */
     private void claimFor(final UUID player, final DiscordId discordId) {
-        background.execute(() -> {
+        inBackground(() -> {
             if (!pending.waitsFor(discordId)) {
                 return;
             }
@@ -181,8 +188,35 @@ public final class ItemHandout implements Listener {
         }
     }
 
-    /** Puts back every claim the main thread has not given yet, so a stop between claim and hand-out loses nothing. */
+    /** Runs {@code work} on the item work, where {@link #stop} waits for it. */
+    private void inBackground(final Runnable work) {
+        running.register();
+        try {
+            background.execute(() -> {
+                try {
+                    work.run();
+                } finally {
+                    running.arriveAndDeregister();
+                }
+            });
+        } catch (final RuntimeException refused) {
+            running.arriveAndDeregister();
+            throw refused;
+        }
+    }
+
+    /**
+     * Waits for the writes and claims still running, then puts back every claim the main thread has not given yet.
+     * smp calls it while it stops, before the item work closes, so a stop between claim and hand-out loses nothing.
+     */
     public void stop() {
+        try {
+            running.awaitAdvanceInterruptibly(running.arrive(), STOP_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (final TimeoutException late) {
+            plugin.getLogger().warning("item tasks still running at stop: count=" + running.getUnarrivedParties());
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
         List.copyOf(claims).forEach(this::putBack);
     }
 

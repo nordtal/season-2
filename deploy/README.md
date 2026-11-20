@@ -22,6 +22,13 @@ deploy/
 `steward-agent` is the one service that creates containers, and its image contains `compose.yml`
 (see [`../steward-agent/README.md`](../steward-agent/README.md)). `steward` mounts no Docker socket.
 
+## Image vulnerability scans
+
+Open the workflow run in GitHub Actions and read **Summary** for each image's findings.
+The [release workflow](../.github/workflows/release.yml) scans the images in GHCR before publishing the GitHub release.
+The [weekly scan](../.github/workflows/scan-release-images.yml) scans the latest published release.
+A critical or high finding with a fixed version fails the scan. Findings without a fix appear in the summary.
+
 ## First deployment
 
 A deploy pulls images and never builds them. [`release.yml`](../.github/workflows/release.yml) pushes

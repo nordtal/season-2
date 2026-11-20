@@ -1,7 +1,7 @@
 name: release
 
 # Runs on a pushed release tag. The tag must match gradle.properties, and its commit must have a green
-# build on main. The run creates the GitHub release last, with every asset, so a failed run publishes nothing.
+# build on main. The run creates the GitHub release last, with every asset, so a failed scan blocks the GitHub release.
 on:
   push:
     tags: ["v*"]
@@ -213,6 +213,51 @@ jobs:
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           tags: |
             ghcr.io/nordtal/steward-bunq:${{ env.VERSION }}
+
+      - name: Check out the scan action from the workflow revision
+        id: scanner
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .release-workflow
+          sparse-checkout: .github/actions/scan-image
+          persist-credentials: false
+
+      - name: Scan discord-bot
+        if: ${{ !cancelled() && steps.scanner.outcome == 'success' }}
+        uses: ./.release-workflow/.github/actions/scan-image
+        with:
+          image: ghcr.io/nordtal/discord-bot:${{ env.VERSION }}
+
+      - name: Scan steward
+        if: ${{ !cancelled() && steps.scanner.outcome == 'success' }}
+        uses: ./.release-workflow/.github/actions/scan-image
+        with:
+          image: ghcr.io/nordtal/steward:${{ env.VERSION }}
+
+      - name: Scan minecraft
+        if: ${{ !cancelled() && steps.scanner.outcome == 'success' }}
+        uses: ./.release-workflow/.github/actions/scan-image
+        with:
+          image: ghcr.io/nordtal/minecraft:${{ env.VERSION }}
+
+      - name: Scan caddy
+        if: ${{ !cancelled() && steps.scanner.outcome == 'success' }}
+        uses: ./.release-workflow/.github/actions/scan-image
+        with:
+          image: ghcr.io/nordtal/caddy:${{ steps.caddy.outputs.tag }}
+
+      - name: Scan steward-agent
+        if: ${{ !cancelled() && steps.scanner.outcome == 'success' }}
+        uses: ./.release-workflow/.github/actions/scan-image
+        with:
+          image: ghcr.io/nordtal/steward-agent:${{ env.VERSION }}
+
+      - name: Scan steward-bunq
+        if: ${{ !cancelled() && steps.scanner.outcome == 'success' }}
+        uses: ./.release-workflow/.github/actions/scan-image
+        with:
+          image: ghcr.io/nordtal/steward-bunq:${{ env.VERSION }}
 
       # This step runs last. steward-agent and nordtal.sh take the newest published release as the one to
       # install, so every image that it names must be in the registry first. With assets, gh uploads them

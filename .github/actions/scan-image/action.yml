@@ -1,0 +1,48 @@
+name: Scan image
+description: Report image vulnerabilities and fail on fixable critical or high findings.
+inputs:
+  image:
+    description: Container image reference.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Scan for vulnerabilities
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      with:
+        scan-ref: ${{ inputs.image }}
+        scanners: vuln
+        version: v0.76.2
+        format: json
+        output: ${{ runner.temp }}/trivy-image.json
+        exit-code: "0"
+
+    - name: Report findings
+      shell: bash
+      env:
+        IMAGE_REF: ${{ inputs.image }}
+      run: |
+        report="$RUNNER_TEMP/trivy-image.json"
+        jq -r --arg image "$IMAGE_REF" '
+          def cell: gsub("[[:cntrl:]]"; " ") | @html | gsub("[|]"; "&#124;") | gsub("`"; "&#96;");
+          "### Image scan: `\($image)`", "",
+          ([.Results[]?.Vulnerabilities[]?] | unique_by(.Severity, .VulnerabilityID, .PkgName, .InstalledVersion, .FixedVersion) |
+            if length == 0 then
+              "Trivy found no vulnerabilities."
+            else
+              "| Severity | Vulnerability | Package | Installed version | Fixed version |",
+              "| --- | --- | --- | --- | --- |",
+              (.[] | [.Severity, .VulnerabilityID, .PkgName, .InstalledVersion,
+                      (if (.FixedVersion // "") == "" then "No fix available" else .FixedVersion end)] |
+                map(cell) | "| " + join(" | ") + " |")
+            end)
+        ' "$report" | tee -a "$GITHUB_STEP_SUMMARY"
+
+        blocked="$(jq 'any(.Results[]?.Vulnerabilities[]?;
+          (.Severity == "CRITICAL" or .Severity == "HIGH") and (.FixedVersion // "") != ""
+        )' "$report")"
+        if [[ "$blocked" == true ]]; then
+          printf '\nImage scan failed for %s. Trivy found critical or high vulnerabilities with fixes.\n\n' "$IMAGE_REF" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
+        fi
+        echo >> "$GITHUB_STEP_SUMMARY"

@@ -384,6 +384,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V133__smp_no_longer_publishes_its_npc_group.sql",
                 "0b510c9d22d35fad4a9d7a0ae6059e0e907aa1e47066c3898acea1590d076c46");
+        FROZEN.put(
+                "V134__the_spawn_station_stands_on_the_station_called_spawn.sql",
+                "0e3b9d6e2704091ce9a36ac7ae8e1e0b11e7b4dea4dca72d9d13709c78d544a2");
     }
 
     @Test

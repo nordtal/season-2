@@ -1,0 +1,6 @@
+vulnerabilities:
+  - id: CVE-2026-78661
+    paths:
+      - usr/local/libexec/docker/cli-plugins/docker-compose
+    expired_at: 2026-12-20
+    statement: Docker Compose releases do not yet include the golang.org/x/net fix.

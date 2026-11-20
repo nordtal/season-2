@@ -27,7 +27,11 @@ deploy/
 Open the workflow run in GitHub Actions and read **Summary** for each image's findings.
 The [release workflow](../.github/workflows/release.yml) scans the images in GHCR before publishing the GitHub release.
 The [weekly scan](../.github/workflows/scan-release-images.yml) scans the latest published release.
-A critical or high finding with a fixed version fails the scan. Findings without a fix appear in the summary.
+A critical or high finding with a fixed version fails the scan unless an active exception applies.
+Findings without a fix appear in the summary.
+
+[Trivy's exception file](../.github/actions/scan-image/.trivyignore.yaml) records the affected binary, reason and expiry.
+Add an exception only when no upstream release contains the fix. The scan lists it as accepted until it expires.
 
 ## First deployment
 

@@ -2,10 +2,12 @@
 # The image holds no jar. The volume holds the server jars and the plugin jars, and steward owns both.
 #
 #   docker build -t ghcr.io/nordtal/minecraft:<tag> deploy/minecraft
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25-jre@sha256:945247f9d092703e0c6be92243ef3c51640229e23ab34d353c8dcdc73e6cd4e6
 
 # tmux provides the console. curl and jq resolve the server jar through the Fill API.
-RUN apt-get update \
+# The server uses its own entrypoint and does not use Ubuntu's Pebble supervisor.
+RUN rm -f /usr/bin/pebble \
+    && apt-get update \
     && apt-get install -y --no-install-recommends tmux curl jq ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

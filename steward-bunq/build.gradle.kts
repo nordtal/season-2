@@ -19,6 +19,9 @@ dependencies {
 
     // BunqRequestBuilder patches the SDK's own class; read it before touching this or the OkHttp version.
     implementation(libs.bunq.sdk)
+    constraints {
+        implementation("commons-io:commons-io:2.14.0")
+    }
 
     // The patched BunqRequestBuilder extends okhttp3.Request.Builder, which the SDK ships at runtime scope only.
     implementation(libs.okhttp)

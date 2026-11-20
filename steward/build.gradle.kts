@@ -83,7 +83,7 @@ val frontendDirectory = layout.projectDirectory.dir("frontend")
 val frontendDistDirectory = layout.buildDirectory.dir("frontend-dist")
 
 node {
-    version.set("24.21.0")
+    version.set("24.22.3")
     download.set(true)
     nodeProjectDir.set(frontendDirectory)
     workDir.set(layout.buildDirectory.dir("nodejs"))

@@ -95,6 +95,7 @@ snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 javalin = { module = "io.javalin:javalin", version.ref = "javalin" }
 webauthn-server-core = { module = "com.yubico:webauthn-server-core", version.ref = "webauthn" }
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 cbor = { module = "com.upokecenter:cbor", version.ref = "cbor" }
 testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
 jimfs = { module = "com.google.jimfs:jimfs", version.ref = "jimfs" }

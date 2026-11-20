@@ -35,6 +35,10 @@ dependencies {
     implementation(libs.gson)
 
     implementation(libs.jda)
+    constraints {
+        implementation(libs.jackson.core)
+        implementation(libs.jackson.databind)
+    }
 
     // No bunq SDK here: the key and the patched BunqRequestBuilder live only in :steward-bunq.
 

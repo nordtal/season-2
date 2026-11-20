@@ -92,7 +92,8 @@ class AdvancementCreditIntegrationTest {
                 null,
                 null,
                 null,
-                announcer);
+                announcer,
+                ignored -> {});
 
         online.clear();
         held.clear();

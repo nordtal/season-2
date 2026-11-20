@@ -89,6 +89,8 @@ public final class Milestones {
                             + "STATISTIC, ADVANCEMENT."));
             return;
         }
+        final List<RewardItemSpec> rewards = objectiveEntry.rewardItem();
+        final RewardItemSpec reward = rewards == null || rewards.isEmpty() ? null : rewards.getFirst();
         objectives.add(new Objective(
                 objectiveKey,
                 type,
@@ -99,7 +101,10 @@ public final class Milestones {
                 trimmedList(objectiveEntry.subjects()),
                 trimmed(objectiveEntry.advancement()),
                 objectiveEntry.auraBudget(),
-                objectiveEntry.spinBudget()));
+                objectiveEntry.spinBudget(),
+                reward == null
+                        ? null
+                        : new Objective.ItemReward(reward.item(), reward.amount(), reward.data(), reward.structure())));
     }
 
     private static @Nullable MilestoneTrack buildTrack(

@@ -8,12 +8,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Splits the aura or spin budget of an objective among its contributors.
  * The arithmetic is integer only, so the order of the contributions does not change a share.
  */
 public final class Payout {
+
+    public static List<String> itemRecipients(final List<Share> aura, final List<Share> spins) {
+        return Stream.concat(aura.stream(), spins.stream())
+                .filter(share -> share.total() > 0)
+                .map(Share::contributorId)
+                .distinct()
+                .sorted()
+                .toList();
+    }
 
     /** The part of the budget split equally among the qualifiers, in percent. */
     public static final int EQUAL_PERCENT = 30;

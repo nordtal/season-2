@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react"
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { choiceFor, nameOfId } from "@/lib/references"
 import { draftSections } from "@/components/steward/configuration"
+import { ScalarControl } from "@/components/steward/config-controls"
 import type { CustomEditorProps } from "@/components/steward/config-editors"
 import { GroupEditor } from "@/components/steward/group-draft"
 import { Pill } from "@/components/steward/milestones/parts"
@@ -258,6 +259,7 @@ function Prize({
   onSet: (key: string, value: string) => void
 }) {
   const id = `${list.path}-${index}`
+  const structure = field(list, "structure")
   const input = (key: string) => (
     <Labelled id={`${id}-${key}`} label={field(list, key)?.label ?? key}>
       <NumberInput
@@ -287,6 +289,17 @@ function Prize({
           />
         </Labelled>
       </div>
+      {structure ? (
+        <Labelled id={`${id}-structure`} label={structure.label}>
+          <ScalarControl
+            id={`${id}-structure`}
+            entry={structure}
+            value={text(prize, "structure")}
+            disabled={disabled}
+            onChange={(value) => onSet("structure", value)}
+          />
+        </Labelled>
+      ) : null}
       <p className="text-xs text-muted-foreground">{t("steward.game.chance-is", { total })}</p>
     </>
   )

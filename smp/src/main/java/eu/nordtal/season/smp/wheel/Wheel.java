@@ -319,16 +319,29 @@ public final class Wheel {
                 tell(player, renderer.format(locale, Sent.of(BROKEN_PRIZE)), Feedback.LOSS);
                 return;
             }
-            final ItemStack stack = item.asQuantity(Math.max(1, prize.amount()));
-            turn.drawn(
-                    () -> {
-                        final Player recipient = Objects.requireNonNull(Bukkit.getPlayer(id));
-                        handout.give(recipient, stack, locale);
-                    },
-                    () -> handout.store(account, stack));
+            drawReward(id, account, locale, turn, prize, item);
         }
 
         present(player, locale, turn, spinsLeft, next, plan);
+    }
+
+    private void drawReward(
+            final UUID id,
+            final DiscordId account,
+            final Locale locale,
+            final WheelTurn turn,
+            final WheelPrizeSpec prize,
+            final ItemStack item) {
+        final int amount = Math.max(1, prize.amount());
+        if (!prize.structure().isBlank()) {
+            final Runnable store = () -> handout.storeMap(account, prize.item(), amount, prize.structure());
+            turn.drawn(store, store);
+        } else {
+            final ItemStack stack = item.asQuantity(amount);
+            turn.drawn(
+                    () -> handout.give(Objects.requireNonNull(Bukkit.getPlayer(id)), stack, locale),
+                    () -> handout.store(account, stack));
+        }
     }
 
     private void present(

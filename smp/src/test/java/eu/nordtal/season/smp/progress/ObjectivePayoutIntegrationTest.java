@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.progress;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
@@ -21,6 +22,7 @@ import eu.nordtal.season.smp.milestone.Unlock;
 import eu.nordtal.season.smp.port.OwnContributionRow;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.wheel.ExtraSpins;
+import eu.nordtal.season.smp.wheel.PendingItems;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
@@ -61,6 +63,8 @@ class ObjectivePayoutIntegrationTest {
     private static final DiscordId OTHER = DiscordId.of("100000000000000002");
     private static final UUID MINECRAFT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final NamespacedKey IRON_TOOLS = NamespacedKey.minecraft("story/iron_tools");
+    private static final Objective.ItemReward MAP_REWARD =
+            new Objective.ItemReward("minecraft:buried_ancient_city_map", 1, "", "minecraft:on_ancient_city_maps");
     private static final int POT = 30;
     private static final int SPINS = 20;
     private static final Logger LOGGER = Logger.getLogger(ObjectivePayoutIntegrationTest.class.getName());
@@ -116,7 +120,8 @@ class ObjectivePayoutIntegrationTest {
                                 List.of(),
                                 "",
                                 POT,
-                                SPINS),
+                                SPINS,
+                                MAP_REWARD),
                         new Objective(
                                 "iron-tools",
                                 ObjectiveType.ADVANCEMENT,
@@ -146,7 +151,8 @@ class ObjectivePayoutIntegrationTest {
                 wheel(),
                 null,
                 null,
-                announcer);
+                announcer,
+                ignored -> {});
     }
 
     @Test
@@ -179,6 +185,22 @@ class ObjectivePayoutIntegrationTest {
         // 20 spins: 3 each equally, then 14 split by 48 to 16, and the remaining 1 goes to the larger share.
         assertEquals(14, spinsOf(PLAYER));
         assertEquals(6, spinsOf(OTHER), "what the menu forecast a delivery earlier");
+    }
+
+    @Test
+    void completionQueuesOneUnmadeMapForEachShare() {
+        final PendingItems pending = jdbi.onDemand(PendingItems.class);
+        engine.credit(PLAYER, "logs", 63L, MINECRAFT_ID);
+        assertFalse(pending.waitsFor(PLAYER));
+
+        engine.credit(OTHER, "logs", 1L, MINECRAFT_ID);
+        engine.credit(OTHER, "logs", 1L, MINECRAFT_ID);
+
+        final var map = new PendingItems.Item(
+                "minecraft:buried_ancient_city_map", 1, "", "minecraft:on_ancient_city_maps", true);
+        assertEquals(List.of(map), pending.claim(PLAYER));
+        assertEquals(List.of(map), pending.claim(OTHER));
+        assertTrue(pending.claim(PLAYER).isEmpty());
     }
 
     @Test

@@ -108,6 +108,12 @@ public interface GameTexts {
     @Name("Season sums")
     MessageRef seasonSum();
 
+    @Name("Add item reward")
+    MessageRef addItemReward();
+
+    @Name("Remove item reward")
+    MessageRef removeItemReward();
+
     @Name("Remove question")
     MessageRef removeAsk(@Arg("name") @Example("Mine 64 diamonds") String name);
 

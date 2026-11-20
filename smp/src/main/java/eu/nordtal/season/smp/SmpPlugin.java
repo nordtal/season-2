@@ -73,6 +73,7 @@ import eu.nordtal.season.smp.state.SeasonState;
 import eu.nordtal.season.smp.takein.ItemTakeIn;
 import eu.nordtal.season.smp.takein.PositionTake;
 import eu.nordtal.season.smp.wall.BorderWall;
+import eu.nordtal.season.smp.wheel.ExplorerMaps;
 import eu.nordtal.season.smp.wheel.ItemHandout;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
@@ -236,7 +237,9 @@ public final class SmpPlugin extends NordtalPlugin {
     protected void prepare() {
         worldsSettings = setting(Group.of("worlds", WorldsSpec.class));
         borderSettings = setting(Group.of("border", BorderSpec.class).whileRunning());
-        wheelSettings = setting(Group.of("wheel", WheelSpec.class).whileRunning());
+        wheelSettings = setting(Group.of("wheel", WheelSpec.class)
+                .checkedBy(spec -> SmpSettings.checkWheel(spec, ExplorerMaps::knowsTag))
+                .whileRunning());
         awardSettings = setting(
                 Group.of("advancement-awards", AdvancementAwardsSpec.class).whileRunning());
         duelSettings = setting(Group.of("duels", DuelsSpec.class).whileRunning());
@@ -249,7 +252,10 @@ public final class SmpPlugin extends NordtalPlugin {
                 .checkedBy(SmpSettings::checkCustomBorder)
                 .whileRunning());
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
-                .checkedBy(SmpSettings::checkMilestones)
+                .checkedBy(spec -> SmpSettings.checkMilestones(spec, ExplorerMaps::knowsTag, reward -> {
+                    final var stack = TakenItems.one(reward.item(), reward.data());
+                    return stack != null && !stack.isEmpty();
+                }))
                 .whileRunning());
         soundSettings = setting(Group.of("sounds", SoundsSpec.class).whileRunning());
         nameTagSettings = setting(Group.of("nametags", NameTagConfigurationSpec.class)
@@ -292,18 +298,18 @@ public final class SmpPlugin extends NordtalPlugin {
         cinematics = inputs.cinematics();
         presence = SmpStart.registerSurfaceListener(this, wired, inputs);
 
-        final SmpStart.Progress progress = SmpStart.wireProgressEngine(this, wired.effects());
-        engine = progress.engine();
-        poller = progress.poller();
-        gates = progress.gates();
-        // The start sweeps with the engine, so it is scheduled once the engine exists.
-        PaperScheduler.of(this).execute(this::loadSeasonStateAndSweep);
-
         final SmpStart.Activities activities = SmpStart.wireActivities(this, wired.effects());
         graves = activities.graves();
         duels = activities.duels();
         handout = activities.handout();
         wheel = activities.wheel();
+
+        final SmpStart.Progress progress = SmpStart.wireProgressEngine(this, wired.effects(), handout);
+        engine = progress.engine();
+        poller = progress.poller();
+        gates = progress.gates();
+        // The start sweeps with the engine, so it is scheduled once the engine exists.
+        PaperScheduler.of(this).execute(this::loadSeasonStateAndSweep);
         SmpStart.registerActivityListeners(this, activities);
         npcDialogues = SmpStart.wireNpc(this);
         SmpStart.restoreGravesAndRegisterWorld(this);

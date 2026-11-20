@@ -13,6 +13,15 @@ import org.junit.jupiter.api.Test;
 class PayoutTest {
 
     @Test
+    void anItemRewardGoesOnceToEveryContributorWithEitherShare() {
+        assertEquals(
+                List.of("a", "b", "c"),
+                Payout.itemRecipients(
+                        List.of(new Payout.Share("a", 1, 1), new Payout.Share("b", 0, 1), new Payout.Share("d", 0, 0)),
+                        List.of(new Payout.Share("a", 1, 0), new Payout.Share("c", 1, 0))));
+    }
+
+    @Test
     void twoEqualContributorsSplitEverything() {
         final List<Payout.Share> shares = Payout.split(100, 1000, contributions("a", 500, "b", 500));
 

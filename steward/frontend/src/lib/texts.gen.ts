@@ -1115,6 +1115,7 @@ export type TextArgs = {
     day: Arg["choice"]
   }
   "steward.game.active": Record<string, never>
+  "steward.game.add-item-reward": Record<string, never>
   "steward.game.advancement": Record<string, never>
   "steward.game.all-milestones": Record<string, never>
   "steward.game.area": Record<string, never>
@@ -1265,6 +1266,7 @@ export type TextArgs = {
     name: Arg["text"]
   }
   "steward.game.remove-it": Record<string, never>
+  "steward.game.remove-item-reward": Record<string, never>
   "steward.game.reset-ask": Record<string, never>
   "steward.game.reset-note": Record<string, never>
   "steward.game.reset-pending": Record<string, never>

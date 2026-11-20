@@ -19,6 +19,7 @@ import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.packrendering.ui.Tooltip;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.dialog.Paging;
+import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneNames;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
@@ -76,6 +77,7 @@ public final class ObjectiveDialog {
                     Slot.label("part", Part.class),
                     Slot.label("hand-in-hint"),
                     Slot.label("counted"),
+                    Slot.label("item-reward"),
                     Slot.label("hand-in-words", Counts.class),
                     Slot.label("hand-in-words-shared", HandInWords.class),
                     Slot.label("counted-words"),
@@ -234,7 +236,13 @@ public final class ObjectiveDialog {
                 .findFirst();
         final Symbol symbol = symbol(objective);
         if (done) {
-            line.card(WIDTH, symbol, name, count, row.ratio(), true, Look.NORMAL);
+            if (objective.itemReward() == null) {
+                line.card(WIDTH, symbol, name, count, row.ratio(), true, Look.NORMAL);
+            } else {
+                line.button(
+                        new BodyLine.Press(null, objectiveHover(objective, name, count, null)),
+                        part -> part.card(WIDTH, symbol, name, count, row.ratio(), true, Look.NORMAL));
+            }
             return;
         }
         final BodyLine.Press press;
@@ -249,17 +257,38 @@ public final class ObjectiveDialog {
                     .orElse(counts);
             press = new BodyLine.Press(
                     send.click(player -> openHandIn(player, objective, row)),
-                    Tooltip.hover(name, text, document.label("hand-in-hint")));
+                    objectiveHover(objective, name, text, document.label("hand-in-hint")));
             words = own.map(entry -> document.label("hand-in-words-shared", new HandInWords(items, entry.percent())))
                     .orElse(document.label("hand-in-words", new Counts(items)));
         } else {
-            press = new BodyLine.Press(null, Tooltip.hover(name, document.label("counted"), null));
+            press = new BodyLine.Press(null, objectiveHover(objective, name, document.label("counted"), null));
             words = document.label("counted-words");
         }
         line.button(
                 press,
                 part -> part.card(WIDTH, symbol, name, count, row.ratio(), false, Look.NORMAL)
                         .words(words));
+    }
+
+    private Component objectiveHover(
+            final Objective objective, final String name, final String detail, final @Nullable String hint) {
+        final Objective.ItemReward reward = objective.itemReward();
+        if (reward == null) {
+            return Tooltip.hover(name, detail, hint);
+        }
+        final var displayed = TakenItems.one(reward.item(), reward.data());
+        final Component item = displayed == null ? Component.text(reward.item()) : displayed.effectiveName();
+        Component tooltip = Component.text(name, Colours.TOOLTIP_TITLE)
+                .append(Component.newline())
+                .append(Component.text(detail, Colours.TOOLTIP_TEXT))
+                .append(Component.newline())
+                .append(Component.text(document.label("item-reward"), Colours.TOOLTIP_TITLE))
+                .append(Component.newline())
+                .append(Component.text(reward.amount() + " × ").append(item).color(Colours.TOOLTIP_TEXT));
+        if (hint != null) {
+            tooltip = tooltip.append(Component.newline()).append(Component.text(hint, Colours.HINT));
+        }
+        return tooltip;
     }
 
     /** A statistic that counts kills shows the swords, any other the pickaxe; an advancement shows its flag. */

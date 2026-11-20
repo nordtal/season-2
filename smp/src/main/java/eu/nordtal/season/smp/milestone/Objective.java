@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.bukkit.NamespacedKey;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An objective of a milestone as the milestone file defines it.
@@ -29,7 +30,24 @@ public record Objective(
         List<String> subjects,
         String advancement,
         int auraBudget,
-        int spinBudget) {
+        int spinBudget,
+        @Nullable ItemReward itemReward) {
+
+    public record ItemReward(String item, int amount, String data, String structure) {}
+
+    public Objective(
+            final String key,
+            final ObjectiveType type,
+            final String role,
+            final long target,
+            final List<String> items,
+            final String statistic,
+            final List<String> subjects,
+            final String advancement,
+            final int auraBudget,
+            final int spinBudget) {
+        this(key, type, role, target, items, statistic, subjects, advancement, auraBudget, spinBudget, null);
+    }
 
     public Objective {
         Objects.requireNonNull(key, "key");

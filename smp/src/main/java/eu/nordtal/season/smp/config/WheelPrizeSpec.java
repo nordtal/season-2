@@ -1,8 +1,6 @@
 package eu.nordtal.season.smp.config;
 
-import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.settings.rule.Positive;
-import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -11,26 +9,7 @@ import eu.nordtal.season.spec.annotation.Order;
 
 /** A prize the wheel lands on with a chance of its weight over the pool's total weight. */
 @ConfigSpec
-public interface WheelPrizeSpec {
-
-    @Order(1)
-    @Name("Item")
-    @Key("item")
-    @Required
-    @NoExplanationNeeded
-    @Refers(Refers.To.ITEM)
-    default String item() {
-        return "";
-    }
-
-    @Order(2)
-    @Name("Amount")
-    @Key("amount")
-    @Positive
-    @NoExplanationNeeded
-    default int amount() {
-        return 1;
-    }
+public interface WheelPrizeSpec extends RewardItemSpec {
 
     @Order(3)
     @Name("Weight")
@@ -39,14 +18,5 @@ public interface WheelPrizeSpec {
     @NoExplanationNeeded
     default int weight() {
         return 1;
-    }
-
-    /** The whole item an admin took in from the game, as Base64 of its serialised stack; empty for a plain item. */
-    @Order(4)
-    @Name("Item data")
-    @Key("data")
-    @NoExplanationNeeded
-    default String data() {
-        return "";
     }
 }

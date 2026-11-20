@@ -9,7 +9,13 @@ import { AskThenAct } from "@/components/steward/ask-then-act"
 import { ChoiceIcon, ListControl, ScalarControl, choiceName } from "@/components/steward/config-controls"
 import { ReferenceMarks } from "@/components/steward/reference-picker"
 import { FieldLabelIcon, fieldIcon } from "@/components/steward/term-icons"
-import { type SectionValues, appliesTo, withValue } from "@/components/steward/repeatable-cards"
+import {
+  type SectionValues,
+  appliesTo,
+  blankSection,
+  sectionsOf,
+  withValue,
+} from "@/components/steward/repeatable-cards"
 import {
   BUDGETS,
   type Budget,
@@ -330,6 +336,59 @@ export function ObjectiveCard({
   )
 }
 
+function ItemReward({
+  id,
+  entry,
+  reward,
+  disabled,
+  onChange,
+}: {
+  id: string
+  entry: ConfigEntry | undefined
+  reward: SectionValues | undefined
+  disabled: boolean
+  onChange: (reward: SectionValues | undefined) => void
+}) {
+  const template = entry?.template
+  if (!entry || !template) return null
+  if (!reward) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-3"
+        disabled={disabled}
+        onClick={() => onChange(blankSection(template))}
+      >
+        {t("steward.game.add-item-reward")}
+      </Button>
+    )
+  }
+  return (
+    <fieldset className="mt-3 flex flex-col gap-2">
+      <legend className="text-sm font-medium">{entry.label}</legend>
+      <Fields
+        id={id}
+        fields={template}
+        section={reward}
+        disabled={disabled}
+        onChange={(key, value) => onChange(withValue(template, reward, key, value))}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="self-start"
+        disabled={disabled}
+        onClick={() => onChange(undefined)}
+      >
+        {t("steward.game.remove-item-reward")}
+      </Button>
+    </fieldset>
+  )
+}
+
 export function ObjectiveSheet({
   id,
   objective,
@@ -363,11 +422,18 @@ export function ObjectiveSheet({
             <div className="-mx-1 max-h-list overflow-y-auto px-1">
               <Fields
                 id={id}
-                fields={schema.objective}
+                fields={schema.objective.filter((field) => field.key !== KEY.rewardItem)}
                 section={objective}
                 disabled={disabled}
                 fixed={saved ? [KEY.id] : []}
                 onChange={(key, value) => onChange(withValue(schema.objective, objective, key, value))}
+              />
+              <ItemReward
+                id={`${id}.${KEY.rewardItem}.0`}
+                entry={schema.objective.find((field) => field.key === KEY.rewardItem)}
+                reward={sectionsOf(objective[KEY.rewardItem])[0]}
+                disabled={disabled}
+                onChange={(reward) => onChange({ ...objective, [KEY.rewardItem]: reward ? [reward] : [] })}
               />
             </div>
           ) : null}

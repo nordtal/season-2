@@ -8,6 +8,7 @@ import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.TakenItems;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import java.util.Base64;
 import java.util.List;
@@ -23,10 +24,12 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -44,6 +47,10 @@ public final class ItemHandout implements Listener {
     static final DocumentSpec<Won> WON = DocumentSpec.game(
                     "smp", "wheel-won", "Wheel", DocumentSpec.Shape.CHAT, Won.class)
             .titled("Prize won");
+
+    static final DocumentSpec<Won> REWARD = DocumentSpec.game(
+                    "smp", "objective-item-reward", "Objectives", DocumentSpec.Shape.CHAT, Won.class)
+            .titled("Objective item received");
 
     /** Rows taken from the store and not given yet. */
     private static final class Claim {
@@ -71,6 +78,7 @@ public final class ItemHandout implements Listener {
     private final Identities identities;
     private final MessageRenderer renderer;
     private final Executor background;
+    private final Supplier<World> overworld;
     private final Set<Claim> claims = ConcurrentHashMap.newKeySet();
     /** One party for {@link #stop} and one for each write or claim still running. */
     private final Phaser running = new Phaser(1);
@@ -80,12 +88,14 @@ public final class ItemHandout implements Listener {
             final PendingItems pending,
             final Identities identities,
             final MessageRenderer renderer,
-            final Executor background) {
+            final Executor background,
+            final Supplier<World> overworld) {
         this.plugin = plugin;
         this.pending = pending;
         this.identities = identities;
         this.renderer = renderer;
         this.background = background;
+        this.overworld = overworld;
     }
 
     /**
@@ -95,28 +105,39 @@ public final class ItemHandout implements Listener {
      */
     public void store(final DiscordId discordId, final ItemStack item) {
         final String data = Base64.getEncoder().encodeToString(item.asOne().serializeAsBytes());
-        put(discordId, List.of(new PendingItems.Item(item.getType().getKey().asString(), item.getAmount(), data)));
+        put(
+                discordId,
+                List.of(new PendingItems.Item(item.getType().getKey().asString(), item.getAmount(), data, "", false)));
+    }
+
+    void storeMap(final DiscordId discordId, final String item, final int amount, final String structure) {
+        put(discordId, List.of(new PendingItems.Item(item, amount, "", structure, false)));
     }
 
     private void put(final DiscordId discordId, final List<PendingItems.Item> items) {
-        final Runnable write =
-                () -> items.forEach(each -> pending.store(discordId, each.item(), each.amount(), each.data()));
+        put(discordId, items, true);
+    }
+
+    private void put(final DiscordId discordId, final List<PendingItems.Item> items, final boolean notify) {
+        final Runnable write = () -> {
+            items.forEach(each -> pending.store(
+                    discordId, each.item(), each.amount(), each.data(), each.structure(), each.objectiveReward()));
+            if (notify && plugin.isEnabled()) {
+                handOutIfOnline(discordId);
+            }
+        };
         if (!Bukkit.isPrimaryThread()) {
             write.run();
-            handOutIfOnline(discordId);
         } else if (!plugin.isEnabled()) {
             // smp stops: the write lands before the item work closes, and the next join hands it out.
             CompletableFuture.runAsync(write, background).join();
         } else {
-            inBackground(() -> {
-                write.run();
-                handOutIfOnline(discordId);
-            });
+            inBackground(write);
         }
     }
 
     /** A player who joined while the write was in flight gets the items now instead of at the next join. */
-    private void handOutIfOnline(final DiscordId discordId) {
+    public void handOutIfOnline(final DiscordId discordId) {
         try {
             PaperScheduler.of(plugin)
                     .onMain(() -> Bukkit.getOnlinePlayers().stream()
@@ -169,8 +190,7 @@ public final class ItemHandout implements Listener {
         final Locale locale = identities.languageOf(player.getUniqueId());
         for (final PendingItems.Item item : claim.items) {
             try {
-                final byte[] data = Base64.getDecoder().decode(item.data());
-                give(player, ItemStack.deserializeBytes(data).asQuantity(item.amount()), locale);
+                deliver(player, claim.discordId, item, locale);
             } catch (final RuntimeException failure) {
                 plugin.getLogger()
                         .log(
@@ -178,6 +198,40 @@ public final class ItemHandout implements Listener {
                                 "item handout failed: discord_id=" + claim.discordId.value() + " item=" + item.item(),
                                 failure);
             }
+        }
+    }
+
+    private void deliver(
+            final Player player, final DiscordId recipient, final PendingItems.Item item, final Locale locale) {
+        final ItemStack stack;
+        if (item.structure().isBlank()) {
+            final ItemStack one = TakenItems.one(item.item(), item.data());
+            stack = Objects.requireNonNull(one).asQuantity(item.amount());
+        } else {
+            stack = makeMap(player, recipient, item);
+            if (stack == null) {
+                put(recipient, List.of(item), false);
+                return;
+            }
+        }
+        give(player, stack, locale, item.objectiveReward() ? REWARD : WON);
+    }
+
+    private @Nullable ItemStack makeMap(final Player player, final DiscordId recipient, final PendingItems.Item item) {
+        try {
+            return ExplorerMaps.create(
+                    overworld.get(),
+                    Objects.requireNonNull(player.getLocation()),
+                    item.item(),
+                    item.amount(),
+                    item.structure());
+        } catch (final RuntimeException failure) {
+            plugin.getLogger()
+                    .log(
+                            Level.WARNING,
+                            "explorer map deferred: discord_id=" + recipient.value() + " structure=" + item.structure(),
+                            failure);
+            return null;
         }
     }
 
@@ -221,12 +275,17 @@ public final class ItemHandout implements Listener {
     }
 
     void give(final Player player, final ItemStack item, final Locale locale) {
+        give(player, item, locale, WON);
+    }
+
+    private void give(
+            final Player player, final ItemStack item, final Locale locale, final DocumentSpec<Won> document) {
         final Location dropAt = Objects.requireNonNull(player.getLocation());
         player.getInventory()
                 .addItem(item.clone())
                 .values()
                 .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
-        player.sendMessage(renderer.format(locale, WON.with(new Won(item.getAmount(), nameOf(item)))));
+        player.sendMessage(renderer.format(locale, document.with(new Won(item.getAmount(), nameOf(item)))));
     }
 
     private static GameContent nameOf(final ItemStack item) {

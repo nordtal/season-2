@@ -134,6 +134,81 @@ class SmpSettingsTest {
     }
 
     @Test
+    void theWheelOffersTheThreeNewItemsAtTheirDeclaredWeights() {
+        final WheelSpec wheel = Specs.createDefault(WheelSpec.class);
+        final Map<String, Integer> weights =
+                wheel.wheelPrizes().stream().collect(Collectors.toMap(WheelPrizeSpec::item, WheelPrizeSpec::weight));
+        assertEquals(1066, weights.values().stream().mapToInt(Integer::intValue).sum());
+        assertEquals(3, weights.get("minecraft:heart_of_the_sea"));
+        assertEquals(3, weights.get("minecraft:vex_armor_trim_smithing_template"));
+        assertEquals(60, weights.get("minecraft:buried_mineshaft_map"));
+    }
+
+    @Test
+    void aWheelPrizeKeepsItsStructureTagWhenRead() throws Exception {
+        final WheelSpec wheel = store.checked(
+                "smp",
+                Group.of("wheel", WheelSpec.class),
+                Map.of(
+                        "wheel-prizes",
+                        List.of(Map.of(
+                                "item", "minecraft:buried_mineshaft_map",
+                                "structure", "minecraft:on_mineshaft_maps"))));
+        final JsonElement written =
+                Specs.gsonBuilder().create().toJsonTree(wheel.wheelPrizes().getFirst(), WheelPrizeSpec.class);
+        assertEquals(
+                "minecraft:on_mineshaft_maps",
+                written.getAsJsonObject().get("structure").getAsString());
+    }
+
+    @Test
+    void frontierPaysAnAncientCityMapForMiningDeepslateDiamondOre() {
+        final var frontier = Specs.createDefault(MilestonesSpec.class).milestones().stream()
+                .filter(entry -> entry.key().equals("frontier"))
+                .findFirst()
+                .orElseThrow();
+        final var objective = frontier.objectives().stream()
+                .filter(entry -> entry.key().equals("deepslate-diamonds"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("STATISTIC", objective.type());
+        assertEquals(64, objective.target());
+        assertEquals("minecraft:mine_block", objective.statistic());
+        assertEquals(List.of("minecraft:deepslate_diamond_ore"), objective.subjects());
+        assertEquals(170, objective.auraBudget());
+        assertEquals(10, objective.spinBudget());
+        final var reward = Specs.gsonBuilder()
+                .create()
+                .toJsonTree(objective, MilestonesSpec.ObjectiveEntry.class)
+                .getAsJsonObject()
+                .getAsJsonArray("reward-item")
+                .get(0)
+                .getAsJsonObject();
+        assertEquals("minecraft:buried_ancient_city_map", reward.get("item").getAsString());
+        assertEquals("minecraft:on_ancient_city_maps", reward.get("structure").getAsString());
+    }
+
+    @Test
+    void aWheelMapRequiresAKnownStructureTag() throws Exception {
+        final Group<WheelSpec> wheel = Group.of("wheel", WheelSpec.class)
+                .checkedBy(spec -> SmpSettings.checkWheel(spec, "minecraft:on_mineshaft_maps"::equals));
+        final Map<String, ?> prize = Map.of("item", "minecraft:buried_mineshaft_map", "structure", "minecraft:missing");
+        assertRefused(wheel, Map.of("wheel-prizes", List.of(prize)), "minecraft:missing");
+    }
+
+    @Test
+    void anObjectiveRewardMapRequiresAKnownStructureTag() throws Exception {
+        final Group<MilestonesSpec> accepted = Group.of("milestones", MilestonesSpec.class)
+                .checkedBy(spec ->
+                        SmpSettings.checkMilestones(spec, "minecraft:on_ancient_city_maps"::equals, item -> true));
+        store.checked("smp", accepted, Map.of());
+
+        final Group<MilestonesSpec> rejected = Group.of("milestones", MilestonesSpec.class)
+                .checkedBy(spec -> SmpSettings.checkMilestones(spec, key -> false, item -> true));
+        assertRefused(rejected, Map.of(), "unknown structure tag minecraft:on_ancient_city_maps");
+    }
+
+    @Test
     void anEmptyKitListIsRefused() {
         final Exception refused =
                 assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("duel-kits", List.of())));

@@ -209,6 +209,11 @@ export type NpcSkinUploaded = {
   address: string
 }
 
+export type NpcArtworkUploaded = {
+  id: string
+  address: string
+}
+
 export type NpcSkinCopy = {
   player: string
 }
@@ -831,6 +836,8 @@ export type Npc = {
   dialogue: Dialogue
   skin?: string
   skinModel: NpcSkinModel
+  plate: Plate
+  artwork?: string
 }
 
 export type Dialogue = {
@@ -1373,6 +1380,12 @@ export type Equipment = {
   data: string
 }
 
+export type Plate = {
+  style: PlateStyle
+  colour: PlateColour
+  icon?: PlateIcon
+}
+
 export type NpcStep = {
   id: string
   x: number
@@ -1577,6 +1590,26 @@ export type Gauge =
 export type ChangeImage = "PULLED" | "KEPT"
 
 export type PruneRule = "RETENTION" | "OVER_BUDGET"
+
+export type PlateStyle = "PILL" | "DARK" | "RIBBON" | "BADGE"
+
+export type PlateColour = "BLUE" | "RED" | "AMBER" | "GREEN" | "TEAL" | "VIOLET" | "ROSE" | "SLATE"
+
+export type PlateIcon =
+  | "STAR"
+  | "PIN"
+  | "RAIL"
+  | "MEDAL"
+  | "FLAG"
+  | "WHEEL"
+  | "SWORDS"
+  | "SHIELD"
+  | "HAND_IN"
+  | "CHEST"
+  | "EYE"
+  | "PICKAXE"
+  | "BOX"
+  | "HEART"
 
 export type NpcAnswer = {
   text: Words

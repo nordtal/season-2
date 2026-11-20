@@ -1,4 +1,4 @@
-import type { Npc, NpcStep, NpcTextMeasurement, NpcTextMeasureRequest } from "@/lib/api"
+import type { Npc, NpcStep, NpcTextMeasurement, NpcTextMeasureRequest, PlateColour } from "@/lib/api"
 import type { Language } from "@/lib/npc"
 import { measureKey } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
@@ -314,4 +314,60 @@ function HintMarks({ answers, right }: { answers: boolean; right: number }) {
   ) : (
     <Art name="mouse_right" x={right - 9} y={y} width={9} height={11} />
   )
+}
+
+/** The plate colours as the pack draws them, in the order Steward offers them. */
+export const PLATE_RGB: Readonly<Record<PlateColour, string>> = {
+  BLUE: "#345AB4",
+  RED: "#A83232",
+  AMBER: "#8A5A00",
+  GREEN: "#2E7032",
+  TEAL: "#00707A",
+  VIOLET: "#6B44A8",
+  ROSE: "#A63A6E",
+  SLATE: "#4A5468",
+}
+/** The outline and the dark fill of every plate, as the pack draws them. */
+const OUTLINE = "#0D0F15"
+const DARK = "#1B1F2B"
+
+/** A sketch of the plate over the NPC's head: its style and colour around the name. */
+export function PlateSketch({ npc }: { npc: Npc }) {
+  const colour = PLATE_RGB[npc.plate.colour]
+  const name = npc.name.en.trim() || t("steward.npcs.unnamed")
+  const text = <span className="truncate px-2 text-sm font-semibold text-white">{name}</span>
+  const outline = { boxShadow: `0 0 0 2px ${OUTLINE}` }
+  switch (npc.plate.style) {
+    case "DARK":
+      return (
+        <div className="flex h-7 max-w-full items-center rounded-sm" style={{ ...outline, background: DARK }}>
+          <span className="ml-1 h-4 w-1 shrink-0" style={{ background: colour }} />
+          {text}
+        </div>
+      )
+    case "RIBBON":
+      return (
+        <div
+          className="flex h-6 max-w-full items-center px-3"
+          style={{ background: colour, clipPath: "polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%)" }}
+        >
+          {text}
+        </div>
+      )
+    case "BADGE":
+      return (
+        <div className="flex max-w-full items-center">
+          <span className="z-10 size-7 shrink-0 rounded-full" style={{ ...outline, background: colour }} />
+          <div className="-ml-2 flex h-6 min-w-0 items-center rounded-sm pl-2" style={{ ...outline, background: DARK }}>
+            {text}
+          </div>
+        </div>
+      )
+    default:
+      return (
+        <div className="flex h-7 max-w-full items-center rounded-full px-1" style={{ ...outline, background: colour }}>
+          {text}
+        </div>
+      )
+  }
 }

@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   api,
   type Npc,
+  type NpcArtworkUploaded,
   type NpcMenu,
   type NpcSkinUploaded,
   type NpcTextMeasureRequest,
@@ -113,6 +114,18 @@ export function useUploadSkin() {
     mutationFn: ({ file, slim }: { file: Blob; slim: boolean }) =>
       api<NpcSkinUploaded>(`/api/npc-skins?model=${slim ? "SLIM" : "CLASSIC"}`, { method: "POST", body: file }),
   })
+}
+
+/** Stores a square PNG as a portrait picture, which an NPC then names. */
+export function useUploadArtwork() {
+  return useMutation({
+    mutationFn: (file: Blob) => api<NpcArtworkUploaded>("/api/npc-artworks", { method: "POST", body: file }),
+  })
+}
+
+/** Where the browser loads a portrait picture from. */
+export function artworkAddress(id: string): string {
+  return `/api/npc-artworks/${encodeURIComponent(id)}`
 }
 
 /** Copies the skin a Minecraft account wears now, by its name or UUID. */

@@ -7,6 +7,10 @@ import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.npc.Dialogue.Words;
 import eu.nordtal.season.database.npc.Npc.Equipment;
 import eu.nordtal.season.database.npc.Npc.Place;
+import eu.nordtal.season.database.npc.Npc.Plate;
+import eu.nordtal.season.database.npc.Npc.PlateColour;
+import eu.nordtal.season.database.npc.Npc.PlateIcon;
+import eu.nordtal.season.database.npc.Npc.PlateStyle;
 import eu.nordtal.season.database.npc.Npc.Pose;
 import eu.nordtal.season.database.npc.Npc.Slot;
 import java.sql.ResultSet;
@@ -29,7 +33,8 @@ final class JdbiNpcStore implements NpcStore {
 
     private static final String COLUMNS =
             "npc.id, npc.name_en, npc.name_de, npc.world, npc.x, npc.y, npc.z, npc.yaw, npc.pose, npc.pitch, "
-                    + "npc.dialogue::text AS dialogue, npc.skin, npc_skin.model AS skin_model";
+                    + "npc.dialogue::text AS dialogue, npc.skin, npc_skin.model AS skin_model, npc.plate_style, "
+                    + "npc.plate_colour, npc.plate_icon, npc.artwork";
     private static final String FROM = " FROM npc LEFT JOIN npc_skin ON npc_skin.id = npc.skin";
 
     private final Jdbi jdbi;
@@ -96,7 +101,12 @@ final class JdbiNpcStore implements NpcStore {
                 NpcSkin.SkinModel.valueOf(
                         rows.getString("skin_model") == null
                                 ? NpcSkin.SkinModel.CLASSIC.name()
-                                : rows.getString("skin_model")));
+                                : rows.getString("skin_model")),
+                new Plate(
+                        PlateStyle.valueOf(rows.getString("plate_style")),
+                        PlateColour.valueOf(rows.getString("plate_colour")),
+                        rows.getString("plate_icon") == null ? null : PlateIcon.valueOf(rows.getString("plate_icon"))),
+                rows.getObject("artwork", UUID.class));
     }
 
     @Override
@@ -174,13 +184,16 @@ final class JdbiNpcStore implements NpcStore {
         final String snapshot = Json.encode(npc);
         handle.createUpdate("""
                         INSERT INTO npc (id, name_en, name_de, world, x, y, z, yaw, pose, pitch, dialogue, skin,
-                            actor_kind, actor_id, changed)
+                            plate_style, plate_colour, plate_icon, artwork, actor_kind, actor_id, changed)
                         VALUES (:id, :nameEn, :nameDe, :world, :x, :y, :z, :yaw, :pose, :pitch,
-                            CAST(:dialogue AS jsonb), :skin, :kind, :actor, now())
+                            CAST(:dialogue AS jsonb), :skin, :plateStyle, :plateColour, :plateIcon, :artwork, :kind,
+                            :actor, now())
                         ON CONFLICT (id) DO UPDATE SET name_en = excluded.name_en, name_de = excluded.name_de,
                             world = excluded.world, x = excluded.x, y = excluded.y, z = excluded.z,
                             yaw = excluded.yaw, pose = excluded.pose, pitch = excluded.pitch,
-                            dialogue = excluded.dialogue, skin = excluded.skin, actor_kind = excluded.actor_kind,
+                            dialogue = excluded.dialogue, skin = excluded.skin, plate_style = excluded.plate_style,
+                            plate_colour = excluded.plate_colour, plate_icon = excluded.plate_icon,
+                            artwork = excluded.artwork, actor_kind = excluded.actor_kind,
                             actor_id = excluded.actor_id, changed = excluded.changed""")
                 .bind("id", npc.id())
                 .bind("nameEn", npc.name().en())
@@ -194,6 +207,12 @@ final class JdbiNpcStore implements NpcStore {
                 .bind("pitch", npc.pitch())
                 .bind("dialogue", dialogue)
                 .bind("skin", npc.skin())
+                .bind("plateStyle", npc.plate().style().name())
+                .bind("plateColour", npc.plate().colour().name())
+                .bind(
+                        "plateIcon",
+                        npc.plate().icon() == null ? null : npc.plate().icon().name())
+                .bind("artwork", npc.artwork())
                 .bind("kind", actor.kind().name())
                 .bind("actor", actor.id())
                 .execute();
@@ -290,6 +309,40 @@ final class JdbiNpcStore implements NpcStore {
                 rows.getObject("id", UUID.class),
                 NpcSkin.SkinModel.valueOf(rows.getString("model")),
                 Base64.getEncoder().encodeToString(rows.getBytes("png")));
+    }
+
+    @Override
+    public void upload(final NpcArtwork artwork, final Actor actor) {
+        jdbi.useHandle(handle -> handle.createUpdate("""
+                        INSERT INTO npc_artwork (id, png, actor_kind, actor_id, created)
+                        VALUES (:id, :png, :kind, :actor, now())""")
+                .bind("id", artwork.id())
+                .bind("png", Base64.getDecoder().decode(artwork.png()))
+                .bind("kind", actor.kind().name())
+                .bind("actor", actor.id())
+                .execute());
+    }
+
+    @Override
+    public Optional<NpcArtwork> artwork(final UUID id) {
+        return jdbi.withHandle(handle -> handle.createQuery("SELECT id, png FROM npc_artwork WHERE id = :id")
+                .bind("id", id)
+                .map((rows, context) -> artworkOf(rows))
+                .findOne());
+    }
+
+    @Override
+    public Map<UUID, NpcArtwork> artworks() {
+        return jdbi.withHandle(handle -> handle.createQuery("""
+                        SELECT npc.id AS npc, npc_artwork.id, npc_artwork.png
+                        FROM npc JOIN npc_artwork ON npc_artwork.id = npc.artwork ORDER BY npc.id""")
+                .map((rows, context) -> Map.entry(rows.getObject("npc", UUID.class), artworkOf(rows)))
+                .collectToMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private static NpcArtwork artworkOf(final ResultSet rows) throws SQLException {
+        return new NpcArtwork(
+                rows.getObject("id", UUID.class), Base64.getEncoder().encodeToString(rows.getBytes("png")));
     }
 
     @Override

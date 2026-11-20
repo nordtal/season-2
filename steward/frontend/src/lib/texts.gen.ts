@@ -687,6 +687,10 @@ export type TextArgs = {
   "steward.answer.already-admin": Record<string, never>
   "steward.answer.announcement-sent": Record<string, never>
   "steward.answer.answer-unreadable": Record<string, never>
+  "steward.answer.artwork-refused": {
+    smallest: Arg["number"]
+    largest: Arg["number"]
+  }
   "steward.answer.aura-range": {
     most: Arg["number"]
   }
@@ -779,6 +783,7 @@ export type TextArgs = {
     announcement: Arg["number"]
   }
   "steward.answer.no-announcement-channel": Record<string, never>
+  "steward.answer.no-artwork": Record<string, never>
   "steward.answer.no-authenticator": Record<string, never>
   "steward.answer.no-backup": {
     backup: Arg["text"]
@@ -1687,6 +1692,7 @@ export type TextArgs = {
   "steward.npcs.name-in": {
     language: Arg["choice"]
   }
+  "steward.npcs.no-icon": Record<string, never>
   "steward.npcs.no-text": Record<string, never>
   "steward.npcs.none": Record<string, never>
   "steward.npcs.not-played": Record<string, never>
@@ -1695,9 +1701,34 @@ export type TextArgs = {
   "steward.npcs.overwrite": {
     live: Arg["number"]
   }
+  "steward.npcs.own-portrait": Record<string, never>
   "steward.npcs.pitch": Record<string, never>
   "steward.npcs.place": Record<string, never>
+  "steward.npcs.plate": Record<string, never>
+  "steward.npcs.plate-colour": Record<string, never>
+  "steward.npcs.plate-colour-of": {
+    colour: Arg["choice"]
+  }
+  "steward.npcs.plate-icon": Record<string, never>
+  "steward.npcs.plate-icon-of": {
+    icon: Arg["choice"]
+  }
+  "steward.npcs.plate-note": Record<string, never>
+  "steward.npcs.plate-style": Record<string, never>
+  "steward.npcs.plate-style-of": {
+    style: Arg["choice"]
+  }
   "steward.npcs.play": Record<string, never>
+  "steward.npcs.portrait": Record<string, never>
+  "steward.npcs.portrait-not-saved": Record<string, never>
+  "steward.npcs.portrait-pending": Record<string, never>
+  "steward.npcs.portrait-size": {
+    width: Arg["number"]
+    height: Arg["number"]
+    smallest: Arg["number"]
+    largest: Arg["number"]
+  }
+  "steward.npcs.portrait-too-big": Record<string, never>
   "steward.npcs.pose": Record<string, never>
   "steward.npcs.pose-of": {
     pose: Arg["choice"]
@@ -1726,6 +1757,7 @@ export type TextArgs = {
   }
   "steward.npcs.skin-not-saved": Record<string, never>
   "steward.npcs.skin-pending": Record<string, never>
+  "steward.npcs.skin-portrait": Record<string, never>
   "steward.npcs.skin-size": {
     width: Arg["number"]
     height: Arg["number"]
@@ -1756,8 +1788,10 @@ export type TextArgs = {
   }
   "steward.npcs.unlinked": Record<string, never>
   "steward.npcs.unnamed": Record<string, never>
+  "steward.npcs.upload-portrait": Record<string, never>
   "steward.npcs.upload-skin": Record<string, never>
   "steward.npcs.use-default-skin": Record<string, never>
+  "steward.npcs.use-skin-portrait": Record<string, never>
   "steward.npcs.version": {
     number: Arg["number"]
   }

@@ -138,6 +138,46 @@ class NpcApiTest extends WebTestSupport {
     }
 
     @Test
+    void anUploadedPortraitIsStoredServedAndWornAndAnythingElseRefused() throws Exception {
+        final byte[] png = png(64, 64);
+        final HttpResponse<String> uploaded = uploadTo("/api/npc-artworks", png);
+        assertEquals(201, uploaded.statusCode(), uploaded.body());
+        final JsonObject artwork = GSON.fromJson(uploaded.body(), JsonObject.class);
+        final HttpResponse<byte[]> served = http.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort
+                                + artwork.get("address").getAsString()))
+                        .build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(200, served.statusCode());
+        assertTrue(java.util.Arrays.equals(png, served.body()));
+
+        assertEquals(400, uploadTo("/api/npc-artworks", png(64, 32)).statusCode(), "not square");
+        assertEquals(400, uploadTo("/api/npc-artworks", png(32, 32)).statusCode(), "too small to draw");
+        assertEquals(400, uploadTo("/api/npc-artworks", png(1025, 1025)).statusCode(), "too large");
+        assertEquals(400, uploadTo("/api/npc-artworks", oversized()).statusCode(), "over 1 MB");
+        assertEquals(400, uploadTo("/api/npc-artworks", new byte[] {1, 2, 3}).statusCode(), "no PNG");
+        assertEquals(404, get("/api/npc-artworks/" + UUID.randomUUID()).statusCode());
+
+        final UUID id = UUID.randomUUID();
+        final String plated = "\"plate\":{\"style\":\"BADGE\",\"colour\":\"ROSE\",\"icon\":\"HEART\"},\"pose\"";
+        final HttpResponse<String> worn = put(
+                npcs(id),
+                publication(id, "Hi.", 0)
+                        .replace(
+                                "\"pose\"", "\"artwork\":\"" + artwork.get("id").getAsString() + "\"," + plated));
+        assertEquals(200, worn.statusCode(), worn.body());
+        final JsonObject npc = GSON.fromJson(worn.body(), JsonObject.class).getAsJsonObject("npc");
+        assertEquals(artwork.get("id").getAsString(), npc.get("artwork").getAsString());
+        assertEquals("HEART", npc.getAsJsonObject("plate").get("icon").getAsString());
+
+        final UUID other = UUID.randomUUID();
+        final HttpResponse<String> lost = put(
+                npcs(other),
+                publication(other, "Hi.", 0).replace("\"pose\"", "\"artwork\":\"" + UUID.randomUUID() + "\",\"pose\""));
+        assertEquals(400, lost.statusCode(), lost.body());
+    }
+
+    @Test
     void anUploadedSkinIsStoredAndServedAndAnythingElseRefused() throws Exception {
         final byte[] png = png(64, 64);
         final HttpResponse<String> uploaded = upload(png, "SLIM");
@@ -238,8 +278,12 @@ class NpcApiTest extends WebTestSupport {
     }
 
     private static HttpResponse<String> upload(final byte[] png, final String model) throws Exception {
+        return uploadTo("/api/npc-skins?model=" + model, png);
+    }
+
+    private static HttpResponse<String> uploadTo(final String path, final byte[] png) throws Exception {
         return http.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + "/api/npc-skins?model=" + model))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + webPort + path))
                         .header("Content-Type", "image/png")
                         .header(
                                 "X-Steward-CSRF",
@@ -270,6 +314,11 @@ class NpcApiTest extends WebTestSupport {
                 + "{\"text\":{\"en\":\"Bye\",\"de\":\"[de] Bye\"}}]},"
                 + "{\"id\":\"menu\",\"x\":200,\"y\":0,\"text\":{\"en\":\"Here.\",\"de\":\"[de] Here.\"},"
                 + "\"answers\":[],\"menu\":\"objectives\"}]}}";
+    }
+
+    /** A drawable 64 pixel square padded past the 1 MiB limit, so only its size refuses it. */
+    private static byte[] oversized() throws Exception {
+        return java.util.Arrays.copyOf(png(64, 64), 1024 * 1024 + 1);
     }
 
     private static byte[] png(final int width, final int height) throws Exception {

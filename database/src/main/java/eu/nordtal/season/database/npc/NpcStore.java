@@ -85,6 +85,15 @@ public interface NpcStore {
     /** Returns the skin of every NPC that has one, by NPC id. */
     Map<UUID, NpcSkin> skins();
 
+    /** Stores an immutable uploaded portrait picture. The game changes once an NPC that references it is saved. */
+    void upload(NpcArtwork artwork, Actor actor);
+
+    /** Returns an uploaded portrait picture by its id. */
+    Optional<NpcArtwork> artwork(UUID id);
+
+    /** Returns the portrait picture of every NPC that has one, by NPC id. */
+    Map<UUID, NpcArtwork> artworks();
+
     /**
      * Returns the NPCs {@code player} skips, each with the menu it went to instead.
      * A skip whose menu the NPC's dialogue no longer hands off to is stale: the game plays the dialogue again.

@@ -393,6 +393,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V136__each_service_writes_only_its_own_setting_groups.sql",
                 "63952d028fc90f9c873d774623987ae2d8efa3abdc22b521e445287bc7d0ac39");
+        FROZEN.put(
+                "V137__npcs_choose_their_plate_and_portrait_artwork.sql",
+                "5b1eda279bb351f80571734894ef30a7e644c4f0d6b7be962ca9a00b8cbf301a");
     }
 
     @Test

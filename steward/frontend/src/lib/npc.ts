@@ -48,6 +48,7 @@ export function blankNpc(id: string): Npc {
     equipment: {},
     dialogue: { start: "step-1", steps: [{ id: "step-1", x: MARGIN, y: MARGIN, text: NO_WORDS, answers: [] }] },
     skinModel: "CLASSIC",
+    plate: { style: "PILL", colour: "BLUE" },
   }
 }
 

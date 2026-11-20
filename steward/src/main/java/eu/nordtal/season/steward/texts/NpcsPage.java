@@ -153,10 +153,10 @@ public interface NpcsPage {
     MessageRef step();
 
     @Name("Lines")
-    MessageRef lines(@Arg("lines") @Example("3") int lines, @Arg("limit") @Example("2") int limit);
-
-    @Name("Lines cut")
-    MessageRef cutLines(@Arg("limit") @Example("2") int limit, @Arg("answers") boolean answers);
+    MessageRef lines(
+            @Arg("lines") @Example("6") int lines,
+            @Arg("limit") @Example("4") int limit,
+            @Arg("pages") @Example("2") int pages);
 
     @Name("Width cut")
     MessageRef cutWidth();

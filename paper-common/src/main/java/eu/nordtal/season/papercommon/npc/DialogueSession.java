@@ -6,6 +6,7 @@ import eu.nordtal.season.papercommon.hud.Hud;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -21,8 +22,8 @@ import org.jspecify.annotations.Nullable;
  */
 final class DialogueSession {
 
-    /** The look point above an NPC's feet. */
-    static final double LOOK_HEIGHT = 1.05;
+    /** How far below the line to the NPC's eyes the view aims, so the head stands above the panel. */
+    static final double LOOK_BELOW = 8.0;
 
     static final int ACTION_BAR_EVERY = 20;
     static final int VIGNETTE_EVERY = 10;
@@ -43,6 +44,8 @@ final class DialogueSession {
     private int vignette;
     private double zoom;
     private int heldSlot = -1;
+    private int handSlot = -1;
+    private int sinceHands;
     private boolean movingSlot;
 
     DialogueSession(
@@ -85,7 +88,7 @@ final class DialogueSession {
 
     /** Runs one tick at {@code figure} and returns the effects the caller carries out: hand-offs and the end. */
     List<Effect> tick(final Mannequin figure) {
-        final Location look = figure.getLocation().add(0, LOOK_HEIGHT, 0);
+        final Location look = figure.getEyeLocation();
         final Location eye = player.getEyeLocation();
         final double dx = look.getX() - eye.getX();
         final double dy = look.getY() - eye.getY();
@@ -95,8 +98,8 @@ final class DialogueSession {
         final Frame frame = run.tick(where);
         draw(frame);
         if (run.listening()) {
-            final CameraEase.Turn turn =
-                    camera.tick(player.getYaw(), player.getPitch(), Gaze.yawTo(dx, dz), Gaze.pitchTo(dx, dy, dz));
+            final CameraEase.Turn turn = camera.tick(
+                    player.getYaw(), player.getPitch(), Gaze.yawTo(dx, dz), Gaze.pitchTo(dx, dy, dz) + LOOK_BELOW);
             if (turn != null) {
                 ViewPackets.turn(player, turn);
             }
@@ -104,7 +107,7 @@ final class DialogueSession {
         final List<Effect> left = new ArrayList<>();
         for (final Effect effect : frame.effects()) {
             switch (effect) {
-                case Effect.Sound sound -> sounds.play(player, sound.cue(), npc.pitch());
+                case Effect.Sound sound -> sounds.play(player, sound.cue(), npc.pitch() * (float) feel.tickPitch());
                 case Effect.HoldSlot _ -> holdSlot();
                 case Effect.ReleaseSlot _ -> releaseSlot();
                 case Effect.HandOff handOff -> left.add(handOff);
@@ -123,13 +126,13 @@ final class DialogueSession {
         }
         zoom(0.0);
         releaseSlot();
+        showHands();
         hud.release(player);
     }
 
     private void draw(final Frame frame) {
         sinceActionBar++;
         if (drawn == null || !frame.drawsLike(drawn) || sinceActionBar >= ACTION_BAR_EVERY) {
-            hud.cover(player, frame.bars() > 0 ? DialogueScreen.top(frame.bars()) : null);
             player.sendActionBar(
                     frame.bars() > 0 || frame.panel() != null
                             ? DialogueScreen.bottom(frame.bars(), frame.panel(), frame.hints(), frame.toggle())
@@ -144,6 +147,36 @@ final class DialogueSession {
             sinceVignette = 0;
         }
         zoom(frame.zoom());
+        hideHands();
+    }
+
+    /**
+     * Keeps the held slot and the off hand showing nothing, again after the slot moved and every so often.
+     * A creative client writes its slots back to the server and would keep the blank item, so its hands stay put.
+     */
+    private void hideHands() {
+        if (player.getGameMode() == GameMode.CREATIVE) {
+            return;
+        }
+        final int held = player.getInventory().getHeldItemSlot();
+        sinceHands++;
+        if (held == handSlot && sinceHands < VIGNETTE_EVERY) {
+            return;
+        }
+        if (handSlot >= 0 && held != handSlot) {
+            ViewPackets.showHands(player, handSlot);
+        }
+        ViewPackets.hideHands(player, held);
+        handSlot = held;
+        sinceHands = 0;
+    }
+
+    private void showHands() {
+        if (handSlot < 0) {
+            return;
+        }
+        ViewPackets.showHands(player, handSlot);
+        handSlot = -1;
     }
 
     /** Narrows the view by {@code progress} of the zoom, through the walking speed the client widens its view by. */

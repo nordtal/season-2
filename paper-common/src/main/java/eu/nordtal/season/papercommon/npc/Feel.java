@@ -2,8 +2,8 @@ package eu.nordtal.season.papercommon.npc;
 
 import eu.nordtal.season.settings.network.NpcDialogueSpec;
 
-/** How a dialogue types, zooms and ends, from the network's settings. */
-public record Feel(int typingSpeed, double zoom, double endDistance, double endAngle) {
+/** How a dialogue types, sounds, zooms and ends, from the network's settings; the tick pitch scales every voice. */
+public record Feel(int typingSpeed, double tickPitch, double zoom, double endDistance, double endAngle) {
 
     public Feel {
         if (typingSpeed <= 0) {
@@ -12,6 +12,6 @@ public record Feel(int typingSpeed, double zoom, double endDistance, double endA
     }
 
     public static Feel of(final NpcDialogueSpec spec) {
-        return new Feel(spec.typingSpeed(), spec.zoom(), spec.endDistance(), spec.endAngle());
+        return new Feel(spec.typingSpeed(), spec.tickPitch(), spec.zoom(), spec.endDistance(), spec.endAngle());
     }
 }

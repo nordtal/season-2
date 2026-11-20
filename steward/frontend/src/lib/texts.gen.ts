@@ -1636,10 +1636,6 @@ export type TextArgs = {
   "steward.npcs.copy-from": Record<string, never>
   "steward.npcs.copy-skin": Record<string, never>
   "steward.npcs.create": Record<string, never>
-  "steward.npcs.cut-lines": {
-    limit: Arg["number"]
-    answers: Arg["choice"]
-  }
   "steward.npcs.cut-width": Record<string, never>
   "steward.npcs.default-skin": Record<string, never>
   "steward.npcs.delete": Record<string, never>
@@ -1674,6 +1670,7 @@ export type TextArgs = {
   "steward.npcs.lines": {
     lines: Arg["number"]
     limit: Arg["number"]
+    pages: Arg["number"]
   }
   "steward.npcs.live": {
     version: Arg["number"]

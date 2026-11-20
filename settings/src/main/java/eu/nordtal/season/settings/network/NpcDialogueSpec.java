@@ -8,7 +8,7 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** The {@code npc-dialogue} group holds how an NPC's dialogue types, zooms and ends on every Paper server. */
+/** The {@code npc-dialogue} group holds how an NPC's dialogue types, sounds, zooms and ends on every Paper server. */
 @ConfigSpec
 public interface NpcDialogueSpec {
 
@@ -46,5 +46,15 @@ public interface NpcDialogueSpec {
     @Explain("A dialogue ends once the player turns this far away from the NPC.")
     default double endAngle() {
         return 120.0;
+    }
+
+    @Order(5)
+    @Name("Typing tick pitch")
+    @Key("tick-pitch")
+    @Positive
+    @Explain("The pitch of the tick while an NPC types, times each NPC's own voice pitch: 1 keeps the voice as it is,"
+            + " 1.2 makes every NPC tick a little higher. From 0.5 to 2.")
+    default double tickPitch() {
+        return 1.0;
     }
 }

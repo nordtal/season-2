@@ -231,6 +231,7 @@ export type NpcTextMeasureRequest = {
 
 export type NpcTextMeasurement = {
   lines: string[]
+  pages: string[][]
   width: number
   room: number
   lineLimit: number

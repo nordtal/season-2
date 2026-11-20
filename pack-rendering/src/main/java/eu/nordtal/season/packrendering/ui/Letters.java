@@ -30,6 +30,21 @@ public final class Letters {
         return eu.nordtal.season.messagerendering.text.Letters.visibleWidth(text);
     }
 
+    /** Returns how far {@code text} in bold moves the cursor, one column more for every character. */
+    public static int boldWidth(final String text) {
+        return eu.nordtal.season.messagerendering.text.Letters.boldWidth(text);
+    }
+
+    /** Returns the columns {@code text} inks in bold. */
+    public static int boldVisibleWidth(final String text) {
+        return eu.nordtal.season.messagerendering.text.Letters.boldVisibleWidth(text);
+    }
+
+    /** Returns {@code text} cut to {@code room} as it inks in bold. */
+    public static String boldCut(final String text, final int room) {
+        return eu.nordtal.season.messagerendering.text.Letters.boldCut(text, room);
+    }
+
     /** Returns {@code text} cut to {@code room}. */
     public static String cut(final String text, final int room) {
         return eu.nordtal.season.messagerendering.text.Letters.cut(text, room);

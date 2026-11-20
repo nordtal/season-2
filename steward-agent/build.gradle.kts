@@ -21,6 +21,7 @@ repositoryRootTestInputs {
     reads("smp/src/main/resources/paper-plugin.yml")
     // The portrait glyphs an NPC's own portrait font replaces.
     reads("resource-pack/glyphs.json")
+    reads("resource-pack/src/assets/nordtal/textures/npc/portrait.png")
 }
 
 dependencies {

@@ -4,28 +4,52 @@ import { measureKey } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 
 /**
- * A step as the game draws it: the dialogue panel's own art from the pack, the lines as Steward measured them, and the
- * NPC behind it in its skin. Every number is a pixel of the game's interface, as `DialogueScreen` places it.
+ * A step as the game draws it: the dialogue panel's own art from the pack, the first page of its text as Steward
+ * measured it, and the NPC behind it in its skin. Every number is a pixel of the game's interface, as `DialogueScreen`
+ * places it.
  */
 
 /** The smallest screen the game scales its interface to. */
 const SCREEN = { width: 480, height: 270 }
-const PANEL = { width: 262, margin: 7, text: 36, portrait: 24, bottom: 34 }
-const BAR = 38
-const LINES = [18, 27, 36]
-const PLATE = { top: 38, step: 20, width: 248, height: 17, label: 4, text: 5 }
-const HOLD = { width: 5, top: 41 }
-/** The panel's height with no answer, with one or two, and with three. */
-const HEIGHTS = { speak: 51, two: 82, three: 102 }
+/** The panel: its width, its bottom above the screen's, and where the portrait, the tab and the text stand in it. */
+const PANEL = { width: 300, bottom: 16, portrait: 7, tab: 56, text: 60, mark: 288 }
+/** The width of the panel art's first piece; a second piece draws the rest of the panel. */
+const TILE = 256
+/** The answers' rows: the strip, the chevron of the selected answer, its label and its number. */
+const ANSWER = { strip: 56, chevron: 60, label: 68, numberEnd: 291, step: 12, lowest: 33 }
+/** The name tab: its height and the space on each side of the name. */
+const TAB = { height: 13, padding: 6 }
+/** The height of the dark band along the bottom of the screen. */
+const BAND = 58
 const ART = "/glyphs/npc"
 
 /** The size at which the browser's face draws a capital 7 pixels high, as the game's does, and how far a letter then moves on. */
 const FACE = 9
 const ADVANCE = 6
+/** The same for the five-pixel letters of the hints, the page count and the answer numbers. */
+const SMALL_FACE = 6.4
+const SMALL_ADVANCE = 4
 
-const INK = "#404040"
-const SOFT = "#555555"
-const ON_ACCENT = "#ffffff"
+const INK = "#2b2b2b"
+const SOFT = "#404040"
+const FAINT = "#505050"
+const ACCENT = "#284894"
+/** The tab's colour when the NPC names none; its edge and its light row are drawn from it. */
+const TAB_COLOUR = "#345ab4"
+
+/** The panel heights: speaking with up to three lines or four, and a question by its lines and answers. */
+function heightOf(lines: number, answers: number): number {
+  if (answers === 0) return lines > 3 ? 58 : 48
+  return 26 + 10 * (Math.max(lines, 1) - 1) + 12 * (answers - 1) + 17
+}
+
+/** Returns `hex` with every channel times `factor`, or moved `factor` of the way to white when `lighter`. */
+function shade(hex: string, factor: number, lighter = false): string {
+  const value = Number.parseInt(hex.slice(1), 16)
+  const channels = [16, 8, 0].map((shift) => (value >> shift) & 0xff)
+  const moved = channels.map((channel) => Math.round(lighter ? channel + (255 - channel) * factor : channel * factor))
+  return `rgb(${moved.join(",")})`
+}
 
 /** The requests that measure one step in one language: the name, the text and each answer. */
 export function requestsOf(npc: Npc, step: NpcStep, language: Language): NpcTextMeasureRequest[] {
@@ -36,23 +60,24 @@ export function requestsOf(npc: Npc, step: NpcStep, language: Language): NpcText
   ]
 }
 
-/** The lines the panel shows of a text: as many as it has room for, the last ending in an ellipsis when more follow. */
-function shown(measurement: NpcTextMeasurement | undefined, text: string): string[] {
-  if (measurement === undefined) return text === "" ? [] : [text]
-  const lines = measurement.lines.slice(0, measurement.lineLimit)
-  if (measurement.lines.length > measurement.lineLimit) {
-    lines[lines.length - 1] = `${lines[lines.length - 1].trimEnd()}…`
-  }
-  return lines
+/** The pages the panel shows a text on: the measured ones, or the text on one line until they arrive. */
+function pagesOf(measurement: NpcTextMeasurement | undefined, text: string): string[][] {
+  if (measurement === undefined || measurement.pages.length === 0) return [text === "" ? [] : [text]]
+  return measurement.pages
 }
 
 /** A line in the game's face. It is pressed into `room` when the browser's face sets it wider than the game's does. */
+/** The columns the speaker's name takes in its tab, as DialogueRoom.NAME in the game. */
+const NAME_ROOM = 210
+
 function Line({
   x,
   y,
   room,
   fill,
   end,
+  bold,
+  small,
   children,
 }: {
   x: number
@@ -60,15 +85,18 @@ function Line({
   room: number
   fill: string
   end?: boolean
+  bold?: boolean
+  small?: boolean
   children: string
 }) {
-  const pressed = children.length * ADVANCE > room
+  const pressed = children.length * (small ? SMALL_ADVANCE : ADVANCE) > room
   return (
     <text
       x={x}
-      y={y + 7}
+      y={y + (small ? 5 : 7)}
       fill={fill}
-      fontSize={FACE}
+      fontSize={small ? SMALL_FACE : FACE}
+      fontWeight={bold ? "bold" : undefined}
       textAnchor={end ? "end" : undefined}
       className="font-mono"
       {...(pressed ? { textLength: room, lengthAdjust: "spacingAndGlyphs" } : {})}
@@ -198,6 +226,22 @@ export function skinAddress(npc: Npc): string | undefined {
   return npc.skin === undefined ? undefined : `/api/npc-skins/${npc.skin}`
 }
 
+/**
+ * The NPC's bust in the portrait's well, as steward-agent draws it from the skin: the head three times as large, the
+ * upper body and arms twice.
+ */
+function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y: number }) {
+  const arm = slim ? 3 : 4
+  return (
+    <svg x={x} y={y} width={40} height={40} viewBox="0 0 40 40" overflow="hidden">
+      <Limb skin={skin} base={[44, 20, arm, 6]} over={[44, 36, arm, 6]} x={12 - 2 * arm} y={30} scale={2} />
+      <Limb skin={skin} base={[36, 52, arm, 6]} over={[52, 52, arm, 6]} x={28} y={30} scale={2} />
+      <Limb skin={skin} base={[20, 20, 8, 6]} over={[20, 36, 8, 6]} x={12} y={29} scale={2} />
+      <Limb skin={skin} base={[8, 8, 8, 8]} over={[40, 8, 8, 8]} x={8} y={6} scale={3} />
+    </svg>
+  )
+}
+
 export function DialoguePreview({
   npc,
   step,
@@ -210,14 +254,20 @@ export function DialoguePreview({
   measured: Map<string, NpcTextMeasurement> | undefined
 }) {
   const [name, body, ...answers] = requestsOf(npc, step, language)
-  const lines = shown(measured?.get(measureKey(body)), body.text)
-  const count = answers.length
-  const height = count === 0 ? HEIGHTS.speak : count === 3 ? HEIGHTS.three : HEIGHTS.two
+  const pages = pagesOf(measured?.get(measureKey(body)), body.text)
+  const lines = pages[0]
+  const last = pages.length === 1
+  const rows = last ? answers.length : 0
+  const height = heightOf(lines.length, rows)
   const left = (SCREEN.width - PANEL.width) / 2
-  const top = SCREEN.height - PANEL.bottom - height
-  const art = count === 0 ? "panel_speak" : count === 3 ? "panel_3" : "panel_2"
+  const top = PANEL.bottom + height
+  /** The screen's row of a row `b` above its bottom. */
+  const row = (b: number) => SCREEN.height - b
   const skin = skinAddress(npc)
   const scale = 6
+  // The tab fits the bold name, cut to its room as in the game; the letter count stands in until it is measured.
+  const nameWidth = Math.min(NAME_ROOM, measured?.get(measureKey(name))?.width ?? name.text.length * (ADVANCE + 1))
+  const tab = TAB.padding + nameWidth + TAB.padding
   return (
     <svg
       viewBox={`0 0 ${SCREEN.width} ${SCREEN.height}`}
@@ -233,86 +283,89 @@ export function DialoguePreview({
       </defs>
       <rect width={SCREEN.width} height={SCREEN.height * 0.62} fill="url(#npc-preview-sky)" />
       <rect y={SCREEN.height * 0.62} width={SCREEN.width} height={SCREEN.height * 0.38} fill="#5d8f3f" />
-      <Figure skin={skin} slim={npc.skinModel === "SLIM"} x={SCREEN.width / 2 - 4 * scale} y={BAR + 14} scale={scale} />
-      {[0, 255].map((x) => (
-        <g key={x}>
-          <Art name="top_bar_4" x={x} y={0} width={256} height={BAR} />
-          <Art name="bar_4" x={x} y={SCREEN.height - BAR} width={256} height={BAR} />
-        </g>
+      <Figure skin={skin} slim={npc.skinModel === "SLIM"} x={SCREEN.width / 2 - 4 * scale} y={20} scale={scale} />
+      <Art name="vignette_4" x={0} y={0} width={SCREEN.width} height={SCREEN.height} />
+      {[0, TILE].map((x) => (
+        <Art key={x} name="band_4" x={x} y={row(BAND)} width={TILE} height={BAND} />
       ))}
-      <Art name={`${art}_0`} x={left} y={top} width={256} height={height} />
-      <Art name={`${art}_1`} x={left + 256} y={top} width={PANEL.width - 256} height={height} />
-      {skin === undefined ? (
-        <Art
-          name="portrait_speak"
-          x={left + PANEL.margin}
-          y={top + PANEL.margin}
-          width={PANEL.portrait}
-          height={PANEL.portrait}
-        />
-      ) : (
-        <Limb
-          skin={skin}
-          base={[8, 8, 8, 8]}
-          over={[40, 8, 8, 8]}
-          x={left + PANEL.margin}
-          y={top + PANEL.margin}
-          scale={PANEL.portrait / 8}
-        />
+      <Art name={`panel_${height}_0`} x={left} y={row(top)} width={TILE} height={height} />
+      <Art name={`panel_${height}_1`} x={left + TILE} y={row(top)} width={PANEL.width - TILE} height={height} />
+      <Art name="portrait" x={left + PANEL.portrait} y={row(top + 10)} width={46} height={64} />
+      {skin === undefined ? null : (
+        <Bust skin={skin} slim={npc.skinModel === "SLIM"} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
       )}
-      <Line x={left + PANEL.text} y={top + PANEL.margin} room={219} fill={INK}>
-        {name.text}
-      </Line>
+      <g>
+        <rect
+          x={left + PANEL.tab}
+          y={row(top + 7) + 1}
+          width={tab}
+          height={TAB.height - 2}
+          fill={shade(TAB_COLOUR, 0.45)}
+        />
+        <rect
+          x={left + PANEL.tab + 1}
+          y={row(top + 7)}
+          width={tab - 2}
+          height={TAB.height}
+          fill={shade(TAB_COLOUR, 0.45)}
+        />
+        <rect x={left + PANEL.tab + 1} y={row(top + 7) + 1} width={tab - 2} height={TAB.height - 2} fill={TAB_COLOUR} />
+        <rect
+          x={left + PANEL.tab + 1}
+          y={row(top + 7) + 1}
+          width={tab - 2}
+          height={1}
+          fill={shade(TAB_COLOUR, 0.25, true)}
+        />
+        <Line x={left + PANEL.tab + TAB.padding} y={row(top + 4)} room={NAME_ROOM} fill="#ffffff" bold>
+          {name.text}
+        </Line>
+      </g>
       {lines.map((line, index) => (
-        <Line key={index} x={left + PANEL.text} y={top + LINES[index]} room={210} fill={INK}>
+        <Line key={index} x={left + PANEL.text} y={row(top - 13 - 10 * index)} room={226} fill={INK}>
           {line}
         </Line>
       ))}
-      {answers.map((answer, index) => {
-        const y = top + PLATE.top + index * PLATE.step
-        const x = left + PANEL.margin
+      {answers.slice(0, rows).map((answer, index) => {
+        const b = ANSWER.lowest + ANSWER.step * (rows - 1 - index)
+        const on = index === 0
         return (
           <g key={index}>
-            <Art name={index === 0 ? "plate_on_2" : "plate_2"} x={x} y={y} width={PLATE.width} height={PLATE.height} />
-            <Line x={x + PLATE.label} y={y + PLATE.text} room={228} fill={index === 0 ? ON_ACCENT : INK}>
+            {on ? (
+              <>
+                <Art name="strip" x={left + ANSWER.strip} y={row(b)} width={239} height={64} />
+                <Art name="chevron" x={left + ANSWER.chevron} y={row(b - 2)} width={4} height={64} />
+              </>
+            ) : null}
+            <Line x={left + ANSWER.label} y={row(b - 2)} room={213} fill={on ? ACCENT : SOFT} bold={on}>
               {answer.text}
             </Line>
-            <Line
-              x={x + PLATE.width - PLATE.label}
-              y={y + PLATE.text}
-              room={8}
-              fill={index === 0 ? ON_ACCENT : SOFT}
-              end
-            >
+            <Line x={left + ANSWER.numberEnd} y={row(b - 3)} room={8} fill={on ? ACCENT : FAINT} end small>
               {String(index + 1)}
             </Line>
           </g>
         )
       })}
-      {count === 0 ? (
-        <Art
-          name="hold"
-          x={left + PANEL.width - PANEL.margin - HOLD.width}
-          y={top + HOLD.top}
-          width={HOLD.width}
-          height={3}
-        />
-      ) : null}
-      <HintMarks answers={count > 0} right={left + PANEL.width - PANEL.margin} />
+      {last ? null : (
+        <Line x={left + 284} y={row(29)} room={16} fill={FAINT} end small>
+          {`1/${pages.length}`}
+        </Line>
+      )}
+      {rows === 0 ? <Art name="more" x={left + PANEL.mark} y={row(27)} width={5} height={3} /> : null}
+      <HintMarks answers={rows > 0} right={left + 298} y={row(11)} />
     </svg>
   )
 }
 
-/** The marks of the inputs the game asks for on the bottom bar: the wheel and a left-click with answers, a right-click without. */
-function HintMarks({ answers, right }: { answers: boolean; right: number }) {
-  const y = SCREEN.height - 21
+/** The marks of the inputs the game asks for under the panel: the wheel and a left-click with answers, a right-click without. */
+function HintMarks({ answers, right, y }: { answers: boolean; right: number; y: number }) {
   return answers ? (
     <>
-      <Art name="mouse_left" x={right - 9} y={y} width={9} height={11} />
-      <Art name="mouse_wheel" x={right - 9 - 10 - 15} y={y} width={15} height={11} />
+      <Art name="mouse_left" x={right - 7} y={y} width={7} height={8} />
+      <Art name="mouse_wheel" x={right - 7 - 9 - 7} y={y} width={7} height={8} />
     </>
   ) : (
-    <Art name="mouse_right" x={right - 9} y={y} width={9} height={11} />
+    <Art name="mouse_right" x={right - 7} y={y} width={7} height={8} />
   )
 }
 

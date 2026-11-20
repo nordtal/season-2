@@ -207,8 +207,7 @@ public final class NpcDialogues implements Listener {
         final Feel now = feel.get();
         final DialogueRun run = new DialogueRun(
                 npc.dialogue(),
-                npc.name().in(locale),
-                NpcLooks.portraitFont(npc),
+                NpcLooks.speaker(npc, locale),
                 locale,
                 now,
                 labels.apply(locale),
@@ -231,8 +230,7 @@ public final class NpcDialogues implements Listener {
         final Feel now = feel.get();
         final DialogueRun run = new DialogueRun(
                 npc.dialogue(),
-                npc.name().in(locale),
-                NpcLooks.portraitFont(npc),
+                NpcLooks.speaker(npc, locale),
                 locale,
                 now,
                 labels.apply(locale),

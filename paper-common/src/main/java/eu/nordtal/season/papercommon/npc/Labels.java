@@ -2,8 +2,12 @@ package eu.nordtal.season.papercommon.npc;
 
 import java.util.Map;
 
-/** The words of a dialogue's hints and its switch in one reader's language, with the hint of each menu. */
-public record Labels(String next, String choose, String answer, String dontShowAgain, Map<String, String> menus) {
+/**
+ * The words of a dialogue's hints and its switch in one reader's language, with the hint of each menu.
+ * {@code more} is the hint while further pages of the same text follow.
+ */
+public record Labels(
+        String next, String more, String choose, String answer, String dontShowAgain, Map<String, String> menus) {
 
     public Labels {
         menus = Map.copyOf(menus);

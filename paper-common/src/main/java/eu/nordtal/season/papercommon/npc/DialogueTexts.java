@@ -13,6 +13,10 @@ public final class DialogueTexts {
                     "paper-common", "npc-next", "NPC dialogue", DocumentSpec.Shape.ACTION_BAR)
             .titled("Hint to go on in an NPC dialogue");
 
+    static final DocumentSpec<DocumentSpec.None> MORE = DocumentSpec.game(
+                    "paper-common", "npc-more", "NPC dialogue", DocumentSpec.Shape.ACTION_BAR)
+            .titled("Hint to turn to the next page of a long text in an NPC dialogue");
+
     static final DocumentSpec<DocumentSpec.None> CHOOSE = DocumentSpec.game(
                     "paper-common", "npc-choose", "NPC dialogue", DocumentSpec.Shape.ACTION_BAR)
             .titled("Hint to pick an answer in an NPC dialogue");
@@ -31,6 +35,7 @@ public final class DialogueTexts {
     public static Function<Locale, Labels> labels(final MessageRenderer renderer, final NpcMenus menus) {
         return locale -> new Labels(
                 renderer.plainLine(locale, Sent.of(NEXT)),
+                renderer.plainLine(locale, Sent.of(MORE)),
                 renderer.plainLine(locale, Sent.of(CHOOSE)),
                 renderer.plainLine(locale, Sent.of(ANSWER)),
                 renderer.plainLine(locale, Sent.of(DONT_SHOW_AGAIN)),

@@ -4,7 +4,11 @@ import eu.nordtal.season.messagerendering.text.DialogueRoom;
 import eu.nordtal.season.messagerendering.text.Letters;
 import java.util.List;
 
-/** Measures an NPC text exactly as the dialogue panel wraps it. */
+/**
+ * Measures an NPC text exactly as the dialogue panel draws it.
+ * A body wraps, breaks a word wider than a line and turns its pages by itself, so it always fits; a name and an answer
+ * stay on one line, set in bold, and fit when that line keeps to its room.
+ */
 public final class NpcTextMeasure {
 
     /** The most texts one measurement takes. */
@@ -22,16 +26,19 @@ public final class NpcTextMeasure {
         ANSWER
     }
 
-    /** A text to measure; for a body, {@code answers} says whether the panel leaves it three lines or two. */
+    /** A text to measure; for a body, {@code answers} says whether a page holds four lines or three. */
     public record Request(String text, Kind kind, int answers) {}
 
     /**
-     * The lines the panel draws, the widest of them, the room of a line, the lines the panel shows, and the fit.
-     * A text that does not fit is cut with an ellipsis.
+     * What the panel draws of a text, and whether it fits.
+     * These are its lines, the pages it shows them on, the widest line, the room of a line and the lines the last page
+     * holds. A text that does not fit is cut with an ellipsis.
      */
-    public record Measurement(List<String> lines, int width, int room, int lineLimit, boolean fits) {
+    public record Measurement(
+            List<String> lines, List<List<String>> pages, int width, int room, int lineLimit, boolean fits) {
         public Measurement {
             lines = List.copyOf(lines);
+            pages = pages.stream().map(List::copyOf).toList();
         }
     }
 
@@ -52,10 +59,16 @@ public final class NpcTextMeasure {
         };
         final List<String> lines =
                 request.kind() == Kind.BODY ? Letters.wrapVisible(request.text(), room) : List.of(request.text());
-        final int width = lines.stream().mapToInt(Letters::visibleWidth).max().orElse(0);
+        final int width = lines.stream()
+                .mapToInt(line ->
+                        request.kind() == Kind.BODY ? Letters.visibleWidth(line) : Letters.boldVisibleWidth(line))
+                .max()
+                .orElse(0);
         final int limit = request.kind() != Kind.BODY
                 ? 1
                 : request.answers() == 0 ? DialogueRoom.SPEAK_LINES : DialogueRoom.QUESTION_LINES;
-        return new Measurement(lines, width, room, limit, lines.size() <= limit && width <= room);
+        final List<List<String>> pages =
+                request.kind() == Kind.BODY ? DialogueRoom.pages(request.text(), limit) : List.of(lines);
+        return new Measurement(lines, pages, width, room, limit, width <= room);
     }
 }

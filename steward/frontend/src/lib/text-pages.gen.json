@@ -596,7 +596,6 @@
     "steward.npcs.copy-from": ["services"],
     "steward.npcs.copy-skin": ["services"],
     "steward.npcs.create": ["services"],
-    "steward.npcs.cut-lines": ["services"],
     "steward.npcs.cut-width": ["services"],
     "steward.npcs.default-skin": ["services"],
     "steward.npcs.delete": ["services"],

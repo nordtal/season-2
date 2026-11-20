@@ -2,10 +2,11 @@ package eu.nordtal.season.papercommon.npc;
 
 import eu.nordtal.season.database.npc.Dialogue;
 import eu.nordtal.season.database.npc.Dialogue.Step;
-import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.npc.DialogueScreen;
 import eu.nordtal.season.packrendering.npc.DialogueScreen.Hint;
 import eu.nordtal.season.packrendering.npc.DialogueScreen.Mark;
+import eu.nordtal.season.packrendering.npc.DialogueScreen.Page;
+import eu.nordtal.season.packrendering.npc.DialogueScreen.Speaker;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -35,8 +36,7 @@ public final class DialogueRun {
     }
 
     private final Dialogue dialogue;
-    private final String name;
-    private final String portraitFont;
+    private final Speaker speaker;
     private final Locale locale;
     private final Feel feel;
     private final Labels labels;
@@ -53,6 +53,8 @@ public final class DialogueRun {
     private long lastClick = -DEBOUNCE;
 
     private Step step;
+    private List<List<String>> pages;
+    private int page;
     private List<String> lines;
     private Typing typing;
     private long stepStart = -1;
@@ -76,14 +78,13 @@ public final class DialogueRun {
             final @Nullable String skipped,
             final boolean ticked,
             final boolean shiftDown) {
-        this(dialogue, name, Glyphs.FONT_NPC, locale, feel, labels, skipped, ticked, shiftDown);
+        this(dialogue, new Speaker(name), locale, feel, labels, skipped, ticked, shiftDown);
     }
 
-    /** Starts the dialogue with {@code portraitFont}, the default font or the one of the NPC's uploaded skin. */
+    /** Starts the dialogue of {@code speaker}, whose tab and portrait the panel shows. */
     public DialogueRun(
             final Dialogue dialogue,
-            final String name,
-            final String portraitFont,
+            final Speaker speaker,
             final Locale locale,
             final Feel feel,
             final Labels labels,
@@ -91,8 +92,7 @@ public final class DialogueRun {
             final boolean ticked,
             final boolean shiftDown) {
         this.dialogue = Objects.requireNonNull(dialogue, "dialogue");
-        this.name = Objects.requireNonNull(name, "name");
-        this.portraitFont = Objects.requireNonNull(portraitFont, "portraitFont");
+        this.speaker = Objects.requireNonNull(speaker, "speaker");
         this.locale = Objects.requireNonNull(locale, "locale");
         this.feel = Objects.requireNonNull(feel, "feel");
         this.labels = Objects.requireNonNull(labels, "labels");
@@ -101,7 +101,8 @@ public final class DialogueRun {
         this.shiftDown = shiftDown;
         this.step = dialogue.step(dialogue.start())
                 .orElseThrow(() -> new IllegalArgumentException("the dialogue starts at a step it does not have"));
-        this.lines = page(step);
+        this.pages = pages(step);
+        this.lines = pages.getFirst();
         this.typing = Typing.of(lines, feel.typingSpeed());
         pending.add(new Effect.Sound(Effect.Cue.OPEN));
     }
@@ -125,7 +126,7 @@ public final class DialogueRun {
         return new Frame(bars, vignette, zoom, panel(), hints(), toggle(), effects);
     }
 
-    /** A right-click: finishes the text, goes on, or at a hand-off opens the menu at once. */
+    /** A right-click: finishes the text, turns the page, goes on, or at a hand-off opens the menu at once. */
     public void rightClick() {
         if (!listening() || !debounced()) {
             return;
@@ -133,6 +134,8 @@ public final class DialogueRun {
         if (typedAt < 0) {
             shown = typing.length();
             typed();
+        } else if (!lastPage()) {
+            turn();
         } else if (step.handsOff()) {
             handOff();
         } else if (step.answers().isEmpty()) {
@@ -226,6 +229,10 @@ public final class DialogueRun {
             if (shown >= typing.length()) {
                 typed();
             }
+        } else if (!lastPage()) {
+            if (age - holdFrom >= ticks(typing.hold())) {
+                turn();
+            }
         } else if (!step.answers().isEmpty()) {
             if (!answering && age - typedAt >= ANSWERS_AFTER) {
                 answering = true;
@@ -268,13 +275,25 @@ public final class DialogueRun {
             return;
         }
         step = following;
-        lines = page(following);
+        pages = pages(following);
+        page = -1;
+        selected = 0;
+        turn();
+    }
+
+    /** Shows the next page of the step's text, typed anew. */
+    private void turn() {
+        page++;
+        lines = pages.get(page);
         typing = Typing.of(lines, feel.typingSpeed());
         stepStart = age;
         shown = 0;
         typedAt = -1;
-        selected = 0;
         pending.add(new Effect.Sound(Effect.Cue.NEXT_TEXT));
+    }
+
+    private boolean lastPage() {
+        return page == pages.size() - 1;
     }
 
     private void handOff() {
@@ -304,11 +323,14 @@ public final class DialogueRun {
         if (!listening() || bars < DialogueScreen.STAGES) {
             return null;
         }
+        final Page count = pages.size() > 1 ? new Page(page + 1, pages.size()) : null;
+        // A question keeps the room of its answers while its last page types, so the panel does not grow.
+        final int rows = lastPage() ? answers().size() : 0;
         if (answering) {
-            return new DialogueScreen.Panel(name, lines, false, answers(), selected, portraitFont);
+            return new DialogueScreen.Panel(speaker, lines, rows, answers(), selected, false, count);
         }
-        final boolean waits = typedAt >= 0 && step.answers().isEmpty() && ((age - typedAt) / BLINK) % 2 == 0;
-        return new DialogueScreen.Panel(name, Typing.shownLines(lines, shown), waits, List.of(), 0, portraitFont);
+        final boolean waits = typedAt >= 0 && rows == 0 && ((age - typedAt) / BLINK) % 2 == 0;
+        return new DialogueScreen.Panel(speaker, Typing.shownLines(lines, shown), rows, List.of(), 0, waits, count);
     }
 
     private List<Hint> hints() {
@@ -317,6 +339,9 @@ public final class DialogueRun {
         }
         if (answering) {
             return List.of(new Hint(Mark.CHOOSE, labels.choose()), new Hint(Mark.ANSWER, labels.answer()));
+        }
+        if (!lastPage()) {
+            return List.of(new Hint(Mark.NEXT, labels.more()));
         }
         final String menu = step.menu();
         return List.of(new Hint(Mark.NEXT, menu == null ? labels.next() : labels.menu(menu)));
@@ -336,9 +361,9 @@ public final class DialogueRun {
                 .toList();
     }
 
-    private List<String> page(final Step shown) {
+    private List<List<String>> pages(final Step shown) {
         final int room = shown.answers().isEmpty() ? DialogueScreen.SPEAK_LINES : DialogueScreen.QUESTION_LINES;
-        return DialogueScreen.page(shown.text().in(locale), room);
+        return DialogueScreen.pages(shown.text().in(locale), room);
     }
 
     private static long ticks(final long milliseconds) {

@@ -118,7 +118,9 @@ class StepUpTest extends WebTestSupport {
 
         final List<HttpResponse<String>> protectedRoutes = List.of(
                 put(browser, "/api/setting-groups/steward/steward", "{}"),
+                put(browser, "/api/setting-groups/steward/web", "{}"),
                 put(browser, "/api/setting-groups/steward-agent/runs", "{}"),
+                put(browser, "/api/setting-groups/proxy/pack", "{}"),
                 put(browser, "/api/services/smp/plugin-file?plugin=CoreProtect&path=config.yml", "{}"),
                 get(browser, "/api/backups/nordtal-20261001T044500Z.dump/download"),
                 get(browser, "/api/step-up"));

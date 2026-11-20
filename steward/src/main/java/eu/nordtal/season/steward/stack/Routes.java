@@ -12,6 +12,7 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Registers every route of {@link StackApi} with its {@link Gate}.
@@ -98,9 +99,15 @@ public final class Routes {
                 Journaled.as(JournalAction.SAVE_SETTINGS));
     }
 
+    /**
+     * The groups, as service/name, that decide what the stack runs, where Steward's sign-in and its tokens
+     * go, or what every player's client downloads.
+     */
+    private static final Set<String> FRESH_KEY_GROUPS =
+            Set.of("steward/steward", "steward/web", "steward-agent/runs", "proxy/pack");
+
     static boolean needsFreshKeyForSettings(final String service, final String group) {
-        return (service.equals("steward") && group.equals("steward"))
-                || (service.equals("steward-agent") && group.equals("runs"));
+        return FRESH_KEY_GROUPS.contains(service + "/" + group);
     }
 
     /** Registers the routes for message bundles and the search over every translation. */

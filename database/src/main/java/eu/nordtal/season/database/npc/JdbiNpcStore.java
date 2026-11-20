@@ -138,15 +138,15 @@ final class JdbiNpcStore implements NpcStore {
     }
 
     @Override
-    public Map<UUID, UUID> packed() {
-        return jdbi.withHandle(handle -> handle.createQuery("SELECT npcs FROM pack_build WHERE state = 'ACTIVE'")
-                .mapTo(String.class)
+    public Packed packed() {
+        return jdbi.withHandle(handle -> handle.createQuery(
+                        "SELECT npcs::text AS npcs, artworks::text AS artworks FROM pack_build WHERE state = 'ACTIVE'")
+                .map((rows, context) -> new Packed(ids(rows.getString("npcs")), ids(rows.getString("artworks"))))
                 .findOne()
-                .map(JdbiNpcStore::skinIds)
-                .orElse(Map.of()));
+                .orElse(Packed.NONE));
     }
 
-    private static Map<UUID, UUID> skinIds(final String npcs) {
+    private static Map<UUID, UUID> ids(final String npcs) {
         final Map<UUID, UUID> ids = new HashMap<>();
         final JsonObject map = Json.decode(npcs, JsonObject.class);
         if (map != null) {

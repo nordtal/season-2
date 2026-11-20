@@ -65,7 +65,8 @@ class ResourcePackTest {
                     Stream.of(Glyphs.FONT_NPC),
                     Glyphs.FONT_NPC_TEXT.values().stream(),
                     Glyphs.FONT_NPC_ART.values().stream(),
-                    Glyphs.FONT_NPC_SMALL.values().stream())
+                    Glyphs.FONT_NPC_SMALL.values().stream(),
+                    Stream.of(Glyphs.FONT_NPC_PLATE))
             .flatMap(ids -> ids)
             .map(id -> FontFile.load(id, ASSETS + "/" + id.replace(":", "/font/") + ".json"))
             .toList();

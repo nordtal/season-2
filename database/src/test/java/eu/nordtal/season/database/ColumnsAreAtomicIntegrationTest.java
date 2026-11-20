@@ -50,7 +50,8 @@ class ColumnsAreAtomicIntegrationTest {
             "announcement.document",
             "pack_build.prizes",
             "pack_build.label",
-            "pack_build.npcs");
+            "pack_build.npcs",
+            "pack_build.artworks");
 
     @Test
     void noColumnHoldsADocumentOrAListButTheOnesListedHere() throws SQLException {

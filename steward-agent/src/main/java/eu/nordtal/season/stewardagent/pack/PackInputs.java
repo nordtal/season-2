@@ -5,8 +5,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.database.npc.NpcArtwork;
 import eu.nordtal.season.database.npc.NpcSkin;
 import eu.nordtal.season.database.npc.NpcStore;
+import eu.nordtal.season.database.pack.PackBuildStore;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.packbuilder.json.Json;
 import eu.nordtal.season.packbuilder.wheel.WheelPack;
@@ -19,17 +21,28 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.Function;
 
 /**
- * What the pack is built from besides its fixed files: smp's wheel prizes, the wheel's texts and the NPC skins.
+ * What the pack is built from besides its fixed files: the wheel's prizes and texts, the NPC skins and artworks.
  *
  * @param prizes the prize list as the pack builder reads it, a JSON list of {@code item} and {@code amount}
  * @param texts the wheel's text document as JSON
  * @param label the spin button's label by language, the one text of the document the pack draws
  * @param npcs the uploaded skin of each NPC that has one, as a JSON object of skin ids by NPC id
+ * @param artworks the uploaded portrait artwork of each NPC that has one, as a JSON object of artwork ids by NPC id
  * @param skins the skins {@code npcs} names, by NPC id, to draw from; empty for inputs read back from a build record
+ * @param pictures the artworks {@code artworks} names, by NPC id, to draw from; empty for inputs read back from a
+ *     build record
  */
-record PackInputs(String prizes, String texts, Map<String, String> label, String npcs, Map<UUID, NpcSkin> skins) {
+record PackInputs(
+        String prizes,
+        String texts,
+        Map<String, String> label,
+        String npcs,
+        String artworks,
+        Map<UUID, NpcSkin> skins,
+        Map<UUID, NpcArtwork> pictures) {
 
     static final String SERVICE = "smp";
     static final String GROUP = "wheel";
@@ -39,18 +52,29 @@ record PackInputs(String prizes, String texts, Map<String, String> label, String
     PackInputs {
         label = Map.copyOf(label);
         skins = Map.copyOf(skins);
+        pictures = Map.copyOf(pictures);
     }
 
-    /** Inputs without NPC skins to draw, as a build record holds them. */
-    PackInputs(final String prizes, final String texts, final Map<String, String> label, final String npcs) {
-        this(prizes, texts, label, npcs, Map.of());
+    /** Inputs without NPC skins and artworks to draw, as a build record holds them. */
+    PackInputs(
+            final String prizes,
+            final String texts,
+            final Map<String, String> label,
+            final String npcs,
+            final String artworks) {
+        this(prizes, texts, label, npcs, artworks, Map.of(), Map.of());
+    }
+
+    /** Returns the inputs the {@code build} drew, as far as its record holds them. */
+    static PackInputs drawnBy(final PackBuildStore.PackBuild build) {
+        return new PackInputs(build.prizes(), "", build.label(), build.npcs(), build.artworks());
     }
 
     /**
      * Reads the inputs as smp applies them.
      *
      * @param shippedPrizes smp's default prizes as this release ships them, for an smp that never published its group
-     * @param npcs the NPCs, whose uploaded skins the pack draws
+     * @param npcs the NPCs, whose uploaded skins and artworks the pack draws
      * @throws IllegalArgumentException if a stored value cannot be read
      */
     static PackInputs read(
@@ -61,15 +85,26 @@ record PackInputs(String prizes, String texts, Map<String, String> label, String
             throws IOException {
         final String texts = documents.applied(SERVICE, DOCUMENT).document().json();
         final Map<UUID, NpcSkin> skins = npcs.skins();
-        return new PackInputs(prizes(settings, shippedPrizes), texts, label(texts), skinIds(skins), skins);
+        final Map<UUID, NpcArtwork> pictures = npcs.artworks();
+        return new PackInputs(
+                prizes(settings, shippedPrizes),
+                texts,
+                label(texts),
+                ids(skins, NpcSkin::id),
+                ids(pictures, NpcArtwork::id),
+                skins,
+                pictures);
     }
 
-    /** Returns the skin id of each NPC as a JSON object, which is all the pack's NPC files depend on. */
-    static String skinIds(final Map<UUID, NpcSkin> skins) {
+    /**
+     * Returns the id of each NPC's skin or artwork as a JSON object by NPC.
+     * That is all the pack's NPC files depend on, since both are immutable.
+     */
+    static <T> String ids(final Map<UUID, T> uploads, final Function<T, UUID> id) {
         final JsonObject ids = new JsonObject();
-        new TreeMap<>(skins)
-                .forEach(
-                        (npc, skin) -> ids.addProperty(npc.toString(), skin.id().toString()));
+        new TreeMap<>(uploads)
+                .forEach((npc, upload) ->
+                        ids.addProperty(npc.toString(), id.apply(upload).toString()));
         return ids.toString();
     }
 
@@ -77,7 +112,8 @@ record PackInputs(String prizes, String texts, Map<String, String> label, String
     boolean drawsSame(final PackInputs other) {
         return label.equals(other.label)
                 && JsonParser.parseString(prizes).equals(JsonParser.parseString(other.prizes))
-                && JsonParser.parseString(npcs).equals(JsonParser.parseString(other.npcs));
+                && JsonParser.parseString(npcs).equals(JsonParser.parseString(other.npcs))
+                && JsonParser.parseString(artworks).equals(JsonParser.parseString(other.artworks));
     }
 
     /** The prize list: an admin's, else the defaults smp published, else the ones this release ships. */

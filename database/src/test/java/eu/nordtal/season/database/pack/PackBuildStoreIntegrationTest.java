@@ -25,14 +25,16 @@ class PackBuildStoreIntegrationTest {
     private static final Instant AT = Instant.parse("2026-11-13T10:00:00Z");
     private static final String PRIZES = "[{\"item\": \"minecraft:cooked_beef\", \"amount\": 32}]";
     private static final Map<String, String> LABEL = Map.of("en", "Spin", "de", "Drehen");
+    private static final String ARTWORKS =
+            "{\"00000000-0000-0000-0000-0000000000aa\": \"00000000-0000-0000-0000-0000000000bb\"}";
     private static final String SHA1 = "0123456789abcdef0123456789abcdef01234567";
 
     @Test
     void aGoodBuildBecomesTheActivePackAndSupersedesTheOneBefore() {
         final PackBuildStore store = PackBuildStore.using(TestDatabase.fresh().dataSource());
-        final long first = store.start(AT, PRIZES, LABEL, "{}");
+        final long first = store.start(AT, PRIZES, LABEL, "{}", "{}");
         store.succeed(first, AT.plusSeconds(4), SHA1, 1234);
-        final long second = store.start(AT.plusSeconds(60), PRIZES, LABEL, "{}");
+        final long second = store.start(AT.plusSeconds(60), PRIZES, LABEL, "{}", ARTWORKS);
         store.succeed(second, AT.plusSeconds(62), "f".repeat(40), 99);
 
         final List<PackBuild> builds = store.recent(5);
@@ -47,14 +49,16 @@ class PackBuildStoreIntegrationTest {
         assertEquals(LABEL, active.label());
         // jsonb spaces the text and orders the keys anew, so the prizes come back equal as JSON, not as text.
         assertEquals(JsonParser.parseString(PRIZES), JsonParser.parseString(active.prizes()));
+        assertEquals(JsonParser.parseString(ARTWORKS), JsonParser.parseString(active.artworks()));
+        assertEquals("{}", builds.getLast().artworks());
     }
 
     @Test
     void aFailedBuildLeavesTheActivePackAsItWas() {
         final PackBuildStore store = PackBuildStore.using(TestDatabase.fresh().dataSource());
-        final long good = store.start(AT, PRIZES, LABEL, "{}");
+        final long good = store.start(AT, PRIZES, LABEL, "{}", "{}");
         store.succeed(good, AT.plusSeconds(4), SHA1, 1234);
-        final long bad = store.start(AT.plusSeconds(60), PRIZES, LABEL, "{}");
+        final long bad = store.start(AT.plusSeconds(60), PRIZES, LABEL, "{}", "{}");
         store.fail(bad, AT.plusSeconds(61), "the child process ended with 1");
 
         assertEquals(good, store.active().orElseThrow().id());
@@ -67,7 +71,7 @@ class PackBuildStoreIntegrationTest {
     @Test
     void aBuildTheAgentLeftRunningEndsAsFailedAtTheNextStart() {
         final PackBuildStore store = PackBuildStore.using(TestDatabase.fresh().dataSource());
-        store.start(AT, PRIZES, LABEL, "{}");
+        store.start(AT, PRIZES, LABEL, "{}", "{}");
         store.abandon(AT.plusSeconds(30), "steward-agent stopped during the build");
 
         final PackBuild build = store.recent(1).getFirst();
@@ -78,7 +82,7 @@ class PackBuildStoreIntegrationTest {
     @Test
     void stewardReadsTheBuildsAndWritesNone() {
         final TestDatabase database = TestDatabase.fresh();
-        PackBuildStore.using(database.dataSource()).start(AT, PRIZES, LABEL, "{}");
+        PackBuildStore.using(database.dataSource()).start(AT, PRIZES, LABEL, "{}", "{}");
 
         final PackBuildStore steward = PackBuildStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
         assertEquals(1, steward.recent(5).size());
@@ -106,8 +110,8 @@ class PackBuildStoreIntegrationTest {
     void aSecondActiveBuildIsRefused() {
         final TestDatabase database = TestDatabase.fresh();
         final PackBuildStore store = PackBuildStore.using(database.dataSource());
-        store.succeed(store.start(AT, PRIZES, LABEL, "{}"), AT.plusSeconds(1), SHA1, 1);
-        final long other = store.start(AT, PRIZES, LABEL, "{}");
+        store.succeed(store.start(AT, PRIZES, LABEL, "{}", "{}"), AT.plusSeconds(1), SHA1, 1);
+        final long other = store.start(AT, PRIZES, LABEL, "{}", "{}");
         final Jdbi owner = Jdbi.create(database.dataSource());
         assertThrows(
                 UnableToExecuteStatementException.class,

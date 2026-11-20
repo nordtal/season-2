@@ -1,6 +1,7 @@
-import type { Npc, NpcStep, NpcTextMeasurement, NpcTextMeasureRequest, PlateColour } from "@/lib/api"
+import { useEffect, useId, useState } from "react"
+import type { Npc, NpcStep, NpcTextMeasurement, NpcTextMeasureRequest, PlateColour, PlateIcon } from "@/lib/api"
 import type { Language } from "@/lib/npc"
-import { measureKey } from "@/lib/queries-npcs"
+import { artworkAddress, measureKey } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 
 /**
@@ -34,8 +35,8 @@ const INK = "#2b2b2b"
 const SOFT = "#404040"
 const FAINT = "#505050"
 const ACCENT = "#284894"
-/** The tab's colour when the NPC names none; its edge and its light row are drawn from it. */
-const TAB_COLOUR = "#345ab4"
+/** The tab icon's width and the space after it, before the name. */
+const ICON = { width: 7, gap: 4 }
 
 /** The panel heights: speaking with up to three lines or four, and a question by its lines and answers. */
 function heightOf(lines: number, answers: number): number {
@@ -242,6 +243,33 @@ function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y:
   )
 }
 
+/**
+ * The NPC's uploaded picture in the portrait's well at 40 by 40, as the pack draws it.
+ * A small picture keeps its pixels; a larger one is smoothed, closer to the pack's average of each block.
+ */
+function Artwork({ id, x, y }: { id: string; x: number; y: number }) {
+  const address = artworkAddress(id)
+  const [small, setSmall] = useState(true)
+  useEffect(() => {
+    const picture = new Image()
+    const loaded = () => setSmall(picture.naturalWidth <= 80)
+    picture.addEventListener("load", loaded)
+    picture.src = address
+    return () => picture.removeEventListener("load", loaded)
+  }, [address])
+  return (
+    <image
+      href={address}
+      x={x}
+      y={y}
+      width={40}
+      height={40}
+      preserveAspectRatio="none"
+      style={{ imageRendering: small ? "pixelated" : "auto" }}
+    />
+  )
+}
+
 export function DialoguePreview({
   npc,
   step,
@@ -265,9 +293,11 @@ export function DialoguePreview({
   const row = (b: number) => SCREEN.height - b
   const skin = skinAddress(npc)
   const scale = 6
-  // The tab fits the bold name, cut to its room as in the game; the letter count stands in until it is measured.
+  // The tab takes the plate's colour and icon and fits the bold name; letters stand in until it is measured.
+  const colour = PLATE_RGB[npc.plate.colour]
+  const icon = npc.plate.icon === undefined ? 0 : ICON.width + ICON.gap
   const nameWidth = Math.min(NAME_ROOM, measured?.get(measureKey(name))?.width ?? name.text.length * (ADVANCE + 1))
-  const tab = TAB.padding + nameWidth + TAB.padding
+  const tab = TAB.padding + icon + nameWidth + TAB.padding
   return (
     <svg
       viewBox={`0 0 ${SCREEN.width} ${SCREEN.height}`}
@@ -291,7 +321,9 @@ export function DialoguePreview({
       <Art name={`panel_${height}_0`} x={left} y={row(top)} width={TILE} height={height} />
       <Art name={`panel_${height}_1`} x={left + TILE} y={row(top)} width={PANEL.width - TILE} height={height} />
       <Art name="portrait" x={left + PANEL.portrait} y={row(top + 10)} width={46} height={64} />
-      {skin === undefined ? null : (
+      {npc.artwork !== undefined ? (
+        <Artwork id={npc.artwork} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+      ) : skin === undefined ? null : (
         <Bust skin={skin} slim={npc.skinModel === "SLIM"} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
       )}
       <g>
@@ -300,24 +332,27 @@ export function DialoguePreview({
           y={row(top + 7) + 1}
           width={tab}
           height={TAB.height - 2}
-          fill={shade(TAB_COLOUR, 0.45)}
+          fill={shade(colour, 0.45)}
         />
         <rect
           x={left + PANEL.tab + 1}
           y={row(top + 7)}
           width={tab - 2}
           height={TAB.height}
-          fill={shade(TAB_COLOUR, 0.45)}
+          fill={shade(colour, 0.45)}
         />
-        <rect x={left + PANEL.tab + 1} y={row(top + 7) + 1} width={tab - 2} height={TAB.height - 2} fill={TAB_COLOUR} />
+        <rect x={left + PANEL.tab + 1} y={row(top + 7) + 1} width={tab - 2} height={TAB.height - 2} fill={colour} />
         <rect
           x={left + PANEL.tab + 1}
           y={row(top + 7) + 1}
           width={tab - 2}
           height={1}
-          fill={shade(TAB_COLOUR, 0.25, true)}
+          fill={shade(colour, 0.25, true)}
         />
-        <Line x={left + PANEL.tab + TAB.padding} y={row(top + 4)} room={NAME_ROOM} fill="#ffffff" bold>
+        {npc.plate.icon === undefined ? null : (
+          <PlateSymbol icon={npc.plate.icon} x={left + PANEL.tab + TAB.padding} y={row(top + 4)} colour="#ffffff" />
+        )}
+        <Line x={left + PANEL.tab + TAB.padding + icon} y={row(top + 4)} room={NAME_ROOM} fill="#ffffff" bold>
           {name.text}
         </Line>
       </g>
@@ -380,37 +415,111 @@ export const PLATE_RGB: Readonly<Record<PlateColour, string>> = {
   ROSE: "#A63A6E",
   SLATE: "#4A5468",
 }
+/** The symbols a plate can show, in the order of the pack's sheet of tab icons. */
+export const PLATE_ICONS: readonly PlateIcon[] = [
+  "STAR",
+  "PIN",
+  "RAIL",
+  "MEDAL",
+  "FLAG",
+  "WHEEL",
+  "SWORDS",
+  "SHIELD",
+  "HAND_IN",
+  "CHEST",
+  "EYE",
+  "PICKAXE",
+  "BOX",
+  "HEART",
+]
+
+/**
+ * One 7 by 7 symbol of the pack's sheet of tab icons, at `x`, `y` inside an SVG or `size` pixels square on its own,
+ * in `colour`; the sheet draws them white.
+ */
+export function PlateSymbol({
+  icon,
+  colour = "currentColor",
+  x,
+  y,
+  size,
+}: {
+  icon: PlateIcon
+  colour?: string
+  x?: number
+  y?: number
+  size?: number
+}) {
+  const tint = `npc-symbol-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  const side = size ?? ICON.width
+  return (
+    <svg
+      x={x}
+      y={y}
+      width={side}
+      height={side}
+      viewBox={`${PLATE_ICONS.indexOf(icon) * ICON.width} 0 ${ICON.width} ${ICON.width}`}
+      aria-hidden
+      className="shrink-0"
+      style={{ color: colour === "currentColor" ? undefined : colour }}
+    >
+      <filter id={tint}>
+        <feFlood floodColor="currentColor" />
+        <feComposite in2="SourceAlpha" operator="in" />
+      </filter>
+      <image
+        href={`${ART}/icons.png`}
+        width={98}
+        height={64}
+        filter={`url(#${tint})`}
+        style={{ imageRendering: "pixelated" }}
+      />
+    </svg>
+  )
+}
+
 /** The outline and the dark fill of every plate, as the pack draws them. */
 const OUTLINE = "#0D0F15"
 const DARK = "#1B1F2B"
 
-/** A sketch of the plate over the NPC's head: its style and colour around the name. */
+/** A sketch of the plate over the NPC's head: its style and colour around the symbol and the name. */
 export function PlateSketch({ npc }: { npc: Npc }) {
   const colour = PLATE_RGB[npc.plate.colour]
   const name = npc.name.en.trim() || t("steward.npcs.unnamed")
+  const icon = npc.plate.icon
+  /** The symbol before the name, tinted as the game tints it on this style. */
+  const symbol = (tint: string) =>
+    icon === undefined ? null : <PlateSymbol icon={icon} colour={tint} size={SKETCH_SYMBOL} />
   const text = <span className="truncate px-2 text-sm font-semibold text-white">{name}</span>
   const outline = { boxShadow: `0 0 0 2px ${OUTLINE}` }
   switch (npc.plate.style) {
     case "DARK":
       return (
         <div className="flex h-7 max-w-full items-center rounded-sm" style={{ ...outline, background: DARK }}>
-          <span className="ml-1 h-4 w-1 shrink-0" style={{ background: colour }} />
+          <span className="mr-1.5 ml-1 h-4 w-1 shrink-0" style={{ background: colour }} />
+          {symbol(shade(colour, 0.55, true))}
           {text}
         </div>
       )
     case "RIBBON":
       return (
         <div
-          className="flex h-6 max-w-full items-center px-3"
+          className="flex h-6 max-w-full items-center px-4"
           style={{ background: colour, clipPath: "polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%)" }}
         >
+          {symbol("#ffffff")}
           {text}
         </div>
       )
     case "BADGE":
       return (
         <div className="flex max-w-full items-center">
-          <span className="z-10 size-7 shrink-0 rounded-full" style={{ ...outline, background: colour }} />
+          <span
+            className="z-10 flex size-7 shrink-0 items-center justify-center rounded-full"
+            style={{ ...outline, background: colour }}
+          >
+            <PlateSymbol icon={icon ?? "STAR"} colour="#ffffff" size={SKETCH_SYMBOL} />
+          </span>
           <div className="-ml-2 flex h-6 min-w-0 items-center rounded-sm pl-2" style={{ ...outline, background: DARK }}>
             {text}
           </div>
@@ -418,9 +527,16 @@ export function PlateSketch({ npc }: { npc: Npc }) {
       )
     default:
       return (
-        <div className="flex h-7 max-w-full items-center rounded-full px-1" style={{ ...outline, background: colour }}>
+        <div
+          className="flex h-7 max-w-full items-center rounded-full px-1 pl-2.5"
+          style={{ ...outline, background: colour }}
+        >
+          {symbol("#ffffff")}
           {text}
         </div>
       )
   }
 }
+
+/** The sketch's symbols, twice the game's 7 pixels. */
+const SKETCH_SYMBOL = 14

@@ -2,6 +2,7 @@ package eu.nordtal.season.stewardagent.pack;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import eu.nordtal.season.database.npc.NpcArtwork;
 import eu.nordtal.season.database.npc.NpcSkin;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -13,13 +14,16 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.TreeMap;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import javax.imageio.ImageIO;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Writes each skinned NPC's body texture and portrait font, keyed by its id; smp dresses it once the pack holds them.
- * The font replaces the portrait glyphs of {@code nordtal:npc}, one per panel height, which draw one texture.
+ * Writes the body texture of each NPC with a skin, and the portrait font of each with a skin or an uploaded artwork.
+ * Both are keyed by the NPC's id; smp dresses it once the pack holds them. The font replaces the portrait glyphs of
+ * {@code nordtal:npc}, one per panel height, which draw one texture.
  */
 final class NpcPack {
 
@@ -72,22 +76,84 @@ final class NpcPack {
 
     private NpcPack() {}
 
-    /** Writes the files of every NPC in {@code skins} under {@code root}, a folder laid out like the pack. */
-    static void write(final Path root, final Map<UUID, NpcSkin> skins) throws IOException {
-        for (final Map.Entry<UUID, NpcSkin> entry : new TreeMap<>(skins).entrySet()) {
-            final String npc = entry.getKey().toString();
-            final byte[] png = Base64.getDecoder().decode(entry.getValue().png());
-            final Path body = asset(root, "textures", NpcSkin.bodyTexture(entry.getKey()), ".png");
+    /**
+     * Writes the files of every NPC in {@code skins} or {@code artworks} under {@code root}, laid out like the pack.
+     * These are the body texture of a skin, and a portrait of the artwork, else of the skin's bust.
+     */
+    static void write(final Path root, final Map<UUID, NpcSkin> skins, final Map<UUID, NpcArtwork> artworks)
+            throws IOException {
+        final Set<UUID> npcs = new TreeSet<>(skins.keySet());
+        npcs.addAll(artworks.keySet());
+        for (final UUID npc : npcs) {
+            final @Nullable NpcSkin skin = skins.get(npc);
+            final @Nullable NpcArtwork artwork = artworks.get(npc);
+            final Path body = asset(root, "textures", NpcSkin.bodyTexture(npc), ".png");
             final Path textures = Files.createDirectories(Objects.requireNonNull(body.getParent(), "folder"));
-            Files.write(body, png);
+            final BufferedImage picture;
+            if (artwork != null) {
+                picture = artwork(Base64.getDecoder().decode(artwork.png()));
+            } else {
+                final NpcSkin dressed = Objects.requireNonNull(skin, "an NPC without artwork has a skin here");
+                picture = bust(Base64.getDecoder().decode(dressed.png()), dressed.model() == NpcSkin.SkinModel.SLIM);
+            }
+            if (skin != null) {
+                Files.write(body, Base64.getDecoder().decode(skin.png()));
+            }
             ImageIO.write(
-                    portrait(bust(png, entry.getValue().model() == NpcSkin.SkinModel.SLIM)),
-                    "png",
-                    textures.resolve(FILE + ".png").toFile());
-            final Path font = asset(root, "font", NpcSkin.portraitFont(entry.getKey()), ".json");
+                    portrait(picture), "png", textures.resolve(FILE + ".png").toFile());
+            final Path font = asset(root, "font", NpcSkin.portraitFont(npc), ".json");
             Files.createDirectories(Objects.requireNonNull(font.getParent(), "folder"));
-            Files.writeString(font, font(npc), StandardCharsets.UTF_8);
+            Files.writeString(font, font(npc.toString()), StandardCharsets.UTF_8);
         }
+    }
+
+    /**
+     * Brings an uploaded square picture to {@value #PICTURE} pixels square.
+     * Each pixel is the average of the block of the upload it covers, so a large picture keeps its colours and a small
+     * one grows in whole blocks.
+     */
+    static BufferedImage artwork(final byte[] png) throws IOException {
+        final BufferedImage upload = ImageIO.read(new ByteArrayInputStream(png));
+        if (upload == null || upload.getWidth() != upload.getHeight()) {
+            throw new IOException("an NPC artwork is not a square PNG");
+        }
+        final int side = upload.getWidth();
+        final BufferedImage picture = blank(PICTURE, PICTURE);
+        for (int y = 0; y < PICTURE; y++) {
+            for (int x = 0; x < PICTURE; x++) {
+                picture.setRGB(x, y, average(upload, span(x, side), span(y, side)));
+            }
+        }
+        return picture;
+    }
+
+    /** Returns the first and the end column of the upload's block under picture column {@code at}. */
+    private static int[] span(final int at, final int side) {
+        final int from = at * side / PICTURE;
+        return new int[] {from, Math.max(from + 1, (at + 1) * side / PICTURE)};
+    }
+
+    /** Averages the colours weighted by their alpha, so a clear pixel's hidden colour does not darken an edge. */
+    private static int average(final BufferedImage image, final int[] columns, final int[] rows) {
+        final long[] colour = new long[3];
+        long alpha = 0;
+        int count = 0;
+        for (int y = rows[0]; y < rows[1]; y++) {
+            for (int x = columns[0]; x < columns[1]; x++) {
+                final int argb = image.getRGB(x, y);
+                final int opacity = argb >>> 24;
+                for (int channel = 0; channel < 3; channel++) {
+                    colour[channel] += (long) (argb >>> (8 * channel) & 0xFF) * opacity;
+                }
+                alpha += opacity;
+                count++;
+            }
+        }
+        int argb = (int) Math.round(alpha / (double) count) << 24;
+        for (int channel = 0; alpha > 0 && channel < 3; channel++) {
+            argb |= (int) Math.round(colour[channel] / (double) alpha) << (8 * channel);
+        }
+        return argb;
     }
 
     /** Returns where the pack keeps the {@code kind} asset called {@code key}, under {@code root}. */

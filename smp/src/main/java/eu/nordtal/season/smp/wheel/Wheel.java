@@ -4,14 +4,12 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.GameDocument;
-import eu.nordtal.season.messagerendering.GameLines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
-import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.packrendering.wheel.WheelTimetable;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -21,7 +19,6 @@ import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
-import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import java.time.Clock;
@@ -36,13 +33,16 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
-import org.bukkit.Location;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -52,15 +52,10 @@ import org.jspecify.annotations.Nullable;
 /** The SQL update that spends a spin runs off the main thread, so two clicks yield one prize. */
 public final class Wheel {
 
-    record Won(
-            @Example("16") int amount,
-            @Example("item.minecraft.diamond") GameContent item) {}
-
     record NoSpin(@Example("2") int extras) {}
 
     record Available(@Example("3") int count) {}
 
-    static final DocumentSpec<Won> WON = chat("wheel-won", Won.class).titled("Prize won");
     static final DocumentSpec<NoSpin> NONE = chat("wheel-none", NoSpin.class).titled("No spins left");
     static final DocumentSpec<Available> AVAILABLE =
             chat("wheel-available", Available.class).titled("Spins available");
@@ -74,6 +69,8 @@ public final class Wheel {
 
     private final Plugin plugin;
     private final SpinDao dao;
+    private final ItemHandout handout;
+    private final Executor itemWork;
     private final WheelSpec config;
     private final Identities identities;
     private final MessageRenderer renderer;
@@ -84,7 +81,7 @@ public final class Wheel {
     private final Random random = new Random();
 
     /** The players whose wheel turns, from click to payout, each with the payout {@link #stop} runs. */
-    private final Map<UUID, Runnable> turning = new ConcurrentHashMap<>();
+    private final Map<UUID, WheelTurn> turning = new ConcurrentHashMap<>();
 
     private final WheelFaces faces = new WheelFaces(random);
 
@@ -101,6 +98,8 @@ public final class Wheel {
     public Wheel(
             final Plugin plugin,
             final SpinDao dao,
+            final ItemHandout handout,
+            final Executor itemWork,
             final WheelSpec config,
             final Identities identities,
             final MessageRenderer renderer,
@@ -112,6 +111,8 @@ public final class Wheel {
         this.clock = Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
+        this.handout = handout;
+        this.itemWork = itemWork;
         this.config = config;
         this.identities = identities;
         this.renderer = renderer;
@@ -161,7 +162,7 @@ public final class Wheel {
                         press,
                         closing(send)));
                 stopPopping(id);
-                popping.put(id, pops(player, () -> popping.remove(id)));
+                popping.put(id, pops(player, () -> popping.remove(id), Runnable::run));
             });
         });
     }
@@ -204,59 +205,80 @@ public final class Wheel {
             return;
         }
 
-        // One spin at a time: a click or a right-click while the wheel turns is ignored and spends nothing.
-        final UUID uuid = player.getUniqueId();
-        if (turning.putIfAbsent(uuid, () -> {}) != null) {
+        final UUID id = player.getUniqueId();
+        final WheelTurn turn = new WheelTurn();
+        if (turning.putIfAbsent(id, turn) != null) {
             return;
         }
-        PaperScheduler.of(plugin).execute(() -> {
-            final LocalDate today = LocalDate.now(clock);
-            final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
+        PaperScheduler.of(plugin)
+                .execute(() -> guarded(id, turn, () -> {
+                    final LocalDate today = LocalDate.now(clock);
+                    final DiscordId account = discordId.get();
+                    final Spins spins = dao.spinsOf(account).orElse(new Spins(0, 0, null));
 
-            final boolean free = spins.hasFree(today);
-            final LocalDate previousFree = spins.lastFree();
-            final boolean took = free
-                    ? dao.takeFreeSpin(discordId.get(), today).isPresent()
-                    : dao.takeEarnedSpin(discordId.get()).isPresent();
-
-            if (!took) {
-                turning.remove(uuid);
-                tell(player, renderer.format(locale, NONE.with(new NoSpin(spins.extras()))), Feedback.REFUSED);
-                return;
-            }
-            final String id = discordId.get().value();
-            final Runnable refund = once(
-                    free
-                            ? () -> offThread(() -> dao.restoreFreeSpin(DiscordId.of(id), previousFree, today))
-                            : () -> offThread(() -> dao.restoreEarnedSpin(DiscordId.of(id))));
-            // Until the wheel shows, a shutdown puts the spin back.
-            turning.replace(uuid, refund);
-            final int spinsLeft = Math.max(0, spins.available(today) - 1);
-            guarded(uuid, refund, () -> award(player, locale, refund, spinsLeft));
-        });
+                    synchronized (turn) {
+                        if (turn.ended()) {
+                            return;
+                        }
+                        if (!take(turn, account, spins, today)) {
+                            finish(id, turn, false, () -> {});
+                            tell(
+                                    player,
+                                    renderer.format(locale, NONE.with(new NoSpin(spins.extras()))),
+                                    Feedback.REFUSED);
+                            return;
+                        }
+                    }
+                    award(player, account, locale, turn, Math.max(0, spins.available(today) - 1));
+                }));
     }
 
-    /**
-     * Runs {@code step} of a taken spin. If it throws, the spin is put back and the player can spin again.
-     */
-    private void guarded(final UUID uuid, final Runnable refund, final Runnable step) {
+    private boolean take(final WheelTurn turn, final DiscordId id, final Spins spins, final LocalDate today) {
+        if (spins.hasFree(today)) {
+            if (dao.takeFreeSpin(id, today).isEmpty()) {
+                return false;
+            }
+            turn.spent(() -> refund(() -> dao.restoreFreeSpin(id, spins.lastFree(), today)));
+        } else {
+            if (dao.takeEarnedSpin(id).isEmpty()) {
+                return false;
+            }
+            turn.spent(() -> refund(() -> dao.restoreEarnedSpin(id)));
+        }
+        return true;
+    }
+
+    private void guarded(final UUID id, final WheelTurn turn, final Runnable step) {
+        if (turn.ended()) {
+            return;
+        }
         try {
             step.run();
-        } catch (final RuntimeException e) {
-            turning.remove(uuid);
-            refund.run();
-            plugin.getLogger().log(Level.WARNING, "wheel spin failed, spin refund requested", e);
+        } catch (final RuntimeException failure) {
+            plugin.getLogger().log(Level.WARNING, "wheel turn failed: player=" + id, failure);
+            if (Bukkit.isPrimaryThread()) {
+                settle(id, turn);
+            } else {
+                try {
+                    PaperScheduler.of(plugin).onMain(() -> settle(id, turn));
+                } catch (final RejectedExecutionException stopping) {
+                    // Shutdown settles every registered turn on the main thread.
+                }
+            }
         }
     }
 
-    /** {@code action}, run at most once however often it is called. */
-    private static Runnable once(final Runnable action) {
-        final AtomicBoolean ran = new AtomicBoolean();
-        return () -> {
-            if (ran.compareAndSet(false, true)) {
-                action.run();
-            }
-        };
+    private void settle(final UUID id, final WheelTurn turn) {
+        final Player player = Bukkit.getPlayer(id);
+        finish(id, turn, player != null && player.isOnline(), () -> {});
+    }
+
+    private void finish(final UUID id, final WheelTurn turn, final boolean online, final Runnable cheer) {
+        try {
+            turn.end(online, cheer);
+        } finally {
+            turning.remove(id, turn);
+        }
     }
 
     /** Spends no spin. */
@@ -273,30 +295,56 @@ public final class Wheel {
         });
     }
 
-    private void award(final Player player, final Locale locale, final Runnable refund, final int spinsLeft) {
-        final List<WheelPrizeSpec> pool = config.wheelPrizes();
+    private void award(
+            final Player player,
+            final DiscordId account,
+            final Locale locale,
+            final WheelTurn turn,
+            final int spinsLeft) {
         final UUID id = player.getUniqueId();
-        // This part runs off the main thread.
+        final List<WheelPrizeSpec> pool = config.wheelPrizes();
         final WheelFaces.Next next = faces.peek(id, pool);
         final WheelPlan.Face face = next.face();
-        final WheelPlan plan = WheelPlan.turning(face, face.draw(pool, timetable.variants(), random));
-        final WheelPrizeSpec prize = plan.winner();
-        final ItemStack item = itemOf(prize);
-        if (item == null) {
-            plugin.getLogger().warning("wheel prize item unreadable: item=" + prize.item());
-            refund.run();
-            turning.remove(id);
-            tell(player, renderer.format(locale, Sent.of(BROKEN_PRIZE)), Feedback.LOSS);
-            return;
+        final WheelPlan plan;
+        synchronized (turn) {
+            if (turn.ended()) {
+                return;
+            }
+            plan = WheelPlan.turning(face, face.draw(pool, timetable.variants(), random));
+            final WheelPrizeSpec prize = plan.winner();
+            final ItemStack item = itemOf(prize);
+            if (item == null) {
+                plugin.getLogger().warning("wheel prize item unreadable: item=" + prize.item());
+                finish(id, turn, false, () -> {});
+                tell(player, renderer.format(locale, Sent.of(BROKEN_PRIZE)), Feedback.LOSS);
+                return;
+            }
+            final ItemStack stack = item.asQuantity(Math.max(1, prize.amount()));
+            turn.drawn(
+                    () -> {
+                        final Player recipient = Objects.requireNonNull(Bukkit.getPlayer(id));
+                        handout.give(recipient, stack, locale);
+                    },
+                    () -> handout.store(account, stack));
         }
+
+        present(player, locale, turn, spinsLeft, next, plan);
+    }
+
+    private void present(
+            final Player player,
+            final Locale locale,
+            final WheelTurn turn,
+            final int spinsLeft,
+            final WheelFaces.Next next,
+            final WheelPlan plan) {
+        final UUID id = player.getUniqueId();
         final List<ItemStack> stacks = shown(plan);
         final List<ItemStack> after = shown(WheelPlan.waiting(plan.after()));
-
         PaperScheduler.of(plugin)
-                .onMain(() -> guarded(id, refund, () -> {
+                .onMain(() -> guarded(id, turn, () -> {
                     if (!player.isOnline()) {
-                        turning.remove(id);
-                        give(player, item, prize.amount(), locale, refund);
+                        settle(id, turn);
                         return;
                     }
                     final Dialogs.Send send = dialogs.send();
@@ -304,7 +352,6 @@ public final class Wheel {
                             spinsLeft > 0 ? send.clickUnless(() -> turning.containsKey(id), this::spin) : null;
                     stopPopping(id);
                     final Runnable show = () -> {
-                        // The cooldown goes first, so the dialog's first frame already plays the turn.
                         player.setCooldown(WheelDialog.GROUP, timetable.cooldown());
                         player.showDialog(WheelDialog.of(
                                 plan,
@@ -318,9 +365,9 @@ public final class Wheel {
                                 closing(send)));
                     };
                     if (next.drawn()) {
-                        popIn(player, face, stacks, locale, spinsLeft);
+                        popIn(player, next.face(), stacks, locale, spinsLeft);
                     }
-                    pay(player, plan, item, prize.amount(), locale, refund, next.drawn(), show, () -> {
+                    animate(player, plan, turn, next.drawn(), show, () -> {
                         if (player.isOnline()) {
                             player.showDialog(rested(player, plan, stacks, after, locale, spinsLeft));
                         }
@@ -376,68 +423,63 @@ public final class Wheel {
      * Shows and turns the wheel of {@code plan} with {@code show}, after the pop-in when {@code popIn}.
      * It pays the prize once the wheel rests, then runs {@code rest}. A close before then pays at once.
      */
-    private void pay(
+    private void animate(
             final Player player,
             final WheelPlan plan,
-            final ItemStack item,
-            final int amount,
-            final Locale locale,
-            final Runnable refund,
+            final WheelTurn turn,
             final boolean popIn,
             final Runnable show,
             final Runnable rest) {
         final UUID id = player.getUniqueId();
         final WheelFaces.Before before = faces.turning(id, plan.after());
-        final WheelTurn once = new WheelTurn(() -> sounds.play(player, Feedback.BIG_SUCCESS), () -> {
+        final Scheduler.Task[] clicks = {null};
+        turn.clicks(() -> {
             ending.remove(id);
-            turning.remove(id);
+            stopPopping(id);
+            if (clicks[0] != null) {
+                clicks[0].cancel();
+            }
             if (player.isOnline()) {
                 faces.ended(id);
             } else {
                 faces.back(id, before);
             }
-            give(player, item, amount, locale, refund);
         });
-        turning.put(id, () -> once.end(false));
-        final Runnable end = () -> once.end(player.isOnline());
-        final AtomicBoolean over = new AtomicBoolean();
-        final Scheduler.Task[] clicks = {null};
-        once.clicks(() -> {
-            over.set(true);
-            if (clicks[0] != null) {
-                clicks[0].cancel();
-            }
-        });
+        final Runnable end = () -> {
+            final Player recipient = Bukkit.getPlayer(id);
+            finish(id, turn, recipient != null && recipient.isOnline(), () -> {
+                if (player.isOnline()) {
+                    sounds.play(player, Feedback.BIG_SUCCESS);
+                }
+            });
+        };
         ending.put(id, end);
+        final Consumer<Runnable> guard = step -> guarded(id, turn, step);
         final Runnable start = () -> {
             popping.remove(id);
-            if (over.get() || !player.isOnline()) {
+            if (!player.isOnline()) {
                 end.run();
                 return;
             }
-            try {
-                show.run();
-                clicks[0] = turn(player, plan.variant(), () -> {
-                    end.run();
-                    rest.run();
-                });
-            } catch (final RuntimeException e) {
-                ending.remove(id);
-                turning.remove(id);
-                faces.back(id, before);
-                refund.run();
-                plugin.getLogger().log(Level.WARNING, "wheel animation failed, spin refund requested", e);
-            }
+            show.run();
+            clicks[0] = turn(
+                    player,
+                    plan.variant(),
+                    () -> {
+                        end.run();
+                        rest.run();
+                    },
+                    guard);
         };
         if (popIn) {
-            popping.put(id, pops(player, start));
+            popping.put(id, pops(player, start, guard));
         } else {
             start.run();
         }
     }
 
     /** Plays the pop-in with its sounds, then {@code end}. */
-    private Scheduler.Task pops(final Player player, final Runnable end) {
+    private Scheduler.Task pops(final Player player, final Runnable end, final Consumer<Runnable> guard) {
         final Set<Integer> pops = Set.copyOf(timetable.pops());
         return play(
                 player,
@@ -447,11 +489,13 @@ public final class Wheel {
                         sounds.play(player, Feedback.POP);
                     }
                 },
-                end);
+                end,
+                guard);
     }
 
     /** Plays the clicks of {@code variant}'s turn, then {@code end} once the wheel rests. */
-    private Scheduler.Task turn(final Player player, final int variant, final Runnable end) {
+    private Scheduler.Task turn(
+            final Player player, final int variant, final Runnable end, final Consumer<Runnable> guard) {
         final Set<Integer> clicks = Set.copyOf(timetable.clicks().getOrDefault(variant, List.of()));
         return play(
                 player,
@@ -461,7 +505,8 @@ public final class Wheel {
                         sounds.play(player, Feedback.COUNTDOWN_TICK);
                     }
                 },
-                end);
+                end,
+                guard);
     }
 
     /** Each body's prize as an item; one whose item does not read shows as a barrier. */
@@ -498,7 +543,13 @@ public final class Wheel {
         List.copyOf(popping.values()).forEach(Scheduler.Task::cancel);
         popping.clear();
         ending.clear();
-        List.copyOf(turning.values()).forEach(Runnable::run);
+        Map.copyOf(turning).forEach((id, turn) -> {
+            try {
+                settle(id, turn);
+            } catch (final RuntimeException failure) {
+                plugin.getLogger().log(Level.WARNING, "wheel payout failed on shutdown: player=" + id, failure);
+            }
+        });
         turning.clear();
     }
 
@@ -506,57 +557,28 @@ public final class Wheel {
      * Runs {@code each} on every tick from 0 until {@code ticks}, then {@code end} once; stops early with {@code end}
      * when the player leaves.
      */
-    private Scheduler.Task play(final Player player, final int ticks, final IntConsumer each, final Runnable end) {
+    private Scheduler.Task play(
+            final Player player,
+            final int ticks,
+            final IntConsumer each,
+            final Runnable end,
+            final Consumer<Runnable> guard) {
         final int[] tick = {0};
         final Scheduler.Task[] task = {null};
-        task[0] = PaperScheduler.of(plugin).onMainEvery(Duration.ZERO, TICK, () -> {
-            final int now = tick[0]++;
-            if (now >= ticks || !player.isOnline()) {
-                task[0].cancel();
-                end.run();
-                return;
-            }
-            each.accept(now);
-        });
+        task[0] = PaperScheduler.of(plugin)
+                .onMainEvery(
+                        Duration.ZERO,
+                        TICK,
+                        () -> guard.accept(() -> {
+                            final int now = tick[0]++;
+                            if (now >= ticks || !player.isOnline()) {
+                                task[0].cancel();
+                                end.run();
+                                return;
+                            }
+                            each.accept(now);
+                        }));
         return task[0];
-    }
-
-    /** The spin's end calls it once. It runs {@code refund} when the player is offline. */
-    private void give(
-            final Player player, final ItemStack item, final int amount, final Locale locale, final Runnable refund) {
-        final int count = Math.max(1, amount);
-        if (!player.isOnline()) {
-            plugin.getLogger()
-                    .warning("player left mid-spin, prize not given: player=" + player.getName() + " item="
-                            + item.getType().name() + " count=" + count);
-            refund.run();
-            return;
-        }
-        final ItemStack stack = item.asQuantity(count);
-        final Location dropAt = Objects.requireNonNull(player.getLocation());
-        player.getInventory()
-                .addItem(stack)
-                .values()
-                .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
-        player.sendMessage(renderer.format(locale, WON.with(new Won(count, nameOf(item)))));
-    }
-
-    /**
-     * Returns the name a won item is called by, the one Steward's prize tile shows of the stored item.
-     * That is its custom name, else an item name of its own as a pack's item carries, else its material's.
-     */
-    static GameContent nameOf(final ItemStack item) {
-        return named(
-                item.getData(DataComponentTypes.CUSTOM_NAME),
-                item.isDataOverridden(DataComponentTypes.ITEM_NAME) ? item.getData(DataComponentTypes.ITEM_NAME) : null,
-                item.getType().translationKey());
-    }
-
-    /** Names the item by its custom name, else its own item name, else the material's under {@code materialKey}. */
-    static GameContent named(
-            final @Nullable Component customName, final @Nullable Component itemName, final String materialKey) {
-        final Component name = customName != null ? customName : itemName;
-        return name == null ? GameContent.of(materialKey) : GameLines.of(name);
     }
 
     /** Returns one of a prize's item: the whole stack an admin took in, else its material, or null if neither reads. */
@@ -564,13 +586,13 @@ public final class Wheel {
         return TakenItems.one(prize.item(), prize.data());
     }
 
-    /** It logs a refund that the shutdown rejects. */
-    private void offThread(final Runnable work) {
-        try {
+    private void refund(final Runnable work) {
+        if (!Bukkit.isPrimaryThread()) {
+            work.run();
+        } else if (!plugin.isEnabled()) {
+            CompletableFuture.runAsync(work, itemWork).join();
+        } else {
             PaperScheduler.of(plugin).execute(work);
-        } catch (final IllegalStateException | IllegalArgumentException refused) {
-            plugin.getLogger()
-                    .warning("wheel spin refund not scheduled, server stopping: cause=" + refused.getMessage());
         }
     }
 

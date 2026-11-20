@@ -106,6 +106,7 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.SmpTexts")
     documentClasses.add("eu.nordtal.season.smp.milestone.MilestoneNames")
     documentClasses.add("eu.nordtal.season.smp.board.Boards")
+    documentClasses.add("eu.nordtal.season.smp.wheel.ItemHandout")
     documentClasses.add("eu.nordtal.season.smp.wheel.Wheel")
     documentClasses.add("eu.nordtal.season.smp.takein.TakeInWindow")
     documentClasses.add("eu.nordtal.season.smp.duel.Duels")

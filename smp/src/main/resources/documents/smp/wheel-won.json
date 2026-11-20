@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "<good>You won</good> <emphasis>{amount} × {item}</emphasis><muted>.</muted>",
-            "de": "<good>Du gewinnst</good> <emphasis>{amount} × {item}</emphasis><muted>.</muted>"
+            "de": "<good>Du hast</good> <emphasis>{amount} × {item}</emphasis> <good>gewonnen</good><muted>.</muted>"
           }
         }
       ]

@@ -1,39 +1,57 @@
 package eu.nordtal.season.smp.wheel;
 
-import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
-/**
- * One turn's end: the prize is paid once, whether the wheel comes to rest, the player closes it or leaves.
- * A player who is still there hears the prize sound with it. Used on the main thread only.
- */
+/** Settles a turn once, even when its animation fails or smp stops. */
 final class WheelTurn {
 
-    private final Runnable cheer;
-    private final Runnable pay;
+    private @Nullable Runnable refund;
+    private @Nullable Runnable give;
+    private Runnable store = () -> {};
     private Runnable clicks = () -> {};
-    private boolean paid;
+    private boolean ended;
 
-    /** A turn whose {@code cheer} plays the prize sound and whose {@code pay} gives the prize. */
-    WheelTurn(final Runnable cheer, final Runnable pay) {
-        this.cheer = Objects.requireNonNull(cheer, "cheer");
-        this.pay = Objects.requireNonNull(pay, "pay");
+    synchronized boolean ended() {
+        return ended;
     }
 
-    /** Sets what stops the turning sound, which an end runs first. */
-    void clicks(final Runnable stop) {
-        this.clicks = Objects.requireNonNull(stop, "stop");
+    synchronized void spent(final Runnable refund) {
+        this.refund = refund;
     }
 
-    /** Ends the turn: the turning sound stops, and the prize is paid, with its sound when {@code there}. Once only. */
-    void end(final boolean there) {
-        if (paid) {
+    synchronized void drawn(final Runnable give, final Runnable store) {
+        refund = null;
+        this.give = give;
+        this.store = store;
+    }
+
+    synchronized void clicks(final Runnable stop) {
+        clicks = stop;
+    }
+
+    void end(final boolean online) {
+        end(online, () -> {});
+    }
+
+    /** Stops the sound and settles the spin even when a sound fails. */
+    synchronized void end(final boolean online, final Runnable cheer) {
+        if (ended) {
             return;
         }
-        paid = true;
-        clicks.run();
-        if (there) {
-            cheer.run();
+        ended = true;
+        final Runnable payout = give;
+        final Runnable restore = refund;
+        try {
+            clicks.run();
+            if (online && payout != null) {
+                cheer.run();
+            }
+        } finally {
+            if (payout != null) {
+                (online ? payout : store).run();
+            } else if (restore != null) {
+                restore.run();
+            }
         }
-        pay.run();
     }
 }

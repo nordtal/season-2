@@ -51,7 +51,7 @@ runs:
           (.Severity == "CRITICAL" or .Severity == "HIGH") and (.FixedVersion // "") != ""
         )' "$report")"
         if [[ "$blocked" == true ]]; then
-          printf '\nImage scan failed for %s. Trivy found critical or high vulnerabilities with fixes.\n\n' "$IMAGE_REF" | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '\nImage scan failed for %s. A critical or high vulnerability has a fixed version. Update the package or the base image to it, or add an exception as deploy/README.md describes.\n\n' "$IMAGE_REF" | tee -a "$GITHUB_STEP_SUMMARY"
           exit 1
         fi
         echo >> "$GITHUB_STEP_SUMMARY"

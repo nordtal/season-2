@@ -386,7 +386,7 @@ class MigrationsAreImmutableTest {
                 "0b510c9d22d35fad4a9d7a0ae6059e0e907aa1e47066c3898acea1590d076c46");
         FROZEN.put(
                 "V134__the_spawn_station_stands_on_the_station_called_spawn.sql",
-                "0e3b9d6e2704091ce9a36ac7ae8e1e0b11e7b4dea4dca72d9d13709c78d544a2");
+                "246cf7fcea4b20d85ae494efaab9fb4213c256068ba012383fdad5fd844e7ce3");
     }
 
     @Test

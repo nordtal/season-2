@@ -6,7 +6,10 @@ import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/** Holds that a spawn station left on the field defaults moves to the station called Spawn, and a taken one stays. */
+/**
+ * Holds that a spawn station left on the field defaults moves to the station called Spawn, and a taken one stays.
+ * That station becomes the spawn station in place, so its row and its favourites stay.
+ */
 class SpawnStationOnSpawnUpgradeIntegrationTest {
 
     private static final String BEFORE = "133";
@@ -24,11 +27,27 @@ class SpawnStationOnSpawnUpgradeIntegrationTest {
                         .mapTo(String.class)
                         .one()),
                 "the host, not the admin who saved the defaults, set the block");
+        assertEquals(
+                List.of("true true 1"),
+                jdbi.withHandle(
+                        handle -> handle.createQuery("""
+                                SELECT (placed_by IS NULL) || ' ' || (name IS NULL) || ' '
+                                    || (SELECT count(*) FROM smp_rail_favourite f WHERE f.station = s.id)
+                                FROM smp_rail_station s WHERE x = 3919""").mapTo(String.class).list()),
+                "the station is the spawn station now, without a placer or a name, and its favourite stays");
     }
 
     @Test
-    void aBlockAnAdminTookStays() {
-        assertEquals(List.of("world nordtal", "x 10", "y 70", "z -4"), entry(upgradedWith(10, 70, -4, true)));
+    void aBlockAnAdminTookStaysAndSoDoesThePlayersStation() {
+        final Jdbi jdbi = upgradedWith(10, 70, -4, true);
+
+        assertEquals(List.of("world nordtal", "x 10", "y 70", "z -4"), entry(jdbi));
+        assertEquals(
+                List.of("Spawn"),
+                jdbi.withHandle(handle -> handle.createQuery(
+                                "SELECT name FROM smp_rail_station WHERE x = 3919 AND placed_by IS NOT NULL")
+                        .mapTo(String.class)
+                        .list()));
     }
 
     @Test
@@ -58,8 +77,12 @@ class SpawnStationOnSpawnUpgradeIntegrationTest {
                            ('nordtal_nether', 1, 70, 1, 'NORTH_SOUTH', 'Spawn', now())""");
             if (spawn) {
                 handle.execute("""
-                        INSERT INTO smp_rail_station (world, x, y, z, axis, name, named)
-                        VALUES ('nordtal', 3919, 82, 2204, 'EAST_WEST', 'Spawn', now())""");
+                        INSERT INTO smp_rail_station (id, world, x, y, z, axis, placed_by, name, named)
+                        VALUES ('00000000-0000-0000-0000-000000003919', 'nordtal', 3919, 82, 2204, 'EAST_WEST',
+                                '00000000-0000-0000-0000-000000000001', 'Spawn', now())""");
+                handle.execute("""
+                        INSERT INTO smp_rail_favourite (player, station)
+                        VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000003919')""");
             }
         });
         upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), AFTER);

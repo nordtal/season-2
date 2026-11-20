@@ -290,7 +290,8 @@ class DialogueScreenTest {
 
     @Test
     void theCountRoomHoldsTheWidestCountAndItsGap() {
-        assertEquals(SmallFont.visibleWidth("9/9") + 5, DialogueScreen.COUNT_ROOM);
+        // Steward's longest text, 2000 letters, runs over fewer than 100 pages.
+        assertEquals(SmallFont.visibleWidth("99/99") + 5, DialogueScreen.COUNT_ROOM);
     }
 
     @Test

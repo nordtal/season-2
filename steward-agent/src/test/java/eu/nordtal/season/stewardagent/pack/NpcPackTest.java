@@ -47,13 +47,28 @@ class NpcPackTest {
         final JsonObject font = JsonParser.parseString(
                         Files.readString(root.resolve("assets/nordtal/font/npc/" + NPC + ".json")))
                 .getAsJsonObject();
-        assertEquals(NpcPack.PORTRAITS.size(), font.getAsJsonArray("providers").size());
-        for (final JsonElement provider : font.getAsJsonArray("providers")) {
+        final List<JsonElement> providers = font.getAsJsonArray("providers").asList();
+        assertEquals(NpcPack.PORTRAITS.size() + 1, providers.size());
+        assertEquals(
+                "nordtal:ui_space",
+                providers.getFirst().getAsJsonObject().get("id").getAsString(),
+                "the moves after the portrait");
+        for (final JsonElement provider : providers.subList(1, providers.size())) {
             assertEquals(
                     "nordtal:npc/" + NPC + "/portrait.png",
                     provider.getAsJsonObject().get("file").getAsString());
             assertEquals(64, provider.getAsJsonObject().get("height").getAsInt());
         }
+    }
+
+    @Test
+    void aSeeThroughPixelLaysOverAnotherByItsShare() {
+        assertEquals(0x80FF0000, NpcPack.sourceOver(0, 0x80FF0000), "over nothing it keeps its own alpha");
+        assertEquals(0xFF80007F, NpcPack.sourceOver(0xFF0000FF, 0x80FF0000), "over an opaque pixel it stays opaque");
+        final int mixed = NpcPack.sourceOver(0x800000FF, 0x80FF0000);
+        assertEquals(0xC0, mixed >>> 24, "two halves cover three quarters");
+        assertEquals(0xAA, mixed >> 16 & 0xFF, "the top's red weighs twice the bottom's blue");
+        assertEquals(0x55, mixed & 0xFF);
     }
 
     @Test

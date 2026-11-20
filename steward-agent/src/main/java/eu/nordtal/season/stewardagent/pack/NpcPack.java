@@ -315,10 +315,24 @@ final class NpcPack {
         if (alpha == OPAQUE) {
             image.setRGB(x, y, argb);
         } else if (alpha != 0) {
-            final int below = image.getRGB(x, y);
-            final int kept = alpha(below) < OPAQUE ? Math.max(alpha(below), alpha) : OPAQUE;
-            image.setRGB(x, y, kept << 24 | mix(below & 0xFFFFFF, argb & 0xFFFFFF, alpha / 255.0));
+            image.setRGB(x, y, sourceOver(image.getRGB(x, y), argb));
         }
+    }
+
+    /** Returns {@code top} laid over {@code below} by source-over compositing, both with straight alpha. */
+    static int sourceOver(final int below, final int top) {
+        final double a = alpha(top) / 255.0;
+        final double b = alpha(below) / 255.0 * (1 - a);
+        final double out = a + b;
+        if (out == 0) {
+            return 0;
+        }
+        int argb = (int) Math.round(out * 255) << 24;
+        for (int shift = 0; shift <= 16; shift += 8) {
+            final double channel = ((top >> shift & 0xFF) * a + (below >> shift & 0xFF) * b) / out;
+            argb |= (int) Math.round(channel) << shift;
+        }
+        return argb;
     }
 
     /** Returns the colour {@code share} of the way from {@code from} to {@code to}, both without alpha. */
@@ -342,6 +356,11 @@ final class NpcPack {
 
     private static String font(final String npc) {
         final JsonArray providers = new JsonArray();
+        // A move after the portrait joins its run, so this font resolves the moves as nordtal:npc does.
+        final JsonObject moves = new JsonObject();
+        moves.addProperty("type", "reference");
+        moves.addProperty("id", "nordtal:ui_space");
+        providers.add(moves);
         for (final Portrait portrait : PORTRAITS) {
             final JsonObject provider = new JsonObject();
             provider.addProperty("type", "bitmap");

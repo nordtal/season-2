@@ -31,5 +31,7 @@ class DialogueSoundsTest {
         assertEquals(1.5f, DialogueSounds.typing(1.5f, 0), 1e-6);
         assertEquals(1.5f * 1.03f, DialogueSounds.typing(1.5f, 1), 1e-6);
         assertEquals(1.5f * 0.97f, DialogueSounds.typing(1.5f, -1), 1e-6);
+        assertEquals(2f, DialogueSounds.typing(3f, 0), 1e-6);
+        assertEquals(0.5f, DialogueSounds.typing(0.25f, 0), 1e-6);
     }
 }

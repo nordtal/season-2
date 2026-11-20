@@ -262,7 +262,9 @@ export function DialoguePreview({
   const row = (b: number) => SCREEN.height - b
   const skin = skinAddress(npc)
   const scale = 6
-  const tab = TAB.padding + name.text.length * (ADVANCE + 1) + TAB.padding
+  // The game sizes the tab by the bold name's width; the letter count stands in until Steward has measured it.
+  const nameWidth = measured?.get(measureKey(name))?.width ?? name.text.length * (ADVANCE + 1)
+  const tab = TAB.padding + nameWidth + TAB.padding
   return (
     <svg
       viewBox={`0 0 ${SCREEN.width} ${SCREEN.height}`}

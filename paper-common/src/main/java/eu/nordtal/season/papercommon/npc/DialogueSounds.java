@@ -14,6 +14,12 @@ public final class DialogueSounds {
     /** How far a typing tick strays from the voice, as a share of it, so the ticks do not sound mechanical. */
     static final double TYPING_SPREAD = 0.03;
 
+    /** The lowest pitch the client plays. */
+    static final double LOWEST = 0.5;
+
+    /** The highest pitch the client plays. */
+    static final double HIGHEST = 2.0;
+
     /** One sound: its key, its volume and its pitch. */
     record Tone(String key, float volume, float pitch) {}
 
@@ -41,8 +47,11 @@ public final class DialogueSounds {
                 Sound.sound(Key.key(tone.key()), Sound.Source.MASTER, tone.volume(), pitch), Sound.Emitter.self());
     }
 
-    /** Returns a typing tick's pitch: {@code voice}, strayed by {@code stray} from -1 to 1 times the spread. */
+    /**
+     * Returns a typing tick's pitch: {@code voice}, strayed by {@code stray} from -1 to 1 times the spread.
+     * A voice times the season's tick pitch can pass the client's 0.5 to 2, so the pitch stays within it.
+     */
     static float typing(final float voice, final double stray) {
-        return (float) (voice * (1 + TYPING_SPREAD * stray));
+        return (float) Math.clamp(voice * (1 + TYPING_SPREAD * stray), LOWEST, HIGHEST);
     }
 }

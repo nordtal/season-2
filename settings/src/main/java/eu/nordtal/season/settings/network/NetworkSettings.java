@@ -87,7 +87,7 @@ public final class NetworkSettings {
         if (spec.endAngle() > 180) {
             throw new IllegalArgumentException("end-angle must be at most 180 degrees, was " + spec.endAngle());
         }
-        if (spec.tickPitch() < LEAST_PITCH || spec.tickPitch() > MOST_PITCH) {
+        if (!(spec.tickPitch() >= LEAST_PITCH && spec.tickPitch() <= MOST_PITCH)) {
             throw new IllegalArgumentException("tick-pitch must be from " + LEAST_PITCH + " to " + MOST_PITCH
                     + ", the pitches the client plays, was " + spec.tickPitch());
         }

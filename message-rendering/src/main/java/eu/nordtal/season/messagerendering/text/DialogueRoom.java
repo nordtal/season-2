@@ -21,8 +21,8 @@ public final class DialogueRoom {
     /** The lines of a question above its answers, on its last page. */
     public static final int QUESTION_LINES = 3;
 
-    /** The columns the last line of a page that others follow leaves free for its count, "9/9" and a gap of 5. */
-    public static final int COUNT = 16;
+    /** The columns the last line of a page that others follow leaves free for its count, "99/99" and a gap of 5. */
+    public static final int COUNT = 24;
 
     private DialogueRoom() {}
 

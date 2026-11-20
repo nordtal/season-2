@@ -227,12 +227,18 @@ public final class ItemHandout implements Listener, ItemRewards {
 
     private @Nullable ItemStack makeMap(final Player player, final DiscordId recipient, final PendingItems.Item item) {
         try {
-            return ExplorerMaps.create(
+            final ItemStack map = ExplorerMaps.create(
                     overworld.get(),
                     Objects.requireNonNull(player.getLocation()),
                     item.item(),
                     item.amount(),
                     item.structure());
+            if (map == null) {
+                plugin.getLogger()
+                        .warning("explorer map deferred, no destination found: discord_id=" + recipient.value()
+                                + " structure=" + item.structure());
+            }
+            return map;
         } catch (final RuntimeException failure) {
             plugin.getLogger()
                     .log(

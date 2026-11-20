@@ -51,11 +51,14 @@ final class DuelContainment {
 
     static boolean refusesBlockHandOff(
             final boolean fights, final boolean hasHeldItem, final Action action, final Material block) {
-        return fights && hasHeldItem && action == Action.RIGHT_CLICK_BLOCK && takesHeldItem(block);
+        if (!fights || action != Action.RIGHT_CLICK_BLOCK) {
+            return false;
+        }
+        return isShelf(block) || (hasHeldItem && BLOCKS_TAKING_HELD_ITEM.contains(block));
     }
 
-    /** A shelf swaps the held item with the one it holds, whatever its wood. */
-    private static boolean takesHeldItem(final Material block) {
-        return BLOCKS_TAKING_HELD_ITEM.contains(block) || block.name().endsWith("_SHELF");
+    /** Returns whether the block is a shelf, which swaps the hotbar when powered, even from an empty hand. */
+    private static boolean isShelf(final Material block) {
+        return block.name().endsWith("_SHELF");
     }
 }

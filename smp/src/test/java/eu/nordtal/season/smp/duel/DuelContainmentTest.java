@@ -60,10 +60,18 @@ class DuelContainmentTest {
     }
 
     @Test
-    void blockHandOffsNeedAFighterAHeldItemAndARightClick() {
+    void aBlockOtherThanAShelfIsRefusedOnlyForAFightersRightClickWithAHeldItem() {
         assertFalse(DuelContainment.refusesBlockHandOff(false, true, Action.RIGHT_CLICK_BLOCK, Material.DECORATED_POT));
         assertFalse(DuelContainment.refusesBlockHandOff(true, false, Action.RIGHT_CLICK_BLOCK, Material.DECORATED_POT));
         assertFalse(DuelContainment.refusesBlockHandOff(true, true, Action.LEFT_CLICK_BLOCK, Material.DECORATED_POT));
+    }
+
+    @Test
+    void aFighterUsesNoShelfEvenWithAnEmptyHand() {
+        assertTrue(DuelContainment.refusesBlockHandOff(true, false, Action.RIGHT_CLICK_BLOCK, Material.OAK_SHELF));
+        assertFalse(DuelContainment.refusesBlockHandOff(false, false, Action.RIGHT_CLICK_BLOCK, Material.OAK_SHELF));
+        assertFalse(
+                DuelContainment.refusesBlockHandOff(true, false, Action.RIGHT_CLICK_BLOCK, Material.SHELF_MUSHROOM));
     }
 
     @Test

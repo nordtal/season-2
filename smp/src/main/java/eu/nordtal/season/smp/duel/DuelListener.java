@@ -132,7 +132,7 @@ public final class DuelListener implements Listener {
         return !item.getType().isAir();
     }
 
-    /** Some blocks take the held item without opening an inventory. */
+    /** Refuses a fighter's use of a block that would take a kit item without opening an inventory. */
     @EventHandler(ignoreCancelled = true)
     public void onBlockHandOff(final PlayerInteractEvent event) {
         final var block = event.getClickedBlock();
@@ -147,7 +147,7 @@ public final class DuelListener implements Listener {
         }
     }
 
-    /** Bukkit fires a click on air, such as an egg used on water, as cancelled, so this handler reads the item use. */
+    /** Refuses a fighter's spawn egg, also on water, whose click on air Bukkit fires as already cancelled. */
     @EventHandler
     public void onSpawnEgg(final PlayerInteractEvent event) {
         final ItemStack item = event.getItem();

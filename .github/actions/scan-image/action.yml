@@ -12,7 +12,7 @@ runs:
       env:
         IGNORE_FILE: ${{ github.action_path }}/.trivyignore.yaml
       run: |
-        missing="$(yq '[.vulnerabilities[] | select(has("expired_at") | not) | .id] | join(" ")' "$IGNORE_FILE")"
+        missing="$(yq '[.vulnerabilities[] | select((.expired_at // "") == "") | .id] | join(" ")' "$IGNORE_FILE")"
         if [[ -n "$missing" ]]; then
           printf 'Image scan refused. The exception for %s in .github/actions/scan-image/.trivyignore.yaml has no expired_at date. Add one.\n' "$missing" | tee -a "$GITHUB_STEP_SUMMARY"
           exit 1

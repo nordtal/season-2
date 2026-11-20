@@ -370,6 +370,68 @@ class DatabaseRoleIntegrationTest {
                         role.name())));
     }
 
+    /** The service each login publishes its setting groups under, beside the network's. */
+    private static final Map<DatabaseRole, String> SETTING_OWNERS = Map.of(
+            DatabaseRole.DISCORD_BOT, "discord-bot",
+            DatabaseRole.PROXY, "proxy",
+            DatabaseRole.LIMBO, "limbo",
+            DatabaseRole.HUNGER_GAMES, "hunger-games",
+            DatabaseRole.SMP, "smp",
+            DatabaseRole.STEWARD, "steward");
+
+    /** A leaked password of one service changes no setting group of another, while each still publishes its own. */
+    @Test
+    void aServiceWritesItsOwnSettingGroupsAndTheNetworksAndNoOther() throws SQLException {
+        final List<String> services = new ArrayList<>(SETTING_OWNERS.values());
+        services.add("network");
+        services.add("steward-agent");
+        try (Connection owner = database.dataSource().getConnection();
+                Statement statement = owner.createStatement()) {
+            for (final String service : services) {
+                statement.execute(publish(service, "probe-held"));
+            }
+        }
+        final List<Executable> checks = new ArrayList<>();
+        for (final Map.Entry<DatabaseRole, String> login : SETTING_OWNERS.entrySet()) {
+            for (final String service : services) {
+                final boolean own = service.equals(login.getValue()) || service.equals("network");
+                final DatabaseRole role = login.getKey();
+                checks.add(() -> assertEquals(
+                        own, allowed(role, publish(service, "probe")), role.roleName() + " publishes " + service));
+                checks.add(() -> assertEquals(
+                        own ? 1 : 0,
+                        updated(role, "UPDATE setting_group SET problem = 'x' WHERE service = '" + service + "'"
+                                + " AND name = 'probe-held'"),
+                        role.roleName() + " marks a problem of " + service));
+            }
+        }
+        assertAll(checks);
+    }
+
+    private static String publish(final String service, final String name) {
+        return "INSERT INTO setting_group (service, name, schema, defaults, environment, live, published)"
+                + " VALUES ('" + service + "', '" + name + "', '{}', '{}', '{}', false, now())"
+                + " ON CONFLICT (service, name) DO UPDATE SET published = excluded.published";
+    }
+
+    /** Runs the statement, rolls it back and returns how many rows it changed. */
+    private static int updated(final DatabaseRole role, final String sql) throws SQLException {
+        try (Connection connection = database.dataSourceAs(role).getConnection()) {
+            connection.setAutoCommit(false);
+            try (Statement statement = connection.createStatement()) {
+                return statement.executeUpdate(sql);
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
+    /** pg_dump reads every table with row security off, which fails for a role that a policy would filter. */
+    @Test
+    void theBackupRoleReadsPastEveryRowPolicy() {
+        assertEquals("", database.socketAs(DatabaseRole.BACKUP, "SET row_security = off; SELECT count(*) FROM setting_group"));
+    }
+
     @Test
     void theBackupRoleReadsEverythingThroughTheSocketAndWritesNothing() {
         assertEquals("", database.socketAs(DatabaseRole.BACKUP, "SELECT count(*) FROM steward_session"));

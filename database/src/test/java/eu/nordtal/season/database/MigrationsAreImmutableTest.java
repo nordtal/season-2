@@ -390,6 +390,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V135__smp_holds_items_until_players_join.sql",
                 "0b8d4ee4a8dfb674b0ea9af8327939c50765a2adedf2407583a202af2ec897c4");
+        FROZEN.put(
+                "V136__each_service_writes_only_its_own_setting_groups.sql",
+                "63952d028fc90f9c873d774623987ae2d8efa3abdc22b521e445287bc7d0ac39");
     }
 
     @Test

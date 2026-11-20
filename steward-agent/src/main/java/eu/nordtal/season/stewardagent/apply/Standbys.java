@@ -5,6 +5,7 @@ import eu.nordtal.season.stewardagent.plan.Installation;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -76,6 +77,17 @@ public final class Standbys {
 
     private static ApplyResult.Outcome mirror(
             final Path source, final Path target, final String standby, final String directory) {
+        // Either side belongs to the game's account, which could point it at the agent's secrets or a world.
+        final Path link = Files.isSymbolicLink(source) ? source : target;
+        if (Files.isSymbolicLink(link)) {
+            log.error("standby file copy refused, symbolic link: service={} dir={} path={}", standby, directory, link);
+            return new ApplyResult.Outcome(
+                    standby,
+                    directory,
+                    ApplyResult.Status.FAILED,
+                    link + " is a symbolic link, so nothing was copied. Started for a swap, this"
+                            + " service would come up on whatever is still lying in it.");
+        }
         final Tally tally = new Tally();
         try {
             Files.createDirectories(target);
@@ -118,6 +130,9 @@ public final class Standbys {
         final Set<String> wanted = new LinkedHashSet<>();
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(source)) {
             for (final Path entry : entries) {
+                if (Files.isSymbolicLink(entry)) {
+                    continue;
+                }
                 final String name = entry.getFileName().toString();
                 // Applier's half-written downloads, left by a run that died mid-phase.
                 if (Applier.STAGING.equals(name) || isScratch(entry, depth)) {
@@ -125,11 +140,14 @@ public final class Standbys {
                 }
                 wanted.add(name);
                 final Path destination = target.resolve(name);
-                if (Files.isDirectory(entry)) {
+                if (Files.isSymbolicLink(destination)) {
+                    continue;
+                }
+                if (Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)) {
                     Files.createDirectories(destination);
                     copyInto(entry, destination, depth + 1, tally);
                 } else if (isDifferent(entry, destination)) {
-                    Files.copy(entry, destination, StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(entry, destination, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
                     tally.copied++;
                 } else {
                     tally.same++;
@@ -138,7 +156,9 @@ public final class Standbys {
         }
         try (DirectoryStream<Path> existing = Files.newDirectoryStream(target)) {
             for (final Path entry : existing) {
-                if (wanted.contains(entry.getFileName().toString()) || isScratch(entry, depth)) {
+                if (Files.isSymbolicLink(entry)
+                        || wanted.contains(entry.getFileName().toString())
+                        || isScratch(entry, depth)) {
                     continue;
                 }
                 tally.removed += deleteRecursively(entry);
@@ -147,7 +167,9 @@ public final class Standbys {
     }
 
     private static boolean isScratch(final Path entry, final int depth) {
-        return depth == 1 && SCRATCH.equals(entry.getFileName().toString()) && Files.isDirectory(entry);
+        return depth == 1
+                && SCRATCH.equals(entry.getFileName().toString())
+                && Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS);
     }
 
     private static boolean isDifferent(final Path source, final Path destination) throws IOException {
@@ -156,7 +178,7 @@ public final class Standbys {
 
     private static int deleteRecursively(final Path entry) throws IOException {
         int removed = 0;
-        if (Files.isDirectory(entry)) {
+        if (Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)) {
             try (DirectoryStream<Path> children = Files.newDirectoryStream(entry)) {
                 for (final Path child : children) {
                     removed += deleteRecursively(child);

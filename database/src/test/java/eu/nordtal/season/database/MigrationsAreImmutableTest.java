@@ -396,6 +396,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V137__npcs_choose_their_plate_and_portrait_artwork.sql",
                 "5b1eda279bb351f80571734894ef30a7e644c4f0d6b7be962ca9a00b8cbf301a");
+        FROZEN.put(
+                "V138__smp_holds_explorer_maps_until_handout.sql",
+                "b603a38418de2de057b073168f590831b038737dbebc3ecdec9aefd04533fcff");
     }
 
     @Test

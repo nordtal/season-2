@@ -168,7 +168,23 @@ final class DefaultTrack {
                                             "minecraft:sandstone",
                                             "minecraft:netherrack")),
                             handIn("shulker-shells", "exploration", 16, List.of("minecraft:shulker_shell")),
+                            deepslateDiamonds(),
                             advancement("netherite-armor", 5, "minecraft:nether/netherite_armor"))));
+
+    private static Map<String, Object> deepslateDiamonds() {
+        final Map<String, Object> objective = statistic(
+                "deepslate-diamonds", "mining", 64, "minecraft:mine_block", List.of("minecraft:deepslate_diamond_ore"));
+        objective.put(
+                "reward-item",
+                List.of(Specs.createUnsafe(
+                        RewardItemSpec.class,
+                        Map.of(
+                                "item", "minecraft:buried_ancient_city_map",
+                                "amount", 1,
+                                "data", "",
+                                "structure", "minecraft:on_ancient_city_maps"))));
+        return objective;
+    }
 
     private DefaultTrack() {}
 
@@ -235,6 +251,7 @@ final class DefaultTrack {
         values.put("statistic", statistic);
         values.put("subjects", subjects);
         values.put("advancement", advancement);
+        values.put("reward-item", List.of());
         return values;
     }
 }

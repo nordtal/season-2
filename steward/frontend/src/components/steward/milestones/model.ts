@@ -14,6 +14,7 @@ export const KEY = {
   target: "target",
   auraBudget: "aura-budget",
   spinBudget: "spin-budget",
+  rewardItem: "reward-item",
 } as const
 
 export const MARKED = ["unlocks", "border-diameter", "admin-unlocked"] as const

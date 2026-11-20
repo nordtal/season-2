@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.config;
 import eu.nordtal.season.settings.AppliesWhen;
 import eu.nordtal.season.settings.ChoiceNames;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Entries;
 import eu.nordtal.season.spec.annotation.AllowedValues;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
@@ -178,6 +179,15 @@ public interface MilestonesSpec {
         @AppliesWhen(key = "type", values = "ADVANCEMENT")
         default String advancement() {
             return "";
+        }
+
+        @Order(11)
+        @Name("Item reward")
+        @Key("reward-item")
+        @Entries(most = 1)
+        @NoExplanationNeeded
+        default List<RewardItemSpec> rewardItem() {
+            return List.of();
         }
     }
 }

@@ -46,6 +46,7 @@ import eu.nordtal.season.smp.rail.SpawnStation;
 import eu.nordtal.season.smp.rail.StationMenus;
 import eu.nordtal.season.smp.rail.StationRailListener;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
+import eu.nordtal.season.smp.trader.PlantTrades;
 import eu.nordtal.season.smp.travel.PortalGate;
 import eu.nordtal.season.smp.wall.BorderWall;
 import eu.nordtal.season.smp.welcome.SeasonWelcome;
@@ -56,6 +57,7 @@ import eu.nordtal.season.smp.wheel.PendingItems;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.wheel.WheelListener;
+import eu.nordtal.season.smp.world.WorldRole;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -128,7 +130,7 @@ final class SmpStart {
 
     record Progress(ObjectiveEngine engine, StatisticPoller poller, GateHolders gates) {}
 
-    static Progress wireProgressEngine(final SmpPlugin plugin, final WorldEffects effects) {
+    static Progress wireProgressEngine(final SmpPlugin plugin, final WorldEffects effects, final ItemHandout handout) {
         final ObjectiveEngine engine = new ObjectiveEngine(
                 plugin,
                 plugin.jdbi(),
@@ -140,7 +142,8 @@ final class SmpStart {
                 new ExtraSpins(plugin.jdbi().onDemand(SpinDao.class)),
                 plugin.sounds,
                 effects,
-                plugin.announcer);
+                plugin.announcer,
+                handout);
         final StatisticPoller poller = new StatisticPoller(plugin, () -> plugin.track, engine, plugin.identities());
         poller.start();
         final GateHolders gates = new GateHolders(
@@ -192,7 +195,8 @@ final class SmpStart {
                 plugin.jdbi().onDemand(PendingItems.class),
                 plugin.identities(),
                 plugin.renderer(),
-                plugin.itemWork);
+                plugin.itemWork,
+                () -> plugin.worlds.world(WorldRole.NORDTAL).orElseThrow());
         plugin.getServer().getPluginManager().registerEvents(handout, plugin);
         final Wheel wheel = new Wheel(
                 plugin,
@@ -211,6 +215,7 @@ final class SmpStart {
     }
 
     static void registerActivityListeners(final SmpPlugin plugin, final Activities activities) {
+        plugin.getServer().getPluginManager().registerEvents(new PlantTrades(), plugin);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(

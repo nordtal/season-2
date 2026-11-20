@@ -74,7 +74,10 @@ final class DefaultSmp {
             item("minecraft:end_crystal", 2, 8),
             item("minecraft:nether_star", 1, 4),
             item("minecraft:elytra", 1, 3),
-            item("minecraft:totem_of_undying", 1, 3));
+            item("minecraft:totem_of_undying", 1, 3),
+            item("minecraft:heart_of_the_sea", 1, 3),
+            item("minecraft:vex_armor_trim_smithing_template", 1, 3),
+            item("minecraft:buried_mineshaft_map", 1, 60, "minecraft:on_mineshaft_maps"));
 
     private static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_SWORD = List.of(
             loadoutItem("minecraft:iron_sword", 1),
@@ -189,11 +192,13 @@ final class DefaultSmp {
     }
 
     private static WheelPrizeSpec item(final String item, final int amount, final int weight) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("item", item);
-        values.put("amount", amount);
-        values.put("weight", weight);
-        return Specs.createUnsafe(WheelPrizeSpec.class, values);
+        return item(item, amount, weight, "");
+    }
+
+    private static WheelPrizeSpec item(final String item, final int amount, final int weight, final String structure) {
+        return Specs.createUnsafe(
+                WheelPrizeSpec.class,
+                Map.of("item", item, "amount", amount, "weight", weight, "data", "", "structure", structure));
     }
 
     private static DuelLoadoutItemSpec loadoutItem(final String item, final int amount) {

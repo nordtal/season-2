@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { clearDraft } from "@/lib/drafts"
 import { customEditor } from "@/components/steward/config-editors"
+import { WheelEditor } from "@/components/steward/game-groups/wheel-editor"
 import { MilestonesEditor } from "@/components/steward/milestones/milestones-editor"
 import { moved } from "@/components/steward/milestones/model"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -32,6 +33,13 @@ function entry(key: string, more: Partial<ConfigEntry> = {}): ConfigEntry {
 }
 
 const STATISTIC_TYPE = { key: "type", values: ["STATISTIC"] }
+
+const REWARD: ConfigEntry[] = [
+  entry("item", { label: "Item", value: "", refers: { to: "ITEM", optional: false } }),
+  entry("amount", { label: "Amount", type: "INTEGER", value: "1" }),
+  entry("data", { label: "Item data", value: "" }),
+  entry("structure", { label: "Structure tag", value: "" }),
+]
 
 const OBJECTIVE: ConfigEntry[] = [
   entry("key", { label: "ID", value: "" }),
@@ -86,6 +94,7 @@ const OBJECTIVE: ConfigEntry[] = [
     refers: { to: "ADVANCEMENT", optional: false },
     appliesWhen: { key: "type", values: ["ADVANCEMENT"] },
   }),
+  entry("reward-item", { label: "Item reward", kind: "SECTIONS", template: REWARD }),
 ]
 
 const MILESTONE: ConfigEntry[] = [
@@ -217,6 +226,7 @@ const GAME = {
   registries: {
     item: [
       { id: "minecraft:oak_log", text: "Oak Log" },
+      { id: "minecraft:buried_ancient_city_map", text: "Buried Ancient City Map" },
       { id: "minecraft:zombie_spawn_egg", text: "Zombie Spawn Egg" },
     ],
     entity_type: [{ id: "minecraft:zombie", text: "Zombie" }],
@@ -250,14 +260,14 @@ const GAME = {
   },
 }
 
-function backend() {
+function backend(document = DOCUMENT) {
   const saved: unknown[] = []
   vi.stubGlobal(
     "fetch",
     vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
       if (init?.method === "PUT") {
         saved.push(JSON.parse(init.body ?? ""))
-        return new Response(JSON.stringify(configSaved(DOCUMENT)), {
+        return new Response(JSON.stringify(configSaved(document)), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         })
@@ -288,7 +298,39 @@ function draw(node: ReactNode) {
 afterEach(() => {
   cleanup()
   clearDraft(FILE)
+  clearDraft("smp/wheel")
   vi.unstubAllGlobals()
+})
+
+it("edits the structure tag of a named wheel map", async () => {
+  const template = [...REWARD, entry("weight", { label: "Weight", type: "INTEGER", value: "1" })]
+  const wheel = {
+    ...DOCUMENT,
+    name: "wheel",
+    path: "smp/wheel",
+    entries: [
+      entry("wheel-prizes", {
+        label: "Wheel prizes",
+        kind: "SECTIONS",
+        template,
+        sections: [
+          section(template, {
+            scalars: { item: "minecraft:buried_mineshaft_map", weight: "60", structure: "minecraft:on_mineshaft_maps" },
+          }),
+        ],
+      }),
+    ],
+  } satisfies ConfigDocument
+  const saved = backend(wheel)
+  draw(<WheelEditor file={wheel.path} document={wheel} target={null} />)
+  fireEvent.click(await screen.findByRole("button", { name: /Buried Mineshaft Map/i }))
+  const dialog = await screen.findByRole("dialog")
+  const structure = within(dialog).getByRole("textbox", { name: "Structure tag" })
+  expect(structure).toHaveProperty("value", "minecraft:on_mineshaft_maps")
+  fireEvent.change(structure, { target: { value: "nordtal:mines" } })
+  fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+  fireEvent.click(await screen.findByRole("button", { name: "Save 1" }))
+  await waitFor(() => expect(JSON.stringify(saved)).toContain("nordtal:mines"))
 })
 
 describe("customEditor", () => {
@@ -307,6 +349,24 @@ describe("customEditor", () => {
 
 // The timeout is fifteen seconds. The sheets open selects and save, which takes about half a second here and seven times as long on a busy runner.
 describe("MilestonesEditor", { timeout: 15_000 }, () => {
+  it("adds an optional item reward and saves its map structure tag", async () => {
+    const saved = backend()
+    draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
+    fireEvent.click(screen.getByRole("button", { name: /foothold/ }))
+    fireEvent.click(within(screen.getByRole("region", { name: "foothold" })).getByRole("button", { name: /logs/ }))
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add item reward" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Item" }))
+    fireEvent.click(await screen.findByRole("option", { name: "Buried Ancient City Map" }))
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Structure tag" }), {
+      target: { value: "minecraft:on_ancient_city_maps" },
+    })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Save 1" }))
+    await waitFor(() => expect(JSON.stringify(saved)).toContain("minecraft:on_ancient_city_maps"))
+    expect(JSON.stringify(saved)).toContain("minecraft:buried_ancient_city_map")
+  })
+
   it("lists every milestone with its settings as marks, beside the one that is open", () => {
     backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)

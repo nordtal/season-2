@@ -76,7 +76,8 @@ record WheelPlan(int variant, Face face) {
         static boolean same(final WheelPrizeSpec a, final WheelPrizeSpec b) {
             return a.item().equals(b.item())
                     && a.amount() == b.amount()
-                    && a.data().equals(b.data());
+                    && a.data().equals(b.data())
+                    && a.structure().equals(b.structure());
         }
     }
 

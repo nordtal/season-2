@@ -2,11 +2,13 @@ package eu.nordtal.season.smp.npc;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.GameDocument;
+import eu.nordtal.season.messagerendering.GameLines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.messages.value.GameContent;
 import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
@@ -19,6 +21,7 @@ import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.packrendering.ui.Tooltip;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.dialog.Paging;
+import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneNames;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
@@ -62,6 +65,21 @@ public final class ObjectiveDialog {
     record Share(
             @Example("Iron ingots") String objective,
             @Example("20") double percent) {}
+
+    record RewardHover(
+            @Example("Mine deepslate diamond ore") String title,
+            @Example("Finished") String detail,
+            @Example("1") int amount,
+
+            @Example("item.minecraft.buried_ancient_city_map")
+            GameContent item,
+
+            boolean hasHint,
+            @Example("Hand in items") String hint) {}
+
+    static final DocumentSpec<RewardHover> REWARD_HOVER = DocumentSpec.game(
+                    "smp", "objective-reward-hover", "Menus", DocumentSpec.Shape.CHAT, RewardHover.class)
+            .titled("Objective reward tooltip");
 
     static final DocumentSpec<DocumentSpec.None> DOCUMENT = DocumentSpec.menu(
                     "smp",
@@ -234,7 +252,13 @@ public final class ObjectiveDialog {
                 .findFirst();
         final Symbol symbol = symbol(objective);
         if (done) {
-            line.card(WIDTH, symbol, name, count, row.ratio(), true, Look.NORMAL);
+            if (objective.itemReward() == null) {
+                line.card(WIDTH, symbol, name, count, row.ratio(), true, Look.NORMAL);
+            } else {
+                line.button(
+                        new BodyLine.Press(null, objectiveHover(objective, name, count, null)),
+                        part -> part.card(WIDTH, symbol, name, count, row.ratio(), true, Look.NORMAL));
+            }
             return;
         }
         final BodyLine.Press press;
@@ -249,17 +273,38 @@ public final class ObjectiveDialog {
                     .orElse(counts);
             press = new BodyLine.Press(
                     send.click(player -> openHandIn(player, objective, row)),
-                    Tooltip.hover(name, text, document.label("hand-in-hint")));
+                    objectiveHover(objective, name, text, document.label("hand-in-hint")));
             words = own.map(entry -> document.label("hand-in-words-shared", new HandInWords(items, entry.percent())))
                     .orElse(document.label("hand-in-words", new Counts(items)));
         } else {
-            press = new BodyLine.Press(null, Tooltip.hover(name, document.label("counted"), null));
+            press = new BodyLine.Press(null, objectiveHover(objective, name, document.label("counted"), null));
             words = document.label("counted-words");
         }
         line.button(
                 press,
                 part -> part.card(WIDTH, symbol, name, count, row.ratio(), false, Look.NORMAL)
                         .words(words));
+    }
+
+    private Component objectiveHover(
+            final Objective objective, final String name, final String detail, final @Nullable String hint) {
+        final Objective.ItemReward reward = objective.itemReward();
+        if (reward == null) {
+            return Tooltip.hover(name, detail, hint);
+        }
+        final var displayed = TakenItems.one(reward.item(), reward.data());
+        if (displayed == null) {
+            return Tooltip.hover(name, detail, hint);
+        }
+        return renderer.format(
+                locale,
+                REWARD_HOVER.with(new RewardHover(
+                        name,
+                        detail,
+                        reward.amount(),
+                        GameLines.of(displayed.effectiveName()),
+                        hint != null,
+                        hint == null ? "" : hint)));
     }
 
     /** A statistic that counts kills shows the swords, any other the pickaxe; an advancement shows its flag. */

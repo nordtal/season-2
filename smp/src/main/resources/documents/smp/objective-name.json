@@ -196,6 +196,13 @@
           }
         },
         {
+          "when": "objective=deepslate-diamonds",
+          "text": {
+            "en": "Mine deepslate diamond ore",
+            "de": "Tiefenschiefer-Diamanterz abbauen"
+          }
+        },
+        {
           "when": "objective=netherite-scrap",
           "text": {
             "en": "Netherite scrap",

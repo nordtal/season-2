@@ -24,6 +24,7 @@ import eu.nordtal.season.smp.milestone.Payout;
 import eu.nordtal.season.smp.milestone.TrackDao;
 import eu.nordtal.season.smp.milestone.Unlock;
 import eu.nordtal.season.smp.port.Contributions;
+import eu.nordtal.season.smp.port.ItemRewards;
 import eu.nordtal.season.smp.port.OwnContributionRow;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.state.SeasonState;
@@ -81,6 +82,7 @@ public final class ObjectiveEngine implements Contributions {
     private final SmpSounds sounds;
     private final WorldEffects effects;
     private final Announcer announcer;
+    private final ItemRewards itemRewards;
 
     /** The fade in, stay and fade out of the milestone title. */
     private static final Title.Times CEREMONY =
@@ -93,7 +95,7 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /** An objective completed in a transaction, announced after the commit. */
-    private record Finished(String milestoneKey, String objectiveKey) {}
+    private record Finished(String milestoneKey, String objectiveKey, List<DiscordId> itemRecipients) {}
 
     /** @param jdbi the {@code Jdbi} whose transactions the writes of {@link PrizeSource} join */
     public ObjectiveEngine(
@@ -107,13 +109,15 @@ public final class ObjectiveEngine implements Contributions {
             final PrizeSource prizes,
             final SmpSounds sounds,
             final WorldEffects effects,
-            final Announcer announcer) {
+            final Announcer announcer,
+            final ItemRewards itemRewards) {
         this.announcer = java.util.Objects.requireNonNull(announcer, "announcer");
         this.plugin = plugin;
         this.jdbi = jdbi;
         this.rows = jdbi.onDemand(TrackDao.class);
         this.progress = jdbi.onDemand(ProgressDao.class);
         this.aura = jdbi.onDemand(AuraDao.class);
+        this.itemRewards = itemRewards;
         this.track = track;
         this.season = season;
         this.worlds = worlds;
@@ -245,10 +249,9 @@ public final class ObjectiveEngine implements Contributions {
             return null;
         }
         final Objective definition = milestone.objective(objective.key()).orElse(null);
-        if (definition != null) {
-            payOut(objective, definition, milestoneKey);
-        }
-        return new Finished(milestoneKey, objective.key());
+        final List<DiscordId> itemRecipients =
+                definition == null ? List.of() : payOut(objective, definition, milestoneKey);
+        return new Finished(milestoneKey, objective.key(), itemRecipients);
     }
 
     /**
@@ -261,6 +264,7 @@ public final class ObjectiveEngine implements Contributions {
             return;
         }
         try {
+            finished.itemRecipients().forEach(itemRewards::handOutIfOnline);
             announceObjective(finished.milestoneKey(), finished.objectiveKey());
             // Runs after the commit so that two objectives completed at once see each other.
             checkMilestone(finished.milestoneKey(), completedBy);
@@ -277,10 +281,11 @@ public final class ObjectiveEngine implements Contributions {
     /**
      * Pays the aura and spin budgets of the objective to its contributors with {@link Payout#paid}.
      */
-    private void payOut(final ObjectiveRow objective, final Objective definition, final String milestoneKey) {
+    private List<DiscordId> payOut(
+            final ObjectiveRow objective, final Objective definition, final String milestoneKey) {
         final List<ContributionRow> contributors = progress.contributionsOf(objective.id());
         if (contributors.isEmpty()) {
-            return;
+            return List.of();
         }
         final Map<String, Long> contributions = new LinkedHashMap<>();
         for (final ContributionRow row : contributors) {
@@ -303,6 +308,15 @@ public final class ObjectiveEngine implements Contributions {
         plugin.getLogger()
                 .info("objective paid: milestone=" + milestoneKey + " key=" + objective.key() + " count="
                         + contributions.size() + " aura=" + sum(auraShares) + " spins=" + sum(spinShares));
+        final Objective.ItemReward reward = definition.itemReward();
+        if (reward == null) {
+            return List.of();
+        }
+        final List<DiscordId> recipients = Payout.itemRecipients(auraShares, spinShares).stream()
+                .map(DiscordId::of)
+                .toList();
+        recipients.forEach(id -> itemRewards.queue(id, reward));
+        return recipients;
     }
 
     private static int sum(final List<Payout.Share> shares) {

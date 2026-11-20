@@ -1,6 +1,7 @@
 package eu.nordtal.season.stewardagent.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,6 +17,23 @@ class AgentSettingsTest {
 
     private Setting<RunSpec> runs() throws SettingsException {
         return AgentSettings.runs(store.settings(AgentSettings.SERVICE));
+    }
+
+    @Test
+    void theReleaseRepositoryIsAbsentFromThePublishedSettings() throws Exception {
+        store.set(AgentSettings.SERVICE, "runs", "season-repo", "old/repository");
+
+        runs();
+
+        final String schema =
+                store.group(AgentSettings.SERVICE, "runs").orElseThrow().schema();
+        assertFalse(schema.contains("\"season-repo\""), schema);
+        assertEquals(
+                "nordtal/season-2", AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(key -> null)));
+        assertEquals(
+                "deployment/season",
+                AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(
+                        key -> key.equals("NORDTAL_STEWARD_AGENT_SEASON_REPO") ? "deployment/season" : null)));
     }
 
     @Test

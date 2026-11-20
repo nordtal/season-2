@@ -41,6 +41,7 @@ final class PaymentsStartup {
      */
     static @Nullable PaymentLoop start(
             final StewardSpec config,
+            final String url,
             final Tiers tiers,
             final Database database,
             final Waiting waiting,
@@ -54,7 +55,7 @@ final class PaymentsStartup {
             return null;
         }
 
-        final Bank bank = new Bank(new InternalClient(BankWire.SERVICE, settings.url(), settings.token(), timeout));
+        final Bank bank = new Bank(new InternalClient(BankWire.SERVICE, url, settings.token(), timeout));
         final Optional<BankWire.Account> account = waiting.until(
                 () -> {
                     try {
@@ -67,7 +68,7 @@ final class PaymentsStartup {
                 new Backoff(Duration.ofSeconds(1), Duration.ofSeconds(8)));
         if (account.isEmpty()) {
             // No row is written, so the row keeps the result of the last start.
-            log.error("payments off, steward-bunq not answering: url={} timeout={}", settings.url(), PATIENCE);
+            log.error("payments off, steward-bunq not answering: url={} timeout={}", url, PATIENCE);
             return null;
         }
 

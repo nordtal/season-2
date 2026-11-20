@@ -597,6 +597,11 @@ public final class Web {
             }
 
             @Override
+            public void requireFreshKey(final Context ctx) {
+                secondFactor.requireStepUp(ctx);
+            }
+
+            @Override
             public boolean stillSignedIn(final Context ctx) {
                 return sessions.find(ctx.cookie(Sessions.COOKIE)).isPresent();
             }

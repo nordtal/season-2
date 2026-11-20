@@ -48,6 +48,11 @@ public final class AgentSettings {
     }
 
     public static Setting<RunSpec> runs(final Settings settings) throws SettingsException {
+        try {
+            seasonRepository(ENVIRONMENT);
+        } catch (final IllegalArgumentException invalid) {
+            throw new SettingsException(String.valueOf(invalid.getMessage()), invalid);
+        }
         return settings.load(runsGroup());
     }
 
@@ -62,7 +67,6 @@ public final class AgentSettings {
     }
 
     static void checkRuns(final RunSpec config) {
-        requireRepo("season-repo", config.seasonRepo());
         requireModrinthId("packetevents-project", config.packetEventsProject());
     }
 
@@ -79,11 +83,18 @@ public final class AgentSettings {
         Checks.requirePositive("maximum-pool-size", config.maximumPoolSize());
     }
 
-    private static void requireRepo(final String key, final String value) {
-        if (!REPO.matcher(value).matches()) {
-            throw new IllegalArgumentException(key + " must be a GitHub repository as owner/name"
-                    + " - not a URL and not just the name - was '" + value + "'");
+    /** Reads the GitHub release repository from the deployment environment. */
+    public static String seasonRepository(final Environment environment) {
+        final String key = "NORDTAL_STEWARD_AGENT_SEASON_REPO";
+        final String configured = environment.variables().apply(key);
+        if (configured == null || configured.isBlank()) {
+            return "nordtal/season-2";
         }
+        final String repository = configured.strip();
+        if (!REPO.matcher(repository).matches()) {
+            throw new IllegalArgumentException("Set " + key + " to the GitHub repository in owner/name form.");
+        }
+        return repository;
     }
 
     private static void requireModrinthId(final String key, final String value) {

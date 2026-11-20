@@ -8,5 +8,7 @@ public interface Caller {
 
     Actor actor(Context ctx);
 
+    void requireFreshKey(Context ctx);
+
     boolean stillSignedIn(Context ctx);
 }

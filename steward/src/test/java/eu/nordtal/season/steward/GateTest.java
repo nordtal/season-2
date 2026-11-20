@@ -42,7 +42,7 @@ class GateTest extends WebFixture {
      *
      * Such a change destroys, cannot be undone, grants access or money, or changes admins or keys.
      * A person edits this list to move a route across that line.
-     * {@code POST /api/updates} is {@link Gate#KEY_HELD} here and asks for the step-up per kind of run.
+     * The update and settings routes ask for the step-up based on the kind of run or setting group.
      */
     private static final Map<String, Gate> WRITES_GATED = Map.ofEntries(
             Map.entry("POST /auth/logout", Gate.SIGNED_IN),
@@ -57,6 +57,7 @@ class GateTest extends WebFixture {
             // These routes replace or stop what runs, overwrite live data or run foreign code.
             Map.entry("POST /api/backups/{name}/restore", Gate.KEY_FRESH),
             Map.entry("POST /api/services/{name}/plugins", Gate.KEY_FRESH),
+            Map.entry("PUT /api/services/{name}/plugin-file", Gate.KEY_FRESH),
             Map.entry("DELETE /api/services/{name}/plugins/{artifact}", Gate.KEY_FRESH),
             Map.entry("POST /api/services/{name}/console", Gate.KEY_FRESH),
             // These routes change admins or keys.
@@ -83,7 +84,6 @@ class GateTest extends WebFixture {
             Map.entry("POST /api/updates", Gate.KEY_HELD),
             Map.entry("POST /api/updates/cancel", Gate.KEY_HELD),
             Map.entry("PUT /api/setting-groups/{service}/{name}", Gate.KEY_HELD),
-            Map.entry("PUT /api/services/{name}/plugin-file", Gate.KEY_HELD),
             Map.entry("PUT /api/messages", Gate.KEY_HELD),
             Map.entry("PUT /api/documents/{namespace}/{name}", Gate.KEY_HELD),
             Map.entry("DELETE /api/documents/{namespace}/{name}", Gate.KEY_HELD),

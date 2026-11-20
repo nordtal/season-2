@@ -27,11 +27,12 @@ flowchart LR
 The interface, the stack routes (`stack/Routes`) and the view of runs share one Javalin and one set of
 gates.
 
-- A read or an easily undone change needs a signed-in admin with a second factor in this session
+- Most reads and easily undone changes require a signed-in admin with a second factor in this session
   (`KEY_HELD`).
-- A destructive or irreversible change, a grant of access or money, and a change of admins or keys need
-  a valid step-up (`KEY_FRESH`).
-- `GateTest` names the gate of every change. `Updates.needsStepUp` sets the step-up per kind of run.
+- Backup downloads, plugin-file writes and saves to `steward/steward` or `steward-agent/runs` require
+  a valid step-up (`KEY_FRESH`). Grants of access or money, changes of admins or keys, and destructive
+  or irreversible changes also require a step-up.
+- `GateTest` names the gate of every write. `Updates.needsStepUp` sets the step-up per kind of run.
 - A second factor is a security key (WebAuthn) or an authenticator app (`auth/Totp`, RFC 6238: SHA-1,
   six digits, 30 seconds, one step either side, each step once).
 - `web.totp-key` seals the app's secret. Without it Steward does not offer the app.
@@ -217,17 +218,18 @@ skin (`npc.NpcApi`).
 
 ## Configuration
 
-The environment supplies the connection and every secret. Three groups in the database hold everything
-else. Steward publishes them at start, and its settings pages edit them. `StewardSettings` checks them
+The environment supplies the database connection, internal endpoints and secrets. Steward publishes
+three database settings groups at start. Its settings pages edit those groups. `StewardSettings` checks them
 before the web starts. A change to `steward` rearms both clocks without a restart. A change to `alerts`
 applies at the next reading.
 
-| group      | environment                  | holds                                                                                          |
-| ---------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| `steward`  | `NORDTAL_STEWARD_*`          | the clocks, the agent's and steward-bunq's addresses                                           |
-| `web`      | `NORDTAL_STEWARD_WEB_*`      | the port, the public address, Discord sign-in, WebAuthn, Web Push, the authenticator app's key |
-| `alerts`   | `NORDTAL_STEWARD_ALERTS_*`   | the thresholds steward's measured alerts fire on                                               |
-| `database` | `NORDTAL_STEWARD_DATABASE_*` | the connection, from the environment alone                                                     |
+| group         | environment                                             | holds                                                                                          |
+| ------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `steward`     | `NORDTAL_STEWARD_*`                                     | the schedules and payment polling                                                              |
+| `web`         | `NORDTAL_STEWARD_WEB_*`                                 | the port, the public address, Discord sign-in, WebAuthn, Web Push, the authenticator app's key |
+| `alerts`      | `NORDTAL_STEWARD_ALERTS_*`                              | the thresholds steward's measured alerts fire on                                               |
+| `connections` | `NORDTAL_STEWARD_AGENT_URL`, `NORDTAL_STEWARD_BUNQ_URL` | the environment-only endpoints of steward-agent and steward-bunq                               |
+| `database`    | `NORDTAL_STEWARD_DATABASE_*`                            | the connection, from the environment alone                                                     |
 
 ## Tests
 

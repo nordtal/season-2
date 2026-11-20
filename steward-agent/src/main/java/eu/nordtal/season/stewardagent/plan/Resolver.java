@@ -35,6 +35,7 @@ import org.jspecify.annotations.Nullable;
 public final class Resolver {
 
     private final RunSpec config;
+    private final String seasonRepository;
     private final GitHubReleases github;
     private final Modrinth modrinth;
     private final PaperFill fill;
@@ -51,6 +52,7 @@ public final class Resolver {
      */
     public Resolver(
             final RunSpec config,
+            final String seasonRepository,
             final GitHubReleases github,
             final Modrinth modrinth,
             final PaperFill fill,
@@ -58,6 +60,7 @@ public final class Resolver {
             final List<Topology.Service> servers,
             final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins) {
         this.config = config;
+        this.seasonRepository = seasonRepository;
         this.servers = List.copyOf(servers);
         this.github = github;
         this.modrinth = modrinth;
@@ -228,11 +231,10 @@ public final class Resolver {
             final Set<String> unreleased) {
         final GitHubReleases.Release release;
         try {
-            release = github.latest(config.seasonRepo());
+            release = github.latest(seasonRepository);
         } catch (final IOException failed) {
             // One call answers for every jar of ours, so one reason covers every row.
-            final MessageRef why =
-                    TEXTS.report().releaseUnread(config.seasonRepo(), String.valueOf(failed.getMessage()));
+            final MessageRef why = TEXTS.report().releaseUnread(seasonRepository, String.valueOf(failed.getMessage()));
             log.warn("season release unresolved: cause={}", failed.getMessage());
             Topology.SEASON_JARS.forEach(artifact -> failures.put(artifact, why));
             return null;

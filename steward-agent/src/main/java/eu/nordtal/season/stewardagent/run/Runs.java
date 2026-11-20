@@ -5,6 +5,7 @@ import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.stewardagent.apply.Applier;
 import eu.nordtal.season.stewardagent.apply.ApplyResult;
+import eu.nordtal.season.stewardagent.config.AgentSettings;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.plan.Resolver;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
@@ -40,6 +41,7 @@ public final class Runs {
                 Waiting.on(NetworkTime.clock())));
         return new Resolver(
                         config,
+                        AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT),
                         new GitHubReleases(http),
                         new Modrinth(http),
                         new PaperFill(http),

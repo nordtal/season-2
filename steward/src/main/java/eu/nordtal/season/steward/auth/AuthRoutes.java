@@ -59,6 +59,8 @@ public final class AuthRoutes {
                 "/api/keys/{id}", secondFactor::renameKey, Gate.KEY_HELD, Journaled.as(JournalAction.RENAME_KEY));
         cfg.routes.delete(
                 "/api/keys/{id}", secondFactor::removeKey, Gate.KEY_FRESH, Journaled.as(JournalAction.REMOVE_KEY));
+        cfg.routes.get(
+                "/api/step-up", ctx -> ctx.header("Cache-Control", "no-store").status(204), Gate.KEY_FRESH);
         cfg.routes.delete("/api/step-up", secondFactor::endStepUp, Gate.KEY_HELD, Unjournaled.OWN_SESSION);
     }
 }

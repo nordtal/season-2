@@ -18,16 +18,6 @@ import eu.nordtal.season.spec.annotation.Order;
 @ConfigSpec
 public interface RunSpec {
 
-    /** Where the season's jars and the resource pack come from, always the newest published release. */
-    @Order(1)
-    @Name("Season repository")
-    @Key("season-repo")
-    @Required
-    @NoExplanationNeeded
-    default String seasonRepo() {
-        return "nordtal/season-2";
-    }
-
     @Order(3)
     @Name("PacketEvents project")
     @Key("packetevents-project")

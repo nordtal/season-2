@@ -56,6 +56,12 @@ public final class StewardSettings {
         return settings.load(Group.of("web", WebSpec.class).checkedBy(StewardSettings::checkWeb));
     }
 
+    public static ConnectionSpec connections(final Environment environment) throws SettingsException {
+        return EnvironmentSettings.of(environment.withMain("connections"))
+                .load(Group.of("connections", ConnectionSpec.class))
+                .get();
+    }
+
     public static Setting<DatabaseSpec> database() throws SettingsException {
         return EnvironmentSettings.of(ENVIRONMENT)
                 .load(Group.of("database", DatabaseSpec.class).checkedBy(StewardSettings::checkDatabase));

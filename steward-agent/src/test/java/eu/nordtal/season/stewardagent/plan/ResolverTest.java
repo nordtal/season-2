@@ -619,6 +619,7 @@ class ResolverTest {
     private UpdatePlan resolve() {
         return new Resolver(
                         testConfig(),
+                        "nordtal/season-2",
                         new GitHubReleases(http),
                         new Modrinth(http),
                         new PaperFill(http),

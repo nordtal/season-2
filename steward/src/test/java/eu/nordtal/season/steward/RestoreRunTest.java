@@ -72,6 +72,8 @@ class RestoreRunTest extends WebTestSupport {
     void aDownloadIsJournalledWithTheArchiveAndItsSize() throws Exception {
         final HttpResponse<String> downloaded = get("/api/backups/" + DUMP + "/download");
         assertEquals(200, downloaded.statusCode(), downloaded.body());
+        assertEquals(
+                "no-store", downloaded.headers().firstValue("Cache-Control").orElseThrow());
 
         final JsonObject args =
                 journalledBy("1", "DOWNLOAD_BACKUP").getAsJsonObject("line").getAsJsonObject("args");

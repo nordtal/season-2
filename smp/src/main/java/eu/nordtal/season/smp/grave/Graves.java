@@ -127,7 +127,8 @@ public final class Graves {
     private void draw(final List<GraveRow> rows) {
         for (final GraveRow row : rows) {
             final World world = Bukkit.getWorld(row.world());
-            if (world == null) {
+            // A grave created while the restore reads is in both lists, and is drawn once.
+            if (world == null || open.containsKey(row.id())) {
                 continue;
             }
             draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));

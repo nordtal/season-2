@@ -7,6 +7,10 @@ import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseText;
+import eu.nordtal.season.database.JournalDetail;
+import eu.nordtal.season.database.audit.AuditDirectory;
+import eu.nordtal.season.database.audit.AuditLine;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.RunLines;
 import eu.nordtal.season.database.update.RunRecord;
@@ -22,13 +26,19 @@ import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.settings.DatabaseWaiting;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.stewardagent.config.AgentSettings;
+import eu.nordtal.season.stewardagent.plugin.ManagedPlugin;
+import eu.nordtal.season.stewardagent.plugin.PluginDirectory;
 import eu.nordtal.season.stewardagent.schema.Schema;
+import java.io.PrintStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -66,7 +76,19 @@ final class HostRequests {
         }
         try (Database database = opened) {
             final UpdateDirectory runs = Schema.updates(database);
-            return "status".equals(args[0]) ? status(runs, args) : request(runs, args);
+            if ("status".equals(args[0])) {
+                return status(runs, args);
+            }
+            if (args.length > 1 && isRemoval(args[1])) {
+                return removePlugin(
+                        runs,
+                        PluginDirectory.using(database.dataSource()),
+                        AuditDirectory.using(database.dataSource()),
+                        List.of(args),
+                        System.out,
+                        System.err);
+            }
+            return request(runs, args);
         }
     }
 
@@ -116,6 +138,69 @@ final class HostRequests {
             System.err.println(refused.getMessage());
             return 2;
         }
+    }
+
+    /**
+     * Writes the run and the journal entry Steward's "Remove" writes, with the host as the actor.
+     *
+     * A service or plugin nobody added is refused with every added plugin, and nothing is written.
+     */
+    static int removePlugin(
+            final UpdateDirectory runs,
+            final PluginDirectory added,
+            final AuditDirectory journal,
+            final List<String> args,
+            final PrintStream out,
+            final PrintStream err) {
+        if (args.size() != 4) {
+            err.println("request remove-plugin SERVICE PLUGIN: PLUGIN is one an admin added. " + addedList(added));
+            return 2;
+        }
+        final String service = args.get(2);
+        final String artifact = args.get(3);
+        if (added.on(service).stream().noneMatch(plugin -> plugin.artifact().equals(artifact))) {
+            err.println("Request not submitted: nobody added " + artifact + " to " + service
+                    + ". Name one of the added plugins. " + addedList(added));
+            return 2;
+        }
+        final UpdateRequest written;
+        try {
+            written =
+                    runs.submit(new StewardRequest.RemovePlugin(artifact), List.of(service), Actor.HOST, Duration.ZERO);
+        } catch (final Refused refused) {
+            err.println(DatabaseText.english(refused.refusal().message()));
+            return 1;
+        } catch (final IllegalArgumentException refused) {
+            err.println(refused.getMessage());
+            return 2;
+        }
+        journal.record(AuditLine.of(
+                JournalAction.REMOVE_PLUGIN,
+                Actor.HOST,
+                new JournalDetail.PluginRemoved(written.id(), service, artifact)));
+        out.println(written.id());
+        return 0;
+    }
+
+    /** Every added plugin, one service after the other: {@code Added plugins: smp: chunky, worldedit; ...}. */
+    private static String addedList(final PluginDirectory added) {
+        final Map<String, List<String>> byService = added.all().stream()
+                .collect(Collectors.groupingBy(
+                        ManagedPlugin::service,
+                        TreeMap::new,
+                        Collectors.mapping(ManagedPlugin::artifact, Collectors.toList())));
+        if (byService.isEmpty()) {
+            return "No plugin is added to any service.";
+        }
+        return byService.entrySet().stream()
+                .map(service -> service.getKey() + ": "
+                        + service.getValue().stream().sorted().collect(Collectors.joining(", ")))
+                .collect(Collectors.joining("; ", "Added plugins: ", "."));
+    }
+
+    /** Whether a host names the plugin removal, as {@code remove-plugin} or {@code REMOVE_PLUGIN}. */
+    static boolean isRemoval(final String kind) {
+        return kind.replace('-', '_').equalsIgnoreCase(UpdateKind.REMOVE_PLUGIN.name());
     }
 
     /** Returns the mode a host names in place of the services of a {@code SWITCH_MODE}, or null if it names none. */

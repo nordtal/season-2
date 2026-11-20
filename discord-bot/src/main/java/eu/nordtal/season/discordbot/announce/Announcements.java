@@ -6,6 +6,7 @@ import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -16,6 +17,7 @@ import java.util.function.Function;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
 
@@ -96,7 +98,12 @@ public final class Announcements {
             return false;
         }
         try {
-            channels.send(channelId, text);
+            channels.send(
+                    channelId,
+                    new MessageCreateBuilder()
+                            .setContent(text)
+                            .setAllowedMentions(List.of())
+                            .build());
             log.info(
                     "announcement posted: language={} channel={} channel_name=\"{}\" text=\"{}\"",
                     languageTag,
@@ -156,8 +163,6 @@ public final class Announcements {
 
         Optional<String> name(String channelId);
 
-        void send(String channelId, String text) throws InterruptedException, ExecutionException, TimeoutException;
-
         void send(String channelId, MessageCreateData message)
                 throws InterruptedException, ExecutionException, TimeoutException;
 
@@ -167,16 +172,6 @@ public final class Announcements {
                 public Optional<String> name(final String channelId) {
                     return Optional.ofNullable(jda.getChannelById(MessageChannel.class, channelId))
                             .map(MessageChannel::getName);
-                }
-
-                @Override
-                public void send(final String channelId, final String text)
-                        throws InterruptedException, ExecutionException, TimeoutException {
-                    final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
-                    if (channel == null) {
-                        throw new ExecutionException(new IllegalStateException("channel " + channelId + " is gone"));
-                    }
-                    channel.sendMessage(text).submit().get(POST_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
                 }
 
                 @Override

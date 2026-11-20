@@ -30,6 +30,7 @@ class AnnouncementsTest {
     record Line(String level, String text) {}
 
     private final List<Line> logged = new ArrayList<>();
+    private final List<MessageCreateData> messages = new ArrayList<>();
     private final List<String> sent = new ArrayList<>();
 
     private final Logger log = (Logger) Proxy.newProxyInstance(
@@ -55,12 +56,8 @@ class AnnouncementsTest {
         }
 
         @Override
-        public void send(final String channelId, final String text) {
-            sent.add(channelId + ": " + text);
-        }
-
-        @Override
         public void send(final String channelId, final MessageCreateData message) {
+            messages.add(message);
             sent.add(channelId + ": " + message.getContent());
         }
     };
@@ -90,6 +87,13 @@ class AnnouncementsTest {
         assertEquals(2, info.size(), () -> "logged: " + logged);
         assertTrue(info.get(0).contains("language=en channel=111 channel_name=\"announcements\""), info.get(0));
         assertTrue(info.get(1).contains("language=de channel=222 channel_name=\"ankuendigungen\""), info.get(1));
+    }
+
+    @Test
+    void announcementsFromTheInboxSuppressAllMentions() {
+        assertTrue(post("en", BotRequest.Announce.words(Map.of("en", "Server announcement"))));
+        assertEquals(1, messages.size());
+        assertTrue(messages.getFirst().getAllowedMentions().isEmpty());
     }
 
     @Test

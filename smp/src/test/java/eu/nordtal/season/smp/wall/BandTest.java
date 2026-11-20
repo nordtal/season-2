@@ -16,25 +16,39 @@ class BandTest {
     @Test
     void onTheWallsGroundTheBandStandsWhereItStoodBefore() {
         assertEquals(Band.base(64), Band.foot(64, 64));
-        assertEquals(Band.base(64) + Look.FIELD.height(), Band.head(64, 64, Look.FIELD));
+        assertEquals(Band.base(64) + Look.FIELD.height(), Band.head(64, Look.FIELD));
     }
 
     @Test
     void highAboveTheWallTheBandReachesFromItsGroundToAboveTheFeet() {
         assertEquals(61, Band.foot(64, 144));
-        assertEquals(151, Band.head(64, 144, Look.FIELD));
+        assertEquals(151, Band.head(144, Look.FIELD));
     }
 
     @Test
     void onHighGroundBesideTheWallTheBandStillReachesDownToTheWallsGround() {
         assertEquals(61, Band.foot(64, 90));
-        assertEquals(97, Band.head(64, 90, Look.FIELD));
+        assertEquals(97, Band.head(90, Look.FIELD));
     }
 
     @Test
     void withoutItsGroundThePanelFollowsTheFeet() {
         assertEquals(141, Band.foot(Band.UNKNOWN, 144));
-        assertEquals(151, Band.head(Band.UNKNOWN, 144, Look.FIELD));
+    }
+
+    @Test
+    void inACaveBelowTheWallsGroundTheBandStaysAtTheFeet() {
+        final Band.Range need = Band.need(List.of(new Band.Seen("border/field", 64)), 30 + Band.EYE, Look.FIELD);
+
+        assertEquals(Band.foot(Band.UNKNOWN, 30 - Band.CAMERA), need.bottom(), 1e-9);
+        assertEquals(Band.head(30 + Band.CAMERA, Look.FIELD), need.top(), 1e-9);
+    }
+
+    @Test
+    void theEntitiesStandAboveTheWorldsBlocksAndAreDrawnFromItsBottom() {
+        assertTrue(Band.anchor(320) >= 321);
+        final double farthest = Math.hypot(Band.anchor(320) + 64 + Band.CAMERA, Band.fadeEnd(500) + 8);
+        assertTrue(Band.viewRange(-64, 320) * 64 * 0.5 >= farthest);
     }
 
     @Test

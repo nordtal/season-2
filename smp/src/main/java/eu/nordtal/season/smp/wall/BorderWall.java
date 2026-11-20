@@ -9,6 +9,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -160,7 +161,7 @@ public final class BorderWall implements Listener {
         packets.remove(id, viewer.forget(change.removed()));
         change.remodelled().forEach((panel, after) -> packets.remodel(id, viewer.remodel(panel, after), after));
         if (look == Look.FIELD) {
-            showField(id, viewer, change, Band.need(seen.values(), eye, look), at.getY());
+            showField(id, viewer, change, Band.need(seen.values(), eye, look), at.getWorld());
         } else {
             showPixel(id, viewer, change, Band.base(at.getY()));
         }
@@ -168,19 +169,19 @@ public final class BorderWall implements Listener {
 
     /** Stretches the field's panels over the heights they must cover, and spawns the new ones. */
     private void showField(
-            final UUID id, final Viewer viewer, final Band.Change change, final Band.Range need, final double feetY) {
+            final UUID id, final Viewer viewer, final Band.Change change, final Band.Range need, final World world) {
         final Band.Range before = viewer.range();
         final Band.Range range = Band.fit(before == null ? need : before, need);
         if (!range.equals(before)) {
             viewer.reshape(range);
             viewer.shown().forEach((panel, shown) -> packets.reshape(id, shown.id(), shown.y(), range));
         }
+        final double y = Band.anchor(world.getMaxHeight());
+        final float viewRange = Band.viewRange(world.getMinHeight(), world.getMaxHeight());
         change.added().forEach((panel, seen) -> {
             final int entity = packets.newId();
-            // The entity stands on the ground, so the client counts its distance from there.
-            final double y = seen.ground() == Band.UNKNOWN ? Math.floor(feetY) : seen.ground();
             viewer.add(panel, entity, y, seen);
-            packets.spawnField(id, entity, panel, y, range, seen);
+            packets.spawnField(id, entity, panel, y, viewRange, range, seen);
         });
     }
 

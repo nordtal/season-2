@@ -45,7 +45,7 @@ layout(location = 0) out vec4 fragColor;
 const vec3 WALL_MARKER = vec3(74.0, 99.0, 217.0) / 255.0;
 
 const float WALL_EYE = 1.62;        // blocks from the feet up to the camera, for a player standing
-const float WALL_ABOVE = 7.0;       // blocks: the band's upper end above the feet, or above the ground when that is higher
+const float WALL_ABOVE = 7.0;       // blocks: the band's upper end above the feet
 const float WALL_BELOW = 3.0;       // and its lower end below the ground, or below the feet when they are lower
 const float WALL_ROOM = 2.0;        // blocks at the band's upper end where only the flakes are, above the wall
 const float WALL_TOP = 5.0;         // blocks over which the wall fades in below its upper end
@@ -360,7 +360,8 @@ vec4 wallField(vec4 coord, vec3 view, float fromTop, float fromBottom, float fad
 }
 
 // The band, cut out of the panel by world height: it reaches from 3 blocks below the ground under
-// the panel to 7 above the feet, so a player high up sees the wall stand on the ground. Its lower
+// the panel, or below the feet when they are lower, to 7 above the feet, so a player high up sees
+// the wall stand on the ground, and a ground above the feet, as over a cave, changes nothing. Its lower
 // part lies below the camera, and there the wall reaches farther along its length, the farther
 // below the more, so from the air it reads as a line along the ground. The camera is at the height
 // coord.y - view.y, and the feet WALL_EYE below it; without a ground the band follows the feet.
@@ -369,7 +370,7 @@ vec4 wallBand(vec4 coord, vec3 view, float ground, float gameTime) {
     float camera = coord.y - view.y;
     float feet = camera - WALL_EYE;
     float under = ground > -100000.0 ? ground : feet;
-    float fromTop = max(under, feet) + WALL_ABOVE - coord.y;
+    float fromTop = feet + WALL_ABOVE - coord.y;
     float fromBottom = coord.y - (min(under, feet) - WALL_BELOW);
     float fadeEnd = WALL_FADE_END + WALL_SLOPE * clamp(camera - coord.y - WALL_LEVEL, 0.0, WALL_DEPTH);
     if (fromTop < 0.0 || fromBottom < 0.0 || length(coord.zw) > fadeEnd) {

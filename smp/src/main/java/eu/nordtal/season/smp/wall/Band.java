@@ -9,8 +9,8 @@ import java.util.function.ToIntFunction;
 
 /**
  * The part of the wall a player sees: the panels near them, from below their feet to above their head.
- * The field reaches from the ground under each panel up to above the feet, so a player high up sees the wall
- * stand on the ground; the pack's item shader cuts that band out of the panels with these same numbers.
+ * The field reaches down to the ground under each panel when the feet are above it, so a player high up sees the
+ * wall stand on the ground; the pack's item shader cuts that band out of the panels with these same numbers.
  */
 final class Band {
 
@@ -50,6 +50,9 @@ final class Band {
 
     /** The panels are shrunk once either end has this much more room than it needs, in blocks. */
     static final double SPARE = 64;
+
+    /** How far above the world's highest block the field's entities stand, where the client skips its section check. */
+    static final double OVER = 16;
 
     /** A panel whose ground is not known: its chunk is not loaded. The shader then follows the feet. */
     static final int UNKNOWN = Integer.MIN_VALUE;
@@ -110,9 +113,9 @@ final class Band {
         return (ground == UNKNOWN ? feetY : Math.min(ground, feetY)) - BELOW;
     }
 
-    /** The band's upper end over this ground for feet at {@code feetY}. */
-    static double head(final int ground, final double feetY, final Look look) {
-        return (ground == UNKNOWN ? feetY : Math.max(ground, feetY)) - BELOW + look.height();
+    /** The band's upper end for feet at {@code feetY}: a ground above them, as over a cave, does not raise it. */
+    static double head(final double feetY, final Look look) {
+        return feetY - BELOW + look.height();
     }
 
     /** The heights the panels must cover for a player whose eye is at {@code eyeY}, wherever the camera is. */
@@ -120,12 +123,10 @@ final class Band {
         final double low = eyeY - CAMERA - EYE;
         final double high = eyeY + CAMERA - EYE;
         double bottom = foot(UNKNOWN, low);
-        double top = head(UNKNOWN, high, look);
         for (final Seen panel : seen) {
             bottom = Math.min(bottom, foot(panel.ground(), low));
-            top = Math.max(top, head(panel.ground(), high, look));
         }
-        return new Range(bottom, top);
+        return new Range(bottom, head(high, look));
     }
 
     /** The heights the panels cover: {@code current} while it fits {@code need}, else {@code need} with room. */
@@ -183,6 +184,23 @@ final class Band {
 
     /** A panel as the player sees it: its item model, in the namespace {@code nordtal}, and the ground under it. */
     record Seen(String model, int ground) {}
+
+    /**
+     * The height the field's entities stand at in a world whose blocks end below {@code maxHeight}.
+     *
+     * The client draws an entity in the world's blocks only once their section is built, which takes a look.
+     */
+    static double anchor(final int maxHeight) {
+        return maxHeight + OVER;
+    }
+
+    /** The view range that reaches from the anchor to the farthest camera below it, at the lowest entity distance. */
+    static float viewRange(final int minHeight, final int maxHeight) {
+        final double down = anchor(maxHeight) - minHeight + CAMERA;
+        final double along = fadeEnd(DEPTH + LEVEL) + CAMERA + LEAD;
+        // The client draws an entity up to its view range times 64 blocks, times the entity distance of at least half.
+        return (float) Math.ceil(Math.hypot(down, along) / 32);
+    }
 
     /** The heights from {@code bottom} to {@code top} that the field's panels cover, in blocks. */
     record Range(double bottom, double top) {}

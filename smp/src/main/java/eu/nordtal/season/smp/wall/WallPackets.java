@@ -45,13 +45,6 @@ final class WallPackets {
     /** The ticks a pixel panel takes to follow the player up or down. */
     private static final int FOLLOW_TICKS = 3;
 
-    /**
-     * How far a field panel is drawn, in steps of 64 blocks from its entity.
-     *
-     * Far enough for a player high above the wall at the farthest the field reaches.
-     */
-    private static final float FIELD_VIEW_RANGE = 8;
-
     private final Map<Band.Seen, ItemStack> items = new HashMap<>();
 
     int newId() {
@@ -80,7 +73,7 @@ final class WallPackets {
     }
 
     /**
-     * Spawns a field panel whose entity stands at {@code y} and whose face covers {@code range}.
+     * Spawns a field panel whose entity stands at {@code y}, drawn within {@code viewRange}, covering {@code range}.
      *
      * The entity never moves: a reshape changes only its transformation, which the client applies at once.
      */
@@ -89,6 +82,7 @@ final class WallPackets {
             final int id,
             final Panel panel,
             final double y,
+            final float viewRange,
             final Band.Range range,
             final Band.Seen seen) {
         spawnEntity(viewer, id, panel, y);
@@ -100,7 +94,7 @@ final class WallPackets {
                                 new EntityData<>(TRANSLATION, EntityDataTypes.VECTOR3F, translation(y, range)),
                                 new EntityData<>(SCALE, EntityDataTypes.VECTOR3F, scale(range)),
                                 new EntityData<>(BRIGHTNESS, EntityDataTypes.INT, FULL_BRIGHT),
-                                new EntityData<>(VIEW_RANGE, EntityDataTypes.FLOAT, FIELD_VIEW_RANGE),
+                                new EntityData<>(VIEW_RANGE, EntityDataTypes.FLOAT, viewRange),
                                 new EntityData<>(SHADOW_RADIUS, EntityDataTypes.FLOAT, 0f),
                                 // A box of no height is never culled: the shader decides what shows.
                                 new EntityData<>(HEIGHT, EntityDataTypes.FLOAT, 0f),

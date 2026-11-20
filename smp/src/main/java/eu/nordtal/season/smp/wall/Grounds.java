@@ -8,7 +8,7 @@ import org.bukkit.World;
 /** The ground under each panel, read from the world on both sides of the edge and kept for a few seconds. */
 final class Grounds {
 
-    /** How long a read ground is used before it is read again, in milliseconds. */
+    /** How long a known ground is used before it is read again, in milliseconds; an unknown one is read each time. */
     static final long FRESH = 5000;
 
     private final Map<String, Map<Panel, Read>> worlds = new HashMap<>();
@@ -21,7 +21,9 @@ final class Grounds {
             return before.ground();
         }
         final int ground = read(world, panel);
-        reads.put(panel, new Read(ground, now));
+        if (ground != Band.UNKNOWN) {
+            reads.put(panel, new Read(ground, now));
+        }
         return ground;
     }
 

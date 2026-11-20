@@ -6,6 +6,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import eu.nordtal.season.common.time.ProcessScheduler;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.notify.Channel;
@@ -160,6 +161,11 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Nullable
     Wheel wheel;
+
+    final ProcessScheduler itemWork = new ProcessScheduler(
+            "smp-items",
+            failure ->
+                    getLogger().log(java.util.logging.Level.WARNING, "item task failed: plugin=" + getName(), failure));
 
     @Nullable
     NpcDialogues npcDialogues;
@@ -458,6 +464,7 @@ public final class SmpPlugin extends NordtalPlugin {
         if (turning != null) {
             quietly("wheel.stop", turning::stop);
         }
+        quietly("itemWork.close", itemWork::close);
         final Duels running = duels;
         if (running != null) {
             quietly("duels.stop", running::stop);

@@ -28,8 +28,8 @@ class WheelTextTest {
     @Test
     void theWheelNamesItsPrizeInTheClientsOwnLanguage() {
         for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            final Component rendered =
-                    RENDERER.format(locale, Wheel.WON.with(new Wheel.Won(3, GameContent.of("block.minecraft.stone"))));
+            final Component rendered = RENDERER.format(
+                    locale, ItemHandout.WON.with(new ItemHandout.Won(3, GameContent.of("block.minecraft.stone"))));
             final List<Component> parts = new ArrayList<>();
             flatten(rendered, parts);
             assertTrue(
@@ -47,7 +47,8 @@ class WheelTextTest {
             final String line = PlainTextComponentSerializer.plainText()
                     .serialize(RENDERER.format(
                             locale,
-                            Wheel.WON.with(new Wheel.Won(1, Wheel.named(name, null, "item.minecraft.diamond_sword")))));
+                            ItemHandout.WON.with(new ItemHandout.Won(
+                                    1, ItemHandout.named(name, null, "item.minecraft.diamond_sword")))));
             assertTrue(line.contains("1 × Old Faithful"), locale + ": the custom name is missing in " + line);
             assertFalse(line.contains("Diamond Sword"), locale + ": the material is named in " + line);
         }
@@ -57,14 +58,14 @@ class WheelTextTest {
     void aWonItemWithoutACustomNameKeepsItsMaterialsName() {
         assertEquals(
                 GameContent.of("item.minecraft.diamond_sword"),
-                Wheel.named(null, null, "item.minecraft.diamond_sword"));
+                ItemHandout.named(null, null, "item.minecraft.diamond_sword"));
     }
 
     @Test
     void aCustomNameComesBeforeAnItemNameOfItsOwn() {
         assertEquals(
                 GameLines.of(Component.text("Old Faithful")),
-                Wheel.named(
+                ItemHandout.named(
                         Component.text("Old Faithful"), Component.text("Ruby Blade"), "item.minecraft.diamond_sword"));
     }
 
@@ -72,7 +73,7 @@ class WheelTextTest {
     void anItemNameOfItsOwnComesBeforeTheMaterialsName() {
         assertEquals(
                 GameLines.of(Component.text("Ruby Blade")),
-                Wheel.named(null, Component.text("Ruby Blade"), "item.minecraft.diamond_sword"));
+                ItemHandout.named(null, Component.text("Ruby Blade"), "item.minecraft.diamond_sword"));
     }
 
     @Test

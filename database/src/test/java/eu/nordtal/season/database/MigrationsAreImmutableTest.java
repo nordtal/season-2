@@ -387,6 +387,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V134__the_spawn_station_stands_on_the_station_called_spawn.sql",
                 "246cf7fcea4b20d85ae494efaab9fb4213c256068ba012383fdad5fd844e7ce3");
+        FROZEN.put(
+                "V135__smp_holds_items_until_players_join.sql",
+                "0b8d4ee4a8dfb674b0ea9af8327939c50765a2adedf2407583a202af2ec897c4");
     }
 
     @Test

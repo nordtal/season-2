@@ -51,6 +51,8 @@ import eu.nordtal.season.smp.wall.BorderWall;
 import eu.nordtal.season.smp.welcome.SeasonWelcome;
 import eu.nordtal.season.smp.welcome.WelcomeDao;
 import eu.nordtal.season.smp.wheel.ExtraSpins;
+import eu.nordtal.season.smp.wheel.ItemHandout;
+import eu.nordtal.season.smp.wheel.PendingItems;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.wheel.WheelListener;
@@ -185,9 +187,18 @@ final class SmpStart {
         // Built per death, so a saved penalty applies to the next one.
         final Supplier<DeathPenalty> penalty = () -> new DeathPenalty(
                 deaths.deathPenalty(), deaths.deathPenaltyListed(), java.util.Set.copyOf(deaths.deathCausesListed()));
+        final ItemHandout handout = new ItemHandout(
+                plugin,
+                plugin.jdbi().onDemand(PendingItems.class),
+                plugin.identities(),
+                plugin.renderer(),
+                plugin.itemWork);
+        plugin.getServer().getPluginManager().registerEvents(handout, plugin);
         final Wheel wheel = new Wheel(
                 plugin,
                 plugin.jdbi().onDemand(SpinDao.class),
+                handout,
+                plugin.itemWork,
                 plugin.wheelSettings.get(),
                 plugin.identities(),
                 plugin.renderer(),

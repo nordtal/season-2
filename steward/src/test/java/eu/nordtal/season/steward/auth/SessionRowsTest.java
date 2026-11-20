@@ -16,7 +16,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/** Tests the three one-time values of {@code steward_session} against PostgreSQL. */
+/** Tests the one-time values of {@code steward_session} against PostgreSQL. */
 class SessionRowsTest {
 
     private static Sessions sessions;
@@ -38,16 +38,6 @@ class SessionRowsTest {
         assertEquals(id, sessions.find(id).orElseThrow().id(), "the session is answered under the cookie's id");
     }
 
-    @Test
-    void aStartedSignInLivesForMinutesNotForTheSessionsLifetime() throws Exception {
-        final String id = sessions.begin("a-state");
-
-        assertEquals(
-                1,
-                count("SELECT count(*) FROM steward_session WHERE id = '" + Sessions.stored(id)
-                        + "' AND expires_at - created_at <= interval '10 minutes'"));
-    }
-
     private static long count(final String sql) throws Exception {
         try (var connection = source.getConnection();
                 var statement = connection.createStatement();
@@ -55,15 +45,6 @@ class SessionRowsTest {
             row.next();
             return row.getLong(1);
         }
-    }
-
-    @Test
-    void consumingAStateAnswersWithTheOldValue() {
-        final String id = sessions.begin("the-state");
-
-        // A plain `RETURNING x` after `SET x = NULL` returns the new, empty value.
-        assertEquals(Optional.of("the-state"), sessions.consumeState(id));
-        assertEquals(Optional.empty(), sessions.consumeState(id), "it was readable twice");
     }
 
     @Test

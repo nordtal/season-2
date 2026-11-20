@@ -143,22 +143,35 @@ class SignInAndSessionTest extends WebTestSupport {
     }
 
     @Test
-    void excessAnonymousSignInsDoNotCreateSessions() throws Exception {
-        restartTheInterface();
-        try {
-            final HttpClient stranger = browser();
-            final long before = count("SELECT count(*) FROM steward_session");
-            for (int attempt = 0; attempt < 60; attempt++) {
-                assertEquals(302, get(stranger, "/auth/login").statusCode());
-            }
+    void anonymousSignInStartsWriteNoSessionRows() throws Exception {
+        final HttpClient stranger = browser();
+        final long before = count("SELECT count(*) FROM steward_session");
 
-            final HttpResponse<String> refused = get(stranger, "/auth/login");
-            assertEquals(429, refused.statusCode());
-            assertTrue(refused.headers().firstValue("Retry-After").isPresent());
-            assertEquals(before + 60, count("SELECT count(*) FROM steward_session"));
-        } finally {
-            restartTheInterface();
+        for (int attempt = 0; attempt < 100; attempt++) {
+            assertEquals(302, get(stranger, "/auth/login").statusCode());
         }
+
+        assertEquals(before, count("SELECT count(*) FROM steward_session"));
+    }
+
+    @Test
+    void aStateIsUsedOnceEvenWhenItsCallbackIsRefused() throws Exception {
+        memberId.set("880000000000000001");
+        memberNick.set("Stranger");
+        final HttpClient browser = browser();
+        final String state = stateFrom(get(browser, "/auth/login"));
+        try {
+            assertEquals(
+                    403,
+                    get(browser, "/auth/callback?code=the-code&state=" + state).statusCode());
+        } finally {
+            memberId.set("1");
+            memberNick.set("Ally");
+        }
+
+        final HttpResponse<String> again = get(browser, "/auth/callback?code=the-code&state=" + state);
+
+        assertEquals(400, again.statusCode(), again.body());
     }
 
     @Test

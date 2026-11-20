@@ -295,7 +295,7 @@ public final class Web {
         this.adminApi = new AdminApi(admins, ctx -> account(ctx).orElseThrow());
         this.packExemptionApi = new PackExemptionApi(
                 PackExemptions.using(data.dataSource()), ctx -> account(ctx).orElseThrow());
-        this.authFlow = new AuthFlow(config, discord, data, this.sessions, admins, clock);
+        this.authFlow = new AuthFlow(config, discord, data, this.sessions, admins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow(), secondFactor::requireStepUp);
         this.pack = new PackApi(PackBuildStore.using(data.dataSource()));
         this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow(), stack::online, clock);

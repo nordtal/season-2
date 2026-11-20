@@ -99,6 +99,7 @@ public final class StewardWire {
             NpcApi.NpcPublication.class,
             NpcApi.NpcVersion.class,
             NpcApi.NpcSkinUploaded.class,
+            NpcApi.NpcArtworkUploaded.class,
             NpcApi.NpcSkinCopy.class,
             NpcApi.NpcPreview.class,
             NpcTextMeasure.Request.class,

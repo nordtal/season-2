@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.npc.Dialogue.Answer;
@@ -145,6 +146,36 @@ class NpcStoreIntegrationTest {
                 NpcSkin.SkinModel.SLIM,
                 store.npc(smith("Hi").id()).orElseThrow().skinModel());
         assertEquals(Map.of(smith("Hi").id(), uploaded), store.skins());
+    }
+
+    @Test
+    void anNpcKeepsItsPlateAndArtworkAndSmpReadsThemBack() {
+        final TestDatabase database = TestDatabase.fresh();
+        final NpcStore store = NpcStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final NpcArtwork artwork = new NpcArtwork(UUID.fromString("00000000-0000-0000-0000-0000000000cc"), "cG5n");
+        store.upload(artwork, ADMIN);
+        final Npc.Plate plate = new Npc.Plate(Npc.PlateStyle.RIBBON, Npc.PlateColour.TEAL, Npc.PlateIcon.HAND_IN);
+        store.save(smith("Hi").withLook(plate, artwork.id()), ADMIN);
+
+        final Npc read = NpcStore.using(database.dataSourceAs(DatabaseRole.SMP))
+                .npc(smith("Hi").id())
+                .orElseThrow();
+        assertEquals(plate, read.plate());
+        assertEquals(artwork.id(), read.artwork());
+        assertEquals(artwork, store.artwork(artwork.id()).orElseThrow());
+        assertEquals(Map.of(smith("Hi").id(), artwork), store.artworks());
+        assertEquals(read, store.versions(read.id()).getFirst().npc(), "the version keeps the plate and artwork");
+    }
+
+    @Test
+    void anNpcSavedBeforePlatesHasTheBluePillWithoutArtwork() {
+        final String plate = ",\"plate\":{\"style\":\"PILL\",\"colour\":\"BLUE\"}";
+        final String now = Json.encode(smith("Hi"));
+        assertTrue(now.contains(plate), now);
+        final Npc old = Json.decode(now.replace(plate, ""), Npc.class);
+        assertEquals(Npc.Plate.DEFAULT, old.plate());
+        assertNull(old.artwork());
+        assertEquals(smith("Hi"), old);
     }
 
     @Test

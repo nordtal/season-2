@@ -54,6 +54,7 @@ class JournaledRoutesTest extends WebFixture {
             Map.entry("POST /api/document-preview", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/npc-preview", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/npc-text/measure", Unjournaled.SHOWN_TO_ONESELF),
+            Map.entry("POST /api/npc-artworks", Unjournaled.SHOWN_ONCE_SAVED),
             Map.entry("POST /api/npc-skins", Unjournaled.SHOWN_ONCE_SAVED),
             Map.entry("POST /api/npc-skins/copy", Unjournaled.SHOWN_ONCE_SAVED),
             Map.entry("POST /api/documents/render", Unjournaled.SHOWN_TO_ONESELF),

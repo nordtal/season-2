@@ -8,13 +8,16 @@ import {
   type Npc,
   type NpcPlace,
   type NpcSkinUploaded,
+  type PlateColour,
+  type PlateIcon,
+  type PlateStyle,
   type Pose,
   type Slot,
 } from "@/lib/api"
 import { type Language, LONGEST_NAME } from "@/lib/npc"
 import { NPC_PAGE } from "@/lib/npc-paths"
-import { SKIN_SIDE, readSkin } from "@/lib/npc-skin"
-import { measureKey, useCopySkin, useUploadSkin } from "@/lib/queries-npcs"
+import { ARTWORK, SKIN_SIDE, readPicture, readSkin } from "@/lib/npc-skin"
+import { artworkAddress, measureKey, useCopySkin, useUploadArtwork, useUploadSkin } from "@/lib/queries-npcs"
 import { useGameData } from "@/lib/queries-settings"
 import { gameKey, nameOfId } from "@/lib/references"
 import { choice, t } from "@/lib/texts"
@@ -24,7 +27,7 @@ import { TakeInButton } from "@/components/steward/game-groups/take-in"
 import { FixedPlace } from "@/components/steward/game-groups/places"
 import { SettingsService } from "@/components/steward/reference-picker"
 import { German, germanKey } from "@/components/steward/npc/german"
-import { FigureCard } from "@/components/steward/npc/preview"
+import { FigureCard, PLATE_RGB, PlateSketch } from "@/components/steward/npc/preview"
 import { Heading, Room, useKept, type Measured } from "@/components/steward/npc/step-panel"
 import { Hint } from "@/components/steward/status"
 import { Button } from "@/components/ui/button"
@@ -32,7 +35,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-/** Everything of an NPC but its dialogue: its name, how it stands and sounds, where it stands, what it wears and its skin. */
+/**
+ * Everything of an NPC but its dialogue: its name and plate, how it stands and sounds, where it stands, what it wears,
+ * its skin and its portrait.
+ */
 
 type Edit = (change: (npc: Npc) => Npc) => void
 
@@ -348,6 +354,247 @@ function Skin({ npc, published, edit }: { npc: Npc; published: Npc | undefined; 
   )
 }
 
+const STYLES: readonly PlateStyle[] = ["PILL", "DARK", "RIBBON", "BADGE"]
+const ICONS: readonly PlateIcon[] = [
+  "STAR",
+  "PIN",
+  "RAIL",
+  "MEDAL",
+  "FLAG",
+  "WHEEL",
+  "SWORDS",
+  "SHIELD",
+  "HAND_IN",
+  "CHEST",
+  "EYE",
+  "PICKAXE",
+  "BOX",
+  "HEART",
+]
+const PLATE_COLOURS: readonly PlateColour[] = ["BLUE", "RED", "AMBER", "GREEN", "TEAL", "VIOLET", "ROSE", "SLATE"]
+const NO_ICON = "none"
+
+/** The NPC's name plate: its style, its colour and the symbol before its name. */
+/** How far each arrow key moves the chosen colour. */
+const ARROW_STEPS: Partial<Record<string, number>> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
+
+function Plate({ npc, edit }: { npc: Npc; edit: Edit }) {
+  const style = useId()
+  const icon = useId()
+  const colour = useId()
+  const swatches = useRef(new Map<PlateColour, HTMLButtonElement>())
+  const plate = (change: Partial<Npc["plate"]>) => edit((draft) => ({ ...draft, plate: { ...draft.plate, ...change } }))
+  return (
+    <section className="flex flex-col gap-3">
+      <Heading>{t("steward.npcs.plate")}</Heading>
+      <div className="flex h-16 items-center justify-center overflow-hidden rounded-lg bg-muted px-4">
+        <PlateSketch npc={npc} />
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field id={style} label={t("steward.npcs.plate-style")}>
+          <Select
+            value={npc.plate.style}
+            onValueChange={(value) => plate({ style: STYLES.find((each) => each === value) ?? npc.plate.style })}
+          >
+            <SelectTrigger id={style} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STYLES.map((each) => (
+                <SelectItem key={each} value={each}>
+                  {t("steward.npcs.plate-style-of", { style: choice(each) })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field id={icon} label={t("steward.npcs.plate-icon")}>
+          <Select
+            value={npc.plate.icon ?? NO_ICON}
+            onValueChange={(value) => {
+              const picked = ICONS.find((each) => each === value)
+              edit((draft) => {
+                const { icon: _icon, ...rest } = draft.plate
+                return { ...draft, plate: picked === undefined ? rest : { ...rest, icon: picked } }
+              })
+            }}
+          >
+            <SelectTrigger id={icon} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_ICON}>{t("steward.npcs.no-icon")}</SelectItem>
+              {ICONS.map((each) => (
+                <SelectItem key={each} value={each}>
+                  {t("steward.npcs.plate-icon-of", { icon: choice(each) })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+      <div
+        role="radiogroup"
+        aria-labelledby={colour}
+        className="flex flex-col gap-1.5"
+        onKeyDown={(event) => {
+          // One tab stop for the group; the arrow keys choose the next or previous colour, as a radio group does.
+          const step = ARROW_STEPS[event.key]
+          if (step === undefined) return
+          event.preventDefault()
+          const at = PLATE_COLOURS.indexOf(npc.plate.colour)
+          const next = PLATE_COLOURS[(at + step + PLATE_COLOURS.length) % PLATE_COLOURS.length]
+          if (next === undefined) return
+          plate({ colour: next })
+          swatches.current.get(next)?.focus()
+        }}
+      >
+        <span id={colour} className="text-xs text-muted-foreground">
+          {t("steward.npcs.plate-colour")}
+        </span>
+        <div className="flex flex-wrap gap-1">
+          {PLATE_COLOURS.map((each) => {
+            const rgb = PLATE_RGB[each]
+            const chosen = npc.plate.colour === each
+            const label = t("steward.npcs.plate-colour-of", { colour: choice(each) })
+            return (
+              <Hint key={each} tip={label}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={chosen}
+                  aria-label={label}
+                  tabIndex={chosen ? 0 : -1}
+                  ref={(button) => {
+                    if (button === null) swatches.current.delete(each)
+                    else swatches.current.set(each, button)
+                  }}
+                  className="tap-target flex size-8 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+                  onClick={() => plate({ colour: each })}
+                >
+                  <span
+                    className={`size-6 rounded-full ${chosen ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" : ""}`}
+                    style={{ background: rgb }}
+                  />
+                </button>
+              </Hint>
+            )
+          })}
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">{t("steward.npcs.plate-note")}</p>
+    </section>
+  )
+}
+
+/** The NPC's portrait in the dialogue: the skin's face, or a picture of its own. */
+function Portrait({ npc, published, edit }: { npc: Npc; published: Npc | undefined; edit: Edit }) {
+  const upload = useUploadArtwork()
+  const file = useRef<HTMLInputElement>(null)
+  const latest = useRef(0)
+  const [small, setSmall] = useState(true)
+  const chosen = async (picked: File) => {
+    const turn = ++latest.current
+    if (picked.size > ARTWORK.bytes) {
+      toast.error(t("steward.npcs.portrait-not-saved"), { description: t("steward.npcs.portrait-too-big") })
+      return
+    }
+    let read
+    try {
+      read = await readPicture(picked)
+    } catch {
+      if (turn !== latest.current) return
+      toast.error(t("steward.npcs.portrait-not-saved"), { description: t("steward.npcs.skin-unreadable") })
+      return
+    }
+    // A file chosen after this one takes its place.
+    if (turn !== latest.current) return
+    if (read.width !== read.height || read.width < ARTWORK.smallest || read.width > ARTWORK.largest) {
+      toast.error(t("steward.npcs.portrait-not-saved"), {
+        description: t("steward.npcs.portrait-size", {
+          width: read.width,
+          height: read.height,
+          smallest: ARTWORK.smallest,
+          largest: ARTWORK.largest,
+        }),
+      })
+      return
+    }
+    // The promise, not the hook's callbacks, takes the answer: it arrives even after the admin left this tab.
+    upload
+      .mutateAsync(new Blob([picked], { type: "image/png" }))
+      .then((artwork) => edit((draft) => ({ ...draft, artwork: artwork.id })), refused)
+  }
+  return (
+    <section className="flex flex-col gap-3">
+      <Heading>{t("steward.npcs.portrait")}</Heading>
+      <div className="flex items-start gap-4">
+        {npc.artwork === undefined ? null : (
+          <img
+            src={artworkAddress(npc.artwork)}
+            alt=""
+            width={80}
+            height={80}
+            className="size-20 shrink-0 rounded-lg bg-card"
+            // Small pictures keep their pixels; larger ones are smoothed, closer to the pack's box average.
+            style={{ imageRendering: small ? "pixelated" : "auto" }}
+            onLoad={(event) => setSmall(event.currentTarget.naturalWidth <= 80)}
+          />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <p className="text-sm">
+            {npc.artwork === undefined ? t("steward.npcs.skin-portrait") : t("steward.npcs.own-portrait")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={file}
+              type="file"
+              accept="image/png"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden
+              onChange={(event) => {
+                const picked = event.target.files?.[0]
+                event.target.value = ""
+                if (picked) void chosen(picked)
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="max-sm:w-full"
+              disabled={upload.isPending}
+              onClick={() => file.current?.click()}
+            >
+              <UploadSimpleIcon aria-hidden />
+              {t("steward.npcs.upload-portrait")}
+            </Button>
+            {npc.artwork === undefined ? null : (
+              <Button
+                type="button"
+                variant="ghost"
+                className="max-sm:w-full"
+                disabled={upload.isPending}
+                onClick={() =>
+                  edit((draft) => {
+                    const { artwork: _artwork, ...rest } = draft
+                    return rest
+                  })
+                }
+              >
+                {t("steward.npcs.use-skin-portrait")}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+      {npc.artwork !== undefined && npc.artwork !== published?.artwork ? (
+        <p className="text-xs text-muted-foreground">{t("steward.npcs.portrait-pending")}</p>
+      ) : null}
+    </section>
+  )
+}
+
 /** The pitch as a slider, which a number beside it reads out. */
 function Pitch({ npc, edit }: { npc: Npc; edit: Edit }) {
   const id = useId()
@@ -425,10 +672,12 @@ export function NpcSettings({
             <Pitch npc={npc} edit={edit} />
           </div>
         </section>
+        <Plate npc={npc} edit={edit} />
         <Place npc={npc} edit={edit} />
       </div>
       <div className="flex min-w-0 flex-col gap-8">
         <Skin npc={npc} published={published} edit={edit} />
+        <Portrait npc={npc} published={published} edit={edit} />
         <Items npc={npc} edit={edit} />
       </div>
       {published === undefined ? null : (

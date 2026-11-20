@@ -447,6 +447,13 @@ public interface StewardTexts {
             @Name("No such skin")
             MessageRef noSkin();
 
+            @Name("Portrait picture refused")
+            MessageRef artworkRefused(
+                    @Arg("smallest") @Example("40") int smallest, @Arg("largest") @Example("1024") int largest);
+
+            @Name("No such portrait picture")
+            MessageRef noArtwork();
+
             @Name("Grant too long")
             MessageRef grantDays(@Arg("most") @Example("365") int most);
 

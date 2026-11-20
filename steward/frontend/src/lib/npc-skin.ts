@@ -33,3 +33,16 @@ export async function readSkin(file: Blob): Promise<SkinFile> {
     image.close()
   }
 }
+
+/** What Steward takes as a portrait picture: a square PNG this wide, at most this many bytes. */
+export const ARTWORK = { smallest: 40, largest: 1024, bytes: 1024 * 1024 }
+
+/** Reads an image file's size. It rejects a file the browser cannot draw. */
+export async function readPicture(file: Blob): Promise<{ width: number; height: number }> {
+  const image = await createImageBitmap(file)
+  try {
+    return { width: image.width, height: image.height }
+  } finally {
+    image.close()
+  }
+}

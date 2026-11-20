@@ -5,6 +5,7 @@ import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.npc.Dialogue;
 import eu.nordtal.season.database.npc.Npc;
+import eu.nordtal.season.database.npc.NpcArtwork;
 import eu.nordtal.season.database.npc.NpcMenu;
 import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcSkin;
@@ -39,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The API behind Steward's NPC editor: NPCs, versions, menus, the length check, skins and the preview.
+ * The API behind Steward's NPC editor: NPCs, versions, menus, the length check, skins, portraits and the preview.
  * An editor holds its draft itself; one publication writes the whole NPC as its next version, and the game follows it
  * through {@code nordtal_npc}.
  */
@@ -95,6 +96,9 @@ public final class NpcApi {
 
     /** A skin as stored: its id for the NPC's {@code skin}, its arm shape and where the editor reads its PNG. */
     public record NpcSkinUploaded(UUID id, NpcSkin.SkinModel model, String address) {}
+
+    /** A portrait picture as stored: its id for the NPC's {@code artwork} and where the editor reads its PNG. */
+    public record NpcArtworkUploaded(UUID id, String address) {}
 
     /** The account whose current skin is copied, by its name or UUID. */
     public record NpcSkinCopy(String player) {}
@@ -241,6 +245,28 @@ public final class NpcApi {
         ctx.result(Base64.getDecoder().decode(skin.png()));
     }
 
+    /** {@code POST /api/npc-artworks}: stores an uploaded square PNG as a portrait picture. */
+    public void uploadArtwork(final Context ctx) {
+        final NpcArtwork artwork;
+        try {
+            artwork = NpcArtworks.uploaded(ctx.bodyAsBytes());
+        } catch (final NpcArtworks.NotAnArtwork refused) {
+            throw new RequestRefused(
+                    400, ANSWER.artworkRefused(NpcArtworks.SMALLEST, NpcArtworks.LARGEST), "ARTWORK_REFUSED", false);
+        }
+        store.upload(artwork, accounts.apply(ctx).actor());
+        ctx.status(201).json(new NpcArtworkUploaded(artwork.id(), "/api/npc-artworks/" + artwork.id()));
+    }
+
+    /** {@code GET /api/npc-artworks/{id}}: the PNG of a portrait picture, which never changes. */
+    public void artwork(final Context ctx) {
+        final NpcArtwork artwork = store.artwork(id(ctx))
+                .orElseThrow(() -> new RequestRefused(404, ANSWER.noArtwork(), "NO_ARTWORK", false));
+        ctx.header("Cache-Control", "private, max-age=31536000, immutable");
+        ctx.contentType("image/png");
+        ctx.result(Base64.getDecoder().decode(artwork.png()));
+    }
+
     public void register(final JavalinConfig cfg) {
         cfg.routes.get("/api/npcs", this::list, Gate.KEY_HELD);
         cfg.routes.get("/api/npcs/{id}", this::read, Gate.KEY_HELD);
@@ -253,6 +279,8 @@ public final class NpcApi {
         cfg.routes.post("/api/npc-skins", this::upload, Gate.KEY_HELD, Unjournaled.SHOWN_ONCE_SAVED);
         cfg.routes.post("/api/npc-skins/copy", this::copy, Gate.KEY_HELD, Unjournaled.SHOWN_ONCE_SAVED);
         cfg.routes.get("/api/npc-skins/{id}", this::skin, Gate.KEY_HELD);
+        cfg.routes.post("/api/npc-artworks", this::uploadArtwork, Gate.KEY_HELD, Unjournaled.SHOWN_ONCE_SAVED);
+        cfg.routes.get("/api/npc-artworks/{id}", this::artwork, Gate.KEY_HELD);
     }
 
     private void stored(final Context ctx, final NpcSkin skin) {
@@ -296,6 +324,10 @@ public final class NpcApi {
         if (draft.skin() != null && skin.isEmpty()) {
             problems.add(ANSWER.noSkin());
         }
+        final UUID artwork = draft.artwork();
+        if (artwork != null && store.artwork(artwork).isEmpty()) {
+            problems.add(ANSWER.noArtwork());
+        }
         if (!problems.isEmpty()) {
             throw new RequestRefused(400, problems.getFirst(), "NPC_REFUSED", false);
         }
@@ -307,7 +339,8 @@ public final class NpcApi {
                         draft.pitch(),
                         draft.equipment(),
                         draft.dialogue())
-                .withSkin(skin.orElse(null));
+                .withSkin(skin.orElse(null))
+                .withLook(draft.plate(), artwork);
     }
 
     private static boolean readable(final Npc.Equipment item) {

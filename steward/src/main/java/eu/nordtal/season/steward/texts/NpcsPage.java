@@ -266,6 +266,64 @@ public interface NpcsPage {
     @Name("Skin waits for the pack")
     MessageRef skinPending();
 
+    @Name("Name plate")
+    MessageRef plate();
+
+    @Name("Plate style")
+    MessageRef plateStyle();
+
+    @Name("A plate style")
+    MessageRef plateStyleOf(@Arg("style") Npc.PlateStyle style);
+
+    @Name("Plate colour")
+    MessageRef plateColour();
+
+    @Name("A plate colour")
+    MessageRef plateColourOf(@Arg("colour") Npc.PlateColour colour);
+
+    @Name("Plate symbol")
+    MessageRef plateIcon();
+
+    @Name("A plate symbol")
+    MessageRef plateIconOf(@Arg("icon") Npc.PlateIcon icon);
+
+    @Name("No plate symbol")
+    MessageRef noIcon();
+
+    @Name("What the plate shows")
+    MessageRef plateNote();
+
+    @Name("Portrait")
+    MessageRef portrait();
+
+    @Name("Portrait from the skin")
+    MessageRef skinPortrait();
+
+    @Name("Portrait from a picture")
+    MessageRef ownPortrait();
+
+    @Name("Upload a portrait picture")
+    MessageRef uploadPortrait();
+
+    @Name("Use the skin's face")
+    MessageRef useSkinPortrait();
+
+    @Name("Portrait not saved, as a heading")
+    MessageRef portraitNotSaved();
+
+    @Name("Portrait of the wrong size")
+    MessageRef portraitSize(
+            @Arg("width") @Example("64") int width,
+            @Arg("height") @Example("32") int height,
+            @Arg("smallest") @Example("40") int smallest,
+            @Arg("largest") @Example("1024") int largest);
+
+    @Name("Portrait file too big")
+    MessageRef portraitTooBig();
+
+    @Name("Portrait waits for the pack")
+    MessageRef portraitPending();
+
     @Name("Delete")
     MessageRef delete();
 

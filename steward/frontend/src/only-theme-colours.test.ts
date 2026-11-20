@@ -24,7 +24,10 @@ const EXEMPT = new Map<string, string>([
   ["components/steward/message-editor/document-preview.tsx", "Discord's own surfaces in a document's preview"],
   ["components/steward/message-editor/visual-editor.tsx", "a text as the game or Discord draws it"],
   ["components/steward/message-editor/colour-menu.tsx", "a colour a person picks for a text"],
-  ["components/steward/npc/preview.tsx", "the game's dialogue panel, its sky and ground, and a figure without a skin"],
+  [
+    "components/steward/npc/preview.tsx",
+    "the game's dialogue panel and name plate, its sky and ground, and a figure without a skin",
+  ],
   ["components/steward/colour-control.tsx", "a colour a person picks, on Minecraft's chat background"],
   ["components/steward/qr-code.tsx", "a QR code, black on white in either theme as a scanner needs"],
 ])

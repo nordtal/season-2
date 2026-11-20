@@ -137,15 +137,15 @@ public final class BodyColumn {
 
     /** Returns the column, {@code width} wide, framed on {@code ground} with one text row for each 9 px of its box. */
     public Component build(final FocusRing.Ground ground) {
-        return build(ground, List.of());
+        return build(ground, Component.empty());
     }
 
-    /** As {@link #build(FocusRing.Ground)}, its ring's top row open where {@code title}'s header lies under it. */
+    /** As {@link #build(FocusRing.Ground)}, with {@code title}'s header drawn again where its cover lies on it. */
     public Component build(final FocusRing.Ground ground, final DialogTitle title) {
-        return build(ground, title.ink(PANEL_TO_CONTENT - top()));
+        return build(ground, title.ink(PANEL_TO_CONTENT - top(), TEXT_ROW));
     }
 
-    private Component build(final FocusRing.Ground ground, final List<FocusRing.Open> open) {
+    private Component build(final FocusRing.Ground ground, final Component over) {
         final Pen pen = Pen.start();
         final int shift = top() - TEXT_ROW;
         for (final Piece piece : pieces) {
@@ -154,6 +154,6 @@ public final class BodyColumn {
             piece.draw().accept(line);
             pen.moveTo(0).append(line.build(), line.width());
         }
-        return FocusRing.frame(pen.build(width), width, rows(), ground, open);
+        return FocusRing.frame(pen.build(width), width, rows(), ground, over);
     }
 }

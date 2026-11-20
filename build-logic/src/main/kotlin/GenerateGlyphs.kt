@@ -103,7 +103,9 @@ abstract class GenerateGlyphs : DefaultTask() {
                     letterSheets().forEach { sheet ->
                         val ascent = sheet.ascent - lower
                         if (ascent > sheet.height) {
-                            providers += bitmap(raise(root, sheet, ascent), ascent, ascent, sheet.chars)
+                            val source = GlyphAdvances.texture(vanilla.get().asFile, sheet.file)
+                            providers +=
+                                bitmap(raise(root, sheet.file, source, sheet.chars.size, sheet.height, ascent), ascent, ascent, sheet.chars)
                         } else {
                             providers += bitmap(sheet.file, ascent, sheet.height, sheet.chars)
                         }
@@ -112,7 +114,13 @@ abstract class GenerateGlyphs : DefaultTask() {
                 for (block in font.blocks) {
                     if (block.texture != null) {
                         val chars = block.chars ?: listOf(block.glyphs.joinToString("") { Character.toString(it.codePoint) })
-                        providers += bitmap(block.texture, block.ascent!! - lower, block.height!!, chars)
+                        val ascent = block.ascent!! - lower
+                        if (ascent > block.height!!) {
+                            val source = GlyphAdvances.texture(assets.get().asFile, block.texture)
+                            providers += bitmap(raise(root, block.texture, source, chars.size, block.height, ascent), ascent, ascent, chars)
+                        } else {
+                            providers += bitmap(block.texture, ascent, block.height, chars)
+                        }
                     } else {
                         block.glyphs.forEach {
                             providers += bitmap(it.texture, it.ascent - lower, it.height, listOf(Character.toString(it.codePoint)))
@@ -129,24 +137,27 @@ abstract class GenerateGlyphs : DefaultTask() {
     }
 
     /**
-     * Writes the copy of [sheet] whose cells are [height] rows tall into the generated pack, once per sheet and height,
-     * and returns its id. The client refuses a bitmap whose ascent is greater than its height.
+     * Writes the copy of the sheet [texture], read from [source], whose [rows] cell rows of [cellHeight] are [height]
+     * rows tall into the generated pack, once per sheet and height, and returns its id. The client refuses a bitmap
+     * whose ascent is greater than its height.
      */
     private fun raise(
         root: File,
-        sheet: LetterSheet,
+        texture: String,
+        source: File,
+        rows: Int,
+        cellHeight: Int,
         height: Int,
     ): String {
-        val id = RaisedSheet.id(sheet.file, height)
+        val id = RaisedSheet.id(texture, height)
         val file = GlyphAdvances.texture(root.resolve("assets"), id)
         if (file.isFile) return id
-        val source = GlyphAdvances.texture(vanilla.get().asFile, sheet.file)
         val image = ImageIO.read(source) ?: throw GradleException("$source is not an image ImageIO can read")
         val padded =
             try {
-                RaisedSheet.pad(image, sheet.chars.size, sheet.height, height)
+                RaisedSheet.pad(image, rows, cellHeight, height)
             } catch (e: IllegalStateException) {
-                throw GradleException("vanilla's ${sheet.file} cannot be raised: ${e.message}", e)
+                throw GradleException("$texture cannot be raised: ${e.message}", e)
             }
         file.parentFile.mkdirs()
         ImageIO.write(padded, "png", file)

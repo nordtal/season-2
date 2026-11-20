@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import eu.nordtal.season.packrendering.Glyphs;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -150,30 +151,40 @@ class CompositionTest {
     }
 
     @Test
-    void aFootLineKeepsThePanelsBlackBorderUnderItsBottomRow() {
+    void aRingCoversTheWholeOutlineAndKeepsThePanelsBlackBorderUnderAFootLine() {
         final List<String> ring = Glyphs.UI_RING_26;
         for (final FocusRing.Ground ground : FocusRing.Ground.values()) {
             final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, ground));
             final boolean bevel = ground == FocusRing.Ground.BEVEL || ground == FocusRing.Ground.BEVEL_FOOT;
             final boolean foot = ground == FocusRing.Ground.PANEL_FOOT || ground == FocusRing.Ground.BEVEL_FOOT;
-            assertEquals(!bevel, drawn.contains(ring.get(0)), ground + " side");
+            assertEquals(bevel || foot ? 0 : 2, count(drawn, ring.get(0)), ground + " sides");
+            assertEquals(!bevel && foot ? 2 : 0, count(drawn, ring.get(30)), ground + " sides over the foot");
+            assertEquals(bevel && foot ? 1 : 0, count(drawn, ring.get(31)), ground + " bevel over the foot");
             assertEquals(bevel && !foot, drawn.contains(ring.get(1)), ground + " shade");
             assertEquals(bevel && foot, drawn.contains(ring.get(2)), ground + " shade foot");
-            assertEquals(100, columns(drawn, ring.subList(3, 12)), ground + " top runs");
-            assertEquals(!foot, ring.subList(12, 21).stream().anyMatch(drawn::contains), ground + " bottom runs");
-            assertEquals(foot, ring.subList(21, 30).stream().anyMatch(drawn::contains), ground + " foot runs");
+            // The box is 110 wide; on the bevel its left column is white, where the outline cannot be seen.
+            assertEquals(bevel ? 108 : 110, columns(drawn, ring.subList(3, 12)), ground + " top runs");
+            assertEquals(foot ? 0 : bevel ? 108 : 110, columns(drawn, ring.subList(12, 21)), ground + " bottom runs");
+            assertEquals(foot ? (bevel ? 108 : 110) : 0, columns(drawn, ring.subList(21, 30)), ground + " foot runs");
         }
     }
 
     @Test
-    void aRingLeavesItsTopRowOpenOverAHeadersInkAndKeepsItsBottomWhole() {
-        final List<String> ring = Glyphs.UI_RING_26;
-        final List<FocusRing.Open> open = List.of(new FocusRing.Open(-40, -20), new FocusRing.Open(30, 80));
-        final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, FocusRing.Ground.PANEL, open));
-
-        // The box is 110 wide from -55: the top row runs from -50 to -40, from -20 to 30, and stops there.
-        assertEquals(10 + 50, columns(drawn, ring.subList(3, 12)));
-        assertEquals(100, columns(drawn, ring.subList(12, 21)));
+    void theFirstColumnDrawsTheHeaderAgainWhereItsCoverLiesOnIt() {
+        final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
+        panels.addAll(DialogPanel.DRAFT_PREVIEW_ROWS);
+        for (final DialogPanel panel : panels) {
+            final int count = (panel.height() - 22) / BodyColumn.STEP;
+            final BodyColumn column = BodyColumn.of(panel.width() - 16, false)
+                    .rows(count, 0, index -> line -> line.button(PREVIOUS, part -> part.star(true)));
+            final DialogTitle title =
+                    DialogTitle.of(panel, column.panelTop()).header(Symbol.RAIL, "Fahrtziel", List.of());
+            final String drawn = text(column.build(FocusRing.Ground.BEVEL_FOOT, title));
+            final int boxTop = BodyColumn.PANEL_TO_CONTENT - column.top();
+            final boolean onInk = boxTop >= DialogTitle.MARGIN && boxTop <= DialogTitle.MARGIN + 7;
+            assertEquals(onInk, drawn.contains("Fahrtziel"), panel + ", box top on panel row " + boxTop);
+            assertEquals(onInk, drawn.contains(Symbol.RAIL.glyph()), panel + ", the symbol");
+        }
     }
 
     @Test
@@ -202,10 +213,14 @@ class CompositionTest {
     }
 
     /** The columns {@code drawn} covers with the runs of {@code runs}, which run 1, 2, 4 to 256 wide. */
+    private static int count(final String drawn, final String glyph) {
+        return drawn.split(Pattern.quote(glyph), -1).length - 1;
+    }
+
     private static int columns(final String drawn, final List<String> runs) {
         int columns = 0;
         for (int index = 0; index < runs.size(); index++) {
-            columns += (1 << index) * (drawn.split(java.util.regex.Pattern.quote(runs.get(index)), -1).length - 1);
+            columns += (1 << index) * (drawn.split(Pattern.quote(runs.get(index)), -1).length - 1);
         }
         return columns;
     }

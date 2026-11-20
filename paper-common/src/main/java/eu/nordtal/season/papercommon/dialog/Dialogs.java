@@ -84,7 +84,7 @@ public final class Dialogs {
 
     /**
      * A body line of one text row whose art is {@code art} wide, framed on {@code ground}.
-     * Its box is 10 wider, so the focus ring stands clear of the art and shows only its corners.
+     * Its box is 10 wider, so the cover over the client's focus outline stands clear of the art.
      */
     public static DialogBody line(final Component line, final int art, final FocusRing.Ground ground) {
         return DialogBody.plainMessage(FocusRing.frame(line, art, FocusRing.MIN_ROWS, ground), FocusRing.box(art));

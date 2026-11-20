@@ -1500,13 +1500,14 @@
     {
       "font": "nordtal:ui_text_{shift}",
       "shifts": [
-        0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 16, 22, 25, 26, 28, 29, 30, 31, 33, 34, 37, 42, 43, 44, 45, 46, 47,
-        48, 49, 50, 51, 52, 53, 55, 56, 58, 62, 65, 66, 69, 70, 71, 73, 82, 85, 88, 89, 91, 93, 97, 100, 106, 137
+        -11, -10, -9, -8, -7, -6, -5, -4, 0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 16, 22, 25, 26, 28, 29, 30, 31, 33,
+        34, 37, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 55, 56, 58, 62, 65, 66, 69, 70, 71, 73, 82, 85, 88, 89,
+        91, 93, 97, 100, 106, 137
       ],
       "constant": "FONT_UI_TEXT",
       "letters": true,
       "references": ["minecraft:include/space", "nordtal:ui_space"],
-      "about": "Vanilla's letters and the 7 x 7 symbols, drawn the shift's number of pixels lower than ordinary text, so a title or a body line places a label on any row.",
+      "about": "Vanilla's letters and the 7 x 7 symbols, drawn the shift's number of pixels lower than ordinary text, so a title or a body line places a label on any row; a negative shift draws higher, such as a header drawn again over the focus cover of the line under it.",
       "blocks": [
         {
           "range": "FE300-FE33F",
@@ -1697,7 +1698,7 @@
               "texture": "nordtal:ui/kit/button_rim.png",
               "height": 20,
               "ascent": 13,
-              "about": "A native button's 100 x 20 rim in its rest colour, but for 5 px arms at each corner, so hover and focus show only the corners."
+              "about": "A native button's 100 x 20 rim in its rest colour, its whole border black, so hover and focus show no mark."
             }
           ]
         },
@@ -2506,12 +2507,12 @@
       "font": "nordtal:ui_ring",
       "constant": "FONT_UI_RING",
       "references": ["nordtal:ui_space"],
-      "about": "The covers a body line draws over the client's white focus outline, from the line's text row: its box is 9 n + 8 high, and only the corners stay open, so focus shows as corner brackets.",
+      "about": "The covers a body line draws over the client's white focus outline, from the line's text row: its box is 9 n + 8 high, and the cover hides the whole outline, so no menu shows a focus mark.",
       "blocks": [
         {
           "range": "FE500-FE51F",
           "title": "Ring 26",
-          "about": "A focus ring cover 26 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 26 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_26.png",
           "height": 26,
           "ascent": 11,
@@ -2545,13 +2546,15 @@
             { "code": "FE51A", "title": "Foot run 32 px", "list": "UI_RING_26" },
             { "code": "FE51B", "title": "Foot run 64 px", "list": "UI_RING_26" },
             { "code": "FE51C", "title": "Foot run 128 px", "list": "UI_RING_26" },
-            { "code": "FE51D", "title": "Foot run 256 px", "list": "UI_RING_26" }
+            { "code": "FE51D", "title": "Foot run 256 px", "list": "UI_RING_26" },
+            { "code": "FE51E", "title": "Side foot", "list": "UI_RING_26" },
+            { "code": "FE51F", "title": "Bevel foot", "list": "UI_RING_26" }
           ]
         },
         {
           "range": "FE520-FE53F",
           "title": "Ring 35",
-          "about": "A focus ring cover 35 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 35 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_35.png",
           "height": 35,
           "ascent": 11,
@@ -2585,13 +2588,15 @@
             { "code": "FE53A", "title": "Foot run 32 px", "list": "UI_RING_35" },
             { "code": "FE53B", "title": "Foot run 64 px", "list": "UI_RING_35" },
             { "code": "FE53C", "title": "Foot run 128 px", "list": "UI_RING_35" },
-            { "code": "FE53D", "title": "Foot run 256 px", "list": "UI_RING_35" }
+            { "code": "FE53D", "title": "Foot run 256 px", "list": "UI_RING_35" },
+            { "code": "FE53E", "title": "Side foot", "list": "UI_RING_35" },
+            { "code": "FE53F", "title": "Bevel foot", "list": "UI_RING_35" }
           ]
         },
         {
           "range": "FE540-FE55F",
           "title": "Ring 44",
-          "about": "A focus ring cover 44 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 44 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_44.png",
           "height": 44,
           "ascent": 11,
@@ -2625,13 +2630,15 @@
             { "code": "FE55A", "title": "Foot run 32 px", "list": "UI_RING_44" },
             { "code": "FE55B", "title": "Foot run 64 px", "list": "UI_RING_44" },
             { "code": "FE55C", "title": "Foot run 128 px", "list": "UI_RING_44" },
-            { "code": "FE55D", "title": "Foot run 256 px", "list": "UI_RING_44" }
+            { "code": "FE55D", "title": "Foot run 256 px", "list": "UI_RING_44" },
+            { "code": "FE55E", "title": "Side foot", "list": "UI_RING_44" },
+            { "code": "FE55F", "title": "Bevel foot", "list": "UI_RING_44" }
           ]
         },
         {
           "range": "FE560-FE57F",
           "title": "Ring 53",
-          "about": "A focus ring cover 53 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 53 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_53.png",
           "height": 53,
           "ascent": 11,
@@ -2665,13 +2672,15 @@
             { "code": "FE57A", "title": "Foot run 32 px", "list": "UI_RING_53" },
             { "code": "FE57B", "title": "Foot run 64 px", "list": "UI_RING_53" },
             { "code": "FE57C", "title": "Foot run 128 px", "list": "UI_RING_53" },
-            { "code": "FE57D", "title": "Foot run 256 px", "list": "UI_RING_53" }
+            { "code": "FE57D", "title": "Foot run 256 px", "list": "UI_RING_53" },
+            { "code": "FE57E", "title": "Side foot", "list": "UI_RING_53" },
+            { "code": "FE57F", "title": "Bevel foot", "list": "UI_RING_53" }
           ]
         },
         {
           "range": "FE580-FE59F",
           "title": "Ring 62",
-          "about": "A focus ring cover 62 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 62 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_62.png",
           "height": 62,
           "ascent": 11,
@@ -2705,13 +2714,15 @@
             { "code": "FE59A", "title": "Foot run 32 px", "list": "UI_RING_62" },
             { "code": "FE59B", "title": "Foot run 64 px", "list": "UI_RING_62" },
             { "code": "FE59C", "title": "Foot run 128 px", "list": "UI_RING_62" },
-            { "code": "FE59D", "title": "Foot run 256 px", "list": "UI_RING_62" }
+            { "code": "FE59D", "title": "Foot run 256 px", "list": "UI_RING_62" },
+            { "code": "FE59E", "title": "Side foot", "list": "UI_RING_62" },
+            { "code": "FE59F", "title": "Bevel foot", "list": "UI_RING_62" }
           ]
         },
         {
           "range": "FE5A0-FE5BF",
           "title": "Ring 71",
-          "about": "A focus ring cover 71 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 71 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_71.png",
           "height": 71,
           "ascent": 11,
@@ -2745,13 +2756,15 @@
             { "code": "FE5BA", "title": "Foot run 32 px", "list": "UI_RING_71" },
             { "code": "FE5BB", "title": "Foot run 64 px", "list": "UI_RING_71" },
             { "code": "FE5BC", "title": "Foot run 128 px", "list": "UI_RING_71" },
-            { "code": "FE5BD", "title": "Foot run 256 px", "list": "UI_RING_71" }
+            { "code": "FE5BD", "title": "Foot run 256 px", "list": "UI_RING_71" },
+            { "code": "FE5BE", "title": "Side foot", "list": "UI_RING_71" },
+            { "code": "FE5BF", "title": "Bevel foot", "list": "UI_RING_71" }
           ]
         },
         {
           "range": "FE5C0-FE5DF",
           "title": "Ring 80",
-          "about": "A focus ring cover 80 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 80 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_80.png",
           "height": 80,
           "ascent": 11,
@@ -2785,13 +2798,15 @@
             { "code": "FE5DA", "title": "Foot run 32 px", "list": "UI_RING_80" },
             { "code": "FE5DB", "title": "Foot run 64 px", "list": "UI_RING_80" },
             { "code": "FE5DC", "title": "Foot run 128 px", "list": "UI_RING_80" },
-            { "code": "FE5DD", "title": "Foot run 256 px", "list": "UI_RING_80" }
+            { "code": "FE5DD", "title": "Foot run 256 px", "list": "UI_RING_80" },
+            { "code": "FE5DE", "title": "Side foot", "list": "UI_RING_80" },
+            { "code": "FE5DF", "title": "Bevel foot", "list": "UI_RING_80" }
           ]
         },
         {
           "range": "FE5E0-FE5FF",
           "title": "Ring 89",
-          "about": "A focus ring cover 89 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 89 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_89.png",
           "height": 89,
           "ascent": 11,
@@ -2825,13 +2840,15 @@
             { "code": "FE5FA", "title": "Foot run 32 px", "list": "UI_RING_89" },
             { "code": "FE5FB", "title": "Foot run 64 px", "list": "UI_RING_89" },
             { "code": "FE5FC", "title": "Foot run 128 px", "list": "UI_RING_89" },
-            { "code": "FE5FD", "title": "Foot run 256 px", "list": "UI_RING_89" }
+            { "code": "FE5FD", "title": "Foot run 256 px", "list": "UI_RING_89" },
+            { "code": "FE5FE", "title": "Side foot", "list": "UI_RING_89" },
+            { "code": "FE5FF", "title": "Bevel foot", "list": "UI_RING_89" }
           ]
         },
         {
           "range": "FE600-FE61F",
           "title": "Ring 98",
-          "about": "A focus ring cover 98 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 98 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_98.png",
           "height": 98,
           "ascent": 11,
@@ -2865,13 +2882,15 @@
             { "code": "FE61A", "title": "Foot run 32 px", "list": "UI_RING_98" },
             { "code": "FE61B", "title": "Foot run 64 px", "list": "UI_RING_98" },
             { "code": "FE61C", "title": "Foot run 128 px", "list": "UI_RING_98" },
-            { "code": "FE61D", "title": "Foot run 256 px", "list": "UI_RING_98" }
+            { "code": "FE61D", "title": "Foot run 256 px", "list": "UI_RING_98" },
+            { "code": "FE61E", "title": "Side foot", "list": "UI_RING_98" },
+            { "code": "FE61F", "title": "Bevel foot", "list": "UI_RING_98" }
           ]
         },
         {
           "range": "FE620-FE63F",
           "title": "Ring 107",
-          "about": "A focus ring cover 107 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 107 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_107.png",
           "height": 107,
           "ascent": 11,
@@ -2905,13 +2924,15 @@
             { "code": "FE63A", "title": "Foot run 32 px", "list": "UI_RING_107" },
             { "code": "FE63B", "title": "Foot run 64 px", "list": "UI_RING_107" },
             { "code": "FE63C", "title": "Foot run 128 px", "list": "UI_RING_107" },
-            { "code": "FE63D", "title": "Foot run 256 px", "list": "UI_RING_107" }
+            { "code": "FE63D", "title": "Foot run 256 px", "list": "UI_RING_107" },
+            { "code": "FE63E", "title": "Side foot", "list": "UI_RING_107" },
+            { "code": "FE63F", "title": "Bevel foot", "list": "UI_RING_107" }
           ]
         },
         {
           "range": "FE640-FE65F",
           "title": "Ring 116",
-          "about": "A focus ring cover 116 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 116 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_116.png",
           "height": 116,
           "ascent": 11,
@@ -2945,13 +2966,15 @@
             { "code": "FE65A", "title": "Foot run 32 px", "list": "UI_RING_116" },
             { "code": "FE65B", "title": "Foot run 64 px", "list": "UI_RING_116" },
             { "code": "FE65C", "title": "Foot run 128 px", "list": "UI_RING_116" },
-            { "code": "FE65D", "title": "Foot run 256 px", "list": "UI_RING_116" }
+            { "code": "FE65D", "title": "Foot run 256 px", "list": "UI_RING_116" },
+            { "code": "FE65E", "title": "Side foot", "list": "UI_RING_116" },
+            { "code": "FE65F", "title": "Bevel foot", "list": "UI_RING_116" }
           ]
         },
         {
           "range": "FE660-FE67F",
           "title": "Ring 125",
-          "about": "A focus ring cover 125 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 125 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_125.png",
           "height": 125,
           "ascent": 11,
@@ -2985,13 +3008,15 @@
             { "code": "FE67A", "title": "Foot run 32 px", "list": "UI_RING_125" },
             { "code": "FE67B", "title": "Foot run 64 px", "list": "UI_RING_125" },
             { "code": "FE67C", "title": "Foot run 128 px", "list": "UI_RING_125" },
-            { "code": "FE67D", "title": "Foot run 256 px", "list": "UI_RING_125" }
+            { "code": "FE67D", "title": "Foot run 256 px", "list": "UI_RING_125" },
+            { "code": "FE67E", "title": "Side foot", "list": "UI_RING_125" },
+            { "code": "FE67F", "title": "Bevel foot", "list": "UI_RING_125" }
           ]
         },
         {
           "range": "FE680-FE69F",
           "title": "Ring 134",
-          "about": "A focus ring cover 134 high: its side column with the corner arms open, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, and bottom runs in the black of the panel's border.",
+          "about": "A focus ring cover 134 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",
           "texture": "nordtal:ui/kit/ring_134.png",
           "height": 134,
           "ascent": 11,
@@ -3025,7 +3050,9 @@
             { "code": "FE69A", "title": "Foot run 32 px", "list": "UI_RING_134" },
             { "code": "FE69B", "title": "Foot run 64 px", "list": "UI_RING_134" },
             { "code": "FE69C", "title": "Foot run 128 px", "list": "UI_RING_134" },
-            { "code": "FE69D", "title": "Foot run 256 px", "list": "UI_RING_134" }
+            { "code": "FE69D", "title": "Foot run 256 px", "list": "UI_RING_134" },
+            { "code": "FE69E", "title": "Side foot", "list": "UI_RING_134" },
+            { "code": "FE69F", "title": "Bevel foot", "list": "UI_RING_134" }
           ]
         }
       ],

@@ -10,11 +10,23 @@ import java.awt.image.BufferedImage
  * so every letter keeps its advance.
  */
 object RaisedSheet {
-    /** `nordtal:font/raised_<height>_<name>` for the vanilla sheet `minecraft:font/<name>`. */
+    /**
+     * `nordtal:font/raised_<height>_<name>` for the vanilla sheet `minecraft:font/<name>`, and
+     * `nordtal:font/raised_<height>_<namespace>_<path>` with `/` as `_` for any other texture, such as the pack's own.
+     */
     fun id(
         sheet: String,
         height: Int,
-    ): String = "nordtal:font/raised_${height}_${sheet.substringAfterLast('/')}"
+    ): String {
+        val vanilla = "minecraft:font/"
+        val name =
+            if (sheet.startsWith(vanilla) && '/' !in sheet.removePrefix(vanilla)) {
+                sheet.removePrefix(vanilla)
+            } else {
+                sheet.replace(':', '_').replace('/', '_')
+            }
+        return "nordtal:font/raised_${height}_$name"
+    }
 
     /**
      * Pads each of the [rows] cell rows of [image] to [height] rows. The cells must be [cellHeight] tall, the height

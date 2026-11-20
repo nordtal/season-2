@@ -140,9 +140,9 @@ class WallTest {
         assertTrue(seenAt(wall, Look.PIXEL, 79.5));
     }
 
-    /** Whether a player at 50, 0 is sent the panel at {@code x} on the wall's edge at z 0. */
+    /** Whether a player standing at 50, 0 on the wall's ground is sent the panel at {@code x} on its edge at z 0. */
     private static boolean seenAt(final Wall wall, final Look look, final double x) {
-        return Band.seen(wall, look, 50, 0).keySet().stream()
+        return Band.seen(wall, look, 50, 0, 64 + Band.EYE, panel -> 64).keySet().stream()
                 .anyMatch(panel -> panel.z() == 0 && Math.abs(panel.x() - x) < 1e-9);
     }
 
@@ -152,14 +152,37 @@ class WallTest {
         final Panel faded = new Panel(1, 0, 0);
         final Panel gone = new Panel(2, 0, 0);
         final Panel added = new Panel(3, 0, 0);
+        final Panel lower = new Panel(4, 0, 0);
 
         final Band.Change change = Band.change(
-                Map.of(kept, "border/pixel", faded, "border/pixel", gone, "border/pixel"),
-                Map.of(kept, "border/pixel", faded, "border/pixel_fade_1", added, "border/pixel"));
+                Map.of(
+                        kept,
+                        seen("border/pixel"),
+                        faded,
+                        seen("border/pixel"),
+                        gone,
+                        seen("border/pixel"),
+                        lower,
+                        new Band.Seen("border/field", 64)),
+                Map.of(
+                        kept,
+                        seen("border/pixel"),
+                        faded,
+                        seen("border/pixel_fade_1"),
+                        added,
+                        seen("border/pixel"),
+                        lower,
+                        new Band.Seen("border/field", 63)));
 
-        assertEquals(Map.of(added, "border/pixel"), change.added());
+        assertEquals(Map.of(added, seen("border/pixel")), change.added());
         assertEquals(List.of(gone), change.removed());
-        assertEquals(Map.of(faded, "border/pixel_fade_1"), change.remodelled());
+        assertEquals(
+                Map.of(faded, seen("border/pixel_fade_1"), lower, new Band.Seen("border/field", 63)),
+                change.remodelled());
+    }
+
+    private static Band.Seen seen(final String model) {
+        return new Band.Seen(model, Band.UNKNOWN);
     }
 
     @Test

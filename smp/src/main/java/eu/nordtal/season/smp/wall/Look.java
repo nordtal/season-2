@@ -13,15 +13,6 @@ enum Look {
     private static final String[] PIXEL_FADE = {"border/pixel_fade_1", "border/pixel_fade_2", "border/pixel_fade_3"};
 
     /**
-     * How far from the player panels are sent, in blocks.
-     *
-     * The field fades by the camera's distance, so it reaches past a third-person camera's fade.
-     */
-    double reach() {
-        return this == FIELD ? Band.RADIUS + Band.CAMERA : Band.RADIUS;
-    }
-
-    /**
      * The height of a panel, in blocks, from the band's base up.
      *
      * The field stands 2 blocks taller than the pixel look: that room above the wall holds falling snow only.

@@ -28,6 +28,7 @@ import org.bukkit.util.Vector;
 public final class BorderWall implements Listener {
 
     private final WallPackets packets = new WallPackets();
+    private final Grounds grounds = new Grounds();
     private final Clock clock;
 
     /** Runs a task one tick later, after the client has cleared its entities on a respawn or a world change. */
@@ -49,6 +50,7 @@ public final class BorderWall implements Listener {
     /** Takes the settings and draws the wall again for every player. */
     public void apply(final CustomBorderSpec spec, final Collection<? extends Player> online) {
         walls = Walls.read(spec);
+        grounds.clear();
         for (final Player player : online) {
             clear(player);
             refresh(player);
@@ -149,26 +151,56 @@ public final class BorderWall implements Listener {
             return;
         }
         final Viewer viewer = viewers.computeIfAbsent(id, ignored -> new Viewer(world));
-        final double base = Band.base(at.getY());
-        final Map<Panel, String> seen = Band.seen(drawn.wall(), drawn.look(), at.getX(), at.getZ());
-        final Band.Change change = Band.change(viewer.models(), seen);
+        final Look look = drawn.look();
+        final double eye = at.getY() + player.getEyeHeight();
+        final long now = clock.millis();
+        final Map<Panel, Band.Seen> seen = Band.seen(
+                drawn.wall(), look, at.getX(), at.getZ(), eye, panel -> grounds.at(at.getWorld(), panel, now));
+        final Band.Change change = Band.change(viewer.seen(), seen);
         packets.remove(id, viewer.forget(change.removed()));
-        change.remodelled().forEach((panel, model) -> packets.remodel(id, viewer.remodel(panel, model), model));
+        change.remodelled().forEach((panel, after) -> packets.remodel(id, viewer.remodel(panel, after), after));
+        if (look == Look.FIELD) {
+            showField(id, viewer, change, Band.need(seen.values(), eye, look), at.getY());
+        } else {
+            showPixel(id, viewer, change, Band.base(at.getY()));
+        }
+    }
+
+    /** Stretches the field's panels over the heights they must cover, and spawns the new ones. */
+    private void showField(
+            final UUID id, final Viewer viewer, final Band.Change change, final Band.Range need, final double feetY) {
+        final Band.Range before = viewer.range();
+        final Band.Range range = Band.fit(before == null ? need : before, need);
+        if (!range.equals(before)) {
+            viewer.reshape(range);
+            viewer.shown().forEach((panel, shown) -> packets.reshape(id, shown.id(), shown.y(), range));
+        }
+        change.added().forEach((panel, seen) -> {
+            final int entity = packets.newId();
+            // The entity stands on the ground, so the client counts its distance from there.
+            final double y = seen.ground() == Band.UNKNOWN ? Math.floor(feetY) : seen.ground();
+            viewer.add(panel, entity, y, seen);
+            packets.spawnField(id, entity, panel, y, range, seen);
+        });
+    }
+
+    /** Moves the pixel look's panels to the player's height, and spawns the new ones. */
+    private void showPixel(final UUID id, final Viewer viewer, final Band.Change change, final double base) {
         if (viewer.base() != base) {
             viewer.lift(base);
-            viewer.ids().forEach((panel, entity) -> packets.move(id, entity, panel, base));
+            viewer.shown().forEach((panel, shown) -> packets.move(id, shown.id(), panel, base));
         }
-        change.added().forEach((panel, model) -> {
+        change.added().forEach((panel, seen) -> {
             final int entity = packets.newId();
-            viewer.add(panel, entity, model);
-            packets.spawn(id, entity, panel, base, drawn.look(), model);
+            viewer.add(panel, entity, base, seen);
+            packets.spawnPixel(id, entity, panel, base, seen);
         });
     }
 
     private void clear(final Player player) {
         final Viewer viewer = viewers.remove(player.getUniqueId());
         if (viewer != null) {
-            packets.remove(player.getUniqueId(), viewer.forget(viewer.ids().keySet()));
+            packets.remove(player.getUniqueId(), viewer.forget(viewer.shown().keySet()));
         }
     }
 }

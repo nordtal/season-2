@@ -1,7 +1,7 @@
 #version 330
 #extension GL_ARB_separate_shader_objects : require
 
-// Vanilla 26.3 core/item.vsh plus two outputs for the Nordtal border wall. Every Nordtal line is
+// Vanilla 26.3 core/item.vsh plus three outputs for the Nordtal border wall. Every Nordtal line is
 // marked "nordtal"; the rest is vanilla, unchanged.
 
 #include <minecraft:light.glsl>
@@ -43,6 +43,8 @@ layout(location = 6) out vec2 texCoordGlint;
 layout(location = 7) out vec4 wallCoord;
 // nordtal: the vertex seen from the camera, in blocks: x along the wall, y up, z at a right angle to the wall.
 layout(location = 8) out vec3 wallView;
+// nordtal: the ground under the panel, in blocks, or below -100000 when the server does not know it.
+layout(location = 9) flat out float wallGround;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
@@ -78,4 +80,9 @@ void main() {
     wallCoord = vec4(dot(world.xz, tangent), world.y, Position.xz);
     // nordtal: all three are linear in Position, so they are exact between the vertices
     wallView = vec3(dot(Position.xz, tangent), Position.y, dot(Position.xz, vec2(tangent.y, -tangent.x)));
+    // nordtal: the server sends the ground plus 2048 in the item's tint, 5 bits a channel, each stored
+    // as 130 + 4 times its bits, so a channel read one off still decodes. White means not known.
+    ivec3 channel = ivec3(round(Color.rgb * 255.0));
+    ivec3 bits = (channel - 128) >> 2;
+    wallGround = all(equal(channel, ivec3(255))) ? -1000000.0 : float((bits.r << 10 | bits.g << 5 | bits.b) - 2048);
 }

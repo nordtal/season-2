@@ -25,7 +25,7 @@ public enum TabRefusal {
     /** bunq does not know the monetary account (404). */
     NOT_FOUND,
 
-    /** bunq asked to slow down (429). */
+    /** Steward or bunq limited the rate of tab requests. */
     TOO_MANY_REQUESTS,
 
     /** bunq failed on its side (500). */

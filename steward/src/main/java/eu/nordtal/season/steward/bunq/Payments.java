@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.bunq;
 
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.JournalDetail.PaymentFlagged;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
@@ -14,10 +15,14 @@ import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
+import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.internalapi.BankWire;
 import eu.nordtal.season.messages.value.Money;
+import eu.nordtal.season.steward.RequestLimit;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.InstantSource;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -40,6 +45,7 @@ public final class Payments {
     private final Inbox<BankRequest> inbox;
     private final Instant watermark;
     private final int recentPaymentCount;
+    private final RequestLimit<DiscordId> tabStarts;
 
     /** @param watermark payments created before it are ignored */
     public Payments(
@@ -50,7 +56,8 @@ public final class Payments {
             final AlertBook alerts,
             final Inbox<BankRequest> inbox,
             final Instant watermark,
-            final int recentPaymentCount) {
+            final int recentPaymentCount,
+            final InstantSource clock) {
         this.bunq = bunq;
         this.requests = requests;
         this.bookings = bookings;
@@ -59,6 +66,8 @@ public final class Payments {
         this.inbox = inbox;
         this.watermark = watermark;
         this.recentPaymentCount = recentPaymentCount;
+        // Each creation makes a POST and a GET. Leave room for bunq reads in the three-second window.
+        this.tabStarts = new RequestLimit<>(clock, Duration.ofMinutes(1), 3, Duration.ofSeconds(3), 2);
     }
 
     public void pass() {
@@ -98,6 +107,12 @@ public final class Payments {
     private Outcome createTab(final PaymentRequest request) {
         if (request.status() != PaymentRequestStatus.OPEN || request.tab().isPresent()) {
             return Outcome.done(new BankRequest.OpenTab.Answer(null));
+        }
+        if (!tabStarts.acquire(request.discordId())) {
+            if (requests.failTab(request.id(), TabRefusal.TOO_MANY_REQUESTS)) {
+                log.warn("payment tab rate limited: reference={}", request.reference());
+            }
+            return Outcome.failed(null);
         }
         final BankWire.Tab tab;
         try {

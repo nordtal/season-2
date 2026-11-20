@@ -623,10 +623,10 @@ public interface AdminTexts {
         @Name("A purchase failed")
         MessageRef purchaseFailed();
 
-        @Name("bunq refused a payment link")
+        @Name("Payment link unavailable")
         MessageRef linkRefused();
 
-        @Name("Which request, and why bunq refused it")
+        @Name("Payment link refusal details")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef refused(
                 @Arg("reference") @Example("NT-A1B2C3") String reference, @Arg("refusal") TabRefusal refusal);

@@ -40,6 +40,9 @@ public final class WebPushSender implements PushSender {
 
     @Override
     public Result send(final PushSubscriptions.Subscription subscription, final String payload) {
+        if (!PushDestination.allowed(subscription.endpoint())) {
+            return Result.EXPIRED;
+        }
         try {
             final WebPush.SubscriptionState state = service.send(
                     payload, subscription.endpoint(), subscription.p256dh(), subscription.auth(), null, null, null);

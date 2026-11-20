@@ -6,7 +6,7 @@ public interface PushSender {
     enum Result {
         /** The push service accepted it (HTTP 200-202). */
         SENT,
-        /** The push service reports that the subscription does not exist (HTTP 404 or 410). */
+        /** The endpoint is no longer usable or the push service reports it missing (HTTP 404 or 410). */
         EXPIRED,
         /** A network failure or an unexpected status. */
         FAILED

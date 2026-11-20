@@ -1,3 +1,4 @@
+# Exceptions to the image scan. deploy/README.md describes each key and when an entry is allowed.
 vulnerabilities:
   - id: CVE-2026-78661
     paths:

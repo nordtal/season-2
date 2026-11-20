@@ -22,6 +22,31 @@ deploy/
 `steward-agent` is the one service that creates containers, and its image contains `compose.yml`
 (see [`../steward-agent/README.md`](../steward-agent/README.md)). `steward` mounts no Docker socket.
 
+## Image vulnerability scans
+
+Open the workflow run in GitHub Actions and read **Summary** for each image's findings.
+The [release workflow](../.github/workflows/release.yml) scans the images in GHCR before publishing the GitHub release.
+The [weekly scan](../.github/workflows/scan-release-images.yml) scans the latest published release.
+A critical or high finding with a fixed version fails the scan unless an active exception applies.
+Findings without a fix appear in the summary.
+
+A failed release scan publishes no GitHub release, but the images stay in GHCR. Fix the finding and cut a new
+release, or add an exception on `main` and run the release again with `gh workflow run release.yml -f tag=<tag>`.
+
+[The exception file](../.github/actions/scan-image/.trivyignore.yaml) is a
+[Trivy ignore file](https://trivy.dev/docs/latest/configuration/filtering/#trivyignoreyaml). Add an exception only
+when no upstream release contains the fix. Each entry under `vulnerabilities` holds these keys:
+
+| Key          | Value                                                               |
+| ------------ | ------------------------------------------------------------------- |
+| `id`         | The vulnerability, as the summary names it.                         |
+| `paths`      | The binary in the image, as the summary's **Path** column names it. |
+| `expired_at` | The date the exception ends. The scan refuses an entry without one. |
+| `statement`  | Why the finding is accepted. The summary shows it.                  |
+
+The scan lists the finding as accepted until `expired_at`, and then fails on it again. To renew an exception,
+check that no upstream release contains the fix yet and set a new date.
+
 ## First deployment
 
 A deploy pulls images and never builds them. [`release.yml`](../.github/workflows/release.yml) pushes

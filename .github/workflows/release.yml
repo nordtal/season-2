@@ -1,7 +1,8 @@
 name: release
 
 # Runs on a pushed release tag. The tag must match gradle.properties, and its commit must have a green
-# build on main. The run creates the GitHub release last, with every asset, so a failed run publishes nothing.
+# build on main. The publish job creates the GitHub release last, with every asset, once every image's scan has
+# passed. A failed run publishes no release, though the images it pushed stay in the registry.
 on:
   push:
     tags: ["v*"]
@@ -29,6 +30,9 @@ jobs:
       actions: read
       contents: write
       packages: write
+    outputs:
+      images: ${{ steps.images.outputs.images }}
+      assets-digest: ${{ steps.assets.outputs.digest }}
     # The tag is a dispatch input or a tag name, so it reaches scripts as a variable and never as text in a script.
     env:
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -214,10 +218,98 @@ jobs:
           tags: |
             ghcr.io/nordtal/steward-bunq:${{ env.VERSION }}
 
-      # This step runs last. steward-agent and nordtal.sh take the newest published release as the one to
-      # install, so every image that it names must be in the registry first. With assets, gh uploads them
-      # to a draft and publishes the draft when all are there.
+      - name: List the images to scan
+        id: images
+        env:
+          CADDY_TAG: ${{ steps.caddy.outputs.tag }}
+        run: |
+          images="$(jq -nc --arg version "$VERSION" --arg caddy "$CADDY_TAG" '
+            [("discord-bot", "steward", "minecraft", "steward-agent", "steward-bunq") | "ghcr.io/nordtal/\(.):\($version)"]
+            + ["ghcr.io/nordtal/caddy:\($caddy)"]')"
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+
+      # A job output cannot be changed by a later job, unlike an artifact, so the publish job checks the assets
+      # against this digest before it releases them.
+      - name: Record the digest of the release assets
+        id: assets
+        run: |
+          digest="$({ (cd dist && sha256sum -- *); sha256sum < "$RUNNER_TEMP/notes.md"; } | sha256sum | cut -d' ' -f1)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Keep the release assets for the publish job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: dist/
+          if-no-files-found: error
+          overwrite: true
+
+      - name: Keep the release notes for the publish job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes.md
+          if-no-files-found: error
+          overwrite: true
+
+  # The scanner runs in a job of its own with a read-only token, so third-party code never holds the release job's
+  # write access to the repository and the registry. Each image's scan reports even when another one fails.
+  scan:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.release.outputs.images) }}
+    steps:
+      - name: Check out the scan action from the workflow revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          sparse-checkout: .github/actions/scan-image
+          persist-credentials: false
+
+      - uses: ./.github/actions/scan-image
+        with:
+          image: ${{ matrix.image }}
+
+  # steward-agent and nordtal.sh take the newest published release as the one to install, so every image that it
+  # names must be in the registry and scanned first. With assets, gh uploads them to a draft and publishes the
+  # draft when all are there.
+  publish:
+    needs: [release, scan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: dist
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}
+
+      - name: Check the assets are the ones the release job built
+        env:
+          EXPECTED: ${{ needs.release.outputs.assets-digest }}
+        run: |
+          digest="$({ (cd dist && sha256sum -- *); sha256sum < "$RUNNER_TEMP/notes.md"; } | sha256sum | cut -d' ' -f1)"
+          if [[ -z "$EXPECTED" || "$digest" != "$EXPECTED" ]]; then
+            echo "The downloaded release assets have digest $digest, but the release job recorded ${EXPECTED:-none}." >&2
+            exit 1
+          fi
+
       - name: Publish the release with its artifacts
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/notes.md" dist/*

@@ -1,0 +1,54 @@
+name: scan release images
+
+on:
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      images: ${{ steps.images.outputs.images }}
+    steps:
+      - name: Find images of the latest published release
+        id: images
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          if [[ "$tag" != v* ]]; then
+            echo "Expected a release tag starting with v. Got $tag." >&2
+            exit 1
+          fi
+          gh api --method GET "repos/$GITHUB_REPOSITORY/contents/compose.yml" -f ref="$tag" \
+            -H 'Accept: application/vnd.github.raw+json' > "$RUNNER_TEMP/release-compose.yml"
+          images="$(sed -n 's|^ *image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/|ghcr.io/nordtal/|p' "$RUNNER_TEMP/release-compose.yml" |
+            sed "s/\${NORDTAL_RELEASE:?.*}/${tag#v}/" |
+            sort -u | jq -Rnc '[inputs] | select(length > 0)')"
+          if [[ -z "$images" ]]; then
+            echo "No Nordtal images found in $tag's compose.yml." >&2
+            exit 1
+          fi
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+
+  scan:
+    needs: release-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.release-images.outputs.images) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/scan-image
+        with:
+          image: ${{ matrix.image }}

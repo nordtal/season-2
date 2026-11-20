@@ -1,0 +1,68 @@
+name: Scan image
+description: Report image vulnerabilities and fail on fixable critical or high findings.
+inputs:
+  image:
+    description: Container image reference.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Check that every exception expires
+      shell: bash
+      env:
+        IGNORE_FILE: ${{ github.action_path }}/.trivyignore.yaml
+      run: |
+        missing="$(yq '[.vulnerabilities[] | select((.expired_at // "") == "") | .id] | join(" ")' "$IGNORE_FILE")"
+        if [[ -n "$missing" ]]; then
+          printf 'Image scan refused. The exception for %s in .github/actions/scan-image/.trivyignore.yaml has no expired_at date. Add one.\n' "$missing" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
+        fi
+
+    - name: Scan for vulnerabilities
+      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      env:
+        TRIVY_IGNOREFILE: ${{ github.action_path }}/.trivyignore.yaml
+        TRIVY_SHOW_SUPPRESSED: "true"
+      with:
+        scan-ref: ${{ inputs.image }}
+        scanners: vuln
+        version: v0.76.2
+        format: json
+        output: ${{ runner.temp }}/trivy-image.json
+        exit-code: "0"
+
+    - name: Report findings
+      shell: bash
+      env:
+        IMAGE_REF: ${{ inputs.image }}
+      run: |
+        report="$RUNNER_TEMP/trivy-image.json"
+        jq -er --arg image "$IMAGE_REF" '
+          def cell: gsub("[[:cntrl:]]"; " ") | @html | gsub("[|]"; "&#124;") | gsub("`"; "&#96;");
+          def findings:
+            .Results[]? | .Target as $target |
+            ((.Vulnerabilities[]? | . + {Exception: ""}),
+             (.ExperimentalModifiedFindings[]? | select(.Type == "vulnerability" and .Status == "ignored") |
+               .Finding + {Exception: ("Accepted. " + .Statement)})) |
+            . + {Path: (.PkgPath // $target)};
+          "### Image scan: `\($image)`", "",
+          ([findings] | unique_by(.Severity, .VulnerabilityID, .PkgName, .Path, .InstalledVersion, .FixedVersion, .Exception) |
+            if length == 0 then
+              "Trivy found no vulnerabilities."
+            else
+              "| Severity | Vulnerability | Package | Path | Installed version | Fixed version | Exception |",
+              "| --- | --- | --- | --- | --- | --- | --- |",
+              (.[] | [.Severity, .VulnerabilityID, .PkgName, .Path, .InstalledVersion,
+                      (if (.FixedVersion // "") == "" then "No fix available" else .FixedVersion end), .Exception] |
+                map(cell) | "| " + join(" | ") + " |")
+            end)
+        ' "$report" | tee -a "$GITHUB_STEP_SUMMARY"
+
+        blocked="$(jq 'any(.Results[]?.Vulnerabilities[]?;
+          (.Severity == "CRITICAL" or .Severity == "HIGH") and (.FixedVersion // "") != ""
+        )' "$report")"
+        if [[ "$blocked" == true ]]; then
+          printf '\nImage scan failed for %s. A critical or high vulnerability has a fixed version. Update the package or the base image to it, or add an exception as deploy/README.md describes.\n\n' "$IMAGE_REF" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
+        fi
+        echo >> "$GITHUB_STEP_SUMMARY"

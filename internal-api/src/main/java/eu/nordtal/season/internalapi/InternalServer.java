@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Serves JSON on Javalin for a service that only steward calls.
- * Every route but {@link #HEALTH} needs the shared secret.
+ * Every path but {@link #HEALTH} needs the shared secret, whether a route serves it or not.
  */
 public final class InternalServer {
 
@@ -80,7 +80,8 @@ public final class InternalServer {
         return Javalin.create(config -> {
             config.jsonMapper(new JavalinGson(Json.gson(), true));
             config.startup.showJavalinBanner = false;
-            config.routes.before("/api/*", ctx -> {
+            // Every path, so that a route outside /api/ or a path nobody serves is guarded too.
+            config.routes.before(ctx -> {
                 if (!ctx.path().equals(HEALTH) && !matches(expected, ctx.header(TOKEN_HEADER))) {
                     throw new UnauthorizedResponse("bad or missing " + TOKEN_HEADER);
                 }

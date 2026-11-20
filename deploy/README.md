@@ -368,8 +368,12 @@ published port passes. From outside it admits SSH and the game port, TCP and UDP
 reach Caddy through the Cloudflare tunnel, which runs on the host and connects to `127.0.0.1:80`. The standby port is open only while `proxy-standby` runs. `standby-port.sh` follows the events
 of Docker and keeps the `standby` set of the table in step.
 
+The table admits loopback and Docker's bridges (`docker0`, `br-*`) and filters every other
+interface, so it needs no name of the public one. It limits new connections per source address: 64 a
+minute after a burst of 128 on SSH, and 30 a minute after a burst of 60 on the game port.
+
 ```bash
-install -m 644 deploy/firewall/nordtal.nft /etc/nordtal/firewall.nft    # set its interface and SSH port first
+install -m 644 deploy/firewall/nordtal.nft /etc/nordtal/firewall.nft    # set its SSH port first
 install -m 755 deploy/firewall/standby-port.sh /usr/local/sbin/nordtal-standby-port
 install -m 644 deploy/firewall/*.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable --now nordtal-firewall nordtal-standby-port

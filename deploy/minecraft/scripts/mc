@@ -4,11 +4,13 @@
 #   mc list
 #   mc "say the server restarts in 5 minutes"
 #
-# The output goes to the console. Read it with `docker logs`.
+# The output goes to the console. Read it with `docker logs`. The words go in as literal text, so a
+# word that tmux would read as a key name, such as `C-c` or `Enter`, cannot press that key.
 set -euo pipefail
 if [ "$#" -eq 0 ]; then
     echo "usage: mc <command...>" >&2
     exit 2
 fi
-exec tmux -S "${MC_TMUX_SOCKET:-/run/mc/tmux.sock}" send-keys \
-    -t "${MC_TMUX_SESSION:-mc}" -- "$*" Enter
+session="${MC_TMUX_SESSION:-mc}"
+exec tmux -S "${MC_TMUX_SOCKET:-/run/mc/tmux.sock}" send-keys -t "$session" -l -- "$*" \; \
+    send-keys -t "$session" Enter

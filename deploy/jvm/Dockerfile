@@ -10,7 +10,7 @@ ARG MODULE
 
 FROM docker:29.10.0-cli@sha256:34507eb5069d8be82c95dd3b6987d4250fd5fee49b82e2509b7d7a7030740d6d AS docker-cli
 
-FROM eclipse-temurin:25-jre AS jvm
+FROM eclipse-temurin:25-jre@sha256:945247f9d092703e0c6be92243ef3c51640229e23ab34d353c8dcdc73e6cd4e6 AS jvm
 WORKDIR /app
 COPY deploy/jvm/entrypoint.sh deploy/jvm/secrets.sh /app/
 ENTRYPOINT ["/app/entrypoint.sh"]

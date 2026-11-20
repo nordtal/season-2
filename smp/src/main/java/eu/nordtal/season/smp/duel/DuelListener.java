@@ -7,11 +7,24 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockMultiPlaceEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityMountEvent;
+import org.bukkit.event.entity.EntityPlaceEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.hanging.HangingPlaceEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 
-/** A disconnect counts as a defeat, and no advancement criterion is granted in a duel. */
+/** Keeps kit items in a duel and grants no advancement criterion there. */
 public final class DuelListener implements Listener {
 
     private final Duels duels;
@@ -22,10 +35,10 @@ public final class DuelListener implements Listener {
         this.duels = duels;
     }
 
-    /** {@code PlayerTeleportEvent} has its own handler list. */
+    /** {@code PlayerTeleportEvent} has its own handler list and may change worlds at the same coordinates. */
     @EventHandler(ignoreCancelled = true)
     public void onTeleport(final org.bukkit.event.player.PlayerTeleportEvent event) {
-        onMove(event);
+        duels.moved(event);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -72,6 +85,113 @@ public final class DuelListener implements Listener {
         if (duels.isInArena(event.getPlayer())) {
             event.setCancelled(true);
         }
+    }
+
+    /** Keeps a fighter's screen limited to their own inventory. */
+    @EventHandler(ignoreCancelled = true)
+    public void onInventoryOpen(final InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof final Player player)) {
+            return;
+        }
+        final boolean own = event.getInventory().equals(player.getInventory());
+        if (DuelContainment.refusesInventory(duels.isInArena(player), own)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityHandOff(final PlayerInteractEntityEvent event) {
+        refuseEntityHandOff(event);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityHandOff(final PlayerInteractAtEntityEvent event) {
+        refuseEntityHandOff(event);
+    }
+
+    private void refuseEntityHandOff(final PlayerInteractEntityEvent event) {
+        final Player player = event.getPlayer();
+        if (DuelContainment.refusesEntityHandOff(duels.isInArena(player), hasHeldItem(player, event.getHand()))) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onArmorStand(final PlayerArmorStandManipulateEvent event) {
+        final boolean hasHeldItem = !event.getPlayerItem().getType().isAir();
+        if (DuelContainment.refusesEntityHandOff(duels.isInArena(event.getPlayer()), hasHeldItem)) {
+            event.setCancelled(true);
+        }
+    }
+
+    private static boolean hasHeldItem(final Player player, final EquipmentSlot hand) {
+        final ItemStack item = hand == EquipmentSlot.OFF_HAND
+                ? player.getInventory().getItemInOffHand()
+                : player.getInventory().getItemInMainHand();
+        return !item.getType().isAir();
+    }
+
+    /** Some blocks take the held item without opening an inventory. */
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockHandOff(final PlayerInteractEvent event) {
+        final var block = event.getClickedBlock();
+        if (block == null) {
+            return;
+        }
+        final ItemStack item = event.getItem();
+        final boolean fights = duels.isInArena(event.getPlayer());
+        final boolean hasHeldItem = item != null && !item.getType().isAir();
+        final boolean refusesBlock =
+                DuelContainment.refusesBlockHandOff(fights, hasHeldItem, event.getAction(), block.getType());
+        final boolean refusesEgg =
+                item != null && DuelContainment.refusesSpawnEgg(fights, event.getAction(), item.getType());
+        if (refusesBlock || refusesEgg) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onMount(final EntityMountEvent event) {
+        if (event.getEntity() instanceof final Player player && DuelContainment.refusesMount(duels.isInArena(player))) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityPlace(final EntityPlaceEvent event) {
+        final Player player = event.getPlayer();
+        if (player != null && duels.isInArena(player)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onHangingPlace(final HangingPlaceEvent event) {
+        final Player player = event.getPlayer();
+        if (player != null && duels.isInArena(player)) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockPlace(final BlockPlaceEvent event) {
+        refuseBlockPlacement(event);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBlockPlace(final BlockMultiPlaceEvent event) {
+        refuseBlockPlacement(event);
+    }
+
+    private void refuseBlockPlacement(final BlockPlaceEvent event) {
+        if (duels.refusesPlacement(event.getPlayer(), event.getBlock())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onProjectileLaunch(final ProjectileLaunchEvent event) {
+        duels.launched(event.getEntity());
     }
 
     /** Refuses the grant itself, so a duel completes no advancement, shows no toast and counts for no gate later. */

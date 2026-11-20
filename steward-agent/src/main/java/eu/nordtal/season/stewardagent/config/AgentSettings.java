@@ -87,10 +87,14 @@ public final class AgentSettings {
     public static String seasonRepository(final Environment environment) {
         final String key = "NORDTAL_STEWARD_AGENT_SEASON_REPO";
         final String configured = environment.variables().apply(key);
-        final String repository = configured == null ? "" : configured.strip();
+        if (configured == null || configured.isBlank()) {
+            throw new IllegalArgumentException(key + " is missing. compose.yml sets it from SEASON_REPO in the"
+                    + " environment file, a GitHub repository as owner/name");
+        }
+        final String repository = configured.strip();
         if (!REPO.matcher(repository).matches()) {
             throw new IllegalArgumentException(
-                    key + " is not a GitHub repository in owner/name form, was '" + repository + "'");
+                    key + " must be a GitHub repository as owner/name, was '" + repository + "'");
         }
         return repository;
     }

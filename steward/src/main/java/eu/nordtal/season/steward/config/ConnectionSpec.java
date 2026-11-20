@@ -4,7 +4,7 @@ import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 
-/** Holds the internal endpoints that the deployment sets for Steward. Neither has a default. */
+/** Holds the internal endpoints that the deployment sets for Steward. The empty default is refused at start. */
 @ConfigSpec
 public interface ConnectionSpec {
 

@@ -43,8 +43,8 @@ class StewardSettingsTest {
                 () -> StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(key -> null)));
         assertThrows(
                 SettingsException.class,
-                () -> StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(Map.of(
-                        "NORDTAL_STEWARD_AGENT_URL", "http://deployment-agent:8081")::get)));
+                () -> StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(
+                        Map.of("NORDTAL_STEWARD_AGENT_URL", "http://deployment-agent:8081")::get)));
 
         final ConnectionSpec endpoints = StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(Map.of(
                 "NORDTAL_STEWARD_AGENT_URL", "http://deployment-agent:8081",

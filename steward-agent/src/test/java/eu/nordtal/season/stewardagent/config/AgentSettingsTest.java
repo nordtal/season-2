@@ -33,7 +33,8 @@ class AgentSettingsTest {
                 () -> AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(key -> null)));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(key -> "https://evil.example/x")));
+                () -> AgentSettings.seasonRepository(
+                        AgentSettings.ENVIRONMENT.reading(key -> "https://evil.example/x")));
         assertEquals(
                 "deployment/season",
                 AgentSettings.seasonRepository(AgentSettings.ENVIRONMENT.reading(

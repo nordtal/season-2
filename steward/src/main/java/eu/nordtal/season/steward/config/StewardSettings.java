@@ -69,8 +69,17 @@ public final class StewardSettings {
     }
 
     private static void requireEndpoint(final String variable, final @Nullable String url) {
-        if (url == null || !(url.startsWith("http://") || url.startsWith("https://"))) {
-            throw new IllegalArgumentException(variable + " is not an http(s) URL, was '" + url + "'");
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException(variable + " is missing. compose.yml sets it");
+        }
+        final URI parsed;
+        try {
+            parsed = new URI(url);
+        } catch (final URISyntaxException malformed) {
+            throw new IllegalArgumentException(variable + " must be an http(s) URL, was '" + url + "'", malformed);
+        }
+        if (!("http".equals(parsed.getScheme()) || "https".equals(parsed.getScheme())) || parsed.getHost() == null) {
+            throw new IllegalArgumentException(variable + " must be an http(s) URL, was '" + url + "'");
         }
     }
 

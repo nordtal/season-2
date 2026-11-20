@@ -228,7 +228,7 @@ applies at the next reading.
 | `steward`     | `NORDTAL_STEWARD_*`                                     | the schedules and payment polling                                                              |
 | `web`         | `NORDTAL_STEWARD_WEB_*`                                 | the port, the public address, Discord sign-in, WebAuthn, Web Push, the authenticator app's key |
 | `alerts`      | `NORDTAL_STEWARD_ALERTS_*`                              | the thresholds steward's measured alerts fire on                                               |
-| `connections` | `NORDTAL_STEWARD_AGENT_URL`, `NORDTAL_STEWARD_BUNQ_URL` | the endpoints of steward-agent and steward-bunq, set by compose.yml, with no default          |
+| `connections` | `NORDTAL_STEWARD_AGENT_URL`, `NORDTAL_STEWARD_BUNQ_URL` | the endpoints of steward-agent and steward-bunq, set by compose.yml, with no default           |
 | `database`    | `NORDTAL_STEWARD_DATABASE_*`                            | the connection, from the environment alone                                                     |
 
 ## Tests

@@ -24,6 +24,13 @@ public final class Routes {
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
+    /**
+     * The setting groups, as service/name, whose save needs a step-up.
+     * They decide what the stack runs, Steward's sign-in, and the pack every player's client downloads.
+     */
+    private static final Set<String> FRESH_KEY_GROUPS =
+            Set.of("steward/steward", "steward/web", "steward-agent/runs", "proxy/pack");
+
     private Routes() {}
 
     static void register(final StackApi api, final JavalinConfig config, final Caller caller) {
@@ -98,13 +105,6 @@ public final class Routes {
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_SETTINGS));
     }
-
-    /**
-     * The groups, as service/name, that decide what the stack runs, where Steward's sign-in and its tokens
-     * go, or what every player's client downloads.
-     */
-    private static final Set<String> FRESH_KEY_GROUPS =
-            Set.of("steward/steward", "steward/web", "steward-agent/runs", "proxy/pack");
 
     static boolean needsFreshKeyForSettings(final String service, final String group) {
         return FRESH_KEY_GROUPS.contains(service + "/" + group);

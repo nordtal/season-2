@@ -39,6 +39,9 @@ public enum Mark {
 
     public static final String WORLD = "🌍";
 
+    /** The emoji of a language that no single country stands for, such as English. */
+    public static final String GLOBE = "🌐";
+
     private static final int REGIONAL_A = 0x1F1E6;
 
     public static final String PREVIEW = "✅";

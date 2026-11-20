@@ -10,7 +10,7 @@ import eu.nordtal.season.messages.value.Example;
 @Name("Settings")
 public interface SettingsEditor {
 
-    @Name("Add country")
+    @Name("Add region")
     MessageRef addCountry();
 
     @Name("Applies after a restart")

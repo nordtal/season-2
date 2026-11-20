@@ -1,0 +1,196 @@
+import { PlusIcon } from "@/components/ui/icons"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
+
+import type { Npc, NpcView } from "@/lib/api"
+import { blankNpc } from "@/lib/npc"
+import { npcPath } from "@/lib/npc-paths"
+import { setNpcDraft, useNpcDraft, useNpcDraftIds } from "@/lib/npc-drafts"
+import { useNpcs } from "@/lib/queries-npcs"
+import { t } from "@/lib/texts"
+import { DataTable, type Column } from "@/components/steward/data-table"
+import { npcTitle } from "@/components/steward/npc/editor"
+import { Panel } from "@/components/steward/panel"
+import { QueryState, SkeletonText } from "@/components/steward/query-state"
+import { SettingsService } from "@/components/steward/reference-picker"
+import { DIALOGUE_FILE, NETWORK, fileItemOf } from "@/components/steward/settings"
+import { ConfigFile } from "@/components/steward/settings-config"
+import type { Target } from "@/components/steward/settings-view"
+import { useConfigs, useDescriptors } from "@/lib/queries"
+import { onPendingJump, takePendingJump } from "@/lib/settings-search"
+import { StatusBadge } from "@/components/steward/status"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+
+/** A row of the list: a published NPC, or the draft of one that was never published. */
+type Row = { id: string; view?: NpcView }
+
+/** What a row shows of its NPC: the draft where the browser holds one, the published NPC otherwise. */
+function Shown({ row, children }: { row: Row; children: (npc: Npc, changed: boolean) => React.ReactNode }) {
+  const draft = useNpcDraft(row.id)
+  const npc = draft?.npc ?? row.view?.npc
+  return npc === undefined ? null : <>{children(npc, draft !== undefined)}</>
+}
+
+function Coordinate({ axis, value }: { axis: string; value: number }) {
+  return (
+    <span className="inline-flex items-baseline gap-1">
+      <span className="text-xs text-muted-foreground">{axis}</span>
+      <span className="font-mono tnum">{Math.floor(value)}</span>
+    </span>
+  )
+}
+
+const COLUMNS: Column<Row>[] = [
+  {
+    head: t("steward.npcs.name"),
+    grow: true,
+    phone: { line: 1, side: "start" },
+    waiting: <SkeletonText width="long" className="max-w-40" />,
+    render: (row) => (
+      <Shown row={row}>
+        {(npc) => (
+          <span className="flex min-w-0 flex-col">
+            <Link
+              {...npcPath(npc.id)}
+              className="truncate rounded-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {npcTitle(npc)}
+            </Link>
+            <span lang="de" className="truncate text-xs text-muted-foreground">
+              {npc.name.de}
+            </span>
+          </span>
+        )}
+      </Shown>
+    ),
+  },
+  {
+    head: t("steward.npcs.place"),
+    phone: { line: 2, side: "wide" },
+    render: (row) => (
+      <Shown row={row}>
+        {(npc) =>
+          npc.place.world.trim() === "" ? null : (
+            <span className="flex items-baseline gap-x-3 whitespace-nowrap">
+              <span>{npc.place.world}</span>
+              <Coordinate axis="X" value={npc.place.x} />
+              <Coordinate axis="Y" value={npc.place.y} />
+              <Coordinate axis="Z" value={npc.place.z} />
+            </span>
+          )
+        }
+      </Shown>
+    ),
+  },
+  {
+    head: t("steward.npcs.steps"),
+    end: true,
+    phone: { line: 3, side: "start", labelled: true },
+    className: "tnum",
+    render: (row) => (
+      <Shown row={row}>{(npc) => t("steward.npcs.step-count", { count: npc.dialogue.steps.length })}</Shown>
+    ),
+  },
+  {
+    head: t("steward.npcs.versions"),
+    end: true,
+    phone: { line: 1, side: "end" },
+    render: (row) => (
+      <Shown row={row}>
+        {(_, changed) => (
+          <span className="flex flex-wrap items-center justify-end gap-1.5">
+            {changed && row.view ? <StatusBadge tone="warn">{t("steward.npcs.changed")}</StatusBadge> : null}
+            <Badge variant="secondary">
+              {row.view ? t("steward.npcs.live", { version: row.view.version }) : t("steward.npcs.not-published")}
+            </Badge>
+          </span>
+        )}
+      </Shown>
+    ),
+  },
+]
+
+/** The NPCs tab without an NPC open: every NPC, and the dialogue settings every NPC shares. */
+export function NpcsTab() {
+  return (
+    <div className="flex flex-col gap-10">
+      <NpcList />
+      <DialogueSettings />
+    </div>
+  )
+}
+
+/** Every NPC of the game, and the drafts of those that were never published. A row opens its editor. */
+function NpcList() {
+  const npcs = useNpcs()
+  const drafts = useNpcDraftIds()
+  const navigate = useNavigate()
+  const open = (id: string) => navigate(npcPath(id))
+  const create = () => {
+    const id = crypto.randomUUID()
+    setNpcDraft(id, { npc: blankNpc(id), base: 0 })
+    void open(id)
+  }
+  const rows = (views: NpcView[]): Row[] => {
+    const published = new Set(views.map((view) => view.npc.id))
+    return [
+      ...views.map((view) => ({ id: view.npc.id, view })),
+      ...drafts.filter((id) => !published.has(id)).map((id) => ({ id })),
+    ]
+  }
+  return (
+    <section className="flex flex-col gap-4">
+      <div>
+        <Button type="button" onClick={create}>
+          <PlusIcon aria-hidden />
+          {t("steward.npcs.create")}
+        </Button>
+      </div>
+      <QueryState query={npcs} isEmpty={(views) => rows(views).length === 0} empty={{ title: t("steward.npcs.none") }}>
+        {(views) => (
+          <DataTable
+            columns={COLUMNS}
+            rows={views === undefined ? undefined : rows(views)}
+            rowKey={(row) => row.id}
+            waiting={4}
+            onRowClick={(row) => void open(row.id)}
+          />
+        )}
+      </QueryState>
+    </section>
+  )
+}
+
+/** Counts the palette's jumps, so the same hit twice lands twice. */
+let jumps = 0
+
+/** How a dialogue types, zooms and ends, for every NPC on every server. A palette hit on one of them lands here. */
+function DialogueSettings() {
+  const configs = useConfigs()
+  const descriptors = useDescriptors()
+  const [target, setTarget] = useState<Target | null>(null)
+  useEffect(() => {
+    const land = () => {
+      const jump = takePendingJump(DIALOGUE_FILE)
+      if (jump) setTarget({ file: jump.file, id: jump.path, seq: ++jumps })
+    }
+    land()
+    return onPendingJump(land)
+  }, [])
+  const location = configs.data?.find((each) => each.path === DIALOGUE_FILE)
+  if (configs.isSuccess && location === undefined) return null
+  return (
+    <Panel title={t("steward.npcs.dialogue-settings")}>
+      <QueryState query={configs} rows={4}>
+        {() =>
+          location ? (
+            <SettingsService value={NETWORK}>
+              <ConfigFile item={fileItemOf(location, descriptors.data ?? [])} target={target} />
+            </SettingsService>
+          ) : null
+        }
+      </QueryState>
+    </Panel>
+  )
+}

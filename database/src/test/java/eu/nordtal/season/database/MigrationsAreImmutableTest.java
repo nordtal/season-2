@@ -378,6 +378,12 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V131__a_player_s_country_flag_shows_in_the_game.sql",
                 "14b089950a2f5fc4c7fd513f44a44b091fe6433b7bf5409aba72ef14dda51db9");
+        FROZEN.put(
+                "V132__npc_skins_menus_and_steward_previews.sql",
+                "5ebbdaddceef5a87fe209134690ec8a4e14d10bb6dd009e48ff510d4630e0995");
+        FROZEN.put(
+                "V133__smp_no_longer_publishes_its_npc_group.sql",
+                "0b510c9d22d35fad4a9d7a0ae6059e0e907aa1e47066c3898acea1590d076c46");
     }
 
     @Test

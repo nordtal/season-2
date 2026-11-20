@@ -9,6 +9,7 @@ import { ServicePage, serviceSearch } from "@/pages/service"
 import { TranslationsPage, translationsSearch } from "@/pages/translations"
 import { AccessPage } from "@/pages/access"
 import { JournalPage } from "@/pages/journal"
+import { NPCS_PATH, npcPath } from "@/lib/npc-paths"
 import { PaymentsPage } from "@/pages/payments"
 import { PersonPage } from "@/pages/person"
 import { OverviewPage } from "@/pages/overview"
@@ -76,6 +77,21 @@ const routes = [
     path: "/translations",
     component: TranslationsPage,
     validateSearch: translationsSearch,
+  }),
+  /** NPCs are a tab of the SMP page; their old addresses lead there. */
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/npcs",
+    beforeLoad: () => {
+      throw redirect({ ...NPCS_PATH, replace: true })
+    },
+  }),
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/npcs/$id",
+    beforeLoad: ({ params }) => {
+      throw redirect({ ...npcPath(params.id), replace: true })
+    },
   }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access/$id", component: PersonPage }),

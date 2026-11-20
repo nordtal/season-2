@@ -51,6 +51,7 @@ public final class NpcDialogues implements Listener {
     private final DialogueSounds sounds = new DialogueSounds();
     private final NamespacedKey zoomKey;
     private final Map<UUID, DialogueSession> sessions = new HashMap<>();
+    private final Map<UUID, Mannequin> previews = new HashMap<>();
     private Scheduler.@Nullable Task task;
 
     /** The parts a server hands in; {@code labels} gives the words of each language, {@code feel} the settings. */
@@ -98,7 +99,8 @@ public final class NpcDialogues implements Listener {
     public void apply(final List<Npc> npcs) {
         final Set<UUID> changed = figures.apply(npcs);
         for (final DialogueSession session : List.copyOf(sessions.values())) {
-            if (changed.contains(session.npc().id())) {
+            if (changed.contains(session.npc().id())
+                    && !previews.containsKey(session.player().getUniqueId())) {
                 end(session.player().getUniqueId());
             }
         }
@@ -206,6 +208,7 @@ public final class NpcDialogues implements Listener {
         final DialogueRun run = new DialogueRun(
                 npc.dialogue(),
                 npc.name().in(locale),
+                NpcLooks.portraitFont(npc),
                 locale,
                 now,
                 labels.apply(locale),
@@ -215,17 +218,48 @@ public final class NpcDialogues implements Listener {
         sessions.put(player.getUniqueId(), new DialogueSession(player, npc, figure, run, now, hud, sounds, zoomKey));
     }
 
+    /**
+     * Plays an unsaved NPC draft for {@code player} on a figure only it sees.
+     * The live NPC stays as it is, and a hand-off opens its menu but keeps no skip. Returns false for no play.
+     */
+    public boolean preview(final Player player, final Npc npc, final Locale locale) {
+        if (!DialogueRun.playable(npc.dialogue())) {
+            return false;
+        }
+        end(player.getUniqueId());
+        final Mannequin figure = figures.spawnPreview(npc, player);
+        final Feel now = feel.get();
+        final DialogueRun run = new DialogueRun(
+                npc.dialogue(),
+                npc.name().in(locale),
+                NpcLooks.portraitFont(npc),
+                locale,
+                now,
+                labels.apply(locale),
+                null,
+                false,
+                player.isSneaking());
+        previews.put(player.getUniqueId(), figure);
+        sessions.put(player.getUniqueId(), new DialogueSession(player, npc, figure, run, now, hud, sounds, zoomKey));
+        return true;
+    }
+
     private void tick() {
         figures.turnHeads(this::talker);
         for (final DialogueSession session : List.copyOf(sessions.values())) {
-            final Mannequin figure = figures.figure(session.npc().id());
-            if (figure == null || !session.player().isOnline()) {
+            final UUID player = session.player().getUniqueId();
+            final Mannequin preview = previews.get(player);
+            final Mannequin figure =
+                    preview != null ? preview : figures.figure(session.npc().id());
+            if (figure == null || !figure.isValid() || !session.player().isOnline()) {
                 end(session.player().getUniqueId());
                 continue;
             }
             for (final Effect effect : session.tick(figure)) {
                 if (effect instanceof final Effect.HandOff handOff) {
-                    skips.apply(session.player().getUniqueId(), session.npc().id(), handOff.menu(), handOff.change());
+                    if (preview == null) {
+                        skips.apply(player, session.npc().id(), handOff.menu(), handOff.change());
+                    }
                     open(session.player(), handOff.menu());
                 } else if (effect instanceof Effect.End) {
                     end(session.player().getUniqueId());
@@ -256,6 +290,10 @@ public final class NpcDialogues implements Listener {
         final DialogueSession session = sessions.remove(player);
         if (session != null) {
             session.stopNow();
+        }
+        final Mannequin preview = previews.remove(player);
+        if (preview != null) {
+            figures.removePreview(preview);
         }
     }
 }

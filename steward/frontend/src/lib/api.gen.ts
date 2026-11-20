@@ -184,6 +184,59 @@ export type PositionTaker = {
   taker: Taker
 }
 
+export type NpcView = {
+  npc: Npc
+  version: number
+}
+
+export type NpcPublication = {
+  npc: Npc
+  version: number
+}
+
+export type NpcVersion = {
+  number: number
+  npc?: Npc
+  dialogue?: Dialogue
+  removal: boolean
+  actor: Actor
+  saved: string
+}
+
+export type NpcSkinUploaded = {
+  id: string
+  model: NpcSkinModel
+  address: string
+}
+
+export type NpcSkinCopy = {
+  player: string
+}
+
+export type NpcPreview = {
+  npc: Npc
+  language: string
+}
+
+export type NpcTextMeasureRequest = {
+  text: string
+  kind: NpcTextKind
+  answers: number
+}
+
+export type NpcTextMeasurement = {
+  lines: string[]
+  width: number
+  room: number
+  lineLimit: number
+  fits: boolean
+}
+
+export type NpcMenu = {
+  key: string
+  hint: Words
+}
+
 export type AnnouncementsAsked = {
   ids: Record<string, string>
 }
@@ -764,9 +817,40 @@ export type StateContainer = "INVENTORY" | "ENDER_CHEST"
 
 export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" | "EXPIRED" | "CANCELLED"
 
-export type TakeInPurpose = "WHEEL_PRIZE" | "DUEL_KIT"
+export type TakeInPurpose = "WHEEL_PRIZE" | "DUEL_KIT" | "NPC_ITEM"
 
 export type Taker = "READY" | "UNLINKED" | "ELSEWHERE"
+
+export type Npc = {
+  id: string
+  name: Words
+  place: NpcPlace
+  pose: Pose
+  pitch: number
+  equipment: Partial<Record<Slot, Equipment>>
+  dialogue: Dialogue
+  skin?: string
+  skinModel: NpcSkinModel
+}
+
+export type Dialogue = {
+  start: string
+  steps: NpcStep[]
+}
+
+export type Actor = {
+  kind: ActorKind
+  person?: string
+}
+
+export type NpcSkinModel = "CLASSIC" | "SLIM"
+
+export type NpcTextKind = "NAME" | "BODY" | "ANSWER"
+
+export type Words = {
+  en: string
+  de: string
+}
 
 export type AnnouncementView = {
   id: number
@@ -826,6 +910,8 @@ export type JournalAction =
   | "CONSOLE"
   | "SAVE_SETTINGS"
   | "SAVE_MESSAGES"
+  | "SAVE_NPC"
+  | "REMOVE_NPC"
   | "ADD_PLUGIN"
   | "REMOVE_PLUGIN"
   | "REQUEST_RUN"
@@ -866,11 +952,6 @@ export type JournalAction =
   | "START_CHANNEL_HIDDEN"
   | "LANGUAGE_NOT_KEPT"
   | "CHANNEL_SEEN"
-
-export type Actor = {
-  kind: ActorKind
-  person?: string
-}
 
 export type JournalItem = {
   key: string
@@ -1275,6 +1356,33 @@ export type InventoryStack = {
   amount: number
 }
 
+export type NpcPlace = {
+  world: string
+  x: number
+  y: number
+  z: number
+  yaw: number
+}
+
+export type Pose = "STAND" | "SIT" | "CROUCH"
+
+export type Slot = "HEAD" | "CHEST" | "LEGS" | "FEET" | "HAND" | "OFF_HAND"
+
+export type Equipment = {
+  item: string
+  data: string
+}
+
+export type NpcStep = {
+  id: string
+  x: number
+  y: number
+  text: Words
+  answers: NpcAnswer[]
+  next?: string
+  menu?: string
+}
+
 export type AnnouncementTarget = {
   language: string
   channel: string
@@ -1469,6 +1577,11 @@ export type Gauge =
 export type ChangeImage = "PULLED" | "KEPT"
 
 export type PruneRule = "RETENTION" | "OVER_BUDGET"
+
+export type NpcAnswer = {
+  text: Words
+  next?: string
+}
 
 export type Delivery = "UNSENT" | "SENDING" | "POSTED" | "NOT_POSTED"
 

@@ -796,6 +796,10 @@ export type TextArgs = {
     bundle: Arg["text"]
     key: Arg["text"]
   }
+  "steward.answer.no-minecraft-account": {
+    player: Arg["text"]
+  }
+  "steward.answer.no-npc": Record<string, never>
   "steward.answer.no-preview": {
     key: Arg["text"]
   }
@@ -813,6 +817,10 @@ export type TextArgs = {
     service: Arg["text"]
     group: Arg["text"]
   }
+  "steward.answer.no-skin": Record<string, never>
+  "steward.answer.no-skin-to-copy": {
+    player: Arg["text"]
+  }
   "steward.answer.no-sources": Record<string, never>
   "steward.answer.no-subscription": Record<string, never>
   "steward.answer.no-such-key": Record<string, never>
@@ -829,6 +837,22 @@ export type TextArgs = {
     expected: Arg["choice"]
     text: Arg["text"]
   }
+  "steward.answer.npc-changed": {
+    name: Arg["text"]
+  }
+  "steward.answer.npc-dialogue-refused": {
+    problem: Arg["text"]
+  }
+  "steward.answer.npc-item-unreadable": {
+    slot: Arg["choice"]
+  }
+  "steward.answer.npc-name-long": {
+    most: Arg["number"]
+  }
+  "steward.answer.npc-name-missing": Record<string, never>
+  "steward.answer.npc-no-place": Record<string, never>
+  "steward.answer.npc-pitch-range": Record<string, never>
+  "steward.answer.npc-place-refused": Record<string, never>
   "steward.answer.override-refused": {
     key: Arg["text"]
     language: Arg["text"]
@@ -880,6 +904,10 @@ export type TextArgs = {
   }
   "steward.answer.sign-in-unconfigured": {
     missing: Arg["text"]
+  }
+  "steward.answer.skin-refused": Record<string, never>
+  "steward.answer.skin-unavailable": {
+    player: Arg["text"]
   }
   "steward.answer.spins-range": {
     most: Arg["number"]
@@ -1575,6 +1603,169 @@ export type TextArgs = {
     type: Arg["choice"]
   }
   "steward.notifications.unnamed": Record<string, never>
+  "steward.npcs.add-answer": Record<string, never>
+  "steward.npcs.add-step": Record<string, never>
+  "steward.npcs.answer-count": {
+    count: Arg["number"]
+    most: Arg["number"]
+  }
+  "steward.npcs.answer-text": {
+    index: Arg["number"]
+    language: Arg["choice"]
+  }
+  "steward.npcs.answer-then": {
+    index: Arg["number"]
+  }
+  "steward.npcs.answers": Record<string, never>
+  "steward.npcs.arrange": Record<string, never>
+  "steward.npcs.back": Record<string, never>
+  "steward.npcs.cancel-play": Record<string, never>
+  "steward.npcs.changed": Record<string, never>
+  "steward.npcs.conflict": {
+    name: Arg["text"]
+  }
+  "steward.npcs.conflict-note": {
+    live: Arg["number"]
+    read: Arg["number"]
+  }
+  "steward.npcs.copy-from": Record<string, never>
+  "steward.npcs.copy-skin": Record<string, never>
+  "steward.npcs.create": Record<string, never>
+  "steward.npcs.cut-lines": {
+    limit: Arg["number"]
+    answers: Arg["choice"]
+  }
+  "steward.npcs.cut-width": Record<string, never>
+  "steward.npcs.default-skin": Record<string, never>
+  "steward.npcs.delete": Record<string, never>
+  "steward.npcs.delete-ask": {
+    name: Arg["text"]
+  }
+  "steward.npcs.delete-note": Record<string, never>
+  "steward.npcs.delete-step": Record<string, never>
+  "steward.npcs.deleted": {
+    name: Arg["text"]
+  }
+  "steward.npcs.dialogue-settings": Record<string, never>
+  "steward.npcs.discard": Record<string, never>
+  "steward.npcs.discard-ask": {
+    name: Arg["text"]
+  }
+  "steward.npcs.discard-note": {
+    version: Arg["number"]
+  }
+  "steward.npcs.empty-slot": Record<string, never>
+  "steward.npcs.end": Record<string, never>
+  "steward.npcs.facing": Record<string, never>
+  "steward.npcs.graph": Record<string, never>
+  "steward.npcs.is-live": Record<string, never>
+  "steward.npcs.items": Record<string, never>
+  "steward.npcs.kind": {
+    kind: Arg["choice"]
+  }
+  "steward.npcs.language": {
+    language: Arg["choice"]
+  }
+  "steward.npcs.lines": {
+    lines: Arg["number"]
+    limit: Arg["number"]
+  }
+  "steward.npcs.live": {
+    version: Arg["number"]
+  }
+  "steward.npcs.load": Record<string, never>
+  "steward.npcs.load-live": {
+    live: Arg["number"]
+  }
+  "steward.npcs.loaded": {
+    number: Arg["number"]
+  }
+  "steward.npcs.missing": {
+    language: Arg["choice"]
+  }
+  "steward.npcs.name": Record<string, never>
+  "steward.npcs.name-in": {
+    language: Arg["choice"]
+  }
+  "steward.npcs.no-text": Record<string, never>
+  "steward.npcs.none": Record<string, never>
+  "steward.npcs.not-played": Record<string, never>
+  "steward.npcs.not-published": Record<string, never>
+  "steward.npcs.not-published-yet": Record<string, never>
+  "steward.npcs.overwrite": {
+    live: Arg["number"]
+  }
+  "steward.npcs.pitch": Record<string, never>
+  "steward.npcs.place": Record<string, never>
+  "steward.npcs.play": Record<string, never>
+  "steward.npcs.pose": Record<string, never>
+  "steward.npcs.pose-of": {
+    pose: Arg["choice"]
+  }
+  "steward.npcs.preview": Record<string, never>
+  "steward.npcs.problem": {
+    problem: Arg["choice"]
+    language: Arg["choice"]
+  }
+  "steward.npcs.publish": Record<string, never>
+  "steward.npcs.published": {
+    name: Arg["text"]
+    version: Arg["number"]
+  }
+  "steward.npcs.publishing": Record<string, never>
+  "steward.npcs.remove-answer": {
+    index: Arg["number"]
+  }
+  "steward.npcs.remove-item": {
+    slot: Arg["choice"]
+  }
+  "steward.npcs.removed": Record<string, never>
+  "steward.npcs.skin": Record<string, never>
+  "steward.npcs.skin-model": {
+    model: Arg["choice"]
+  }
+  "steward.npcs.skin-not-saved": Record<string, never>
+  "steward.npcs.skin-pending": Record<string, never>
+  "steward.npcs.skin-size": {
+    width: Arg["number"]
+    height: Arg["number"]
+  }
+  "steward.npcs.skin-unreadable": Record<string, never>
+  "steward.npcs.slot": {
+    slot: Arg["choice"]
+  }
+  "steward.npcs.start": Record<string, never>
+  "steward.npcs.start-here": Record<string, never>
+  "steward.npcs.step": Record<string, never>
+  "steward.npcs.step-count": {
+    count: Arg["number"]
+  }
+  "steward.npcs.steps": Record<string, never>
+  "steward.npcs.tab": {
+    tab: Arg["choice"]
+  }
+  "steward.npcs.then": Record<string, never>
+  "steward.npcs.then-end": Record<string, never>
+  "steward.npcs.then-new": Record<string, never>
+  "steward.npcs.then-step": {
+    step: Arg["text"]
+  }
+  "steward.npcs.title": Record<string, never>
+  "steward.npcs.too-long": {
+    language: Arg["choice"]
+  }
+  "steward.npcs.unlinked": Record<string, never>
+  "steward.npcs.unnamed": Record<string, never>
+  "steward.npcs.upload-skin": Record<string, never>
+  "steward.npcs.use-default-skin": Record<string, never>
+  "steward.npcs.version": {
+    number: Arg["number"]
+  }
+  "steward.npcs.versions": Record<string, never>
+  "steward.npcs.versions-of": {
+    name: Arg["text"]
+  }
+  "steward.npcs.world": Record<string, never>
   "steward.operations.a-run": Record<string, never>
   "steward.operations.added": {
     size: Arg["text"]

@@ -9,6 +9,7 @@ import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
+import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.value.Money;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.IntStream;
+import net.dv8tion.jda.api.components.Component;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.container.Container;
@@ -27,6 +29,8 @@ import org.junit.jupiter.api.Test;
 class ManagedMessagesTest {
 
     private static final DocumentRenderer RENDERER = StoredDocumentsStandIn.renderer();
+    private static final GuildLanguages.Language GERMAN =
+            new GuildLanguages.Language("de", "Deutsch", "1", "2", "3", "", "", "", "4");
 
     @Test
     void theContributionMessageListsEachTierUnderItsBannerInOneBoxWithTheBuyButton() {
@@ -64,6 +68,75 @@ class ManagedMessagesTest {
                                 .getButtons()
                                 .getFirst()
                                 .getLabel()));
+    }
+
+    @Test
+    void theRulesStandUnderTheirBannerAsAListThatWelcomesBothLanguages() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.rules(RENDERER, Locale.ENGLISH);
+        final Container box = (Container) drawn.components().getFirst();
+
+        assertAll(
+                () -> assertEquals(1, drawn.components().size()),
+                () -> assertInstanceOf(MediaGallery.class, box.getComponents().getFirst()),
+                () -> assertEquals(List.of("rules.png"), drawn.attachments()),
+                () -> assertEquals(
+                        "These rules apply on Discord and in the game.\n1. Treat everyone decently.\n2. Play fair."
+                                + "\n3. Fight other players on the SMP only when both of you agree."
+                                + "\n4. German and English are both welcome in the shared channels.",
+                        ((TextDisplay) box.getComponents().get(2)).getContent()));
+    }
+
+    @Test
+    void eachStepOfTheGuideOpensItsChannelInTheSameLanguage() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.guide(RENDERER, GERMAN, "100");
+        final List<Button> buttons = MessageComponentTree.of(drawn.components()).findAll(Button.class);
+
+        assertAll(
+                () -> assertEquals(1, drawn.components().size()),
+                () -> assertEquals(List.of(), drawn.attachments()),
+                () -> assertEquals(
+                        List.of("Konto verknüpfen", "Zugang kaufen"),
+                        buttons.stream().map(Button::getLabel).toList()),
+                () -> assertEquals(
+                        List.of("https://discord.com/channels/100/2", "https://discord.com/channels/100/1"),
+                        buttons.stream().map(Button::getUrl).toList()),
+                () -> assertTrue(
+                        drawn.text().contains("3. Verbinde dich in Minecraft mit `play.nordtal.eu`."), drawn.text()));
+    }
+
+    @Test
+    void theRulesAndTheGuideAreOneMessageWithinDiscordsLimits() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.rulesAndGuide(RENDERER, GERMAN, "100");
+        final Container rules = (Container) drawn.components().getFirst();
+
+        assertAll(
+                () -> assertEquals(2, drawn.components().size()),
+                () -> assertInstanceOf(MediaGallery.class, rules.getComponents().getFirst()),
+                () -> assertEquals(List.of("rules.png"), drawn.attachments()),
+                () -> assertTrue(
+                        drawn.text().indexOf("Verknüpfe dein Minecraft-Konto")
+                                > drawn.text().indexOf("Spiel fair"),
+                        drawn.text()),
+                () -> assertEquals(
+                        2,
+                        MessageComponentTree.of(drawn.components())
+                                .findAll(Button.class)
+                                .size()),
+                () -> assertTrue(MessageComponentTree.of(drawn.components())
+                                .findAll(Component.class)
+                                .size()
+                        <= DocumentCheck.COMPONENTS),
+                () -> assertTrue(drawn.text().length() <= DocumentCheck.TEXT));
+    }
+
+    @Test
+    void aGuideWithoutItsServerShowsTheStepsWithoutButtons() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.guide(RENDERER, GERMAN, "");
+
+        assertAll(
+                () -> assertEquals(
+                        List.of(), MessageComponentTree.of(drawn.components()).findAll(Button.class)),
+                () -> assertTrue(drawn.text().contains("1. Verknüpfe dein Minecraft-Konto."), drawn.text()));
     }
 
     @Test

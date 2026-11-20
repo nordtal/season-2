@@ -86,6 +86,11 @@ export function BrandFace({ version }: { version: boolean }) {
   )
 }
 
+/** Two crumbs can share a path when tabs of one page are crumbs, so the key adds the search. */
+function crumbKey(crumb: Crumb): string {
+  return crumb.search ? `${crumb.href}?${new URLSearchParams(crumb.search).toString()}` : crumb.href
+}
+
 /**
  * The path of the page after the mark. The ancestors shrink first, so a tight trail still ends on the page.
  */
@@ -95,10 +100,11 @@ export function Trail({ crumbs }: { crumbs: Crumb[] }) {
       {crumbs.map((crumb, index) => {
         const last = index === crumbs.length - 1
         return (
-          <Fragment key={crumb.href}>
+          <Fragment key={crumbKey(crumb)}>
             <CaretRightIcon className="size-3.5 shrink-0" aria-hidden />
             <Link
               to={crumb.href}
+              search={crumb.search}
               aria-current={last ? "page" : undefined}
               className={`truncate whitespace-nowrap rounded-sm transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
                 last ? "min-w-0 shrink text-foreground" : "min-w-0 shrink-[999]"

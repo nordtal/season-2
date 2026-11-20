@@ -297,7 +297,7 @@ public interface PeoplePage {
     @Name("Language")
     MessageRef language();
 
-    @Name("Country")
+    @Name("Region")
     MessageRef country();
 
     @Name("Time zone")

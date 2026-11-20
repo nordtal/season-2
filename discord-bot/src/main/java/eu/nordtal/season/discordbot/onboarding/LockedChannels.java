@@ -23,7 +23,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Sets the permission overwrites so that the lock role sees only the onboarding channel and no other channel.
+ * Sets the permission overwrites so that the lock role sees only the choose channel and nobody else sees it.
  *
  * The overwrites of the categories are set before those of the channels.
  */
@@ -33,7 +33,8 @@ final class LockedChannels {
     /** The holders of an overwrite, in the order the overwrites are set. */
     enum Holder {
         BOT,
-        LOCK
+        LOCK,
+        EVERYONE
     }
 
     enum View {
@@ -73,7 +74,10 @@ final class LockedChannels {
      */
     static List<Overwrite> wanted(final boolean onboarding) {
         if (onboarding) {
-            return List.of(new Overwrite(Holder.BOT, View.OPEN), new Overwrite(Holder.LOCK, View.OPEN));
+            return List.of(
+                    new Overwrite(Holder.BOT, View.OPEN),
+                    new Overwrite(Holder.LOCK, View.OPEN),
+                    new Overwrite(Holder.EVERYONE, View.CLOSED));
         }
         return List.of(new Overwrite(Holder.LOCK, View.CLOSED));
     }
@@ -106,6 +110,31 @@ final class LockedChannels {
         keep(channel, lock, onboardingChannelId).ifPresent(failed -> alerts.raise(KEY, alert(List.of(failed))));
     }
 
+    /**
+     * Takes back the View Channel denial for @everyone that the channel held as the choose channel.
+     * Only a channel that the lock role still sees was the choose channel, so another hidden channel stays hidden.
+     */
+    void reopen(final IPermissionContainer channel, final Role lock) {
+        final PermissionOverride everyone =
+                channel.getPermissionOverride(channel.getGuild().getPublicRole());
+        if (everyone == null || !wasChoose(everyone, channel.getPermissionOverride(lock))) {
+            return;
+        }
+        try {
+            final var _ = everyone.getManager().clear(Permission.VIEW_CHANNEL).complete();
+            log.info(
+                    "channel overwrite cleared: channel={} channel_name=\"{}\" holder=everyone",
+                    channel.getId(),
+                    channel.getName());
+        } catch (final RuntimeException failure) {
+            log.warn(
+                    "channel overwrite not cleared: channel={} channel_name=\"{}\" cause={}",
+                    channel.getId(),
+                    channel.getName(),
+                    failure.toString());
+        }
+    }
+
     /** Sets the overwrites of one channel in order. Returns the first failure and sets no further overwrite. */
     private Optional<ChannelFailure> keep(
             final IPermissionContainer channel, final Role lock, final String onboardingChannelId) {
@@ -114,6 +143,7 @@ final class LockedChannels {
             final IPermissionHolder holder = switch (overwrite.holder()) {
                 case BOT -> guild.getSelfMember();
                 case LOCK -> lock;
+                case EVERYONE -> guild.getPublicRole();
             };
             final Optional<ChannelFailure> failed = keep(channel, holder, overwrite);
             if (failed.isPresent()) {
@@ -153,6 +183,11 @@ final class LockedChannels {
                     failure.toString());
             return Optional.of(new ChannelFailure(name(channel), String.valueOf(failure.getMessage())));
         }
+    }
+
+    /** Returns whether the overwrites are those of a choose channel: @everyone closed, the lock role open. */
+    static boolean wasChoose(final PermissionOverride everyone, final @Nullable PermissionOverride lock) {
+        return everyone.getDenied().contains(Permission.VIEW_CHANNEL) && isOpen(lock, LOCK_OPEN);
     }
 
     private static boolean isOpen(final @Nullable PermissionOverride current, final EnumSet<Permission> open) {

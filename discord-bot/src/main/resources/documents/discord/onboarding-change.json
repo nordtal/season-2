@@ -1,0 +1,36 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Choose your region and language"
+              },
+              "style": "TITLE"
+            },
+            {
+              "text": {
+                "en": "Change your region or language here."
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "settings",
+              "label": {
+                "en": "Show settings"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

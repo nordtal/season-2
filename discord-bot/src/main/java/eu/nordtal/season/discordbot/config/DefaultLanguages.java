@@ -28,6 +28,9 @@ final class DefaultLanguages {
         values.put("hunger-games-channel", "");
         values.put("status-channel", "");
         values.put("announcement-channel", "");
+        values.put("category", "");
+        values.put("rules-channel", "");
+        values.put("emoji", "");
         return Specs.createUnsafe(AccessSpec.LanguageSpec.class, values);
     }
 }

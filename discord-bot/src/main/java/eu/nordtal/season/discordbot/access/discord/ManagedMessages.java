@@ -4,18 +4,23 @@ import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.ManagedMessage;
 import eu.nordtal.season.discordbot.StoredDocuments;
+import eu.nordtal.season.discordbot.config.Configured;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.discordrendering.OneMessage;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import java.util.Locale;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import org.jdbi.v3.core.Jdbi;
 
+@Slf4j
 public final class ManagedMessages {
 
     /** @param amount the donation that gives the donor role */
@@ -36,6 +41,19 @@ public final class ManagedMessages {
                     StoredDocuments.NAMESPACE, "link", "Link", Slot.button("link"))
             .titled("Link instructions and button");
 
+    static final DocumentSpec<DocumentSpec.None> RULES =
+            DocumentSpec.message(StoredDocuments.NAMESPACE, "rules", "Rules").titled("Rules in the rules channel");
+
+    static final DocumentSpec<DocumentSpec.None> GUIDE = DocumentSpec.message(
+                    StoredDocuments.NAMESPACE,
+                    "guide",
+                    "Guide",
+                    Slot.link("link").optional(),
+                    Slot.link("access").optional())
+            .titled("Steps to play, under the rules");
+
+    private final JDA jda;
+
     private final GuildLanguages languages;
     private final Tiers tiers;
     private final DocumentRenderer renderer;
@@ -48,6 +66,7 @@ public final class ManagedMessages {
             final DiscordRenderer messages,
             final StoredDocuments documents,
             final Jdbi jdbi) {
+        this.jda = jda;
         this.languages = languages;
         this.tiers = tiers;
         this.renderer = new DocumentRenderer(messages, documents);
@@ -55,8 +74,8 @@ public final class ManagedMessages {
     }
 
     /**
-     * Posts or edits two messages per configured language, in the order the {@code access} group lists them.
-     * Failures are logged per message, so one bad channel id does not stop the others.
+     * Posts or edits the messages of each configured language, in the order the {@code access} group lists them.
+     * The rules channel gets one message with the rules, then the guide. Failures are logged per message.
      */
     public void publishAll() {
         for (final GuildLanguages.Language language : languages.all()) {
@@ -66,7 +85,35 @@ public final class ManagedMessages {
                     language.contributionChannelId(),
                     contribution(renderer, tiers, locale));
             managed.publish(language.linkKind(), language.linkChannelId(), link(renderer, locale));
+            rulesAndGuide(language);
         }
+    }
+
+    /**
+     * Shows the rules and the guide as one message and then deletes the guide's former own message.
+     * When the two are too big for one message, each keeps a message of its own.
+     */
+    private void rulesAndGuide(final GuildLanguages.Language language) {
+        final String guild = guildOf(language);
+        final DocumentRenderer.Drawn both = rulesAndGuide(renderer, language, guild);
+        if (OneMessage.fits(both)) {
+            if (managed.publish(language.rulesKind(), language.rulesChannelId(), both)) {
+                managed.retire(language.guideKind());
+            }
+            return;
+        }
+        log.warn("rules and guide too big for one message, posted apart: language={}", language.tag());
+        managed.publish(language.rulesKind(), language.rulesChannelId(), rules(renderer, language.locale()));
+        managed.publish(language.guideKind(), language.rulesChannelId(), guide(renderer, language, guild));
+    }
+
+    /** Returns the id of the server that holds the language's rules channel, or an empty string. */
+    private String guildOf(final GuildLanguages.Language language) {
+        if (!Configured.isSet(language.rulesChannelId())) {
+            return "";
+        }
+        final GuildChannel channel = jda.getGuildChannelById(language.rulesChannelId());
+        return channel == null ? "" : channel.getGuild().getId();
     }
 
     static DocumentRenderer.Drawn contribution(
@@ -82,6 +129,34 @@ public final class ManagedMessages {
                         "buy",
                         new DocumentRenderer.FilledButton(Ids.BUY)),
                 locale);
+    }
+
+    static DocumentRenderer.Drawn rules(final DocumentRenderer renderer, final Locale locale) {
+        return renderer.render(RULES, new DocumentSpec.None(), Map.of(), locale);
+    }
+
+    /** Draws the rules and the guide under them as one message, so no "edited" mark stands between the two. */
+    static DocumentRenderer.Drawn rulesAndGuide(
+            final DocumentRenderer renderer, final GuildLanguages.Language language, final String guild) {
+        return OneMessage.of(rules(renderer, language.locale()), guide(renderer, language, guild));
+    }
+
+    /** Draws the guide, whose buttons open the language's link and contribution channels where both are known. */
+    static DocumentRenderer.Drawn guide(
+            final DocumentRenderer renderer, final GuildLanguages.Language language, final String guild) {
+        return renderer.render(
+                GUIDE,
+                new DocumentSpec.None(),
+                Map.of(
+                        "link", channel(guild, language.linkChannelId()),
+                        "access", channel(guild, language.contributionChannelId())),
+                language.locale());
+    }
+
+    private static DocumentRenderer.Filled channel(final String guild, final String channel) {
+        return Configured.isSet(guild) && Configured.isSet(channel)
+                ? DocumentRenderer.FilledButton.link("https://discord.com/channels/" + guild + "/" + channel)
+                : new DocumentRenderer.FilledNothing();
     }
 
     static DocumentRenderer.Drawn link(final DocumentRenderer renderer, final Locale locale) {

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.language.Languages;
+import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.NetworkSettings;
@@ -495,5 +496,17 @@ class BotSettingsTest {
                 () -> onboarding(Map.of("countries", List.of(country("bad", "Bad", "Mars/Olympus", "en")))));
         assertThrows(SettingsException.class, () -> onboarding(Map.of("countries", List.of())));
         assertThrows(SettingsException.class, () -> onboarding(Map.of("channel", "<#5>")));
+        assertThrows(SettingsException.class, () -> onboarding(Map.of("change-language-channel", "<#5>")));
+        assertThrows(
+                SettingsException.class, () -> onboarding(Map.of("channel", "123", "change-language-channel", "123")));
+    }
+
+    @Test
+    void aLanguageEmojiIsAnEmojiOrAServerEmojiAndNeverAWord() {
+        BotSettings.requireEmoji("emoji", Mark.flag("DE"));
+        BotSettings.requireEmoji("emoji", Mark.GLOBE);
+        BotSettings.requireEmoji("emoji", "<:nordtal:123456789012345678>");
+        assertThrows(IllegalArgumentException.class, () -> BotSettings.requireEmoji("emoji", "hello"));
+        assertThrows(IllegalArgumentException.class, () -> BotSettings.requireEmoji("emoji", ":de:"));
     }
 }

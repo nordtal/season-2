@@ -4,6 +4,7 @@ import type { LinkProps } from "@tanstack/react-router"
 import { serviceGlyph } from "@/components/steward/service-name"
 import { topologyOf } from "@/components/steward/network/topology"
 import { useServices, useTopology } from "@/lib/queries"
+import { NPC_PAGE } from "@/lib/npc-paths"
 import { withRunningStandbys } from "@/lib/services"
 import { serviceTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
@@ -53,7 +54,15 @@ export function navigation(services: readonly string[]): NavGroup[] {
         params: { name },
         note: t("steward.shell.service-note", { name: serviceTitle(name) }),
         icon: serviceGlyph(name),
-        keywords: [name, "container", "log", "console", "restart"],
+        keywords: [
+          name,
+          "container",
+          "log",
+          "console",
+          "restart",
+          // The NPCs are a tab of this page.
+          ...(name === NPC_PAGE ? ["npc", "dialogue", "figure", "skin", "character", "villager"] : []),
+        ],
       })),
     },
     {

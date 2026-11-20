@@ -45,7 +45,8 @@ COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -
 
 ## Where things live
 
-- `access/`: purchases, grants, linking, the reaction to a booked payment and the managed messages.
+- `access/`: purchases, grants, linking, the reaction to a booked payment and the managed messages: in each
+  language, the link and contribution messages, and the rules with the guide under them in its rules channel.
 - `registration/`: team registration for a game, named by its key. The Hunger Games is the only game.
 - `onboarding/`: the country and language roles, the lock and the start-channel message.
 - `roles/`: every role the bot uses (`GuildRoles`).

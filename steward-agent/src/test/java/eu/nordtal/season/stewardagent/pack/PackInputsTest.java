@@ -52,15 +52,16 @@ class PackInputsTest {
 
     @Test
     void thePrizesAsTheDatabaseSpellsThemDrawTheSamePack() {
-        final PackInputs built = new PackInputs("[{\"item\":\"diamond\",\"amount\":2}]", "{}", Map.of("de", "Drehen"));
+        final PackInputs built =
+                new PackInputs("[{\"item\":\"diamond\",\"amount\":2}]", "{}", Map.of("de", "Drehen"), "{}");
         final PackInputs stored =
-                new PackInputs("[{\"item\": \"diamond\", \"amount\": 2}]", "", Map.of("de", "Drehen"));
+                new PackInputs("[{\"item\": \"diamond\", \"amount\": 2}]", "", Map.of("de", "Drehen"), "{}");
         final PackInputs reordered =
-                new PackInputs("[{\"amount\": 2, \"item\": \"diamond\"}]", "", Map.of("de", "Drehen"));
+                new PackInputs("[{\"amount\": 2, \"item\": \"diamond\"}]", "", Map.of("de", "Drehen"), "{}");
 
         assertTrue(stored.drawsSame(built));
         assertTrue(reordered.drawsSame(built));
-        assertFalse(
-                built.drawsSame(new PackInputs("[{\"item\":\"diamond\",\"amount\":3}]", "{}", Map.of("de", "Drehen"))));
+        assertFalse(built.drawsSame(
+                new PackInputs("[{\"item\":\"diamond\",\"amount\":3}]", "{}", Map.of("de", "Drehen"), "{}")));
     }
 }

@@ -103,7 +103,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     DOWNLOAD_BACKUP -> stack(action, rs);
             case ADMIN_ROOT, GRANT_ADMIN, ENFORCE_PACK, EXEMPT_PACK, LINK, ADD_AUTHENTICATOR, WEB_PUSH_SUBSCRIBE ->
                 null;
-            case WEB_PUSH_UNSUBSCRIBE, START_GAME, OPEN_INVENTORY, LINK_CODES_EXHAUSTED -> null;
+            case WEB_PUSH_UNSUBSCRIBE, START_GAME, OPEN_INVENTORY, LINK_CODES_EXHAUSTED, SAVE_NPC, REMOVE_NPC -> null;
             case SERVICE_DOWN,
                     BACKUP_STALE,
                     DISK_FULL,

@@ -163,7 +163,10 @@ public final class ApiTypes {
                 return elementOf(arguments[0]) + "[]";
             }
             if (Map.class.isAssignableFrom(raw)) {
-                return "Record<" + keyOf(arguments[0]) + ", " + typeOf(arguments[1]) + ">";
+                final String key = keyOf(arguments[0]);
+                final String map = "Record<" + key + ", " + typeOf(arguments[1]) + ">";
+                // A map need not hold every constant of the enum its keys are.
+                return key.equals("string") ? map : "Partial<" + map + ">";
             }
             throw new IllegalStateException("no wire shape for " + parameterized.getType());
         }

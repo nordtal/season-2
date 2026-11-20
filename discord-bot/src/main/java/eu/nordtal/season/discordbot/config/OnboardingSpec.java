@@ -13,24 +13,34 @@ import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Reload;
 import java.util.List;
 
-/** The {@code onboarding} group: the start channel, countries and lock. */
+/** The {@code onboarding} group: the choose and change channels, countries and lock. */
 @ConfigSpec
 public interface OnboardingSpec {
 
-    /** The channel where a member chooses a country. */
+    /** The channel where a member without a country chooses one. Only the lock role sees it. */
     @Order(1)
-    @Name("Start channel")
+    @Name("Choose channel")
     @Key("channel")
-    @NoExplanationNeeded
+    @Explain("Only members without a region see it. Its message is in English.")
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
     default String channel() {
+        return "";
+    }
+
+    /** The channel where a member opens their country and language settings. */
+    @Order(2)
+    @Name("Change channel")
+    @Key("change-language-channel")
+    @Explain("Locked members do not see it. The bot posts its message here in English.")
+    @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
+    default String changeChannel() {
         return "";
     }
 
     @Order(3)
     @Name("Lock")
     @Key("lock")
-    @Explain("On, a member without a country sees only the start channel.")
+    @Explain("On, a member without a region sees only the choose channel.")
     default boolean lock() {
         return false;
     }
@@ -46,7 +56,7 @@ public interface OnboardingSpec {
 
     /** Each country is a role whose language and time zone apply to a member. */
     @Order(5)
-    @Name("Countries")
+    @Name("Regions")
     @Key("countries")
     @Required
     @Entries(most = BotSettings.MAX_CHOICES)

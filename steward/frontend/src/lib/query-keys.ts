@@ -55,6 +55,13 @@ export const keys = {
   messageFallbacks: ["message-fallbacks"] as const,
   messageCheck: (bundle: string, key: string, text: string) => ["message-check", bundle, key, text] as const,
   glyphs: ["glyphs"] as const,
+  npcs: ["npcs"] as const,
+  /** Under "npcs", so a publication refreshes the list and the open NPC together. */
+  npc: (id: string) => ["npcs", id] as const,
+  npcVersions: (id: string) => ["npc-versions", id] as const,
+  npcMenus: ["npc-menus"] as const,
+  /** By the texts themselves, so an answer never stands for another draft. */
+  npcMeasure: (texts: string) => ["npc-measure", texts] as const,
   webPushPublicKey: ["web-push-public-key"] as const,
   webPushSubscription: ["web-push-subscription"] as const,
   webPushDevices: ["web-push-devices"] as const,

@@ -1,13 +1,23 @@
 package eu.nordtal.season.database.npc;
 
 import eu.nordtal.season.database.npc.Dialogue.Words;
+import eu.nordtal.season.database.npc.NpcSkin.SkinModel;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /** A figure an admin placed, with its look, its voice and its dialogue. */
 public record Npc(
-        UUID id, Words name, Place place, Pose pose, float pitch, Map<Slot, Equipment> equipment, Dialogue dialogue) {
+        UUID id,
+        Words name,
+        Place place,
+        Pose pose,
+        float pitch,
+        Map<Slot, Equipment> equipment,
+        Dialogue dialogue,
+        @Nullable UUID skin,
+        SkinModel skinModel) {
 
     public Npc {
         Objects.requireNonNull(id, "id");
@@ -16,6 +26,38 @@ public record Npc(
         Objects.requireNonNull(pose, "pose");
         Objects.requireNonNull(dialogue, "dialogue");
         equipment = Map.copyOf(equipment);
+        skinModel = skinModel == null ? SkinModel.CLASSIC : skinModel;
+    }
+
+    /** Creates an NPC with the default mannequin skin. */
+    public Npc(
+            final UUID id,
+            final Words name,
+            final Place place,
+            final Pose pose,
+            final float pitch,
+            final Map<Slot, Equipment> equipment,
+            final Dialogue dialogue) {
+        this(id, name, place, pose, pitch, equipment, dialogue, null, SkinModel.CLASSIC);
+    }
+
+    /** Returns this NPC with {@code skin}, or the default skin when it is null. */
+    public Npc withSkin(final @Nullable NpcSkin skin) {
+        return new Npc(
+                id,
+                name,
+                place,
+                pose,
+                pitch,
+                equipment,
+                dialogue,
+                skin == null ? null : skin.id(),
+                skin == null ? SkinModel.CLASSIC : skin.model());
+    }
+
+    /** Returns this NPC with {@code dialogue}. */
+    public Npc withDialogue(final Dialogue dialogue) {
+        return new Npc(id, name, place, pose, pitch, equipment, dialogue, skin, skinModel);
     }
 
     /** Where it stands, and which way it faces in degrees. */

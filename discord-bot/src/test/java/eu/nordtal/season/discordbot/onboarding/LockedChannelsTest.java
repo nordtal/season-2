@@ -11,9 +11,12 @@ import org.junit.jupiter.api.Test;
 class LockedChannelsTest {
 
     @Test
-    void theStartChannelLeavesEveryoneToDiscordAndKeepsTheLockRoleAccess() {
+    void theChooseChannelIsOpenToTheBotAndTheLockRoleAndClosedToEveryoneElse() {
         assertEquals(
-                List.of(new Overwrite(Holder.BOT, View.OPEN), new Overwrite(Holder.LOCK, View.OPEN)),
+                List.of(
+                        new Overwrite(Holder.BOT, View.OPEN),
+                        new Overwrite(Holder.LOCK, View.OPEN),
+                        new Overwrite(Holder.EVERYONE, View.CLOSED)),
                 LockedChannels.wanted(true));
     }
 

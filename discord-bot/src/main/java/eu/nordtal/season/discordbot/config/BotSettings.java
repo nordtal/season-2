@@ -17,6 +17,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.sql.DataSource;
+import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -111,12 +113,20 @@ public final class BotSettings {
             requireSnowflakeIfSet(path + ".hunger-games-channel", language.hungerGamesChannel());
             requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());
             requireSnowflakeIfSet(path + ".announcement-channel", language.announcementChannel());
+            if (language.emoji() != null && !language.emoji().isBlank()) {
+                requireEmoji(path + ".emoji", language.emoji().strip());
+            }
         }
     }
 
     /** Requires country keys, known zones and network languages. */
     private static void validateOnboarding(final OnboardingSpec config, final Languages network) {
         requireSnowflakeIfSet("channel", config.channel());
+        requireSnowflakeIfSet("change-language-channel", config.changeChannel());
+        if (Configured.isSet(config.channel()) && config.channel().equals(config.changeChannel())) {
+            throw new IllegalArgumentException(
+                    "change-language-channel is the choose channel. Locked members see only the choose channel, so the change channel must be another one.");
+        }
         final Set<String> names = new HashSet<>();
         requireRoleName("lock-role", config.lockRole(), names);
         for (int index = 0; index < config.countries().size(); index++) {
@@ -134,8 +144,18 @@ public final class BotSettings {
             }
             net.dv8tion.jda.api.entities.emoji.Emoji.fromFormatted(country.emoji());
             if (!country.glyph().startsWith("flag-") || country.glyph().length() <= 5) {
-                throw new IllegalArgumentException(path + ".glyph must name a country flag.");
+                throw new IllegalArgumentException(path + ".glyph must name a region flag.");
             }
+        }
+    }
+
+    /** Requires a Discord server emoji, or text without letters, digits or spaces, such as a flag. */
+    static void requireEmoji(final String key, final String emoji) {
+        if (Emoji.fromFormatted(emoji) instanceof CustomEmoji) {
+            return;
+        }
+        if (emoji.codePoints().anyMatch(point -> Character.isLetterOrDigit(point) || Character.isWhitespace(point))) {
+            throw new IllegalArgumentException(key + " must be one emoji, such as a flag, or a server emoji.");
         }
     }
 

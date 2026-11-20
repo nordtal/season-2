@@ -14,6 +14,7 @@ const OWN_TITLE = new Map<string, string>([
   ["AskThenAct", "the dialog's heading"],
   ["CommandDialog", "the dialog's hidden heading"],
   ["CountDialog", "the dialog's heading"],
+  ["EditorHead", "the NPC editor's heading"],
   ["Empty", "the empty state's line"],
   ["PageHeader", "the page's heading"],
   ["Panel", "the panel's heading"],

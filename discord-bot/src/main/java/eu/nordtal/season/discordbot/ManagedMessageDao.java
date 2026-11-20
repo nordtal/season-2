@@ -10,6 +10,12 @@ public interface ManagedMessageDao {
     @SqlQuery("SELECT message_id FROM managed_message WHERE kind = :kind AND channel_id = :channelId")
     Optional<String> messageIdOf(@Bind("kind") String kind, @Bind("channelId") String channelId);
 
+    @SqlQuery("SELECT channel_id FROM managed_message WHERE kind = :kind")
+    Optional<String> channelOf(@Bind("kind") String kind);
+
+    @SqlUpdate("DELETE FROM managed_message WHERE kind = :kind")
+    void forget(@Bind("kind") String kind);
+
     @SqlUpdate("""
             INSERT INTO managed_message (kind, channel_id, message_id, updated)
             VALUES (:kind, :channelId, :messageId, now())

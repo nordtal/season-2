@@ -14,8 +14,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Stores the NPCs an admin placed and the players who skip their dialogue.
- * A change to an NPC signals its id on {@link Channel#NPC}. Every save of a dialogue is kept as a {@link Version}, and
- * so is a removal, which names who removed it.
+ * A change to an NPC signals its id on {@link Channel#NPC}. Every publication of the whole NPC is kept as a
+ * {@link Version}, and so is a removal, which names who removed it.
  */
 public interface NpcStore {
 
@@ -24,24 +24,66 @@ public interface NpcStore {
         return new JdbiNpcStore(dataSource);
     }
 
-    /** Passes every NPC to {@code apply} on connect and on every change. */
+    /**
+     * Passes every NPC as the active pack draws it to {@code apply}, on connect, on every change and on every new pack.
+     */
     default void follow(final SignalHub hub, final Consumer<List<Npc>> apply) {
-        hub.watch(Channel.NPC, "the NPCs", null, this::npcs, apply);
+        hub.watch(Channel.NPC, "the NPCs", null, this::shown, apply);
+        hub.watch(Channel.PACK, "the NPCs' skins in the pack", null, this::shown, apply);
     }
+
+    /** Returns every NPC as the active pack draws it: see {@link #shown(Npc, Map)}. */
+    default List<Npc> shown() {
+        final Map<UUID, UUID> packed = packed();
+        return npcs().stream().map(npc -> shown(npc, packed)).toList();
+    }
+
+    /**
+     * Returns {@code npc} as a pack holding {@code packed} draws it.
+     * A skin the pack does not hold yet would draw as a missing texture, so the NPC wears the default until then.
+     */
+    static Npc shown(final Npc npc, final Map<UUID, UUID> packed) {
+        final UUID skin = npc.skin();
+        return skin == null || skin.equals(packed.get(npc.id())) ? npc : npc.withSkin(null);
+    }
+
+    /** Returns the skin each NPC has in the active pack, by NPC; empty before the first pack is built. */
+    Map<UUID, UUID> packed();
 
     /** Returns every NPC, the one left unchanged longest first. */
     List<Npc> npcs();
 
     Optional<Npc> npc(UUID id);
 
-    /** Writes {@code npc} whole, keeps its dialogue as a version when it changed, and signals. */
+    /** Writes {@code npc} whole, keeps every publication as a version, and signals. */
     void save(Npc npc, Actor actor);
+
+    /**
+     * Writes {@code npc} as {@link #save} does, unless another publication or removal came after the {@code read}
+     * versions its editor read; then it writes nothing and returns false.
+     */
+    boolean publish(Npc npc, Actor actor, int read);
+
+    /** Returns how many versions an NPC has, its publications and removals; 0 for one never published. */
+    int published(UUID id);
+
+    /** Returns how many versions each NPC has, by NPC; one never published is missing. */
+    Map<UUID, Integer> published();
 
     /** Removes an NPC with its skips, keeps the removal as a version without a dialogue, and signals. */
     void remove(UUID id, Actor actor);
 
-    /** Returns every save and every removal of an NPC's dialogue, the newest first. */
+    /** Returns every publication and every removal of an NPC, the newest first. */
     List<Version> versions(UUID id);
+
+    /** Stores an immutable uploaded skin. The game changes once an NPC that references it is saved. */
+    void upload(NpcSkin skin, Actor actor);
+
+    /** Returns an uploaded skin by its id. */
+    Optional<NpcSkin> skin(UUID id);
+
+    /** Returns the skin of every NPC that has one, by NPC id. */
+    Map<UUID, NpcSkin> skins();
 
     /**
      * Returns the NPCs {@code player} skips, each with the menu it went to instead.
@@ -55,6 +97,10 @@ public interface NpcStore {
     /** Lets {@code player} see the dialogue of {@code npc} again. */
     void unskip(UUID npc, UUID player);
 
-    /** One save of a dialogue, or its removal when {@code dialogue} is null. */
-    record Version(long id, @Nullable Dialogue dialogue, Actor actor, Instant saved) {}
+    /**
+     * One publication of an NPC, or its removal when {@code dialogue} is null.
+     * {@code npc} is the whole NPC as it was published; versions written before it was kept hold only the dialogue.
+     */
+    record Version(
+            long id, @Nullable Dialogue dialogue, @Nullable Npc npc, Actor actor, Instant saved) {}
 }

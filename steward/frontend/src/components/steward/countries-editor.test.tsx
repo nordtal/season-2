@@ -85,12 +85,12 @@ it("chooses a flag from the release and updates its preview", async () => {
 })
 it("caps the list at Discords twenty five choices", () => {
   render(<Harness initial={Array.from({ length: 25 }, (_, index) => ({ ...country, key: `country-${index}` }))} />)
-  expect(screen.getByRole("button", { name: "Add country" }).hasAttribute("disabled")).toBe(true)
+  expect(screen.getByRole("button", { name: "Add region" }).hasAttribute("disabled")).toBe(true)
 })
 
 it("opens a new country and keeps its unfinished row named", () => {
   render(<Harness />)
-  fireEvent.click(screen.getByRole("button", { name: "Add country" }))
+  fireEvent.click(screen.getByRole("button", { name: "Add region" }))
   expect(screen.getByRole("dialog", { name: "Countries" })).toBeTruthy()
   expect(screen.getByRole("textbox", { name: "Key" }).getAttribute("value")).toBe("")
   fireEvent.click(screen.getByRole("button", { name: "Done" }))

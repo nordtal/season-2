@@ -231,6 +231,12 @@ abstract class GenerateGlyphs : DefaultTask() {
                 )
             }
         root.resolve("manifest.json").writeText(JsonOutput.prettyPrint(JsonOutput.toJson(entries)) + "\n")
+        // Steward's NPC editor draws its preview of the dialogue panel with the panel's own art.
+        glyphs.fonts.filter { it.id == NPC_FONT }.flatMap { it.glyphs }.forEach { glyph ->
+            GlyphAdvances
+                .texture(assets.get().asFile, glyph.texture)
+                .copyTo(root.resolve("npc").resolve(glyph.texture.substringAfterLast('/')), overwrite = true)
+        }
     }
 
     private fun writeJava(glyphs: GlyphAllocation) {
@@ -400,6 +406,9 @@ abstract class GenerateGlyphs : DefaultTask() {
     }
 
     private companion object {
+        /** The font of the NPC dialogue's panel, plates, marks and bars. */
+        const val NPC_FONT = "nordtal:npc"
+
         /** `assets/<namespace>/font/<path>.json` for the font id `<namespace>:<path>`. */
         fun fontPath(id: String) = "assets/${id.substringBefore(':')}/font/${id.substringAfter(':')}.json"
 

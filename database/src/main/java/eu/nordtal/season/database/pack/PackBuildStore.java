@@ -25,8 +25,9 @@ public interface PackBuildStore {
      *
      * @param prizes the wheel's prize list as JSON, as the build reads it
      * @param label the spin button's label, by language
+     * @param npcs the NPC skins by NPC id, as the build reads them
      */
-    long start(Instant started, String prizes, Map<String, String> label);
+    long start(Instant started, String prizes, Map<String, String> label, String npcs);
 
     /** Makes the build the active pack and supersedes the one before it. */
     void succeed(long id, Instant finished, String sha1, long sizeBytes);
@@ -70,6 +71,7 @@ public interface PackBuildStore {
             @Nullable Instant finished,
             String prizes,
             Map<String, String> label,
+            String npcs,
             @Nullable String sha1,
             @Nullable Long sizeBytes,
             @Nullable Duration duration,

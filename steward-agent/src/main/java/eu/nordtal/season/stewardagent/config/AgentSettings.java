@@ -79,8 +79,8 @@ public final class AgentSettings {
     }
 
     /**
-     * Reads the GitHub release repository from the deployment environment alone. No stored setting and no
-     * default stands in for it, so a deployment without it does not start.
+     * Reads the GitHub release repository from the deployment environment alone.
+     * No stored setting and no default stands in for it, so a deployment without it does not start.
      *
      * @throws IllegalArgumentException when the variable is missing or not owner/name
      */

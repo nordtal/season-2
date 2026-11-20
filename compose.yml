@@ -713,13 +713,12 @@ configs:
       http://${STEWARD_HOST} {
       	encode zstd gzip
 
-      	# Only a policy that restricts images has to name cdn.modrinth.com in img-src, and CaddyPolicyTest holds
-      	# that; frame-ancestors alone restricts none.
+      	# The script hash allows the startup error listener in index.html.
       	header {
       		Strict-Transport-Security "max-age=31536000"
       		X-Content-Type-Options nosniff
       		Referrer-Policy no-referrer
-      		Content-Security-Policy "frame-ancestors 'none'"
+      		Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-GnzYpFx83cmlxryecnwMPf97aSdL9d7002QB+mqc/tY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
       	}
 
       	# Only steward is exposed here; the internal APIs must never get a route.

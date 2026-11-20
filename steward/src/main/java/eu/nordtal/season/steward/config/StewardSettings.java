@@ -56,6 +56,33 @@ public final class StewardSettings {
         return settings.load(Group.of("web", WebSpec.class).checkedBy(StewardSettings::checkWeb));
     }
 
+    /** Reads both endpoints from the environment alone. A missing one stops the start. */
+    public static ConnectionSpec connections(final Environment environment) throws SettingsException {
+        return EnvironmentSettings.of(environment.withMain("connections"))
+                .load(Group.of("connections", ConnectionSpec.class).checkedBy(StewardSettings::checkConnections))
+                .get();
+    }
+
+    private static void checkConnections(final ConnectionSpec config) {
+        requireEndpoint("NORDTAL_STEWARD_AGENT_URL", config.agentUrl());
+        requireEndpoint("NORDTAL_STEWARD_BUNQ_URL", config.bunqUrl());
+    }
+
+    private static void requireEndpoint(final String variable, final @Nullable String url) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException(variable + " is missing. compose.yml sets it");
+        }
+        final URI parsed;
+        try {
+            parsed = new URI(url);
+        } catch (final URISyntaxException malformed) {
+            throw new IllegalArgumentException(variable + " must be an http(s) URL, was '" + url + "'", malformed);
+        }
+        if (!("http".equals(parsed.getScheme()) || "https".equals(parsed.getScheme())) || parsed.getHost() == null) {
+            throw new IllegalArgumentException(variable + " must be an http(s) URL, was '" + url + "'");
+        }
+    }
+
     public static Setting<DatabaseSpec> database() throws SettingsException {
         return EnvironmentSettings.of(ENVIRONMENT)
                 .load(Group.of("database", DatabaseSpec.class).checkedBy(StewardSettings::checkDatabase));

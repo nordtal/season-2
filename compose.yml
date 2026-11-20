@@ -442,6 +442,10 @@ services:
       NORDTAL_STEWARD_DATABASE_USERNAME: nordtal_steward
       NORDTAL_STEWARD_DATABASE_PASSWORD: *db-steward-password
 
+      # The services of this file that Steward calls. Only the environment sets them, never a stored setting.
+      NORDTAL_STEWARD_AGENT_URL: http://steward-agent:8081
+      NORDTAL_STEWARD_BUNQ_URL: http://steward-bunq:8082
+
       # steward#agent: containers, logs, backups and the plan come from steward-agent's API.
       NORDTAL_STEWARD_AGENT_TOKEN: ${STEWARD_AGENT_TOKEN:?set STEWARD_AGENT_TOKEN in .env - the secret steward and steward-agent share, `openssl rand -hex 32`}
 
@@ -545,8 +549,8 @@ services:
       NORDTAL_STEWARD_AGENT_DATABASE_USERNAME: *db-username
       NORDTAL_STEWARD_AGENT_DATABASE_PASSWORD: *db-password
 
-      # The runs group; every run follows each repository's latest GitHub release.
-      NORDTAL_STEWARD_AGENT_SEASON_REPO: ${SEASON_REPO:-}
+      # The GitHub repository whose latest release every update installs, as owner/name.
+      NORDTAL_STEWARD_AGENT_SEASON_REPO: ${SEASON_REPO:?set SEASON_REPO in the environment file - the GitHub repository of the season's releases, as owner/name; deploy/nordtal.sh writes it}
       # Optional; raises GitHub's rate limit.
       NORDTAL_STEWARD_AGENT_GITHUB_TOKEN: ${STEWARD_GITHUB_TOKEN:-}
       # Optional; the restic repository every backup run copies its newest archives into, and its key. The SSH

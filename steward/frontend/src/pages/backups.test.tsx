@@ -3,10 +3,10 @@ import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, crea
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import type { Person } from "@/lib/api"
+import { onSecondFactorRequired, type Person } from "@/lib/api"
 import { BackupRunDetailPage, BackupsPage } from "@/pages/backups"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { asAnchor, asButton, asElement, asInput } from "@/lib/test-elements"
+import { asButton, asElement, asInput } from "@/lib/test-elements"
 import { changesOf, configSaved } from "@/lib/query-fixtures"
 
 function json(status: number, body: unknown): Response {
@@ -280,6 +280,8 @@ function drawDetail(id: string) {
 
 afterEach(() => {
   cleanup()
+  onSecondFactorRequired(null)
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -517,8 +519,23 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(await screen.findByText("nordtal-20260917T044550Z.dump")).toBeTruthy()
     expect(screen.queryByText("nordtal-s2_mc-smp-20260918T044500Z.tar.zst")).toBeNull()
 
-    const link = asAnchor(screen.getByLabelText("Download nordtal-s2_mc-smp-20260917T044505Z.tar.zst"))
-    expect(link.getAttribute("href")).toBe("/api/backups/nordtal-s2_mc-smp-20260917T044505Z.tar.zst/download")
+    const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      expect(this.getAttribute("href")).toBe("/api/backups/nordtal-s2_mc-smp-20260917T044505Z.tar.zst/download")
+      expect(this.download).toBe("nordtal-s2_mc-smp-20260917T044505Z.tar.zst")
+    })
+    const fetch = vi.mocked(globalThis.fetch)
+    fetch.mockResolvedValueOnce(json(403, { code: "SECOND_FACTOR_REQUIRED" }))
+    fetch.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const verify = vi.fn<() => Promise<void>>(async () => expect(download).not.toHaveBeenCalled())
+    onSecondFactorRequired(verify)
+
+    fireEvent.click(screen.getByLabelText("Download nordtal-s2_mc-smp-20260917T044505Z.tar.zst"))
+
+    await waitFor(() => expect(download).toHaveBeenCalledTimes(1))
+    expect(fetch.mock.calls.filter(([url]) => url === "/api/step-up")).toHaveLength(2)
+    expect(verify).toHaveBeenCalledTimes(1)
   })
 
   it("marks an archive pruned since with its rule, and one gone from the disk as missing", async () => {

@@ -57,14 +57,6 @@ public interface StewardSpec {
     @ConfigSpec
     interface BunqSpec {
 
-        @Order(1)
-        @Name("URL")
-        @Key("url")
-        @NoExplanationNeeded
-        default String url() {
-            return "http://steward-bunq:8082";
-        }
-
         @Order(2)
         @Name("Token")
         @Key("token")
@@ -104,14 +96,6 @@ public interface StewardSpec {
 
     @ConfigSpec
     interface AgentSpec {
-
-        @Order(1)
-        @Name("URL")
-        @Key("url")
-        @NoExplanationNeeded
-        default String url() {
-            return "http://steward-agent:8081";
-        }
 
         @Order(2)
         @Name("Token")

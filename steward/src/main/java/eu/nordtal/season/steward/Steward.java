@@ -29,6 +29,7 @@ import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.backup.Schedules;
 import eu.nordtal.season.steward.bunq.PaymentLoop;
 import eu.nordtal.season.steward.config.AlertsSpec;
+import eu.nordtal.season.steward.config.ConnectionSpec;
 import eu.nordtal.season.steward.config.StewardSettings;
 import eu.nordtal.season.steward.config.StewardSpec;
 import eu.nordtal.season.steward.config.WebSpec;
@@ -85,6 +86,13 @@ public final class Steward {
         if (databaseConfig == null) {
             return 1;
         }
+        final ConnectionSpec connections;
+        try {
+            connections = StewardSettings.connections(StewardSettings.ENVIRONMENT);
+        } catch (final SettingsException broken) {
+            log.error("settings unreadable, steward not started: cause={}", broken.getMessage());
+            return 1;
+        }
         final Database opened = DatabaseWaiting.openDatabase(databaseConfig, SERVE, Waiting.on(CLOCK));
         if (opened == null) {
             return 1;
@@ -93,7 +101,7 @@ public final class Steward {
         try (Database database = opened;
                 ProcessScheduler scheduler =
                         new ProcessScheduler("steward", failure -> log.error("task failed", failure))) {
-            final Configs configs = configsOf(databaseConfig, database);
+            final Configs configs = configsOf(databaseConfig, connections, database);
             if (configs == null) {
                 return 1;
             }
@@ -115,6 +123,7 @@ public final class Steward {
             Setting<StewardSpec> handle,
             StewardSpec config,
             WebSpec web,
+            ConnectionSpec connections,
             Setting<AlertsSpec> alerts,
             DatabaseSpec database,
             DatabaseSettings settings,
@@ -122,8 +131,9 @@ public final class Steward {
             Languages languages,
             Tiers tiers) {}
 
-    /** Reads both groups from the database, or returns {@code null}. */
-    static @Nullable Configs configsOf(final DatabaseSpec databaseConfig, final Database database) {
+    /** Loads Steward's stored settings beside the deployment's endpoints, or returns {@code null}. */
+    static @Nullable Configs configsOf(
+            final DatabaseSpec databaseConfig, final ConnectionSpec connections, final Database database) {
         final DatabaseSettings settings = StewardSettings.stored(database.dataSource(), SETTINGS_LOG);
         try {
             final Setting<StewardSpec> handle = StewardSettings.steward(settings);
@@ -140,6 +150,7 @@ public final class Steward {
                     handle,
                     handle.get(),
                     web,
+                    connections,
                     alerts,
                     databaseConfig,
                     settings,
@@ -154,7 +165,7 @@ public final class Steward {
 
     private static int serveNetwork(final Configs configs, final Database database, final Scheduler scheduler) {
         final StewardSpec config = configs.config();
-        final AgentClient agent = agentOf(config);
+        final AgentClient agent = agentOf(config, configs.connections().agentUrl());
         if (config.agent().token().isBlank()) {
             log.warn("agent token empty: key=agent.token group=steward");
         }
@@ -166,12 +177,9 @@ public final class Steward {
     }
 
     /** Returns the client of steward-agent that the curves and the web share. */
-    private static AgentClient agentOf(final StewardSpec config) {
+    private static AgentClient agentOf(final StewardSpec config, final String url) {
         return new AgentClient(new InternalClient(
-                AgentWire.SERVICE,
-                config.agent().url(),
-                config.agent().token(),
-                Duration.ofSeconds(config.httpTimeoutSeconds())));
+                AgentWire.SERVICE, url, config.agent().token(), Duration.ofSeconds(config.httpTimeoutSeconds())));
     }
 
     private static int serveWithAgent(
@@ -292,6 +300,7 @@ public final class Steward {
         final DatabaseSpec databaseConfig = configs.database();
         try (PaymentLoop paymentLoop = PaymentsStartup.start(
                         config,
+                        configs.connections().bunqUrl(),
                         configs.tiers(),
                         database,
                         Waiting.on(CLOCK),

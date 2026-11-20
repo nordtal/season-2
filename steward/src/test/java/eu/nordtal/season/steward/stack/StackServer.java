@@ -36,6 +36,9 @@ public final class StackServer {
         }
 
         @Override
+        public void requireFreshKey(final Context ctx) {}
+
+        @Override
         public boolean stillSignedIn(final Context ctx) {
             return true;
         }

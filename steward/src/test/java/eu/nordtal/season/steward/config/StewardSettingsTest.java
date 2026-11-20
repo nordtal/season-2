@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,12 +28,37 @@ class StewardSettingsTest {
     }
 
     @Test
+    void serviceUrlsAreAbsentFromThePublishedSettings() throws Exception {
+        store.set(StewardSettings.SERVICE, "steward", "agent.url", "http://old-agent")
+                .set(StewardSettings.SERVICE, "steward", "bunq.url", "http://old-bank");
+
+        steward();
+
+        final String schema =
+                store.group(StewardSettings.SERVICE, "steward").orElseThrow().schema();
+        assertFalse(schema.contains("\"url\""), schema);
+
+        assertThrows(
+                SettingsException.class,
+                () -> StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(key -> null)));
+        assertThrows(
+                SettingsException.class,
+                () -> StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(
+                        Map.of("NORDTAL_STEWARD_AGENT_URL", "http://deployment-agent:8081")::get)));
+
+        final ConnectionSpec endpoints = StewardSettings.connections(StewardSettings.ENVIRONMENT.reading(Map.of(
+                "NORDTAL_STEWARD_AGENT_URL", "http://deployment-agent:8081",
+                "NORDTAL_STEWARD_BUNQ_URL", "http://deployment-bank:8082")::get));
+        assertEquals("http://deployment-agent:8081", endpoints.agentUrl());
+        assertEquals("http://deployment-bank:8082", endpoints.bunqUrl());
+    }
+
+    @Test
     void noBankTokenIsAValidDeployment() throws Exception {
         final StewardSpec.BunqSpec bunq = steward().get().bunq();
 
         // An empty value is the default and loads, so a season without a bank account starts.
         assertEquals("", bunq.token());
-        assertEquals("http://steward-bunq:8082", bunq.url());
         assertEquals(30, bunq.pollIntervalSeconds());
         assertEquals(50, bunq.recentPaymentCount());
         assertEquals("", bunq.watermark(), "the first start stamps its own instant; see Watermark");

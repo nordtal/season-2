@@ -4,7 +4,7 @@ import { DownloadIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { toast } from "sonner"
 
-import type { Backup, Run, RunArchive } from "@/lib/api"
+import { api, errorMessage, type Backup, type Run, type RunArchive } from "@/lib/api"
 import { archived } from "@/lib/backup-name"
 import { bytes, count, dateTime, parseInstant, relative, NO_VALUE } from "@/lib/format"
 import { useBackups, useRestore, useRuns, useSchedule } from "@/lib/queries"
@@ -382,21 +382,43 @@ function Archives({ run }: { run?: Run }) {
             {
               head: "",
               phone: "action",
-              render: (file) =>
-                !file.onDisk || file.onDisk.partial ? null : (
-                  <a
-                    href={`/api/backups/${encodeURIComponent(file.file)}/download`}
-                    download={file.file}
-                    aria-label={t("steward.backups.download-file", { file: file.file })}
-                    className="inline-flex text-muted-foreground tap-target hover:text-foreground"
-                  >
-                    <DownloadIcon className="size-4" />
-                  </a>
-                ),
+              render: (file) => (!file.onDisk || file.onDisk.partial ? null : <BackupDownload file={file.file} />),
             },
           ]}
         />
       )}
     </Panel>
+  )
+}
+
+/** Checks the key before starting a browser download so archives can stream to disk. */
+function BackupDownload({ file }: { file: string }) {
+  const [checking, setChecking] = useState(false)
+
+  async function download(): Promise<void> {
+    setChecking(true)
+    try {
+      await api<void>("/api/step-up")
+      const link = document.createElement("a")
+      link.href = `/api/backups/${encodeURIComponent(file)}/download`
+      link.download = file
+      link.click()
+    } catch (failure) {
+      toast.error(errorMessage(failure))
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={checking}
+      aria-label={t("steward.backups.download-file", { file })}
+      className="inline-flex min-h-0 text-muted-foreground tap-target hover:text-foreground disabled:opacity-50"
+      onClick={() => void download()}
+    >
+      <DownloadIcon className="size-4" aria-hidden />
+    </button>
   )
 }

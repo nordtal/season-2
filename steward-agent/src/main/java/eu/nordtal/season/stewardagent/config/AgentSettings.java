@@ -62,7 +62,6 @@ public final class AgentSettings {
     }
 
     static void checkRuns(final RunSpec config) {
-        requireRepo("season-repo", config.seasonRepo());
         requireModrinthId("packetevents-project", config.packetEventsProject());
     }
 
@@ -79,11 +78,25 @@ public final class AgentSettings {
         Checks.requirePositive("maximum-pool-size", config.maximumPoolSize());
     }
 
-    private static void requireRepo(final String key, final String value) {
-        if (!REPO.matcher(value).matches()) {
-            throw new IllegalArgumentException(key + " must be a GitHub repository as owner/name"
-                    + " - not a URL and not just the name - was '" + value + "'");
+    /**
+     * Reads the GitHub release repository from the deployment environment alone.
+     * No stored setting and no default stands in for it, so a deployment without it does not start.
+     *
+     * @throws IllegalArgumentException when the variable is missing or not owner/name
+     */
+    public static String seasonRepository(final Environment environment) {
+        final String key = "NORDTAL_STEWARD_AGENT_SEASON_REPO";
+        final String configured = environment.variables().apply(key);
+        if (configured == null || configured.isBlank()) {
+            throw new IllegalArgumentException(key + " is missing. compose.yml sets it from SEASON_REPO in the"
+                    + " environment file, a GitHub repository as owner/name");
         }
+        final String repository = configured.strip();
+        if (!REPO.matcher(repository).matches()) {
+            throw new IllegalArgumentException(
+                    key + " must be a GitHub repository as owner/name, was '" + repository + "'");
+        }
+        return repository;
     }
 
     private static void requireModrinthId(final String key, final String value) {

@@ -1,8 +1,10 @@
 package eu.nordtal.season.steward;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.gson.JsonObject;
+import eu.nordtal.season.steward.config.StewardSettings;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -105,6 +107,42 @@ class StepUpTest extends WebTestSupport {
             assertEquals(202, asked.statusCode(), kind + ": " + asked.body());
             settleOpenRuns();
         }
+    }
+
+    @Test
+    void stackChangesAndDownloadsRequireAFreshKey() throws Exception {
+        final HttpClient browser = browser();
+        signIn(browser);
+        holdTheKey(browser, authenticator);
+        delete(browser, "/api/step-up");
+
+        final List<HttpResponse<String>> protectedRoutes = List.of(
+                put(browser, "/api/setting-groups/steward/steward", "{}"),
+                put(browser, "/api/setting-groups/steward/web", "{}"),
+                put(browser, "/api/setting-groups/steward-agent/runs", "{}"),
+                put(browser, "/api/setting-groups/proxy/pack", "{}"),
+                put(browser, "/api/services/smp/plugin-file?plugin=CoreProtect&path=config.yml", "{}"),
+                get(browser, "/api/backups/nordtal-20261001T044500Z.dump/download"),
+                get(browser, "/api/step-up"));
+        assertAll(protectedRoutes.stream().map(refused -> () -> {
+            assertEquals(403, refused.statusCode(), refused.uri() + ": " + refused.body());
+            assertEquals(
+                    "SECOND_FACTOR_REQUIRED",
+                    GSON.fromJson(refused.body(), JsonObject.class).get("code").getAsString());
+        }));
+        StewardSettings.alerts(
+                StewardSettings.stored(database.dataSource(), org.slf4j.LoggerFactory.getLogger(StepUpTest.class)));
+        final String alerts = "/api/setting-groups/steward/alerts";
+        final JsonObject document = GSON.fromJson(get(browser, alerts).body(), JsonObject.class);
+        final JsonObject save = new JsonObject();
+        save.add("revision", document.get("revision"));
+        final JsonObject changes = new JsonObject();
+        changes.addProperty("disk-percent", 80);
+        save.add("changes", changes);
+        final HttpResponse<String> saved = put(browser, alerts, GSON.toJson(save));
+        assertEquals(200, saved.statusCode(), saved.body());
+        holdTheKey(browser, authenticator);
+        assertEquals(204, get(browser, "/api/step-up").statusCode());
     }
 
     private static Duration heldFor(final HttpClient browser) throws Exception {

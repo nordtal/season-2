@@ -12,16 +12,24 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Registers every route of {@link StackApi} with its {@link Gate}.
- * Reads and easily undone saves use {@link Gate#KEY_HELD}. Routes that replace, remove or run code use
- * {@link Gate#KEY_FRESH}.
+ * Reads and easily undone saves use {@link Gate#KEY_HELD}. Stack settings, plugin files and backup downloads
+ * require {@link Gate#KEY_FRESH}.
  */
 public final class Routes {
 
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
+
+    /**
+     * The setting groups, as service/name, whose save needs a step-up.
+     * They decide what the stack runs, Steward's sign-in, and the pack every player's client downloads.
+     */
+    private static final Set<String> FRESH_KEY_GROUPS =
+            Set.of("steward/steward", "steward/web", "steward-agent/runs", "proxy/pack");
 
     private Routes() {}
 
@@ -86,12 +94,20 @@ public final class Routes {
         config.routes.put(
                 "/api/setting-groups/{service}/{name}",
                 ctx -> {
+                    final String service = ctx.pathParam("service");
+                    final String group = ctx.pathParam("name");
+                    if (needsFreshKeyForSettings(service, group)) {
+                        caller.requireFreshKey(ctx);
+                    }
                     api.settings.save(ctx, caller.actor(ctx));
-                    Journaling.line(
-                            ctx, new JournalDetail.SettingsSaved(ctx.pathParam("service"), ctx.pathParam("name")));
+                    Journaling.line(ctx, new JournalDetail.SettingsSaved(service, group));
                 },
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_SETTINGS));
+    }
+
+    static boolean needsFreshKeyForSettings(final String service, final String group) {
+        return FRESH_KEY_GROUPS.contains(service + "/" + group);
     }
 
     /** Registers the routes for message bundles and the search over every translation. */
@@ -171,13 +187,14 @@ public final class Routes {
                 "/api/backups/{name}/download",
                 ctx -> {
                     final String name = ctx.pathParam("name");
+                    ctx.header("Cache-Control", "no-store");
                     final Optional<AgentWire.Archive> listed = api.download(ctx, name);
                     Journaling.line(
                             ctx,
                             new JournalDetail.BackupDownloaded(
                                     name, listed.map(AgentWire.Archive::bytes).orElse(null)));
                 },
-                Gate.KEY_HELD,
+                Gate.KEY_FRESH,
                 Journaled.as(JournalAction.DOWNLOAD_BACKUP));
 
         config.routes.post(
@@ -210,7 +227,7 @@ public final class Routes {
                     Journaling.line(
                             ctx, new JournalDetail.SettingsSaved(file.service(), file.plugin() + "/" + file.path()));
                 },
-                Gate.KEY_HELD,
+                Gate.KEY_FRESH,
                 Journaled.as(JournalAction.SAVE_SETTINGS));
         config.routes.delete(
                 "/api/services/{name}/plugins/{artifact}",

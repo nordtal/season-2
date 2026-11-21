@@ -28,7 +28,10 @@ final class Walls {
                 }
             }
             if (!areas.isEmpty()) {
-                walls.put(world.world(), new Drawn(new Wall(areas), Look.FIELD));
+                final Wall wall = new Wall(areas);
+                if (wall.hasOutline()) {
+                    walls.put(world.world(), new Drawn(wall, Look.FIELD));
+                }
             }
         }
         return Map.copyOf(walls);

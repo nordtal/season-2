@@ -91,8 +91,24 @@ class SmpSettingsTest {
     }
 
     @Test
-    void theCustomBorderIsOffWithoutAreasByDefaultAndReadsAWorldsAreas() throws Exception {
-        assertEquals(List.of(), store.checked("smp", CUSTOM_BORDER, Map.of()).worlds());
+    void theSpawnBorderIsOffByDefaultAndReadsConfiguredAreas() throws Exception {
+        final CustomBorderSpec.World defaultWorld =
+                store.checked("smp", CUSTOM_BORDER, Map.of()).worlds().getFirst();
+        assertFalse(defaultWorld.enabled());
+        assertEquals("nordtal", defaultWorld.world());
+        assertEquals(
+                List.of(3969, 3989, 3989, 3969),
+                defaultWorld.polygons().getFirst().corners().stream()
+                        .map(CustomBorderSpec.Corner::x)
+                        .toList());
+        assertEquals(
+                List.of(2178, 2178, 2198, 2198),
+                defaultWorld.polygons().getFirst().corners().stream()
+                        .map(CustomBorderSpec.Corner::z)
+                        .toList());
+        assertTrue(store.checked("smp", CUSTOM_BORDER, Map.of("worlds", List.of()))
+                .worlds()
+                .isEmpty());
 
         final CustomBorderSpec read = store.checked(
                 "smp",

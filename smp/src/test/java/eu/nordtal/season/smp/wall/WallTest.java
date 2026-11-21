@@ -34,6 +34,71 @@ class WallTest {
     }
 
     @Test
+    void sweepFindsTheFirstExitAcrossTheNotchEvenWithBothEndsInside() {
+        final Wall wall = new Wall(List.of(L));
+        assertEquals(0.25, wall.exit(10, 15, 40, 35), 1e-9);
+        assertEquals(Double.POSITIVE_INFINITY, wall.exit(10, 15, 40, 15));
+    }
+
+    @Test
+    void overlappingAreasHaveNoInternalBarrier() {
+        final Wall wall = new Wall(List.of(area(0, 0, 12, 0, 12, 10, 0, 10), area(8, 0, 20, 0, 20, 10, 8, 10)));
+        assertEquals(Double.POSITIVE_INFINITY, wall.exit(2, 5, 19, 5));
+        final Area.Point inside = wall.returnPoint(22, 12);
+        assertTrue(wall.inside(inside.x(), inside.z()));
+        assertTrue(Math.hypot(inside.x() - 20, inside.z() - 10) < 0.1);
+    }
+
+    @Test
+    void aGliderTurnsBeforeImpactButParallelFlightContinues() {
+        final Wall wall = new Wall(List.of(L));
+        assertArrayEquals(new double[] {-2, 0}, Push.glide(wall, 53, 10, 2, 0), 1e-9);
+        assertEquals(Double.POSITIVE_INFINITY, wall.exit(53, 10, 55, 10));
+        assertNull(Push.glide(wall, 59, 10, 0, 2));
+    }
+
+    @Test
+    void aShallowApproachGetsAnInwardImpulseBeforeTheCameraReachesThePlane() {
+        final Wall wall = new Wall(List.of(L));
+        final double[] bounce = Push.glide(wall, 59.1, 10, 0.03, 1.35);
+        assertArrayEquals(new double[] {-Push.HORIZONTAL, 1.35}, bounce, 1e-9);
+        assertNull(Push.glide(wall, 59.1, 10, 0, 1.35));
+    }
+
+    @Test
+    void onlyAnAdminInCreativeOrSpectatorPasses() {
+        for (final org.bukkit.GameMode mode : org.bukkit.GameMode.values()) {
+            assertFalse(Push.bypass(mode, false));
+            assertEquals(
+                    mode == org.bukkit.GameMode.CREATIVE || mode == org.bukkit.GameMode.SPECTATOR,
+                    Push.bypass(mode, true));
+        }
+    }
+
+    @Test
+    void fallbackUsesStrictDistanceAndTimeThresholds() {
+        assertFalse(Push.fallback(2, 1000));
+        assertTrue(Push.fallback(2.001, 0));
+        assertTrue(Push.fallback(0.001, 1001));
+    }
+
+    @Test
+    void aPearlReflectsItsNormalSpeedAndKeepsItsTangentialSpeed() {
+        final Wall wall = new Wall(List.of(L));
+        assertArrayEquals(new double[] {-2, 0.5}, wall.reflect(59, 10, 2, 0.5), 1e-9);
+        assertNull(wall.reflect(59, 10, -2, 0.5));
+        assertArrayEquals(new double[] {-2, -2}, wall.reflect(59, 39, 2, 2), 1e-9);
+    }
+
+    @Test
+    void teleportChecksTheDestinationAndRespectsBypass() {
+        final Wall wall = new Wall(List.of(L));
+        assertTrue(BorderWall.rejectsTeleport(wall, 10, 30, false));
+        assertFalse(BorderWall.rejectsTeleport(wall, 10, 30, true));
+        assertFalse(BorderWall.rejectsTeleport(wall, 10, 10, false));
+    }
+
+    @Test
     void theOutlineGetsOnePanelPerBlockOfEveryEdge() {
         // 60 + 40 + 30 + 20 + 30 + 20 blocks of outline.
         assertEquals(200, new Wall(List.of(L)).panelCount());

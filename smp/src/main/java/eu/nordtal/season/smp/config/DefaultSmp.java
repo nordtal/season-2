@@ -8,6 +8,30 @@ import java.util.Map;
 /** The default lists of the smp groups. Every spec built here sets every key. */
 final class DefaultSmp {
 
+    static final List<CustomBorderSpec.World> BORDER_WORLDS = List.of(Specs.createUnsafe(
+            CustomBorderSpec.World.class,
+            Map.of(
+                    "world",
+                    "nordtal",
+                    "enabled",
+                    false,
+                    "polygons",
+                    List.of(Specs.createUnsafe(
+                            CustomBorderSpec.Polygon.class,
+                            Map.of(
+                                    "name",
+                                    "Spawn",
+                                    "corners",
+                                    List.of(
+                                            corner(3969, 2178),
+                                            corner(3989, 2178),
+                                            corner(3989, 2198),
+                                            corner(3969, 2198))))))));
+
+    private static CustomBorderSpec.Corner corner(final int x, final int z) {
+        return Specs.createUnsafe(CustomBorderSpec.Corner.class, Map.of("x", x, "z", z));
+    }
+
     static final List<SpawnRegionSpec> SPAWN_REGIONS =
             List.of(region("nordtal", 7, 40, 56, 138, 140, 120), region("nordtal_nether", -32, 20, -32, 32, 120, 32));
 

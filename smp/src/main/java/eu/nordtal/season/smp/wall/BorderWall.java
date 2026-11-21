@@ -14,8 +14,11 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.entity.EnderPearl;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -44,6 +47,7 @@ public final class BorderWall implements Listener {
             .titled("World border");
     private final Predicate<Player> admin;
     private final Map<UUID, Location> lastInside = new HashMap<>();
+    private final Map<UUID, Location> mounts = new HashMap<>();
     private final Map<UUID, Long> outside = new HashMap<>();
     private final Map<UUID, Long> bounced = new HashMap<>();
     private final Set<EnderPearl> pearls = new HashSet<>();
@@ -84,6 +88,7 @@ public final class BorderWall implements Listener {
             }
         }
         grounds.clear();
+        mounts.clear();
         lastInside.clear();
         outside.clear();
         for (final Player player : online) {
@@ -126,7 +131,11 @@ public final class BorderWall implements Listener {
         final Location from = event.getFrom();
         final Location to = event.getTo();
         final Walls.Drawn drawn = walls.get(to.getWorld().getName());
-        if (drawn == null || !event.hasChangedPosition() || !from.getWorld().equals(to.getWorld()) || bypass(player)) {
+        if (drawn == null
+                || !event.hasChangedPosition()
+                || !from.getWorld().equals(to.getWorld())
+                || bypass(player)
+                || player.isInsideVehicle()) {
             return;
         }
         final Wall wall = drawn.wall();
@@ -230,13 +239,21 @@ public final class BorderWall implements Listener {
         }
         pearls.removeIf(pearl -> !pearl.isValid());
         pearls.forEach(this::bounce);
+        final Set<UUID> seen = new HashSet<>();
         for (final Player player : players) {
-            final Location at = Objects.requireNonNull(player.getLocation());
+            final Entity moving = Push.root(player);
+            final Location at = Objects.requireNonNull(moving.getLocation());
             final Walls.Drawn drawn = walls.get(at.getWorld().getName());
             final UUID id = player.getUniqueId();
             if (drawn == null || bypass(player)) {
                 lastInside.remove(id);
                 outside.remove(id);
+                continue;
+            }
+            if (!moving.equals(player)) {
+                if (seen.add(moving.getUniqueId())) {
+                    mounted(player, moving, at, drawn.wall());
+                }
                 continue;
             }
             if (drawn.wall().inside(at.getX(), at.getZ())) {
@@ -255,6 +272,36 @@ public final class BorderWall implements Listener {
             } else {
                 push(player, at);
             }
+        }
+        mounts.keySet().retainAll(seen);
+    }
+
+    private void mounted(final Player player, final Entity vehicle, final Location at, final Wall wall) {
+        final UUID id = vehicle.getUniqueId();
+        final Location last = mounts.get(id);
+        final Location previous = last != null && last.getWorld().equals(at.getWorld()) ? last : null;
+        final boolean onRail = vehicle instanceof Minecart
+                && (Tag.RAILS.isTagged(at.getBlock().getType())
+                        || Tag.RAILS.isTagged(
+                                at.getBlock().getRelative(0, -1, 0).getType()));
+        final Push.Mount response = Push.mount(
+                wall,
+                at.getX(),
+                at.getZ(),
+                previous == null ? 0 : at.getX() - previous.getX(),
+                previous == null ? 0 : at.getZ() - previous.getZ(),
+                vehicle.getWidth() / 2,
+                vehicle.getVelocity().getY(),
+                onRail);
+        if (response != null && response.restore()) {
+            final Location target = previous != null ? previous : inside(at, wall.returnPoint(at.getX(), at.getZ()));
+            if (vehicle.teleport(target)) mounts.put(id, target);
+        } else {
+            mounts.put(id, at);
+        }
+        if (response != null) {
+            vehicle.setVelocity(new Vector(response.x(), response.y(), response.z()));
+            feedback(player);
         }
     }
 

@@ -4,10 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Map;
+import org.bukkit.entity.Entity;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 class WallTest {
@@ -170,6 +174,47 @@ class WallTest {
         final Wall wall = new Wall(List.of(L));
 
         assertArrayEquals(new double[] {0, Push.UP, Push.HORIZONTAL}, Push.velocity(wall, 10, -0.01), 1e-9);
+    }
+
+    @Test
+    void aNestedMountSelectsTheOutermostVehicle() {
+        final Entity root = mountedOn(null);
+        final Entity middle = mountedOn(root);
+        final Entity rider = mountedOn(middle);
+
+        assertSame(root, Push.root(rider));
+    }
+
+    private static Entity mountedOn(final @Nullable Entity vehicle) {
+        return (Entity) Proxy.newProxyInstance(
+                Entity.class.getClassLoader(),
+                new Class<?>[] {Entity.class},
+                (_, method, _) -> switch (method.getName()) {
+                    case "getVehicle" -> vehicle;
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    @Test
+    void aVehiclePushKeepsItsVerticalMotion() {
+        final Wall wall = new Wall(List.of(L));
+
+        assertEquals(
+                new Push.Mount(true, -Push.HORIZONTAL, -0.08, 0), Push.mount(wall, 60.5, 10, 0, 0, .5, -0.08, false));
+    }
+
+    @Test
+    void aMinecartOnRailsStopsWithoutAnUpwardPush() {
+        final Wall wall = new Wall(List.of(L));
+
+        assertEquals(new Push.Mount(false, 0, 0, 0), Push.mount(wall, 59, 10, .4, 0, .5, -0.08, true));
+        assertNull(Push.mount(wall, 59, 10, 0, 0, .5, -0.08, true));
+    }
+
+    @Test
+    void aMountCrossingAGapReturnsToItsPreviousPosition() {
+        final Wall wall = new Wall(List.of(area(0, 0, 10, 0, 10, 10, 0, 10), area(11, 0, 20, 0, 20, 10, 11, 10)));
+        assertEquals(new Push.Mount(true, 0, 0, 0), Push.mount(wall, 11.2, 5, 1.5, 0, .5, 0, true));
     }
 
     @Test

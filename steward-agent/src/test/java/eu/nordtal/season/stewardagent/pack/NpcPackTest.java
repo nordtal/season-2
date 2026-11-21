@@ -101,6 +101,43 @@ class NpcPackTest {
     }
 
     @Test
+    void anUploadedPictureIsTheWholeAvatarInsideTheUnchangedFrame() throws IOException {
+        final BufferedImage upload = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 40; y++) {
+            for (int x = 0; x < 40; x++) {
+                upload.setRGB(x, y, 0xFF000000 | (x * 6) << 16 | (y * 6) << 8 | 0x40);
+            }
+        }
+        final BufferedImage picture = NpcPack.artwork(png(upload));
+
+        final BufferedImage own = NpcPack.portrait(picture);
+        final BufferedImage standard =
+                ImageIO.read(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/textures/npc/portrait.png")
+                        .toFile());
+
+        for (int y = 0; y < own.getHeight(); y++) {
+            for (int x = 0; x < own.getWidth(); x++) {
+                final boolean well = x >= 3 && x < 43 && y >= 3 && y < 43;
+                final int expected = well ? upload.getRGB(x - 3, y - 3) : standard.getRGB(x, y);
+                assertEquals(expected, own.getRGB(x, y), "at " + x + ", " + y);
+            }
+        }
+    }
+
+    @Test
+    void theWellsSunkEdgeStillShowsWhereThePictureIsClear() throws IOException {
+        final BufferedImage bust = NpcPack.bust(skin(Color.RED, null), false);
+        assertEquals(0, bust.getRGB(0, 0) >>> 24, "the bust leaves the well's corner clear");
+
+        final BufferedImage own = NpcPack.portrait(bust);
+        final BufferedImage blank = NpcPack.portrait(new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB));
+
+        assertEquals(blank.getRGB(3, 3), own.getRGB(3, 3));
+        assertEquals(blank.getRGB(20, 3), own.getRGB(20, 3));
+        assertTrue(blank.getRGB(20, 3) != blank.getRGB(20, 4), "the top row is sunk");
+    }
+
+    @Test
     void theOwnPortraitsStandWhereThePacksDefaultPortraitsStand() {
         final List<NpcPack.Portrait> declared = new ArrayList<>();
         for (final JsonElement font : JsonParser.parseString(RepositoryRoot.read("resource-pack/glyphs.json"))

@@ -55,6 +55,22 @@ describe("the NPC's plate and dialogue preview", () => {
     expect(container.querySelector("svg[viewBox='0 0 40 40']"), "no bust drawn from the skin").toBeNull()
   })
 
+  it("lays the uploaded picture on an empty well, so no default bust shows through it", () => {
+    const container = preview(npc({ artwork: ARTWORK }))
+    const well = container.querySelector("svg[aria-label] rect[fill='url(#npc-preview-well)']")
+    const picture = container.querySelector(`image[href='/api/npc-artworks/${ARTWORK}']`)
+    expect(well).not.toBeNull()
+    expect(picture).not.toBeNull()
+    expect(well!.compareDocumentPosition(picture!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("keeps the portrait of an NPC without an uploaded picture as it was", () => {
+    for (const shown of [npc({ skin: "00000000-0000-0000-0000-0000000000bb" }), npc({})]) {
+      expect(preview(shown).querySelector("rect[fill='url(#npc-preview-well)']")).toBeNull()
+      cleanup()
+    }
+  })
+
   it("draws the skin's face without an uploaded picture", () => {
     const container = preview(npc({ skin: "00000000-0000-0000-0000-0000000000bb" }))
     expect(container.querySelector("svg[viewBox='0 0 40 40']")).not.toBeNull()

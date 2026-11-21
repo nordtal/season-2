@@ -58,18 +58,31 @@ final class FakeContainers implements ContainerOps {
     /** Volumes whose snapshot is refused before anything is written. */
     private final java.util.Set<String> backupRefused = new java.util.LinkedHashSet<>();
 
-    private final AgentWire.Topology topology = new AgentWire.Topology(
-            eu.nordtal.season.stewardagent.topology.DeclaredTopology.topology().services(),
-            List.of(
-                    "nordtal-s2_mc-smp",
-                    "nordtal-s2_mc-smp-plugins",
-                    "nordtal-s2_mc-hunger-games",
-                    "nordtal-s2_mc-hunger-games-plugins"),
-            java.util.Map.of(
-                    "nordtal-s2_mc-smp", List.of("smp"),
-                    "nordtal-s2_mc-smp-plugins", List.of("smp"),
-                    "nordtal-s2_mc-hunger-games", List.of("hunger-games"),
-                    "nordtal-s2_mc-hunger-games-plugins", List.of("hunger-games")));
+    private AgentWire.Topology topology = topologyOf(
+            eu.nordtal.season.stewardagent.topology.DeclaredTopology.topology().services());
+
+    private static AgentWire.Topology topologyOf(final List<AgentWire.Service> services) {
+        return new AgentWire.Topology(
+                services,
+                List.of(
+                        "nordtal-s2_mc-smp",
+                        "nordtal-s2_mc-smp-plugins",
+                        "nordtal-s2_mc-hunger-games",
+                        "nordtal-s2_mc-hunger-games-plugins"),
+                java.util.Map.of(
+                        "nordtal-s2_mc-smp", List.of("smp"),
+                        "nordtal-s2_mc-smp-plugins", List.of("smp"),
+                        "nordtal-s2_mc-hunger-games", List.of("hunger-games"),
+                        "nordtal-s2_mc-hunger-games-plugins", List.of("hunger-games")));
+    }
+
+    /** Lists the services by name, as the host's {@code docker compose config} does, so a standby room comes first. */
+    FakeContainers listedByName() {
+        topology = topologyOf(topology.services().stream()
+                .sorted(java.util.Comparator.comparing(AgentWire.Service::name))
+                .toList());
+        return this;
+    }
 
     @Override
     public AgentWire.Topology topology() {

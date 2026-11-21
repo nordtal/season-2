@@ -95,6 +95,25 @@ public final class BackendKick {
         return null;
     }
 
+    /**
+     * Returns the waiting room that replaces Velocity's redirect to {@code to}, or {@code null} to keep it.
+     * Never the room that just kicked the player, or Velocity and this rewrite trade the redirect until a timeout.
+     *
+     * @param from the server that kicked the player
+     * @param to the server Velocity redirects to
+     */
+    static @Nullable String spareRoom(
+            final String from,
+            final String to,
+            final NetworkServers servers,
+            final Predicate<String> stopping,
+            final Predicate<String> usable) {
+        if (!stopping.test(to)) {
+            return null;
+        }
+        return room(to, servers, name -> !name.equals(from) && usable.test(name));
+    }
+
     /** Returns whether the server is registered, not suspended after a drop, and no run stops it. */
     private boolean usable(final String server) {
         return !stopping.test(server)
@@ -108,17 +127,15 @@ public final class BackendKick {
             return;
         }
         final String to = redirect.getServer().getServerInfo().getName();
-        if (!stopping.test(to)) {
-            return;
-        }
-        final RegisteredServer room = registered(room(to, servers, this::usable));
+        final String from = event.getServer().getServerInfo().getName();
+        final RegisteredServer room = registered(spareRoom(from, to, servers, stopping, this::usable));
         if (room == null) {
             return;
         }
         logger.info(
                 "redirect away from stopping server: player={} from={} stopping={} to={}",
                 event.getPlayer().getUsername(),
-                event.getServer().getServerInfo().getName(),
+                from,
                 to,
                 room.getServerInfo().getName());
         final @Nullable Component message = redirect.getMessageComponent();

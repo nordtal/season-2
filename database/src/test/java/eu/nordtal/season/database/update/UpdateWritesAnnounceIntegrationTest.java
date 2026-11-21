@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
@@ -25,6 +26,15 @@ class UpdateWritesAnnounceIntegrationTest {
     @BeforeAll
     static void startDatabase() {
         dataSource = TestDatabase.fresh().dataSource();
+    }
+
+    /** Each test leaves its run open, and an open run refuses the next. */
+    @BeforeEach
+    void emptyTheQueue() throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("TRUNCATE TABLE service_hold, steward_inbox RESTART IDENTITY CASCADE");
+        }
     }
 
     @Test
@@ -51,6 +61,32 @@ class UpdateWritesAnnounceIntegrationTest {
 
             updates.putBack(carried);
             assertTrue(heard(pg, 5000), "a row put back after a restore was written without a word");
+        }
+    }
+
+    @Test
+    void anEndedVerifyIsAnnouncedAndAnotherEndedStepIsNot() throws Exception {
+        final UpdateDirectory updates = UpdateDirectory.using(dataSource);
+        final long run =
+                updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO).id();
+        final RunRecorder recorder = updates.recorder();
+        final long stop = recorder.begin(run, RunStep.Kind.STOP, "limbo");
+        final long verify = recorder.begin(run, RunStep.Kind.VERIFY, "limbo");
+
+        try (Connection listener = dataSource.getConnection()) {
+            try (Statement statement = listener.createStatement()) {
+                statement.execute("LISTEN " + Channel.UPDATE.sqlName());
+            }
+            final PGConnection pg = listener.unwrap(PGConnection.class);
+
+            recorder.end(run, stop, RunStep.Outcome.DONE, null, null);
+            assertFalse(heard(pg, 500), "a stop woke every proxy although none routes on it");
+
+            recorder.end(run, verify, RunStep.Outcome.DONE, null, null);
+            assertTrue(heard(pg, 5000), "a passed health check was written without a word");
+
+            recorder.end(run, verify, RunStep.Outcome.DONE, null, null);
+            assertFalse(heard(pg, 500), "a step that had ended announced again");
         }
     }
 

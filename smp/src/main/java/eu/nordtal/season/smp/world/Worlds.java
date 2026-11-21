@@ -23,6 +23,13 @@ public final class Worlds {
     private final Map<WorldRole, String> names = new EnumMap<>(WorldRole.class);
     private final List<String> extras;
     private final BorderSpec config;
+    private boolean customBorder;
+
+    public boolean customBorder(final boolean active) {
+        final boolean changed = active != customBorder;
+        customBorder = active;
+        return changed;
+    }
 
     public Worlds(final WorldsSpec worlds, final BorderSpec border) {
         this.config = border;
@@ -105,10 +112,21 @@ public final class Worlds {
     public void applyFixedBorders() {
         world(WorldRole.NORDTAL).ifPresent(world -> {
             final WorldBorder border = world.getWorldBorder();
+            if (applyOuterLimit(border, customBorder)) {
+                return;
+            }
             border.setCenter(config.borderCentre().x(), config.borderCentre().z());
         });
         centreAndSize(WorldRole.NETHER, config.netherBorderDiameter());
         centreAndSize(WorldRole.END, config.endBorderDiameter());
+    }
+
+    static boolean applyOuterLimit(final WorldBorder border, final boolean active) {
+        if (active) {
+            border.setCenter(5120, 5120);
+            border.setSize(10240);
+        }
+        return active;
     }
 
     private void centreAndSize(final WorldRole role, final int diameter) {
@@ -128,6 +146,9 @@ public final class Worlds {
     public void expandNordtal(final int diameter, final boolean animate) {
         world(WorldRole.NORDTAL).ifPresent(world -> {
             final WorldBorder border = world.getWorldBorder();
+            if (applyOuterLimit(border, customBorder)) {
+                return;
+            }
             border.setCenter(config.borderCentre().x(), config.borderCentre().z());
 
             final double current = border.getSize();

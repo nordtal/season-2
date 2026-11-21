@@ -78,6 +78,7 @@ import eu.nordtal.season.smp.wheel.ItemHandout;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.world.Datapacks;
+import eu.nordtal.season.smp.world.WorldRole;
 import eu.nordtal.season.smp.world.Worlds;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -316,6 +317,7 @@ public final class SmpPlugin extends NordtalPlugin {
         rails = SmpStart.wireRails(this, wired.effects());
         portals = SmpStart.wireMapPortals(this);
         borderWall = SmpStart.wireBorderWall(this);
+        applyCustomLimit();
 
         admin = admin();
         // Steward signals a reset here, and this runs before the surface handler, so one pass resets and draws.
@@ -625,6 +627,14 @@ public final class SmpPlugin extends NordtalPlugin {
                         }));
     }
 
+    private void applyCustomLimit() {
+        if (!worlds.customBorder(Objects.requireNonNull(borderWall).active(worlds.nameOf(WorldRole.NORDTAL)))) {
+            return;
+        }
+        final int unlocked = season.borderDiameter();
+        worlds.expandNordtal(unlocked > 0 ? unlocked : borderSettings.get().startBorderDiameter(), false);
+    }
+
     @Override
     protected List<String> reloadOwn() {
         // Each group fails on its own.
@@ -648,8 +658,11 @@ public final class SmpPlugin extends NordtalPlugin {
                 problems,
                 "the custom border",
                 customBorderSettings,
-                () -> scheduler.onMain(() -> Objects.requireNonNull(borderWall)
-                        .apply(customBorderSettings.get(), getServer().getOnlinePlayers())));
+                () -> scheduler.onMain(() -> {
+                    Objects.requireNonNull(borderWall)
+                            .apply(customBorderSettings.get(), getServer().getOnlinePlayers());
+                    applyCustomLimit();
+                }));
         // A dialogue reads the settings as it starts, so a reload alone applies them.
         reload(problems, "the NPC dialogues", npcDialogueSettings, () -> {});
         reload(

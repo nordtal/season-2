@@ -1,9 +1,14 @@
 package eu.nordtal.season.smp.wall;
 
+import java.awt.geom.Path2D;
+import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.TreeSet;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The wall of one world: the areas a player stays inside and the panels along their outline.
@@ -16,19 +21,44 @@ final class Wall {
 
     private static final int CELL = 16;
 
-    private final List<Area> areas;
+    private final java.awt.geom.Area region = new java.awt.geom.Area();
     private final List<Edge> edges = new ArrayList<>();
     private final Map<Long, List<Panel>> cells = new HashMap<>();
     private int panelCount;
 
     Wall(final List<Area> areas) {
-        this.areas = List.copyOf(areas);
-        for (final Area area : this.areas) {
+        for (final Area area : areas) {
+            final Path2D.Double path = new Path2D.Double(Path2D.WIND_EVEN_ODD);
+            if (area.corners().isEmpty()) {
+                continue;
+            }
+            final Area.Point first = area.corners().getFirst();
+            path.moveTo(first.x(), first.z());
+            area.corners().forEach(point -> path.lineTo(point.x(), point.z()));
+            path.closePath();
+            region.add(new java.awt.geom.Area(path));
+        }
+        final var outline = region.getPathIterator(null);
+        final double[] coords = new double[6];
+        Area.Point start = new Area.Point(0, 0);
+        Area.Point previous = start;
+        while (!outline.isDone()) {
+            final int segment = outline.currentSegment(coords);
+            final Area.Point point = segment == PathIterator.SEG_CLOSE ? start : new Area.Point(coords[0], coords[1]);
+            if (segment == PathIterator.SEG_MOVETO) {
+                start = point;
+            } else if (!previous.equals(point)) {
+                edges.add(new Edge(previous, point));
+            }
+            previous = point;
+            outline.next();
+        }
+        // Keep the display lattice anchored to each configured edge's first corner.
+        for (final Area area : areas) {
             final List<Area.Point> corners = area.corners();
             for (int i = 0; i < corners.size(); i++) {
                 final Edge edge = new Edge(corners.get(i), corners.get((i + 1) % corners.size()));
                 if (edge.length() > 0) {
-                    edges.add(edge);
                     place(edge);
                 }
             }
@@ -36,12 +66,95 @@ final class Wall {
     }
 
     boolean inside(final double x, final double z) {
-        for (final Area area : areas) {
-            if (area.contains(x, z)) {
-                return true;
+        return region.contains(x, z);
+    }
+
+    /** Fraction of the movement at the first exit from the union, including an exit followed by re-entry. */
+    double exit(final double x, final double z, final double toX, final double toZ) {
+        final double dx = toX - x;
+        final double dz = toZ - z;
+        final TreeSet<Double> cuts = new TreeSet<>();
+        cuts.add(0.0);
+        cuts.add(1.0);
+        for (final Edge edge : edges) {
+            final double det = dx * edge.dz() - dz * edge.dx();
+            if (det == 0) {
+                continue;
+            }
+            final double ax = edge.from().x() - x;
+            final double az = edge.from().z() - z;
+            final double t = (ax * edge.dz() - az * edge.dx()) / det;
+            final double u = (ax * dz - az * dx) / det;
+            if (t > 0 && t < 1 && u >= 0 && u <= 1) {
+                cuts.add(t);
             }
         }
-        return false;
+        double last = 0;
+        for (final double t : cuts.tailSet(0.0, false)) {
+            final double mid = (t + last) / 2;
+            if (!inside(x + mid * dx, z + mid * dz)) {
+                return last;
+            }
+            last = t;
+        }
+        return inside(toX, toZ) ? Double.POSITIVE_INFINITY : 1;
+    }
+
+    double distance(final double x, final double z) {
+        double best = Double.POSITIVE_INFINITY;
+        for (final Edge edge : edges) {
+            final double[] point = edge.closest(x, z);
+            best = Math.min(best, Math.hypot(x - point[0], z - point[1]));
+        }
+        return best;
+    }
+
+    double @Nullable [] reflect(final double x, final double z, final double dx, final double dz) {
+        if (!inside(x, z)) {
+            return null;
+        }
+        final double hit = exit(x, z, x + dx, z + dz);
+        if (!Double.isFinite(hit)) {
+            return null;
+        }
+        final double hx = x + dx * hit;
+        final double hz = z + dz * hit;
+        final double[] normal = inward(hx, hz);
+        final double dot = dx * normal[0] + dz * normal[1];
+        final double rx = dx - 2 * dot * normal[0];
+        final double rz = dz - 2 * dot * normal[1];
+        // At a corner the reflection in one edge can still leave through the other.
+        if (Double.isFinite(exit(x, z, x + rx, z + rz))) {
+            return new double[] {-dx, -dz};
+        }
+        return new double[] {rx, rz};
+    }
+
+    Area.Point returnPoint(final double x, final double z) {
+        Area.Point nearest = null;
+        double best = Double.POSITIVE_INFINITY;
+        for (final Edge edge : edges) {
+            final double[] point = edge.closest(x, z);
+            final double distance = Math.hypot(point[0] - x, point[1] - z);
+            if (distance >= best) {
+                continue;
+            }
+            final double[] normal = edge.normal();
+            // Move toward the edge midpoint first so a projection onto a corner also moves inside.
+            final double mx = (edge.from().x() + edge.to().x()) / 2;
+            final double mz = (edge.from().z() + edge.to().z()) / 2;
+            final double along = Math.min(1, 0.025 / Math.max(0.025, Math.hypot(mx - point[0], mz - point[1])));
+            final double px = point[0] + along * (mx - point[0]);
+            final double pz = point[1] + along * (mz - point[1]);
+            for (double inset = 0.025; inset > 1e-12; inset /= 2) {
+                if (inside(px - normal[0] * inset, pz - normal[1] * inset)) {
+                    nearest = new Area.Point(px - normal[0] * inset, pz - normal[1] * inset);
+                    best = distance;
+                    break;
+                }
+            }
+        }
+        return Objects.requireNonNull(nearest);
     }
 
     int panelCount() {

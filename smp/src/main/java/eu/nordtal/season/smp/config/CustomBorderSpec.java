@@ -22,7 +22,7 @@ public interface CustomBorderSpec {
     @Unique("world")
     @NoExplanationNeeded
     default List<World> worlds() {
-        return List.of();
+        return DefaultSmp.BORDER_WORLDS;
     }
 
     @ConfigSpec

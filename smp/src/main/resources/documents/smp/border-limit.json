@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>You reached the world border. Turn back.</bad>",
+            "de": "<bad>Du hast die Weltgrenze erreicht. Kehre um.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

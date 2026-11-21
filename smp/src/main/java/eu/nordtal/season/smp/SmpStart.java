@@ -4,6 +4,8 @@ import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcStore;
+import eu.nordtal.season.messagerendering.Lines;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.packrendering.wheel.WheelTimetable;
 import eu.nordtal.season.papercommon.chat.SystemLines;
@@ -325,14 +327,23 @@ final class SmpStart {
     /** Starts the custom border's wall with the settings it has. */
     static BorderWall wireBorderWall(final SmpPlugin plugin) {
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
-        final BorderWall wall =
-                new BorderWall(plugin.clock(), task -> scheduler.onMainAfter(PaperScheduler.TICK, task), player -> {
+        final BorderWall wall = new BorderWall(
+                plugin.clock(),
+                task -> scheduler.onMainAfter(PaperScheduler.TICK, task),
+                player -> {
                     // Read on each push: the sounds are set up after the wall and reloaded in place.
                     final SmpSounds sounds = plugin.sounds;
                     if (sounds != null) {
                         sounds.play(player, Feedback.REFUSED);
                     }
-                });
+                    player.sendActionBar(Lines.joined(plugin.renderer()
+                            .format(plugin.identities().languageOf(player.getUniqueId()), Sent.of(BorderWall.LIMIT))));
+                },
+                player -> plugin.identities().of(player.getUniqueId()).admin());
+        scheduler.onMainEvery(
+                PaperScheduler.TICK,
+                PaperScheduler.TICK,
+                () -> wall.tick(plugin.getServer().getOnlinePlayers()));
         plugin.getServer().getPluginManager().registerEvents(wall, plugin);
         wall.apply(plugin.customBorderSettings.get(), plugin.getServer().getOnlinePlayers());
         return wall;

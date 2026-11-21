@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.wall;
 
+import org.bukkit.GameMode;
 import org.jspecify.annotations.Nullable;
 
 /** The push back inside for a player who walked through the wall. */
@@ -20,6 +21,20 @@ final class Push {
         }
         final double[] inward = wall.inward(x, z);
         return new double[] {inward[0] * HORIZONTAL, UP, inward[1] * HORIZONTAL};
+    }
+
+    static boolean crosses(
+            final Wall wall, final double x, final double z, final double dx, final double dz, final boolean gliding) {
+        final int lead = gliding ? 4 : 1;
+        return Double.isFinite(wall.exit(x, z, x + lead * dx, z + lead * dz));
+    }
+
+    static boolean bypass(final GameMode mode, final boolean admin) {
+        return admin && (mode == GameMode.CREATIVE || mode == GameMode.SPECTATOR);
+    }
+
+    static boolean fallback(final double distance, final long elapsed) {
+        return distance > 2 || elapsed > 1000;
     }
 
     /** Whether a player last pushed at {@code last} may be pushed again at {@code now}. */

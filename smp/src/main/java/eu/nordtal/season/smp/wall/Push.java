@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.wall;
 
 import org.bukkit.GameMode;
+import org.bukkit.entity.Entity;
 import org.jspecify.annotations.Nullable;
 
 /** The push back inside for a player who walked through the wall. */
@@ -21,6 +22,43 @@ final class Push {
         }
         final double[] inward = wall.inward(x, z);
         return new double[] {inward[0] * HORIZONTAL, UP, inward[1] * HORIZONTAL};
+    }
+
+    record Mount(boolean restore, double x, double y, double z) {}
+
+    static @Nullable Mount mount(
+            final Wall wall,
+            final double x,
+            final double z,
+            final double dx,
+            final double dz,
+            final double radius,
+            final double vertical,
+            final boolean onRail) {
+        final double speed = Math.hypot(dx, dz);
+        final boolean outside = !wall.inside(x, z);
+        final boolean crossed = speed > 0 && Double.isFinite(wall.exit(x - dx, z - dz, x, z));
+        final double reach = speed > 0 ? 2 + radius / speed : 0;
+        if (!outside && !crossed && (speed == 0 || !Double.isFinite(wall.exit(x, z, x + dx * reach, z + dz * reach)))) {
+            return null;
+        }
+        final boolean restore = outside || crossed;
+        if (onRail) return new Mount(restore, 0, 0, 0);
+        if (outside) {
+            final double[] normal = wall.inward(x, z);
+            return new Mount(true, normal[0] * HORIZONTAL, vertical, normal[1] * HORIZONTAL);
+        }
+        return new Mount(restore, -dx / speed * HORIZONTAL, vertical, -dz / speed * HORIZONTAL);
+    }
+
+    static Entity root(final Entity entity) {
+        Entity root = entity;
+        Entity vehicle = entity.getVehicle();
+        while (vehicle != null) {
+            root = vehicle;
+            vehicle = vehicle.getVehicle();
+        }
+        return root;
     }
 
     /** Reserve four ticks of forward travel and a block of camera clearance at a shallow approach. */

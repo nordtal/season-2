@@ -244,6 +244,20 @@ function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y:
 }
 
 /**
+ * The portrait's empty well at 40 by 40, as steward-agent draws it under an uploaded picture: grey from light to dark,
+ * sunk by a dark line at its top and left edge. It hides the default bust of the pack's portrait.
+ */
+function Well({ x, y }: { x: number; y: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={40} height={40} fill="url(#npc-preview-well)" />
+      <rect x={x} y={y} width={40} height={1} fill="#373737" fillOpacity={160 / 255} />
+      <rect x={x} y={y} width={1} height={40} fill="#373737" fillOpacity={160 / 255} />
+    </g>
+  )
+}
+
+/**
  * The NPC's uploaded picture in the portrait's well at 40 by 40, as the pack draws it.
  * A small picture keeps its pixels; a larger one is smoothed, closer to the pack's average of each block.
  */
@@ -310,6 +324,10 @@ export function DialoguePreview({
           <stop offset="0" stopColor="#6f9be0" />
           <stop offset="1" stopColor="#c3d6f2" />
         </linearGradient>
+        <linearGradient id="npc-preview-well" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#9a9a9a" />
+          <stop offset="1" stopColor="#6e6e6e" />
+        </linearGradient>
       </defs>
       <rect width={SCREEN.width} height={SCREEN.height * 0.62} fill="url(#npc-preview-sky)" />
       <rect y={SCREEN.height * 0.62} width={SCREEN.width} height={SCREEN.height * 0.38} fill="#5d8f3f" />
@@ -322,7 +340,10 @@ export function DialoguePreview({
       <Art name={`panel_${height}_1`} x={left + TILE} y={row(top)} width={PANEL.width - TILE} height={height} />
       <Art name="portrait" x={left + PANEL.portrait} y={row(top + 10)} width={46} height={64} />
       {npc.artwork !== undefined ? (
-        <Artwork id={npc.artwork} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+        <>
+          <Well x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+          <Artwork id={npc.artwork} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+        </>
       ) : skin === undefined ? null : (
         <Bust skin={skin} slim={npc.skinModel === "SLIM"} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
       )}

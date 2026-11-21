@@ -206,7 +206,11 @@ final class NpcPack {
         return lowered;
     }
 
-    /** Frames a {@value #PICTURE} square picture as the panel's bevel and well, padded below to {@value #HEIGHT}. */
+    /**
+     * Frames a {@value #PICTURE} square picture as the panel's bevel and well, padded below to {@value #HEIGHT}.
+     * The picture lies over the whole well, its sunk edge included, so an uploaded picture shows every pixel; where it
+     * is clear, the well shows.
+     */
     static BufferedImage portrait(final BufferedImage picture) {
         final BufferedImage frame = blank(FRAME, HEIGHT);
         bevel(frame);
@@ -217,13 +221,13 @@ final class NpcPack {
                 frame.setRGB(3 + x, 3 + y, colour);
             }
         }
-        blit(frame, picture, 3, 3);
         for (int i = 0; i < PICTURE; i++) {
             over(frame, 3 + i, 3, WELL_EDGE);
         }
         for (int i = 0; i < PICTURE; i++) {
             over(frame, 3, 3 + i, WELL_EDGE);
         }
+        blit(frame, picture, 3, 3);
         return frame;
     }
 

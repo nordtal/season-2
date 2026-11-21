@@ -100,6 +100,23 @@ final class Wall {
         return inside(toX, toZ) ? Double.POSITIVE_INFINITY : 1;
     }
 
+    /** Inward normal of the closest outline edge within the clearance of the predicted position. */
+    double @Nullable [] nearbyNormal(final double x, final double z, final double clearance) {
+        double best = clearance;
+        double[] normal = null;
+        for (final Edge edge : edges) {
+            final double[] point = edge.closest(x, z);
+            final double distance = Math.hypot(point[0] - x, point[1] - z);
+            if (distance <= best) {
+                best = distance;
+                // Area's outline is oriented with its interior to the right.
+                final double[] left = edge.normal();
+                normal = new double[] {-left[0], -left[1]};
+            }
+        }
+        return normal;
+    }
+
     double distance(final double x, final double z) {
         double best = Double.POSITIVE_INFINITY;
         for (final Edge edge : edges) {

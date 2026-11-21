@@ -52,9 +52,17 @@ class WallTest {
     @Test
     void aGliderTurnsBeforeImpactButParallelFlightContinues() {
         final Wall wall = new Wall(List.of(L));
-        assertTrue(Push.crosses(wall, 53, 10, 2, 0, true));
-        assertFalse(Push.crosses(wall, 53, 10, 2, 0, false));
-        assertFalse(Push.crosses(wall, 59, 10, 0, 2, true));
+        assertArrayEquals(new double[] {-2, 0}, Push.glide(wall, 53, 10, 2, 0), 1e-9);
+        assertEquals(Double.POSITIVE_INFINITY, wall.exit(53, 10, 55, 10));
+        assertNull(Push.glide(wall, 59, 10, 0, 2));
+    }
+
+    @Test
+    void aShallowApproachGetsAnInwardImpulseBeforeTheCameraReachesThePlane() {
+        final Wall wall = new Wall(List.of(L));
+        final double[] bounce = Push.glide(wall, 59.1, 10, 0.03, 1.35);
+        assertArrayEquals(new double[] {-Push.HORIZONTAL, 1.35}, bounce, 1e-9);
+        assertNull(Push.glide(wall, 59.1, 10, 0, 1.35));
     }
 
     @Test

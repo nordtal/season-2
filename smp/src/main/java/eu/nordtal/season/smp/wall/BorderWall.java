@@ -136,22 +136,27 @@ public final class BorderWall implements Listener {
         lastInside.put(player.getUniqueId(), from.clone());
         final double dx = to.getX() - from.getX();
         final double dz = to.getZ() - from.getZ();
-        if (Push.crosses(wall, from.getX(), from.getZ(), dx, dz, player.isGliding())) {
-            if ((player.isGliding() || wall.inside(to.getX(), to.getZ()))
-                    && Push.crosses(wall, from.getX(), from.getZ(), dx, dz, false)) {
+        if (dx == 0 && dz == 0) {
+            return;
+        }
+        final boolean crossed = Double.isFinite(wall.exit(from.getX(), from.getZ(), to.getX(), to.getZ()));
+        if (player.isGliding()) {
+            final double[] bounce = Push.glide(wall, from.getX(), from.getZ(), dx, dz);
+            if (crossed) {
+                event.setCancelled(true);
+            }
+            if (bounce != null) {
+                player.setVelocity(new Vector(bounce[0], player.getVelocity().getY(), bounce[1]));
+                bounced.put(player.getUniqueId(), clock.millis());
+                feedback(player);
+            }
+        } else if (crossed) {
+            if (wall.inside(to.getX(), to.getZ())) {
                 event.setCancelled(true);
             }
             final double speed = Math.hypot(dx, dz);
-            if (speed > 0) {
-                player.setVelocity(new Vector(
-                        -dx / speed * Push.HORIZONTAL,
-                        player.isGliding() ? player.getVelocity().getY() : Push.UP,
-                        -dz / speed * Push.HORIZONTAL));
-                if (player.isGliding()) {
-                    bounced.put(player.getUniqueId(), clock.millis());
-                }
-                feedback(player);
-            }
+            player.setVelocity(new Vector(-dx / speed * Push.HORIZONTAL, Push.UP, -dz / speed * Push.HORIZONTAL));
+            feedback(player);
         }
     }
 

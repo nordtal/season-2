@@ -16,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
@@ -312,30 +313,32 @@ final class Choreography {
     }
 
     /**
-     * Waits for one standby to empty.
+     * Waits for one standby to empty, a waiting room's also for a standby proxy that still runs.
+     * The live proxy writes the room's count and never sees the players who reach it through the standby proxy.
      *
      * @return {@code null} when it emptied out, or what was still on it when the patience ran out
      */
     private @Nullable Drained waitDrained(final String standby) {
+        final Optional<String> proxyStandby = containers.topology().standbyOf(Topology.PROXY);
+        final boolean isProxy = proxyStandby.filter(standby::equals).isPresent();
+        final boolean behindProxy =
+                !isProxy && proxyStandby.filter(standing::contains).isPresent();
         final Instant deadline = clock.now().plus(STANDBY_DRAINS_WITHIN);
         while (true) {
             final Instant now = clock.now();
-            final OptionalInt players = containers
-                            .topology()
-                            .standbyOf(Topology.PROXY)
-                            .filter(standby::equals)
-                            .isPresent()
-                    ? occupancy.onStandbyProxy(now)
-                    : occupancy.on(standby, now, Instant.MIN);
-            if (players.isEmpty() || players.getAsInt() == 0) {
-                // No answer counts as empty here, because the standby has stopped writing.
+            // No answer counts as empty here, because the standby has stopped writing.
+            final int players = isProxy
+                    ? occupancy.onStandbyProxy(now).orElse(0)
+                    : occupancy.on(standby, now, Instant.MIN).orElse(0)
+                            + (behindProxy ? occupancy.onStandbyProxy(now).orElse(0) : 0);
+            if (players == 0) {
                 return null;
             }
             if (!now.isBefore(deadline)) {
-                return new Drained(players.getAsInt(), false);
+                return new Drained(players, false);
             }
             if (!clock.sleep(EMPTY_POLL)) {
-                return new Drained(players.getAsInt(), true);
+                return new Drained(players, true);
             }
         }
     }

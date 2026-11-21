@@ -277,6 +277,37 @@ class ChoreographyTest {
                 "it waited for the two players to go home before pulling the standby out" + " from under them");
     }
 
+    @Test
+    void aWaitingRoomStandbyWaitsForTheStandbyProxyWhoseCountTheLiveProxyNeverSees() {
+        final FakeContainers containers = new FakeContainers().listedByName().running("limbo", "proxy");
+        // The restarted live proxy writes no one for the standby room; the player reaches it through the standby proxy.
+        final Counts counts = new Counts().on("limbo-standby", 0).standbyProxy(1);
+        final Driven clock = driven();
+        clock.onSleep(() -> counts.standbyProxy(0));
+        final Choreography choreography = choreography(containers, counts, clock);
+        choreography.open(List.of("limbo", "proxy"));
+        final List<Integer> onStandbyProxyAtRoomStop = new java.util.ArrayList<>();
+        containers.watcher = call -> {
+            if (call.startsWith("stop:limbo-standby")) {
+                onStandbyProxyAtRoomStop.add(counts.standbyProxy);
+            }
+        };
+
+        choreography.close();
+
+        assertEquals(
+                List.of(0),
+                onStandbyProxyAtRoomStop,
+                "the room was stopped under a player still counting down to go home through the standby proxy");
+        assertEquals(
+                List.of(
+                        "STANDBY_UP limbo-standby DONE",
+                        "STANDBY_UP proxy-standby DONE",
+                        "STANDBY_DOWN limbo-standby DONE",
+                        "STANDBY_DOWN proxy-standby DONE"),
+                steps());
+    }
+
     private final CollectedSteps collected = new CollectedSteps();
 
     private Choreography choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock) {

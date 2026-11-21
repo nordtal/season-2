@@ -1,5 +1,7 @@
 package eu.nordtal.season.database.update;
 
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.Notifies;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -15,6 +17,7 @@ import org.jdbi.v3.sqlobject.statement.UseRowMapper;
 import org.jspecify.annotations.Nullable;
 
 /** The SQL of the steps and facts of a run. {@link UpdateDirectory} is its API. */
+@Notifies(Channel.UPDATE)
 interface RunStepDao {
 
     /** Returns the steps of the run in the order they began. */
@@ -43,10 +46,20 @@ interface RunStepDao {
             """)
     long begin(@Bind("run") long run, @Bind("step") String step, @Bind("service") @Nullable String service);
 
-    /** Ends a step of that run that is open. A step that ended gives zero rows. */
-    @SqlUpdate("""
-            UPDATE run_step SET finished = now(), outcome = :outcome, reason = :reason, exit_code = :exitCode
-            WHERE id = :step AND run = :run AND finished IS NULL
+    /**
+     * Ends a step of that run that is open. A step that ended gives zero.
+     * An ended {@code VERIFY} is announced, because a proxy routes to a service again once it passed.
+     */
+    @SqlQuery("""
+            WITH ended AS (
+                UPDATE run_step SET finished = now(), outcome = :outcome, reason = :reason, exit_code = :exitCode
+                WHERE id = :step AND run = :run AND finished IS NULL
+                RETURNING step
+            ), announced AS (
+                SELECT pg_notify(:channel, '') FROM ended WHERE step = 'VERIFY'
+            )
+            -- announced runs only because it is referenced here
+            SELECT (SELECT count(*) FROM ended)::int + 0 * (SELECT count(*) FROM announced)::int
             """)
     int end(
             @Bind("run") long run,

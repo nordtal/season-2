@@ -46,6 +46,8 @@ when no upstream release contains the fix. Each entry under `vulnerabilities` ho
 
 The scan lists the finding as accepted until `expired_at`, and then fails on it again. To renew an exception,
 check that no upstream release contains the fix yet and set a new date.
+An agent that sees an exception expire within a month, or a scan fail on an expired one, renews it in the
+same session without a tracker item, as long as no upstream release contains the fix.
 
 ## First deployment
 

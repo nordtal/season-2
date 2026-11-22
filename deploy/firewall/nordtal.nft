@@ -1,6 +1,6 @@
 #!/usr/sbin/nft -f
 # The inbound filter of the host. From outside it admits only SSH and the game port, and the standby
-# port while proxy-standby runs. From the tailnet it admits SSH and T3 Code. The web names reach Caddy through the Cloudflare tunnel. Published ports of Docker pass the forward hook, so
+# port while proxy-standby runs. From the tailnet it admits SSH, HTTPS and T3 Code. The web names reach Caddy through the Cloudflare tunnel. Published ports of Docker pass the forward hook, so
 # this table filters them too. Docker never touches a table of its own.
 
 # The port of this host's sshd.
@@ -11,9 +11,11 @@ define ssh = 420
 # so the table needs no name of the public interface and cannot admit everything by a wrong one.
 define docker = { "docker0", "br-*" }
 
-# Tailscale's interface. Only devices of the tailnet reach it, and it admits SSH and T3 Code, nothing
-# else. T3 Code listens on loopback unless it is bound to the tailnet address.
+# Tailscale's interface. Only devices of the tailnet reach it, and it admits SSH, HTTPS and T3 Code,
+# nothing else. T3 Code listens on loopback unless it is bound to the tailnet address. HTTPS is
+# tailscale serve, which publishes Atelier to the tailnet.
 define tailscale = "tailscale0"
+define https = 443
 define t3 = 3773
 
 # Declared, then deleted, so that loading the file replaces the table in one transaction.
@@ -73,7 +75,7 @@ table inet nordtal {
 		ct state established,related accept
 		ct state invalid drop
 		meta l4proto { icmp, ipv6-icmp } accept
-		iifname $tailscale tcp dport { $ssh, $t3 } accept
+		iifname $tailscale tcp dport { $ssh, $https, $t3 } accept
 		tcp dport $ssh ct state new update @ssh_new4 { ip saddr limit rate over 64/minute burst 128 packets } drop
 		tcp dport $ssh ct state new update @ssh_new6 { ip6 saddr limit rate over 64/minute burst 128 packets } drop
 		tcp dport $ssh accept

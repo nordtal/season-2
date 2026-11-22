@@ -104,7 +104,8 @@ val checkRestore =
         "deploy/restore-test.sh",
     ) { file(layout.projectDirectory.file("deploy/restore.sh")).withPropertyName("restore") }
 
-// The firewall admits by interface only loopback, Docker's bridges and the tailnet on SSH and T3 Code.
+// The firewall admits by interface only loopback, Docker's bridges and the tailnet on SSH, HTTPS and
+// T3 Code.
 val checkFirewall =
     scriptSuite(
         "checkFirewall",

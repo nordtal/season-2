@@ -104,6 +104,14 @@ val checkRestore =
         "deploy/restore-test.sh",
     ) { file(layout.projectDirectory.file("deploy/restore.sh")).withPropertyName("restore") }
 
+// The firewall admits by interface only loopback, Docker's bridges and the tailnet on SSH and T3 Code.
+val checkFirewall =
+    scriptSuite(
+        "checkFirewall",
+        "Runs deploy/firewall/firewall-test.sh against the interfaces nordtal.nft admits.",
+        "deploy/firewall/firewall-test.sh",
+    ) { file(layout.projectDirectory.file("deploy/firewall/nordtal.nft")).withPropertyName("table") }
+
 // Scans every `pipefail` script under deploy/ for an early-exiting pipe reader such as `| head`. The
 // whole directory, since the script discovers its targets at run time.
 val checkPipeSafety =
@@ -113,7 +121,7 @@ val checkPipeSafety =
         "deploy/pipe-safety-test.sh",
     ) { dir(layout.projectDirectory.dir("deploy")).withPropertyName("deploy") }
 
-tasks.named("check") { dependsOn(checkEntrypoint, checkJvmSecrets, checkSetup, checkRestore, checkPipeSafety) }
+tasks.named("check") { dependsOn(checkEntrypoint, checkJvmSecrets, checkSetup, checkRestore, checkFirewall, checkPipeSafety) }
 
 // The tests of the build's own tasks, which an included build does not run on its own.
 tasks.named("check") { dependsOn(gradle.includedBuild("build-logic").task(":test")) }

@@ -400,8 +400,11 @@ reach Caddy through the Cloudflare tunnel, which runs on the host and connects t
 of Docker and keeps the `standby` set of the table in step.
 
 The table admits loopback and Docker's bridges (`docker0`, `br-*`) and filters every other
-interface, so it needs no name of the public one. It limits new connections per source address: 64 a
-minute after a burst of 128 on SSH, and 30 a minute after a burst of 60 on the game port.
+interface, so it needs no name of the public one. From Tailscale's interface `tailscale0` it admits
+SSH and T3 Code's port 3773, without the rate limit, since only devices of the tailnet reach it.
+`firewall-test.sh` holds the table to these interfaces. The table limits new connections per source
+address: 64 a minute after a burst of 128 on SSH, and 30 a minute after a burst of 60 on the game
+port.
 
 ```bash
 install -m 644 deploy/firewall/nordtal.nft /etc/nordtal/firewall.nft    # set its SSH port first

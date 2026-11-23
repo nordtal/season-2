@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * One player's stake chest: the own deposit area is free, every other slot is drawn by the {@link StakeTable}.
  *
- * Closing it keeps the deposited items in the chest; they go back to the player when the pair ends before the lock.
+ * Closing it keeps the deposited items in the chest; the table gives them back when the pair ends before the lock.
  */
 final class StakeChest extends Menu {
 
@@ -109,11 +109,6 @@ final class StakeChest extends Menu {
         return taken;
     }
 
-    /** Gives the deposited items to {@code player}, and drops what does not fit at their feet. */
-    void giveBack(final Player player) {
-        hand(player, lock());
-    }
-
     /** Gives {@code stacks} to {@code player}, and drops what does not fit at their feet. */
     static void hand(final Player player, final List<ItemStack> stacks) {
         final Location dropAt = Objects.requireNonNull(player.getLocation());
@@ -196,13 +191,6 @@ final class StakeChest extends Menu {
     protected void closed(final Player player) {
         if (!readOnly && !locked) {
             seat.closed(side, player);
-        }
-    }
-
-    @Override
-    protected void stopped(final Player player) {
-        if (!readOnly && !locked) {
-            giveBack(player);
         }
     }
 

@@ -69,4 +69,52 @@ class StakeStateTest {
         assertFalse(state.ready(0));
         assertFalse(state.ready(1));
     }
+
+    @Test
+    void aDepositDuringTheCountdownStopsItBeforeTheLock() {
+        final StakeState state = new StakeState();
+        state.confirm(0, true);
+        state.confirm(1, true);
+        assertTrue(state.startCountdown(3));
+        assertEquals(StakeState.Tick.COUNTING, state.tick());
+        assertEquals(StakeState.Tick.COUNTING, state.tick());
+
+        state.changed();
+
+        assertFalse(state.counting());
+        assertEquals(StakeState.Tick.STOPPED, state.tick());
+    }
+
+    @Test
+    void theCountdownLocksAfterItsLastSecond() {
+        final StakeState state = new StakeState();
+        state.confirm(0, true);
+        state.confirm(1, true);
+        state.startCountdown(2);
+
+        assertEquals(StakeState.Tick.COUNTING, state.tick());
+        assertEquals(StakeState.Tick.LOCK, state.tick());
+        assertFalse(state.counting());
+    }
+
+    @Test
+    void aWithdrawnConfirmationStopsTheCountdown() {
+        final StakeState state = new StakeState();
+        state.confirm(0, true);
+        state.confirm(1, true);
+        state.startCountdown(3);
+
+        state.withdraw(1);
+
+        assertEquals(StakeState.Tick.STOPPED, state.tick());
+    }
+
+    @Test
+    void oneConfirmationStartsNoCountdown() {
+        final StakeState state = new StakeState();
+        state.confirm(0, true);
+
+        assertFalse(state.startCountdown(3));
+        assertFalse(state.counting());
+    }
 }

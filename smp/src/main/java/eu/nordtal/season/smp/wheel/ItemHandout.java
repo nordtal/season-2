@@ -26,6 +26,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
@@ -59,6 +60,27 @@ public final class ItemHandout implements Listener, ItemRewards {
                     "smp", "duel-stake-returned", "Duels", DocumentSpec.Shape.CHAT, Won.class)
             .titled("Duel stake returned");
 
+    /** What a claim does with a player. */
+    enum Delivery {
+        /** The player is free: the items go into the inventory now. */
+        GIVE,
+        /** The player left: the rows go back and wait for the next join. */
+        STORE,
+        /**
+         * The player is dead, or a duel still writes their inventory: the rows go back.
+         *
+         * The respawn or the duel's restore claims them again.
+         */
+        WAIT;
+
+        static Delivery of(final boolean online, final boolean dead, final boolean held) {
+            if (!online) {
+                return STORE;
+            }
+            return dead || held ? WAIT : GIVE;
+        }
+    }
+
     /** Rows taken from the store and not given yet. */
     private static final class Claim {
         private final DiscordId discordId;
@@ -86,6 +108,7 @@ public final class ItemHandout implements Listener, ItemRewards {
     private final MessageRenderer renderer;
     private final Executor background;
     private final Supplier<World> overworld;
+    private final Predicate<UUID> held;
     private final Set<Claim> claims = ConcurrentHashMap.newKeySet();
     /** One party for {@link #stop} and one for each write or claim still running. */
     private final Phaser running = new Phaser(1);
@@ -96,13 +119,15 @@ public final class ItemHandout implements Listener, ItemRewards {
             final Identities identities,
             final MessageRenderer renderer,
             final Executor background,
-            final Supplier<World> overworld) {
+            final Supplier<World> overworld,
+            final Predicate<UUID> held) {
         this.plugin = plugin;
         this.pending = pending;
         this.identities = identities;
         this.renderer = renderer;
         this.background = background;
         this.overworld = overworld;
+        this.held = held;
     }
 
     /**
@@ -178,7 +203,7 @@ public final class ItemHandout implements Listener, ItemRewards {
         identities.discordIdOf(player).ifPresent(discordId -> claimFor(player, discordId));
     }
 
-    /** A claim that met a dead player went back to the store; the respawn claims it again. */
+    /** A claim that met a dead player went back to the store; the respawn claims it again, unless a duel holds it. */
     @EventHandler
     public void onRespawn(final PlayerRespawnEvent event) {
         final UUID player = event.getPlayer().getUniqueId();
@@ -209,14 +234,12 @@ public final class ItemHandout implements Listener, ItemRewards {
             return;
         }
         claims.remove(claim);
-        final Player player = Bukkit.getPlayer(claim.player);
-        if (player == null || !player.isOnline()) {
-            put(claim.discordId, claim.items);
-            return;
-        }
-        if (player.isDead()) {
-            // A dead player's inventory is gone with the death screen; the respawn claims the rows again.
-            put(claim.discordId, claim.items, false);
+        final @Nullable Player player = Bukkit.getPlayer(claim.player);
+        final Delivery delivery = player == null
+                ? Delivery.STORE
+                : Delivery.of(player.isOnline(), player.isDead(), held.test(claim.player));
+        if (player == null || delivery != Delivery.GIVE) {
+            put(claim.discordId, claim.items, delivery == Delivery.STORE);
             return;
         }
         final Locale locale = identities.languageOf(player.getUniqueId());

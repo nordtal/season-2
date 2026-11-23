@@ -3,7 +3,7 @@ package eu.nordtal.season.smp.duel;
 /**
  * The two sides of a stake before the lock: each side's aura offer, balance and confirmation.
  *
- * Side 0 is the player who stepped on the area first. Every change to an offer clears both confirmations.
+ * Side 0 is the player who stepped on the area first. Every change clears both confirmations and stops the countdown.
  */
 final class StakeState {
 
@@ -11,6 +11,14 @@ final class StakeState {
     enum Refusal {
         NONE,
         CURSOR
+    }
+
+    /** What one second of the countdown does. */
+    enum Tick {
+        /** No countdown runs, because a change stopped it: nothing locks. */
+        STOPPED,
+        COUNTING,
+        LOCK
     }
 
     /** The step of a click on plus or minus; a click with Shift steps by {@link #SHIFT_STEP}. */
@@ -21,6 +29,7 @@ final class StakeState {
     private final int[] offer = new int[2];
     private final int[] balance = new int[2];
     private final boolean[] ready = new boolean[2];
+    private int seconds;
 
     int offer(final int side) {
         return offer[side];
@@ -43,6 +52,37 @@ final class StakeState {
         return ready[0] && ready[1];
     }
 
+    /** The seconds left to the lock, 0 while no countdown runs. */
+    int seconds() {
+        return seconds;
+    }
+
+    boolean counting() {
+        return seconds > 0;
+    }
+
+    /**
+     * Starts the countdown to the lock once both sides confirmed.
+     *
+     * @return whether a countdown started
+     */
+    boolean startCountdown(final int length) {
+        if (!bothReady() || counting()) {
+            return false;
+        }
+        seconds = length;
+        return true;
+    }
+
+    /** Counts one second down; the last one locks. */
+    Tick tick() {
+        if (!counting()) {
+            return Tick.STOPPED;
+        }
+        seconds--;
+        return seconds > 0 ? Tick.COUNTING : Tick.LOCK;
+    }
+
     /**
      * Moves a side's offer by {@code delta}, kept between 0 and its cap.
      *
@@ -58,10 +98,11 @@ final class StakeState {
         return true;
     }
 
-    /** A side's items changed: both confirmations clear. */
+    /** A side's items changed: both confirmations clear and the countdown stops. */
     void changed() {
         ready[0] = false;
         ready[1] = false;
+        seconds = 0;
     }
 
     /** Confirms a side, which needs an empty cursor. */
@@ -73,9 +114,10 @@ final class StakeState {
         return Refusal.NONE;
     }
 
-    /** Takes back a side's confirmation. */
+    /** Takes back a side's confirmation, which stops the countdown. */
     void withdraw(final int side) {
         ready[side] = false;
+        seconds = 0;
     }
 
     /**

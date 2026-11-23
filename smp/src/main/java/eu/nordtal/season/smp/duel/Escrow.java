@@ -2,10 +2,10 @@ package eu.nordtal.season.smp.duel;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.smp.port.ItemRewards;
-import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
@@ -14,6 +14,7 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bukkit.inventory.ItemStack;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Runs the {@link DuelStakes} writes off the main thread and hands what they pay to the players online.
@@ -31,6 +32,9 @@ public final class Escrow {
 
     /** One party for {@link #stop} and one for each write still running. */
     private final Phaser running = new Phaser(1);
+
+    /** The refund of the stakes a stop or crash left held; every lock waits for it. */
+    private volatile CompletableFuture<@Nullable Void> leftover = CompletableFuture.completedFuture(null);
 
     public Escrow(final DuelStakes stakes, final ItemRewards handout, final Executor background, final Logger logger) {
         this.stakes = stakes;
@@ -54,6 +58,8 @@ public final class Escrow {
      */
     void lock(final UUID duel, final List<DuelStakes.Offer> offers, final Consumer<Boolean> answered) {
         later(() -> {
+            // A lock written before the leftover refund would be refunded with it.
+            leftover.join();
             boolean held;
             try {
                 held = stakes.lock(duel, offers);
@@ -86,11 +92,42 @@ public final class Escrow {
         });
     }
 
-    /** Refunds the duels a stop or crash left locked before {@code since}. */
-    public void refundLeftover(final Instant since) {
-        later(() -> {
-            stakes.refundLeftover(since).forEach(handout::handOutIfOnline);
+    /** Refunds the stakes a stop or crash left held. smp calls it at start; every later lock waits for it. */
+    public void refundLeftover() {
+        final CompletableFuture<@Nullable Void> done = new CompletableFuture<>();
+        leftover = done;
+        final boolean accepted = later(() -> {
+            try {
+                stakes.refundLeftover().forEach(handout::handOutIfOnline);
+            } finally {
+                done.complete(null);
+            }
         });
+        if (!accepted) {
+            done.complete(null);
+        }
+    }
+
+    /**
+     * Gives {@code stacks} of a stake that never locked back to {@code owner} through the pending store.
+     *
+     * It serves an owner who leaves, is offline or whose server stops.
+     */
+    void giveBack(final DiscordId owner, final List<ItemStack> stacks) {
+        if (stacks.isEmpty()) {
+            return;
+        }
+        final List<DuelStakes.Staked> items =
+                stacks.stream().map(Escrow::staked).toList();
+        later(() -> {
+            stakes.giveBack(owner, items);
+            handout.handOutIfOnline(owner);
+        });
+    }
+
+    /** Hands the pending items of {@code owner} out, if they are online. */
+    void handOutIfOnline(final DiscordId owner) {
+        handout.handOutIfOnline(owner);
     }
 
     /** Waits for the writes still running; smp calls it while it stops, before the item work closes. */
@@ -104,8 +141,12 @@ public final class Escrow {
         }
     }
 
-    /** Runs {@code work} in the background and logs its failure. */
-    private void later(final Runnable work) {
+    /**
+     * Runs {@code work} in the background and logs its failure.
+     *
+     * @return whether the background took the work
+     */
+    private boolean later(final Runnable work) {
         running.register();
         try {
             background.execute(() -> {
@@ -117,9 +158,11 @@ public final class Escrow {
                     running.arriveAndDeregister();
                 }
             });
+            return true;
         } catch (final RuntimeException refused) {
             running.arriveAndDeregister();
             logger.log(Level.WARNING, "duel stake write refused, the next start refunds it", refused);
+            return false;
         }
     }
 }

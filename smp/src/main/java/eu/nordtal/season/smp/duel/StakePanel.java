@@ -59,12 +59,23 @@ final class StakePanel {
 
     private static final int NAME_X = ChestTitle.plateX(1) + 1;
     private static final int NAME_ROOM = ChestTitle.plateWidth(3);
+
+    /** The last column the own balance may ink: the right edge of the own half's last cell. */
+    private static final int OWN_END = ChestTitle.plateX(3) + 16;
+
+    /** From the aura symbol to the balance's first column: the symbol's 7 columns and a 3 px gap. */
+    private static final int BALANCE_GAP = Symbol.ADVANCE + 2;
+
+    /** Between the own name's last column and the aura symbol. */
+    private static final int NAME_TO_BALANCE = 3;
+
     private static final int TICK_X = ChestTitle.plateX(6) + 1;
 
     /**
      * What one player's chest shows.
      *
      * @param their     the opponent's name, null while the player stands alone
+     * @param balance   the own aura balance, which may be below zero
      * @param seconds   the seconds of the countdown to the lock, 0 while none runs
      * @param refusal   why the last confirmation was refused, or null
      */
@@ -73,7 +84,7 @@ final class StakePanel {
             String own,
             @Nullable String their,
             int offer,
-            int cap,
+            int balance,
             int theirOffer,
             boolean ready,
             boolean theirReady,
@@ -96,7 +107,7 @@ final class StakePanel {
             marks.add(Mark.text(view.refusal(), Colours.REFUSAL));
         }
         final ChestTitle title = ChestTitle.of(ROWS).boldHeader(Symbol.SHIELD, view.title(), marks);
-        title.text(NAME_X, 0, Letters.cut(view.own(), NAME_ROOM), Colours.INK);
+        ownLine(title, view.own(), view.balance());
         OWN_DEPOSIT.forEach(slot -> title.depositSlot(SlotGeometry.column(slot), SlotGeometry.row(slot)));
         final @Nullable String their = view.their();
         if (their == null) {
@@ -111,7 +122,7 @@ final class StakePanel {
             }
         }
         stepper(title, 0, "-", view.offer() > 0);
-        stepper(title, 3, "+", view.offer() < view.cap());
+        stepper(title, 3, "+", view.offer() < Math.max(0, view.balance()));
         figure(title, 1, 2, view.offer());
         if (view.seconds() > 0) {
             title.plate(0, READY_ROW, 3, Look.PRIMARY)
@@ -130,6 +141,17 @@ final class StakePanel {
                             look);
         }
         return title.build(BodyLine.silent(view.title() + " " + view.offer()));
+    }
+
+    /** Draws the own name and, right-aligned in the own half, the own balance, red below zero; the name gives way. */
+    private static void ownLine(final ChestTitle title, final String own, final int balance) {
+        final String figure = Integer.toString(balance);
+        final int figureX = OWN_END - Letters.visibleWidth(figure) + 1;
+        final int symbolX = figureX - BALANCE_GAP;
+        final TextColor colour = balance < 0 ? Colours.REFUSAL : Colours.SOFT;
+        title.text(NAME_X, 0, Letters.cut(own, Math.min(NAME_ROOM, symbolX - NAME_TO_BALANCE - NAME_X)), Colours.INK)
+                .symbol(symbolX, 0, Symbol.XP, balance < 0 ? Colours.REFUSAL : Colours.ACCENT)
+                .text(figureX, 0, figure, colour);
     }
 
     private static void stepper(final ChestTitle title, final int column, final String sign, final boolean enabled) {

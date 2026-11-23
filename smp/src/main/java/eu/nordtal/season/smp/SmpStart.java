@@ -197,7 +197,11 @@ final class SmpStart {
                 plugin.identities(),
                 plugin.renderer(),
                 plugin.itemWork,
-                () -> plugin.worlds.world(WorldRole.NORDTAL).orElseThrow());
+                () -> plugin.worlds.world(WorldRole.NORDTAL).orElseThrow(),
+                player -> {
+                    final Duels running = plugin.duels;
+                    return running != null && running.holdsInventory(player);
+                });
         plugin.getServer().getPluginManager().registerEvents(handout, plugin);
         final Duels duels = wireDuels(plugin, effects, handout, scheduler);
 
@@ -228,7 +232,7 @@ final class SmpStart {
             final PaperScheduler scheduler) {
         final Escrow escrow =
                 new Escrow(plugin.jdbi().onDemand(DuelStakes.class), handout, plugin.itemWork, plugin.getLogger());
-        escrow.refundLeftover(plugin.clock().instant());
+        escrow.refundLeftover();
         final Duels duels = new Duels(
                 plugin,
                 plugin.aura,

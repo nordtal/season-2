@@ -120,6 +120,9 @@ public final class Duels implements Arenas {
     /** {@link #respawned} restores the saved state of a fighter who died in the arena. */
     private final Map<UUID, SavedState> pending = new HashMap<>();
 
+    /** Players whose respawn restores their inventory on the next tick. */
+    private final Set<UUID> restoring = new HashSet<>();
+
     /** Teleports started by the duel itself, only while their event is running. */
     private final Set<UUID> ownTeleports = new HashSet<>();
 
@@ -235,6 +238,15 @@ public final class Duels implements Arenas {
         final ActiveDuel duel = active;
         return duel != null
                 && duel.arena().containsBlock(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+    }
+
+    /**
+     * Returns whether a duel still writes the player's inventory, so items given now are lost to its restore.
+     *
+     * That holds through the fight, a death awaiting the respawn and the tick after it. Main thread only.
+     */
+    public boolean holdsInventory(final UUID player) {
+        return (active != null && active.fights(player)) || pending.containsKey(player) || restoring.contains(player);
     }
 
     /** Returns whether the player's advancement criteria are refused now. Main thread only. */
@@ -474,11 +486,15 @@ public final class Duels implements Arenas {
         if (where != null) {
             event.setRespawnLocation(where);
         }
+        final UUID id = event.getPlayer().getUniqueId();
+        restoring.add(id);
         PaperScheduler.of(plugin).onMain(() -> {
-            final Player player = Bukkit.getPlayer(event.getPlayer().getUniqueId());
+            restoring.remove(id);
+            final Player player = Bukkit.getPlayer(id);
             if (player != null) {
                 state.restore(player, exit());
-                fighterStates.delete(player.getUniqueId());
+                fighterStates.delete(id);
+                restored(id);
             }
         });
     }
@@ -660,6 +676,7 @@ public final class Duels implements Arenas {
         } else {
             state.restore(player, exit());
             fighterStates.delete(playerId);
+            restored(playerId);
         }
         final java.util.Locale locale = identities.languageOf(playerId);
         final Outcome outcome =
@@ -675,6 +692,11 @@ public final class Duels implements Arenas {
         if (feedback != null) {
             sounds.play(player, feedback);
         }
+    }
+
+    /** Hands out the items the hand-out held back while the duel wrote the inventory. */
+    private void restored(final UUID player) {
+        identities.discordIdOf(player).ifPresent(escrow::handOutIfOnline);
     }
 
     private static void removeProjectiles(final ActiveDuel duel) {

@@ -4,7 +4,6 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.wheel.PendingItems;
-import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -141,13 +140,13 @@ public interface DuelStakes extends SqlObject {
     }
 
     /**
-     * Refunds every duel locked before {@code since}, which a server stop or crash left unpaid.
+     * Refunds every duel still held, which a server stop or crash left unpaid. smp calls it at start, before any lock.
      *
      * @return the owners that got something back
      */
-    default Set<DiscordId> refundLeftover(final Instant since) {
+    default Set<DiscordId> refundLeftover() {
         final Set<DiscordId> owners = new LinkedHashSet<>();
-        duelsBefore(since).forEach(duel -> owners.addAll(refund(duel)));
+        heldDuels().forEach(duel -> owners.addAll(refund(duel)));
         return owners;
     }
 
@@ -179,6 +178,6 @@ public interface DuelStakes extends SqlObject {
     @RegisterConstructorMapper(Row.class)
     List<Row> release(@Bind("duel") UUID duel);
 
-    @SqlQuery("SELECT DISTINCT duel FROM smp_duel_stake WHERE created < :since")
-    List<UUID> duelsBefore(@Bind("since") Instant since);
+    @SqlQuery("SELECT DISTINCT duel FROM smp_duel_stake")
+    List<UUID> heldDuels();
 }

@@ -244,7 +244,7 @@ final class Negotiation {
         if (side == 0) {
             first = id;
             phase = Phase.STAKE;
-            table = new StakeTable(plugin, this::stakeWords, aura, sounds, new TableEvents());
+            table = new StakeTable(plugin, this::stakeWords, aura, sounds, new TableEvents(), escrow);
         } else {
             second = id;
             timeout = PaperScheduler.of(plugin).onMainAfter(LIMIT, this::timedOut);
@@ -279,8 +279,8 @@ final class Negotiation {
     private final class TableEvents implements StakeTable.Events {
 
         @Override
-        public void locked(final List<List<ItemStack>> items, final int[] offers) {
-            lock(items, offers);
+        public void locked(final List<DiscordId> accounts, final List<List<ItemStack>> items, final int[] offers) {
+            lock(accounts, items, offers);
         }
 
         @Override
@@ -296,39 +296,27 @@ final class Negotiation {
         }
     }
 
-    /** Writes both stakes; the kit pick starts once the write answers. */
-    private void lock(final List<List<ItemStack>> items, final int[] offers) {
+    /** Writes both stakes for the accounts seated at the step; the kit pick starts once the write answers. */
+    private void lock(final List<DiscordId> accounts, final List<List<ItemStack>> items, final int[] offers) {
         final @Nullable UUID one = first;
         final @Nullable UUID two = second;
         table = null;
         cancel(timeout);
         timeout = null;
         late = false;
-        if (one == null || two == null) {
-            return;
-        }
         final UUID duel = UUID.randomUUID();
         final List<DuelStakes.Offer> held = new ArrayList<>();
-        final List<UUID> players = List.of(one, two);
         for (int side = 0; side < 2; side++) {
-            final Optional<DiscordId> account = identities.discordIdOf(players.get(side));
-            if (account.isPresent()) {
-                held.add(new DuelStakes.Offer(
-                        account.get(),
-                        offers[side],
-                        items.get(side).stream().map(Escrow::staked).toList()));
-            }
+            held.add(new DuelStakes.Offer(
+                    accounts.get(side),
+                    offers[side],
+                    items.get(side).stream().map(Escrow::staked).toList()));
         }
-        if (held.size() < 2) {
-            // Both are online and were linked at the step, so only a lost link gets here: nothing was written.
+        if (one == null || two == null) {
+            // The pair ended in the same tick: the items go back through the pending store.
             for (int side = 0; side < 2; side++) {
-                final @Nullable Player owner = Bukkit.getPlayer(players.get(side));
-                if (owner != null) {
-                    StakeChest.hand(owner, items.get(side));
-                }
+                escrow.giveBack(accounts.get(side), items.get(side));
             }
-            final Sent<?> unlinked = UNAVAILABLE.with(new Unavailable(Duels.Blocked.NOT_LINKED));
-            end(unlinked, unlinked);
             return;
         }
         phase = Phase.LOCKING;
@@ -424,12 +412,19 @@ final class Negotiation {
         final Sent<?> gone =
                 ENDED_OFFLINE.with(new NegotiationDialog.Opponent(PlayerContext.of(PlayerId.of(id), player.getName())));
         // The one who quit gets nothing: only the one still online is told.
-        end(id.equals(first) ? null : gone, id.equals(second) ? null : gone);
+        end(id.equals(first) ? null : gone, id.equals(second) ? null : gone, Set.of(id));
     }
 
     /** Gives back every stake and forgets the pair, for a server stop. */
     void stop() {
-        end(null, null);
+        final Set<UUID> everyone = new HashSet<>();
+        if (first != null) {
+            everyone.add(first);
+        }
+        if (second != null) {
+            everyone.add(second);
+        }
+        end(null, null, everyone);
     }
 
     /**
@@ -438,6 +433,11 @@ final class Negotiation {
      * A player still on the area negotiates again only after stepping off.
      */
     private void end(final @Nullable Sent<?> toFirst, final @Nullable Sent<?> toSecond) {
+        end(toFirst, toSecond, Set.of());
+    }
+
+    /** @param leaving the players who quit or stop with the server, whose stake goes through the pending store */
+    private void end(final @Nullable Sent<?> toFirst, final @Nullable Sent<?> toSecond, final Set<UUID> leaving) {
         cancel(countdown);
         cancel(timeout);
         countdown = null;
@@ -458,7 +458,7 @@ final class Negotiation {
         picks.clear();
         kits = List.of();
         if (seated != null) {
-            seated.end();
+            seated.end(leaving);
         }
         // A lock still being written finds no stake and refunds itself.
         if (was == Phase.KITS && held != null) {

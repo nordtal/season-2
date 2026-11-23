@@ -11,7 +11,6 @@ import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.wheel.PendingItems;
-import java.time.Instant;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -120,22 +119,19 @@ class DuelStakesIntegrationTest {
     }
 
     @Test
-    void aStartRefundsOnlyTheDuelsLockedBeforeIt() {
-        final UUID before = UUID.randomUUID();
+    void aStartRefundsEveryDuelStillHeld() {
+        final UUID one = UUID.randomUUID();
         stakes.lock(
-                before,
-                List.of(new DuelStakes.Offer(FIRST, 20, List.of()), new DuelStakes.Offer(SECOND, 0, List.of())));
-        final Instant start = owner.withHandle(handle -> handle.createQuery("SELECT now() + interval '1 second'")
-                .mapTo(Instant.class)
-                .one());
+                one, List.of(new DuelStakes.Offer(FIRST, 20, List.of()), new DuelStakes.Offer(SECOND, 0, List.of())));
+        final UUID two = UUID.randomUUID();
+        stakes.lock(
+                two,
+                List.of(new DuelStakes.Offer(FIRST, 5, List.of(DIAMONDS)), new DuelStakes.Offer(SECOND, 3, List.of())));
 
-        assertEquals(Set.of(FIRST, SECOND), stakes.refundLeftover(start));
+        assertEquals(Set.of(FIRST, SECOND), stakes.refundLeftover());
         assertEquals(40, aura.auraOf(FIRST).orElseThrow());
-
-        final UUID after = UUID.randomUUID();
-        stakes.lock(
-                after, List.of(new DuelStakes.Offer(FIRST, 20, List.of()), new DuelStakes.Offer(SECOND, 0, List.of())));
-        assertEquals(Set.of(), stakes.refundLeftover(Instant.EPOCH));
-        assertEquals(OptionalInt.of(20), stakes.payOut(after, SECOND, FIRST, "Bow"));
+        assertEquals(10, aura.auraOf(SECOND).orElseThrow());
+        assertEquals(Set.of(), stakes.refundLeftover());
+        assertEquals(OptionalInt.empty(), stakes.payOut(one, SECOND, FIRST, "Bow"));
     }
 }

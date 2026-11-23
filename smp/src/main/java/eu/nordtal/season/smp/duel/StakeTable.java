@@ -18,6 +18,8 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
@@ -67,8 +69,12 @@ final class StakeTable implements StakeChest.Seat {
     /** What the table tells the negotiation. */
     interface Events {
 
-        /** The countdown ended: both chests are empty, and {@code items} and {@code aura} hold what they offered. */
-        void locked(List<List<ItemStack>> items, int[] aura);
+        /**
+         * The countdown ended and both chests are empty.
+         *
+         * {@code items} and {@code aura} hold what the accounts seated on each side offered.
+         */
+        void locked(List<DiscordId> accounts, List<List<ItemStack>> items, int[] aura);
 
         /** A player closed their chest with Esc. */
         void closed(Player player);
@@ -89,6 +95,7 @@ final class StakeTable implements StakeChest.Seat {
     private final AuraDao aura;
     private final SmpSounds sounds;
     private final Events events;
+    private final Escrow escrow;
     private final StakeState state = new StakeState();
     private final @Nullable UUID[] players = new UUID[2];
     private final String[] names = {"", ""};
@@ -97,7 +104,6 @@ final class StakeTable implements StakeChest.Seat {
     private final boolean[] refused = new boolean[2];
     private Scheduler.@Nullable Task countdown;
     private Scheduler.@Nullable Task poll;
-    private int seconds;
     private boolean over;
 
     StakeTable(
@@ -105,12 +111,14 @@ final class StakeTable implements StakeChest.Seat {
             final Function<UUID, GameDocument> document,
             final AuraDao aura,
             final SmpSounds sounds,
-            final Events events) {
+            final Events events,
+            final Escrow escrow) {
         this.plugin = plugin;
         this.document = document;
         this.aura = aura;
         this.sounds = sounds;
         this.events = events;
+        this.escrow = escrow;
     }
 
     /** Seats {@code player} on {@code side} and opens their chest. */
@@ -140,8 +148,12 @@ final class StakeTable implements StakeChest.Seat {
         return countdown != null;
     }
 
-    /** Ends the table and gives each player still online the items in their chest. */
-    void end() {
+    /**
+     * Gives each player the items in their chest, and those {@code leaving} or offline through the pending store.
+     *
+     * A player who stays gets them into the inventory, and what does not fit drops at their feet.
+     */
+    void end(final Set<UUID> leaving) {
         if (over) {
             return;
         }
@@ -151,26 +163,34 @@ final class StakeTable implements StakeChest.Seat {
         countdown = null;
         poll = null;
         for (final StakeChest chest : chests) {
-            final @Nullable UUID id = chest == null ? null : players[chest.side()];
-            final @Nullable Player player = id == null ? null : Bukkit.getPlayer(id);
-            if (chest == null || player == null) {
+            if (chest == null) {
                 continue;
             }
-            final boolean shown = chest.showsTo(player);
-            chest.giveBack(player);
-            if (shown) {
+            final int side = chest.side();
+            final @Nullable UUID id = players[side];
+            final @Nullable Player player = id == null ? null : Bukkit.getPlayer(id);
+            final boolean shown = player != null && chest.showsTo(player);
+            final List<ItemStack> items = chest.lock();
+            if (player != null && !leaving.contains(player.getUniqueId())) {
+                StakeChest.hand(player, items);
+            } else {
+                escrow.giveBack(Objects.requireNonNull(accounts[side]), items);
+            }
+            if (player != null && shown) {
                 player.closeInventory();
             }
         }
     }
 
+    /** Stops the countdown at once, so no tick locks before the click lands in the chest. */
     @Override
     public void deposited(final int side) {
-        // The click lands in the inventory after its event.
+        state.changed();
+        stopCountdown();
+        // The click lands in the inventory after its event, so the opponent sees it from the next tick on.
         PaperScheduler.of(plugin).onMain(() -> {
             if (!over) {
-                state.changed();
-                changed();
+                redraw();
             }
         });
     }
@@ -189,8 +209,7 @@ final class StakeTable implements StakeChest.Seat {
                 state.confirm(side, player.getItemOnCursor().isEmpty());
         refused[side] = refusal == StakeState.Refusal.CURSOR;
         sounds.play(player, refused[side] ? Feedback.REFUSED : Feedback.SMALL_SUCCESS);
-        if (state.bothReady() && players[1] != null) {
-            seconds = COUNTDOWN_SECONDS;
+        if (players[1] != null && state.startCountdown(COUNTDOWN_SECONDS)) {
             countdown = PaperScheduler.of(plugin).onMainEvery(SECOND, SECOND, this::tick);
             tickSound();
         }
@@ -212,25 +231,31 @@ final class StakeTable implements StakeChest.Seat {
 
     /** Stops a running countdown and redraws both chests. */
     private void changed() {
-        if (countdown != null) {
-            cancel(countdown);
-            countdown = null;
-            seconds = 0;
-            events.countdownStopped();
-        }
+        stopCountdown();
         redraw();
     }
 
-    private void tick() {
-        seconds--;
-        if (seconds > 0) {
-            tickSound();
-            redraw();
-            return;
+    private void stopCountdown() {
+        if (countdown != null) {
+            cancel(countdown);
+            countdown = null;
+            events.countdownStopped();
         }
-        cancel(countdown);
-        countdown = null;
-        lock();
+    }
+
+    private void tick() {
+        switch (state.tick()) {
+            case COUNTING -> {
+                tickSound();
+                redraw();
+            }
+            case LOCK -> {
+                cancel(countdown);
+                countdown = null;
+                lock();
+            }
+            case STOPPED -> stopCountdown();
+        }
     }
 
     private void tickSound() {
@@ -247,7 +272,10 @@ final class StakeTable implements StakeChest.Seat {
         cancel(poll);
         poll = null;
         final List<List<ItemStack>> items = List.of(lockSide(0), lockSide(1));
-        events.locked(items, new int[] {state.offer(0), state.offer(1)});
+        events.locked(
+                List.of(Objects.requireNonNull(accounts[0]), Objects.requireNonNull(accounts[1])),
+                items,
+                new int[] {state.offer(0), state.offer(1)});
     }
 
     private List<ItemStack> lockSide(final int side) {
@@ -312,17 +340,17 @@ final class StakeTable implements StakeChest.Seat {
             final @Nullable String refusal = refused[own] ? words.label("cursor") : null;
             chest.draw(
                     Bukkit.getPlayer(id),
-                    StakePanel.title(view(words, mine, their, seconds, refusal)),
-                    display(words, mine, their, seconds > 0),
+                    StakePanel.title(view(words, mine, their, state.seconds(), refusal)),
+                    display(words, mine, their, state.counting()),
                     state.ready(own),
-                    seconds > 0);
+                    state.counting());
         }
     }
 
     private Side side(final int side) {
         final @Nullable StakeChest chest = chests[side];
         return new Side(
-                java.util.Objects.requireNonNull(players[side]),
+                Objects.requireNonNull(players[side]),
                 names[side],
                 state.offer(side),
                 state.balance(side),
@@ -341,7 +369,7 @@ final class StakeTable implements StakeChest.Seat {
                 own.name(),
                 their == null ? null : their.name(),
                 own.offer(),
-                Math.max(0, own.balance()),
+                own.balance(),
                 their == null ? 0 : their.offer(),
                 own.ready(),
                 their != null && their.ready(),
@@ -360,7 +388,10 @@ final class StakeTable implements StakeChest.Seat {
                 : words.labelText("aura-own", new Aura(own.balance()));
         shown.put(StakePanel.OWN_HEAD, BlankItem.styled(head(own.id()), Component.text(own.name()), List.of(balance)));
         shown.put(StakePanel.LOWER, tip(words.labelText("lower", null)));
-        shown.put(StakePanel.RAISE, tip(words.labelText("raise", null)));
+        // A + at the cap tells why it does nothing.
+        shown.put(
+                StakePanel.RAISE,
+                tip(own.offer() < Math.max(0, own.balance()) ? words.labelText("raise", null) : balance));
         final ItemStack figure = BlankItem.styled(
                 BlankItem.silent(), words.labelText("offer-own", new Aura(own.offer())), List.of(balance));
         StakePanel.OWN_FIGURE.forEach(slot -> shown.put(slot, figure));

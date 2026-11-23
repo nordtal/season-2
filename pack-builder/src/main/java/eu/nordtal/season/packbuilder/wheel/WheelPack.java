@@ -8,7 +8,6 @@ import eu.nordtal.season.packbuilder.wheel.WheelSpin.PrizeAt;
 import eu.nordtal.season.packbuilder.wheel.WheelSpin.Run;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -56,7 +55,23 @@ public final class WheelPack {
 
     private record Member(String key, Map<String, Object> leaf) {}
 
-    private record Group(double[] display, List<Member> members) {}
+    private static final class Group {
+        private final double[] display;
+        private final List<Member> members;
+
+        Group(final double[] display, final List<Member> members) {
+            this.display = display;
+            this.members = members;
+        }
+
+        double[] display() {
+            return display;
+        }
+
+        List<Member> members() {
+            return members;
+        }
+    }
 
     public WheelPack(final VanillaFacts facts, final List<Prize> prizes, final Map<String, String> labels) {
         this.vanilla = new WheelVanilla(facts);
@@ -501,9 +516,7 @@ public final class WheelPack {
         for (final int e : offsets) {
             out.append("end.").append(e).append('=').append(WheelTurn.length(e)).append('\n');
         }
-        out.append("heights=")
-                .append(joined(Arrays.stream(WheelLayout.HEIGHTS).boxed().toList()))
-                .append('\n');
+        out.append("heights=").append(joined(WheelLayout.HEIGHTS)).append('\n');
         out.append("row-width=").append(WheelLayout.ROW_WIDTH).append('\n');
         out.append("item-width=").append(WheelLayout.ITEM_WIDTH).append('\n');
         out.append("plate-item=").append(WheelLayout.PLATE_ITEM).append('\n');
@@ -540,7 +553,7 @@ public final class WheelPack {
         final List<Prize> out = new ArrayList<>();
         for (final Object each : (List<?>) json) {
             final Map<?, ?> prize = (Map<?, ?>) each;
-            out.add(new Prize(key((String) prize.get("item")), ((Number) prize.get("amount")).intValue()));
+            out.add(new Prize(key((String) required(prize, "item")), ((Number) required(prize, "amount")).intValue()));
         }
         return out;
     }
@@ -553,7 +566,7 @@ public final class WheelPack {
 
     /** The {@code spin-button} label per language of the wheel's text document, German first. */
     public static Map<String, String> labels(final Object document) {
-        final List<Map<?, ?>> parts = ((List<?>) ((Map<?, ?>) document).get("parts"))
+        final List<Map<?, ?>> parts = ((List<?>) required((Map<?, ?>) document, "parts"))
                 .stream()
                         .<Map<?, ?>>map(p -> (Map<?, ?>) p)
                         .filter(p -> "spin-button".equals(p.get("slot")))
@@ -561,17 +574,25 @@ public final class WheelPack {
         if (parts.size() != 1) {
             throw new IllegalArgumentException("the wheel's document has " + parts.size() + " spin buttons");
         }
-        final List<?> lines = (List<?>) parts.getFirst().get("lines");
+        final List<?> lines = (List<?>) required(parts.getFirst(), "lines");
         if (lines.size() != 1) {
             throw new IllegalArgumentException("the spin button has " + lines.size() + " lines");
         }
-        final Map<?, ?> text = (Map<?, ?>) ((Map<?, ?>) lines.getFirst()).get("text");
+        final Map<?, ?> text = (Map<?, ?>) required((Map<?, ?>) lines.getFirst(), "text");
         final List<Map.Entry<String, String>> entries = new ArrayList<>();
         text.forEach((lang, label) -> entries.add(Map.entry((String) lang, (String) label)));
         entries.sort((a, b) -> sortKey(a.getKey()).compareTo(sortKey(b.getKey())));
         final Map<String, String> out = new LinkedHashMap<>();
         entries.forEach(entry -> out.put(entry.getKey(), entry.getValue()));
         return out;
+    }
+
+    private static Object required(final Map<?, ?> map, final String key) {
+        final Object value = map.get(key);
+        if (value == null) {
+            throw new IllegalArgumentException("a wheel entry without " + key);
+        }
+        return value;
     }
 
     private static String sortKey(final String lang) {

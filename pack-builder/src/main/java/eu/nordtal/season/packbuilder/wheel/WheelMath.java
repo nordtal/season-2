@@ -140,13 +140,13 @@ final class WheelMath {
         final double z;
         final double w;
         if (q instanceof final Map<?, ?> map) {
-            final List<Double> axis = doubles(map.get("axis"));
+            final List<Double> axis = doubles(required(map, "axis"));
             double n2 = 0.0;
             for (final double v : axis) {
                 n2 += v * v;
             }
             final double n = Math.sqrt(n2);
-            final double h = ((Number) map.get("angle")).doubleValue() / 2;
+            final double h = ((Number) required(map, "angle")).doubleValue() / 2;
             x = axis.get(0) / n * Math.sin(h);
             y = axis.get(1) / n * Math.sin(h);
             z = axis.get(2) / n * Math.sin(h);
@@ -188,8 +188,8 @@ final class WheelMath {
             return m;
         }
         final Map<?, ?> m = (Map<?, ?>) t;
-        final List<Double> tr = doubles(m.get("translation"));
-        final List<Double> sc = doubles(m.get("scale"));
+        final List<Double> tr = doubles(required(m, "translation"));
+        final List<Double> sc = doubles(required(m, "scale"));
         return times(
                 translate(tr.get(0), tr.get(1), tr.get(2)),
                 quaternion(required(m, "left_rotation")),

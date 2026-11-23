@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import javax.imageio.ImageIO;
 import org.jspecify.annotations.Nullable;
@@ -118,7 +119,7 @@ final class WheelVanilla {
      * case, a condition to its false side. A collapsed node's transformation moves onto its child.
      */
     static Map<String, Object> leaf(final Map<?, ?> node) {
-        final String type = shortId((String) node.get("type"));
+        final String type = shortId((String) required(node, "type"));
         final Object own = present(node.get("transformation"));
         final @Nullable Map<?, ?> child = switch (type) {
             case "select" -> selected(node);
@@ -139,7 +140,7 @@ final class WheelVanilla {
         final Map<String, Object> out = copy(node);
         if (type.equals("composite")) {
             final List<Object> models = new ArrayList<>();
-            for (final Object model : (List<?>) node.get("models")) {
+            for (final Object model : (List<?>) required(node, "models")) {
                 models.add(leaf((Map<?, ?>) model));
             }
             out.put("models", models);
@@ -148,8 +149,8 @@ final class WheelVanilla {
     }
 
     private static Map<?, ?> selected(final Map<?, ?> node) {
-        final List<?> cases = (List<?>) node.get("cases");
-        if (shortId((String) node.get("property")).equals("display_context")) {
+        final List<?> cases = (List<?>) required(node, "cases");
+        if (shortId((String) required(node, "property")).equals("display_context")) {
             for (final Object c : cases) {
                 final Map<?, ?> each = (Map<?, ?>) c;
                 if (whens(each).contains("gui")) {
@@ -173,7 +174,7 @@ final class WheelVanilla {
         if (node.get("fallback") instanceof final Map<?, ?> fallback) {
             return fallback;
         }
-        final List<?> entries = (List<?>) node.get("entries");
+        final List<?> entries = (List<?>) required(node, "entries");
         if (!entries.isEmpty()
                 && entries.getFirst() instanceof final Map<?, ?> entry
                 && entry.get("model") instanceof final Map<?, ?> first) {
@@ -184,12 +185,12 @@ final class WheelVanilla {
 
     /** The model refs of {@code leaf} whose display transforms place it: a model's own, a special model's base. */
     static List<String> refs(final Map<?, ?> leaf) {
-        return switch (shortId((String) leaf.get("type"))) {
-            case "model" -> List.of((String) leaf.get("model"));
-            case "special" -> List.of((String) leaf.get("base"));
+        return switch (shortId((String) required(leaf, "type"))) {
+            case "model" -> List.of((String) required(leaf, "model"));
+            case "special" -> List.of((String) required(leaf, "base"));
             case "composite" -> {
                 final List<String> out = new ArrayList<>();
-                for (final Object model : (List<?>) leaf.get("models")) {
+                for (final Object model : (List<?>) required(leaf, "models")) {
                     out.addAll(refs((Map<?, ?>) model));
                 }
                 yield out;
@@ -206,7 +207,7 @@ final class WheelVanilla {
         final Map<String, Object> out = copy(leaf);
         final Object transformation = present(leaf.get("transformation"));
         final double[] own = transformation == null ? WheelMath.identity() : WheelMath.transformation(transformation);
-        switch (shortId((String) leaf.get("type"))) {
+        switch (shortId((String) required(leaf, "type"))) {
             case "model", "special" -> {
                 final List<String> refs = refs(leaf);
                 if (refs.size() != 1) {
@@ -219,7 +220,7 @@ final class WheelVanilla {
             case "composite" -> {
                 final double[] here = WheelMath.times(above, own);
                 final List<Object> models = new ArrayList<>();
-                for (final Object model : (List<?>) leaf.get("models")) {
+                for (final Object model : (List<?>) required(leaf, "models")) {
                     models.add(moved((Map<?, ?>) model, move, here));
                 }
                 out.put("models", models);
@@ -248,7 +249,15 @@ final class WheelVanilla {
     }
 
     private static @Nullable Object present(final @Nullable Object value) {
-        return value == Json.NULL ? null : value;
+        return Objects.equals(value, Json.NULL) ? null : value;
+    }
+
+    private static Object required(final Map<?, ?> map, final String key) {
+        final Object value = map.get(key);
+        if (value == null) {
+            throw new IllegalArgumentException("a vanilla definition without " + key);
+        }
+        return value;
     }
 
     private static Map<String, Object> copy(final Map<?, ?> node) {
@@ -258,7 +267,23 @@ final class WheelVanilla {
     }
 
     /** A glyph of {@code ascii}: its rows of ink and its advance, vanilla's width plus one. */
-    record Glyph(boolean[][] rows, int advance) {}
+    static final class Glyph {
+        private final boolean[][] rows;
+        private final int advance;
+
+        Glyph(final boolean[][] rows, final int advance) {
+            this.rows = rows;
+            this.advance = advance;
+        }
+
+        boolean[][] rows() {
+            return rows;
+        }
+
+        int advance() {
+            return advance;
+        }
+    }
 
     /** The glyph for {@code c}. */
     static Glyph glyph(final BufferedImage ascii, final char c) {

@@ -364,24 +364,24 @@ public final class Graves {
                 closeWindow(graveId);
             }
         });
-        PaperScheduler.of(plugin).execute(() -> removeExpired(dao.expireGravesCreatedBefore(cutoff), hours));
-    }
-
-    private void removeExpired(final List<ExpiredGrave> gone, final int hours) {
-        if (gone.isEmpty()) {
-            return;
-        }
-        PaperScheduler.of(plugin).onMain(() -> {
-            for (final ExpiredGrave grave : gone) {
-                erase(grave.id());
-                final World world = Bukkit.getWorld(grave.world());
-                if (world != null) {
-                    clearBarrier(world, grave.x(), grave.y(), grave.z());
-                    sounds.playAt(
-                            new Location(world, grave.x() + 0.5, grave.y() + 0.5, grave.z() + 0.5), Feedback.RECLAIMED);
-                }
+        PaperScheduler.of(plugin).execute(() -> {
+            final List<ExpiredGrave> gone = dao.expireGravesCreatedBefore(cutoff);
+            if (gone.isEmpty()) {
+                return;
             }
-            plugin.getLogger().info("graves expired with contents: count=" + gone.size() + " hours=" + hours);
+            PaperScheduler.of(plugin).onMain(() -> {
+                for (final ExpiredGrave grave : gone) {
+                    erase(grave.id());
+                    final World world = Bukkit.getWorld(grave.world());
+                    if (world != null) {
+                        clearBarrier(world, grave.x(), grave.y(), grave.z());
+                        sounds.playAt(
+                                new Location(world, grave.x() + 0.5, grave.y() + 0.5, grave.z() + 0.5),
+                                Feedback.RECLAIMED);
+                    }
+                }
+                plugin.getLogger().info("graves expired with contents: count=" + gone.size() + " hours=" + hours);
+            });
         });
     }
 
@@ -405,8 +405,15 @@ public final class Graves {
                     .findFirst()
                     .orElse(window.closer());
             closeWindow(window.graveId());
-            if (viewer != null) {
-                settleContents(window, viewer);
+            final OpenGrave grave = open.get(window.graveId());
+            if (grave == null || !grave.holdsLoot()) {
+                continue;
+            }
+            restoring.touched(window.graveId());
+            if (!persistRemainder(window.graveId(), grave, window.getInventory()) && viewer != null) {
+                grave.settle(Optional.empty());
+                returnHeadToPlayer(window.getInventory(), viewer);
+                finishLooting(window.graveId(), grave.row(), viewer);
             }
         }
         writes.flush();
@@ -519,35 +526,35 @@ public final class Graves {
             // The last viewer to close the window settles it.
             return;
         }
-        if (shown.remove(window.graveId(), window)) {
-            settleContents(window, player);
+        if (!shown.remove(window.graveId(), window)) {
+            return;
         }
-    }
-
-    /** Writes what is left in the window's grave, or finishes the loot if nothing is left. */
-    private void settleContents(final GraveWindow window, final Player player) {
-        final Inventory inventory = window.getInventory();
         final UUID graveId = window.graveId();
         final OpenGrave grave = open.get(graveId);
         if (grave == null || !grave.holdsLoot()) {
             return;
         }
         restoring.touched(graveId);
-
-        final ItemStack[] left = contentOf(inventory);
-        final boolean contentGone = java.util.Arrays.stream(left)
-                .allMatch(stack -> stack == null || stack.getType().isAir());
-
-        if (!contentGone) {
-            final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
-            grave.settle(Optional.of(remaining));
-            writes.remainder(graveId, remaining);
+        if (persistRemainder(graveId, grave, inventory)) {
             return;
         }
-
         grave.settle(Optional.empty());
         returnHeadToPlayer(inventory, player);
         finishLooting(graveId, grave.row(), player);
+    }
+
+    /** Queues the remaining loot when the window still holds items, and returns whether any remained. */
+    private boolean persistRemainder(final UUID graveId, final OpenGrave grave, final Inventory inventory) {
+        final ItemStack[] left = contentOf(inventory);
+        final boolean contentGone = java.util.Arrays.stream(left)
+                .allMatch(stack -> stack == null || stack.getType().isAir());
+        if (contentGone) {
+            return false;
+        }
+        final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
+        grave.settle(Optional.of(remaining));
+        writes.remainder(graveId, remaining);
+        return true;
     }
 
     private void returnHeadToPlayer(final Inventory inventory, final Player player) {

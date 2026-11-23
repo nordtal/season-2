@@ -4,7 +4,8 @@
       <verify-metadata>true</verify-metadata>
       <verify-signatures>false</verify-signatures>
       <trusted-artifacts>
-         <!-- Pin JitPack artifacts (com.github.bunq, com.github.NEZNAMY) while allowing non-JitPack updates. -->
+         <!-- Pin JitPack artifacts (com.github.bunq, com.github.NEZNAMY) while allowing non-JitPack updates.
+              Refresh checksums with Gradle's write-verification-metadata option after bumping a JitPack version. -->
          <trust group="^(?!com\.github\.(bunq|NEZNAMY)$).*" regex="true"/>
       </trusted-artifacts>
    </configuration>

@@ -351,16 +351,16 @@ public final class BodyLine {
 
     private static TextColor railBarColour(final boolean done, final boolean faded) {
         if (done) {
-            return faded ? TextColor.color(0x8899BF) : Colours.ACCENT;
+            return faded ? Colours.RAIL_DONE_FADED : Colours.ACCENT;
         }
-        return faded ? TextColor.color(0xAEAEAE) : Colours.FAINT;
+        return faded ? Colours.RAIL_FUTURE_FADED : Colours.FAINT;
     }
 
     private static TextColor railEdgeColour(final boolean done, final boolean faded) {
         if (done) {
-            return faded ? TextColor.color(0x7F8CA7) : TextColor.color(0x1F3B7D);
+            return faded ? Colours.RAIL_EDGE_DONE_FADED : Colours.RAIL_EDGE_DONE;
         }
-        return faded ? TextColor.color(0xD3D3D3) : TextColor.color(0xE4E4E4);
+        return faded ? Colours.RAIL_EDGE_FADED : Colours.RAIL_EDGE;
     }
 
     /** Draws a list row {@code width} wide: a symbol, {@code name} cut to its room, {@code value} at the right. */

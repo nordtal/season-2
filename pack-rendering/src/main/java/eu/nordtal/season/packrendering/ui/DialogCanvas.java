@@ -205,12 +205,12 @@ public final class DialogCanvas {
             final int nx = x + node.x();
             place(nx, y, true, line -> line.railNode(node));
             if (node.state() == MilestoneRail.State.DONE) {
-                symbol(nx + 3, y + 3, Symbol.TICK, TextColor.color(0xDFDFDF));
+                symbol(nx + 3, y + 3, Symbol.TICK, Colours.RAIL_TICK);
             } else {
                 final String label = Integer.toString(node.index() + 1);
                 final TextColor colour = node.state() == MilestoneRail.State.CURRENT
                         ? Colours.ACCENT
-                        : (node.faded() ? TextColor.color(0x9A9A9A) : TextColor.color(0x6E6E6E));
+                        : (node.faded() ? Colours.RAIL_NODE_FADED : Colours.RAIL_NODE);
                 final int lx = nx + (MilestoneRail.NODE - Letters.visibleWidth(label) + 1) / 2;
                 text(lx, y + 3, label, colour);
             }

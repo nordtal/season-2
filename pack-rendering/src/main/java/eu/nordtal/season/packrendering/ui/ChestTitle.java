@@ -24,8 +24,8 @@ public final class ChestTitle {
     /** Where a header's name starts after its symbol: the symbol at 8, the icon gap 5. */
     public static final int NAME_X = ANCHOR_X + Symbol.BEFORE_TEXT;
 
-    /** The room of a vanilla container's name, which has no symbol: x 8 to 168. */
-    public static final int CONTAINER_ROOM = RIGHT - ANCHOR_X + 1;
+    /** The room of a vanilla container's name, which has no symbol: 160 px from window x 8. */
+    public static final int CONTAINER_ROOM = RIGHT - ANCHOR_X;
 
     /** The first content slot frame's corner. */
     public static final int SLOT_X = 7;
@@ -43,10 +43,11 @@ public final class ChestTitle {
     private static final int TITLE_ROW = 6;
 
     private static final int WIDTH = 176;
-    private static final int NAME_TO_MARK = 8;
+    private static final int NAME_TO_MARK = 6;
     private static final int NAME_TO_RULE = 5;
     private static final int SHORTEST_RULE = 9;
     private static final int LABEL_PAD = 4;
+    private static final int PLATE_INSET = 1;
     private static final int LABEL_IN_PLATE = 5;
 
     private final Pen pen = Pen.start();
@@ -116,9 +117,9 @@ public final class ChestTitle {
         return this;
     }
 
-    /** Draws a plate over {@code cells} cells from {@code column} on {@code row}: cell + 1 to + 16 across each end. */
+    /** Draws a plate over {@code cells} cells from {@code column} on {@code row}, 17 high at cell + 1. */
     public ChestTitle plate(final int column, final int row, final int cells, final Look look) {
-        pen.moveTo(local(plateX(column))).plate(artShift(row), look, plateWidth(cells));
+        pen.moveTo(local(plateX(column))).plate(plateArtShift(row), look, plateWidth(cells));
         return this;
     }
 
@@ -189,9 +190,14 @@ public final class ChestTitle {
         return SLOT_Y + STEP * row - TITLE_ROW;
     }
 
-    /** The text font shift that puts capitals at plate + 5 on content row {@code row}. */
+    /** The art font shift that puts a plate's top at cell + 1 on content row {@code row}. */
+    public static int plateArtShift(final int row) {
+        return artShift(row) + PLATE_INSET;
+    }
+
+    /** The text font shift that puts capitals at plate + 5 (cell + 6) on content row {@code row}. */
     public static int textShift(final int row) {
-        return SLOT_Y + STEP * row + LABEL_IN_PLATE - TITLE_ROW;
+        return SLOT_Y + STEP * row + PLATE_INSET + LABEL_IN_PLATE - TITLE_ROW;
     }
 
     private int local(final int windowX) {

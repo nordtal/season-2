@@ -99,7 +99,7 @@ public final class InventoryEditor extends Menu {
      */
     public static Component title(final Container container, final String player, final String word) {
         final ChestTitle title =
-                ChestTitle.of(rows(container)).header(Symbol.CHEST, player, List.of(Mark.text(word, Colours.SOFT)));
+                ChestTitle.of(rows(container)).boldHeader(Symbol.CHEST, player, List.of(Mark.text(word, Colours.SOFT)));
         for (int view = 0; view < rows(container) * SlotGeometry.COLUMNS; view++) {
             if (slotOf(container, view) >= 0) {
                 title.slot(view % SlotGeometry.COLUMNS, view / SlotGeometry.COLUMNS);

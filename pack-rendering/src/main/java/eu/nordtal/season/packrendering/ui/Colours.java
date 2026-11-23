@@ -38,6 +38,33 @@ public final class Colours {
     /** Progress bar bottom light line on a completed card. */
     public static final TextColor BAR_EDGE_DONE = TextColor.color(0xC6C6C6);
 
+    /** Faded completed milestone rail connector fill. */
+    public static final TextColor RAIL_DONE_FADED = TextColor.color(0x8899BF);
+
+    /** Faded future milestone rail connector fill. */
+    public static final TextColor RAIL_FUTURE_FADED = TextColor.color(0xAEAEAE);
+
+    /** Faded completed milestone rail connector bottom edge. */
+    public static final TextColor RAIL_EDGE_DONE_FADED = TextColor.color(0x7F8CA7);
+
+    /** Completed milestone rail connector bottom edge. */
+    public static final TextColor RAIL_EDGE_DONE = TextColor.color(0x1F3B7D);
+
+    /** Faded future milestone rail connector bottom edge. */
+    public static final TextColor RAIL_EDGE_FADED = TextColor.color(0xD3D3D3);
+
+    /** Future milestone rail connector bottom edge. */
+    public static final TextColor RAIL_EDGE = TextColor.color(0xE4E4E4);
+
+    /** Completed milestone rail node tick. */
+    public static final TextColor RAIL_TICK = TextColor.color(0xDFDFDF);
+
+    /** Faded future milestone rail node number. */
+    public static final TextColor RAIL_NODE_FADED = TextColor.color(0x9A9A9A);
+
+    /** Future milestone rail node number. */
+    public static final TextColor RAIL_NODE = TextColor.color(0x6E6E6E);
+
     /** On accent: a label on a primary plate. */
     public static final TextColor ON_ACCENT = TextColor.color(0xFFFFFF);
 

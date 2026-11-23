@@ -495,7 +495,7 @@ public final class Graves {
                 this,
                 UUID.randomUUID(),
                 GraveWindow.EXAMPLE_ROWS,
-                true,
+                null,
                 PlainTextComponentSerializer.plainText().serialize(drafted.title()),
                 drafted.label("experience-line"),
                 drafted.label("take-all-button"));

@@ -80,14 +80,26 @@ class InventoryEditorTest {
     }
 
     @Test
-    void aSixteenLetterNameFitsBesideInventarAndIsCutBesideEndertruhe() {
-        final String name = "Abcdefghijklmnop";
+    void aBoldNameFitsWhenShortAndIsCutWithEllipsisWhenSixteenLettersWide() {
+        assertTrue(drawn(InventoryEditor.title(Container.INVENTORY, "Mara_Nord", "Inventar"))
+                .contains("Mara_Nord"));
+        assertTrue(drawn(InventoryEditor.title(Container.ENDER_CHEST, "Mara_Nord", "Ender chest"))
+                .contains("Mara_Nord"));
 
-        assertTrue(drawn(InventoryEditor.title(Container.INVENTORY, name, "Inventar"))
-                .contains(name));
-        final String ender = drawn(InventoryEditor.title(Container.ENDER_CHEST, name, "Endertruhe"));
-        assertTrue(ender.contains("…"), ender);
-        assertTrue(!ender.contains(name), ender);
+        for (final String name : List.of("Abcdefghijklmnop", "WWWWWWWWWWWWWWWW")) {
+            for (final String word : List.of("Inventar", "Inventory")) {
+                final String shown = drawn(InventoryEditor.title(Container.INVENTORY, name, word));
+                assertTrue(shown.contains("…"), name + " / " + word);
+                assertTrue(!shown.contains(name), name + " / " + word);
+                assertTrue(shown.contains(word), name + " / " + word);
+            }
+            for (final String word : List.of("Endertruhe", "Ender chest")) {
+                final String shown = drawn(InventoryEditor.title(Container.ENDER_CHEST, name, word));
+                assertTrue(shown.contains("…"), name + " / " + word);
+                assertTrue(!shown.contains(name), name + " / " + word);
+                assertTrue(shown.contains(word), name + " / " + word);
+            }
+        }
     }
 
     @Test

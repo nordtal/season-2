@@ -43,7 +43,7 @@ final class GraveWindow extends Menu {
     private final Graves graves;
     private final UUID graveId;
     private final int contentRows;
-    private final OpenGrave grave;
+    private final @Nullable OpenGrave grave;
     private @Nullable Player closer;
 
     /** @param experience the header's mark, null for none */
@@ -51,7 +51,7 @@ final class GraveWindow extends Menu {
             final Graves graves,
             final UUID graveId,
             final int contentRows,
-            final OpenGrave grave,
+            final @Nullable OpenGrave grave,
             final String name,
             final @Nullable String experience,
             final String takeAll) {
@@ -76,10 +76,14 @@ final class GraveWindow extends Menu {
         return closer;
     }
 
+    private boolean holdsLoot() {
+        return grave != null && grave.holdsLoot();
+    }
+
     /** Allows items to move while the grave holds loot, so none moves once it is emptied or expires. */
     @Override
     protected boolean leavesFree(final int rawSlot) {
-        return GravePanel.leavesFree(grave.holdsLoot(), rawSlot, contentRows);
+        return GravePanel.leavesFree(holdsLoot(), rawSlot, contentRows);
     }
 
     @Override
@@ -87,7 +91,7 @@ final class GraveWindow extends Menu {
         if (!GravePanel.takeAllSlots(contentRows).contains(slot)) {
             return MenuClick.nothing();
         }
-        if (grave.holdsLoot()) {
+        if (holdsLoot()) {
             graves.takeAll(player, this);
         }
         // Closing the window lets Graves settle the grave, also if it is empty.

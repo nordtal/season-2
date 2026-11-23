@@ -263,8 +263,8 @@ public final class ObjectiveDialog {
 
     /** Opens a read-only objectives dialog at its example state in {@code drafted}'s words for Steward's preview. */
     static void example(final GameDocument drafted, final Dialogs dialogs, final Locale locale, final Player reader) {
-        final Milestone sampleMilestone =
-                new Milestone("example", eu.nordtal.season.smp.milestone.Unlock.NOTHING, 0, false, exampleObjectives());
+        final Milestone sampleMilestone = new Milestone(
+                "example", eu.nordtal.season.smp.milestone.Unlock.NOTHING, List.of(), false, exampleObjectives());
         final boolean german = Locale.GERMAN.getLanguage().equals(locale.getLanguage());
         final Function<Objective, String> names = objective -> exampleObjectiveName(objective.key(), german);
         new ObjectiveDialog(

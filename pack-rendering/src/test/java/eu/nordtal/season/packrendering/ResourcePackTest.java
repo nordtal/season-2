@@ -53,6 +53,7 @@ class ResourcePackTest {
     private static final List<FontFile> UI_FONTS = Stream.of(
                     Stream.of(
                             Glyphs.FONT_UI_SPACE,
+                            Glyphs.FONT_UI_SMALL,
                             Glyphs.FONT_UI_PANEL,
                             Glyphs.FONT_UI_TOOLTIP,
                             Glyphs.FONT_UI_RING,

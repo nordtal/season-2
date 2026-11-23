@@ -1,6 +1,7 @@
 package eu.nordtal.season.packrendering.ui;
 
 import eu.nordtal.season.packrendering.Glyphs;
+import eu.nordtal.season.packrendering.menu.MenuFont;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -138,6 +139,17 @@ public final class Pen {
             return move(Letters.width(text));
         }
         put(font, colour, text, Letters.width(text));
+        return this;
+    }
+
+    /** Draws {@code text} in the five-pixel header font, folded to capitals, and moves by its advance. */
+    public Pen small(final String text, final TextColor colour) {
+        final String folded = MenuFont.fold(text);
+        final int advance = MenuFont.width(folded);
+        if (layer == Layer.ART) {
+            return move(advance);
+        }
+        put(Glyphs.FONT_UI_SMALL, colour, folded, advance);
         return this;
     }
 

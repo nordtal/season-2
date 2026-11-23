@@ -21,6 +21,10 @@ updates:
       gradle:
         patterns:
           - "*"
+        # JitPack artifacts are pinned in gradle/verification-metadata.xml and need checksum updates on bump.
+        exclude-patterns:
+          - "com.github.bunq:*"
+          - "com.github.NEZNAMY:*"
     commit-message:
       prefix: build
 

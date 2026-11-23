@@ -670,12 +670,23 @@ at_risk_images() {
     ' <<<"$pairs"
 }
 
-fingerprint() {
+sha256_of() {
     local file="$1"
     if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$file" | cut -c1-12
+        sha256sum "$file" | awk '{ print $1 }'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" | awk '{ print $1 }'
     elif command -v openssl >/dev/null 2>&1; then
-        openssl dgst -sha256 "$file" | awk '{ print $NF }' | cut -c1-12
+        openssl dgst -sha256 "$file" | awk '{ print $NF }'
+    else
+        return 1
+    fi
+}
+
+fingerprint() {
+    local sum
+    if sum="$(sha256_of "$1")" && [[ -n "$sum" ]]; then
+        printf '%s' "${sum:0:12}"
     else
         printf 'unknown'
     fi
@@ -710,6 +721,37 @@ looks_like_this_script() {
     [[ "$(sed -n '1p' "$file")" == '#!/usr/bin/env bash' ]] || return 1
     grep -q '^SELF_NAME=' "$file" || return 1
     bash -n "$file" 2>/dev/null
+}
+
+# Reads the single expected SHA-256 hex digest from a release's nordtal.sh.sha256 asset.
+# Accepts `<64-hex>  nordtal.sh`, `<64-hex> *nordtal.sh`, `<64-hex>  deploy/nordtal.sh` or bare `<64-hex>`.
+expected_sha256_of() {
+    local file="$1" line extra="" hash rest
+    [[ -s "$file" ]] || return 1
+    {
+        IFS= read -r line || [[ -n "$line" ]] || return 1
+        if IFS= read -r extra || [[ -n "$extra" ]]; then
+            return 1
+        fi
+    } < "$file"
+    line="${line%$'\r'}"
+    read -r hash rest <<<"$line"
+    hash="${hash,,}"
+    [[ "$hash" =~ ^[0-9a-f]{64}$ ]] || return 1
+    if [[ -n "$rest" ]]; then
+        rest="${rest#\*}"
+        [[ "$rest" == "$SELF_NAME" || "$rest" == "deploy/$SELF_NAME" ]] || return 1
+    fi
+    printf '%s' "$hash"
+}
+
+# Verifies that $1 matches the SHA-256 recorded in $2.
+verify_sha256() {
+    local file="$1" checksum_file="$2" expected actual
+    expected="$(expected_sha256_of "$checksum_file")" || return 1
+    actual="$(sha256_of "$file")" || return 1
+    actual="${actual,,}"
+    [[ -n "$actual" && "$actual" == "$expected" ]]
 }
 
 # Asking and writing answers. The functions read $ENV_FILE and $CHECK_ONLY, which the caller sets.
@@ -958,6 +1000,10 @@ self_url_for() {
     printf '%s' "${NORDTAL_SH_URL:-https://raw.githubusercontent.com/nordtal/season-2/v$1/deploy/nordtal.sh}"
 }
 
+self_sha256_url_for() {
+    printf '%s' "${NORDTAL_SH_SHA256_URL:-https://github.com/nordtal/season-2/releases/download/v$1/nordtal.sh.sha256}"
+}
+
 newest_release() {
     local answer tag=""
     answer="$(mktemp "${TMPDIR:-/tmp}/nordtal-release.XXXXXX")"
@@ -970,21 +1016,33 @@ newest_release() {
 }
 
 # Replaces the file $1 with the copy of release $2, or of the newest release without $2. It returns
-# true only when it replaced the file. When GitHub is unreachable or the download is incomplete, the
-# file stays as it is.
+# true only when it replaced the file. When GitHub is unreachable, the download is incomplete, or
+# the release's SHA-256 checksum is missing or disagrees, the file stays as it is.
 renew_file() {
-    local file="$1" release="${2:-}" candidate
+    local file="$1" release="${2:-}" candidate checksum
     [[ -n "$release" ]] || release="$(newest_release)"
     if [[ -z "$release" ]]; then
         warn "latest release unknown, script refresh skipped: file=$file"
         return 1
     fi
     candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
+    checksum="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.sha256.XXXXXX")"
     if ! fetch_url "$(self_url_for "$release")" "$candidate" || ! looks_like_this_script "$candidate"; then
-        rm -f "$candidate"
+        rm -f "$candidate" "$checksum"
         warn "release script download failed, current file kept: file=$file release=$release"
         return 1
     fi
+    if ! fetch_url "$(self_sha256_url_for "$release")" "$checksum"; then
+        rm -f "$candidate" "$checksum"
+        warn "release script checksum download failed, current file kept: file=$file release=$release"
+        return 1
+    fi
+    if ! verify_sha256 "$candidate" "$checksum"; then
+        rm -f "$candidate" "$checksum"
+        warn "release script checksum mismatch, current file kept: file=$file release=$release"
+        return 1
+    fi
+    rm -f "$checksum"
     if [[ "$(fingerprint "$candidate")" == "$(fingerprint "$file")" ]]; then
         rm -f "$candidate"
         return 1
@@ -1018,6 +1076,65 @@ renew_to_installed() {
         return 1
     fi
     renew_file "$file" "$release"
+}
+
+renew_self() {
+    if ! $SELF_UPDATE; then
+        ORIGIN="${ORIGIN:-local copy, --no-self-update}"
+        return 0
+    fi
+    if from_a_checkout; then
+        ORIGIN="checkout"
+        return 0
+    fi
+
+    local script_url checksum_url candidate checksum
+    script_url="${SELF_URL:-$(self_url_for "$RELEASE")}"
+    checksum_url="$(self_sha256_url_for "$RELEASE")"
+    candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
+    checksum="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.sha256.XXXXXX")"
+    if ! fetch_url "$script_url" "$candidate" || ! looks_like_this_script "$candidate"; then
+        rm -f "$candidate" "$checksum"
+        # Without a network the run continues, unless the script is piped: then there is no copy to run.
+        running_from_a_file || die "Installation stopped: $script_url could not be downloaded. Download nordtal.sh and run it in the installation directory."
+        warn "release copy not fetched, local copy used: url=$script_url"
+        ORIGIN="local copy, github unreachable"
+        return 0
+    fi
+    if ! fetch_url "$checksum_url" "$checksum"; then
+        rm -f "$candidate" "$checksum"
+        running_from_a_file || die "Installation stopped: $checksum_url could not be downloaded to verify $script_url. Download nordtal.sh and run it in the installation directory."
+        warn "release checksum not fetched, local copy used: url=$checksum_url"
+        ORIGIN="local copy, checksum unreachable"
+        return 0
+    fi
+    if ! verify_sha256 "$candidate" "$checksum"; then
+        rm -f "$candidate" "$checksum"
+        die "Installation stopped: $script_url failed SHA-256 verification against $checksum_url."
+    fi
+    rm -f "$checksum"
+
+    if running_from_a_file \
+        && [[ "$(fingerprint "$candidate")" == "$(fingerprint "${BASH_SOURCE[0]}")" ]]; then
+        rm -f "$candidate"
+        ORIGIN="release copy"
+        return 0
+    fi
+
+    # The copy runs from a temporary file and installs itself after the directory question.
+    chmod 755 "$candidate"
+    export NORDTAL_SH_ORIGIN="$script_url"
+    export NORDTAL_SH_TEMP="$candidate"
+    if running_from_a_file; then
+        log "release copy differs, running it: release=$RELEASE from=$(fingerprint "${BASH_SOURCE[0]}") to=$(fingerprint "$candidate")"
+    else
+        log "release copy fetched, running it: release=$RELEASE"
+    fi
+    if [[ ! -t 0 ]] && (exec </dev/tty) 2>/dev/null; then
+        # Piped: stdin is the script, so the new copy asks on the terminal.
+        exec bash "$candidate" --no-self-update "${ARGV[@]}" </dev/tty
+    fi
+    exec bash "$candidate" --no-self-update "${ARGV[@]}"
 }
 
 # How a deploy reaches the stack. `request` when a healthy steward-agent runs: the agent carries out
@@ -1233,49 +1350,6 @@ log "release resolved: release=$RELEASE"
 ORIGIN="${NORDTAL_SH_ORIGIN:-}"
 SELF_TEMP=""
 
-renew_self() {
-    if ! $SELF_UPDATE; then
-        ORIGIN="${ORIGIN:-local copy, --no-self-update}"
-        return 0
-    fi
-    if from_a_checkout; then
-        ORIGIN="checkout"
-        return 0
-    fi
-
-    local candidate
-    candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
-    if ! fetch_url "$SELF_URL" "$candidate" || ! looks_like_this_script "$candidate"; then
-        rm -f "$candidate"
-        # Without a network the run continues, unless the script is piped: then there is no copy to run.
-        running_from_a_file || die "Installation stopped: $SELF_URL could not be downloaded. Download nordtal.sh and run it in the installation directory."
-        warn "release copy not fetched, local copy used: url=$SELF_URL"
-        ORIGIN="local copy, github unreachable"
-        return 0
-    fi
-
-    if running_from_a_file \
-        && [[ "$(fingerprint "$candidate")" == "$(fingerprint "${BASH_SOURCE[0]}")" ]]; then
-        rm -f "$candidate"
-        ORIGIN="release copy"
-        return 0
-    fi
-
-    # The copy runs from a temporary file and installs itself after the directory question.
-    chmod 755 "$candidate"
-    export NORDTAL_SH_ORIGIN="$SELF_URL"
-    export NORDTAL_SH_TEMP="$candidate"
-    if running_from_a_file; then
-        log "release copy differs, running it: release=$RELEASE from=$(fingerprint "${BASH_SOURCE[0]}") to=$(fingerprint "$candidate")"
-    else
-        log "release copy fetched, running it: release=$RELEASE"
-    fi
-    if [[ ! -t 0 ]] && (exec </dev/tty) 2>/dev/null; then
-        # Piped: stdin is the script, so the new copy asks on the terminal.
-        exec bash "$candidate" --no-self-update "${ARGV[@]}" </dev/tty
-    fi
-    exec bash "$candidate" --no-self-update "${ARGV[@]}"
-}
 renew_self
 SELF_TEMP="${NORDTAL_SH_TEMP:-}"
 if running_from_a_file; then

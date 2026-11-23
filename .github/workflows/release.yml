@@ -95,6 +95,7 @@ jobs:
           cp bridge-mod/build/libs/nordtal-bridge-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
+          (cd deploy && sha256sum nordtal.sh) > dist/nordtal.sh.sha256
           ls -la dist
 
       # A client refuses a pack with a wrong hash or a wrong root pack.mcmeta, and the error shows only on join.

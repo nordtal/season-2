@@ -99,6 +99,7 @@ final class Negotiation {
     private final Clock clock;
     private final NoticeThrottle notices = new NoticeThrottle(NOTICE_INTERVAL_MILLIS);
 
+    private volatile PolygonAreas configuredAreas;
     private @Nullable UUID first;
     private @Nullable UUID second;
     private final Map<UUID, Integer> picks = new HashMap<>();
@@ -131,10 +132,15 @@ final class Negotiation {
         this.dialogs = dialogs;
         this.sounds = sounds;
         this.clock = clock;
+        this.configuredAreas = ConfigAreas.ofDuel(config.negotiationArea());
+    }
+
+    void reload() {
+        configuredAreas = ConfigAreas.ofDuel(config.negotiationArea());
     }
 
     PolygonAreas areas() {
-        return ConfigAreas.ofDuel(config.negotiationArea());
+        return configuredAreas;
     }
 
     boolean isOn(final Location at) {

@@ -676,7 +676,11 @@ public final class SmpPlugin extends NordtalPlugin {
         // These are read where they are used, so a reload alone applies them.
         reload(problems, "the wheel", wheelSettings, () -> {});
         reload(problems, "the advancement awards", awardSettings, () -> {});
-        reload(problems, "the duels", duelSettings, () -> {});
+        reload(
+                problems,
+                "the duels",
+                duelSettings,
+                () -> Objects.requireNonNull(duels).reload());
         reload(problems, "the deaths and graves", deathSettings, () -> {});
         reload(problems, "the rails", railSettings, () -> {});
         prestigeColours = prestigeColours();

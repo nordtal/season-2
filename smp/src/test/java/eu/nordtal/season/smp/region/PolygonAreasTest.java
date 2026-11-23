@@ -67,4 +67,21 @@ class PolygonAreasTest {
         assertEquals(inner, areas.atBlock(WORLD, 2, 61, 2).orElseThrow());
         assertEquals(outer, areas.atBlock(WORLD, 8, 61, 8).orElseThrow());
     }
+
+    @Test
+    void blockBasedPushbackMatchesFullEdgeBlockIncludingOuterHalf() {
+        final PolygonArea area = new PolygonArea("Arena", WORLD, SQUARE, 60, 70);
+        final PolygonAreas areas = new PolygonAreas(List.of(area));
+
+        // Outer half of edge block x=4 has floor(4.8)=4 (inside block boundary) while containsPoint ends at 4.5.
+        final double outerHalfX = 4.8;
+        assertFalse(area.containsPoint(WORLD, outerHalfX, 65.0, 2.5));
+        assertTrue(areas.atBlock(WORLD, (int) Math.floor(outerHalfX), 65, 2).isPresent());
+
+        // Standing in the next block outside (x=5.01) has floor(5.01)=5, which is outside.
+        assertFalse(areas.atBlock(WORLD, (int) Math.floor(5.01), 65, 2).isPresent());
+        // Outward vector from the outer half of the edge block still points strictly outward (+x).
+        final double[] outward = area.outward(outerHalfX, 2.5);
+        assertTrue(outward[0] > 0.9, "outward vector pushes away from the arena");
+    }
 }

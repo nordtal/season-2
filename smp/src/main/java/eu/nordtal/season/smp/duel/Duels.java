@@ -110,6 +110,8 @@ public final class Duels implements Arenas {
     private final FighterStateStore fighterStates;
     private final Negotiation negotiation;
 
+    private volatile PolygonAreas configuredArena;
+
     private @Nullable ActiveDuel active;
 
     /** {@link #respawned} restores the saved state of a fighter who died in the arena. */
@@ -148,8 +150,15 @@ public final class Duels implements Arenas {
         this.effects = effects;
         this.copy = new ArenaCopy(plugin);
         this.fighterStates = new FighterStateStore(plugin);
+        this.configuredArena = ConfigAreas.ofDuel(config.arena());
         this.negotiation =
                 new Negotiation(plugin, this, config, identities, renderer, documents, dialogs, sounds, clock);
+    }
+
+    /** Rebuilds the cached duel arena and negotiation areas after the {@code duels} settings group reloads. */
+    public void reload() {
+        configuredArena = ConfigAreas.ofDuel(config.arena());
+        negotiation.reload();
     }
 
     /** {@code discordIds} is read at the start, because the identity cache forgets a player on quit. */
@@ -256,7 +265,7 @@ public final class Duels implements Arenas {
             final boolean fights = duel != null && duel.fights(id);
             final Location at = Objects.requireNonNull(player.getLocation());
             final Optional<PolygonArea> inside =
-                    currentArena.atPoint(at.getWorld().getName(), at.getX(), at.getY(), at.getZ());
+                    currentArena.atBlock(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ());
             if (!DuelContainment.pushesFromArena(
                     inside.isPresent(),
                     fights,
@@ -277,7 +286,7 @@ public final class Duels implements Arenas {
 
     private PolygonAreas currentArena() {
         final ActiveDuel duel = active;
-        return duel != null ? duel.arena() : ConfigAreas.ofDuel(config.arena());
+        return duel != null ? duel.arena() : configuredArena;
     }
 
     public void moved(final PlayerMoveEvent event) {
@@ -292,7 +301,7 @@ public final class Duels implements Arenas {
         final PolygonAreas currentArena = currentArena();
         final Optional<PolygonArea> entered = world == null
                 ? Optional.empty()
-                : currentArena.atPoint(world.getName(), to.getX(), to.getY(), to.getZ());
+                : currentArena.atBlock(world.getName(), to.getBlockX(), to.getBlockY(), to.getBlockZ());
         if (DuelContainment.pushesFromArena(
                 entered.isPresent(),
                 fights,
@@ -304,7 +313,8 @@ public final class Duels implements Arenas {
             }
             final Location from = event.getFrom();
             final boolean wasInside = from.getWorld() != null
-                    && currentArena.containsPoint(from.getWorld().getName(), from.getX(), from.getY(), from.getZ());
+                    && currentArena.containsBlock(
+                            from.getWorld().getName(), from.getBlockX(), from.getBlockY(), from.getBlockZ());
             if (!wasInside) {
                 event.setCancelled(true);
             }
@@ -459,7 +469,7 @@ public final class Duels implements Arenas {
         if (active != null) {
             return Blocked.ARENA_BUSY;
         }
-        final PolygonAreas arena = ConfigAreas.ofDuel(config.arena());
+        final PolygonAreas arena = configuredArena;
         final Location startFirst = position(config.fighterStartFirst());
         final Location startSecond = position(config.fighterStartSecond());
         if (arena.isEmpty() || startFirst == null || startSecond == null) {

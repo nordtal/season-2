@@ -414,6 +414,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V143__milestones_open_border_regions_and_dimensions_carry_fixed_borders.sql",
                 "0fe856e13ab71d6b2e45374b39481e01cf0c76d20b7cf4d1486c764a7a36d759");
+        FROZEN.put(
+                "V144__spawn_and_duel_areas_are_stored_as_polygons.sql",
+                "7e05c2707a32f9ed81cb11d094a679fbf0eeb03ea3532769faea0bbfe3c99ba4");
     }
 
     @Test

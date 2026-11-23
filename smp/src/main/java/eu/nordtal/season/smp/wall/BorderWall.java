@@ -128,7 +128,10 @@ public final class BorderWall implements Listener {
     /** Forgets the grounds near a changed block beside the wall, and tells whether there were any. */
     private boolean changed(final Block block) {
         final Walls.Drawn drawn = walls.get(block.getWorld().getName());
-        if (drawn == null || drawn.wall().near(block.getX() + 0.5, block.getZ() + 0.5, Grounds.INVALIDATE_RADIUS).isEmpty()) {
+        if (drawn == null
+                || drawn.wall()
+                        .near(block.getX() + 0.5, block.getZ() + 0.5, Grounds.INVALIDATE_RADIUS)
+                        .isEmpty()) {
             return false;
         }
         grounds.invalidate(block.getWorld().getName(), block.getX(), block.getZ());

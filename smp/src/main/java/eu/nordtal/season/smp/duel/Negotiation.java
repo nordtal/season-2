@@ -17,7 +17,9 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.config.DuelKitSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
-import eu.nordtal.season.smp.region.Box;
+import eu.nordtal.season.smp.region.ConfigAreas;
+import eu.nordtal.season.smp.region.PolygonArea;
+import eu.nordtal.season.smp.region.PolygonAreas;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
@@ -97,6 +99,7 @@ final class Negotiation {
     private final Clock clock;
     private final NoticeThrottle notices = new NoticeThrottle(NOTICE_INTERVAL_MILLIS);
 
+    private volatile PolygonAreas configuredAreas;
     private @Nullable UUID first;
     private @Nullable UUID second;
     private final Map<UUID, Integer> picks = new HashMap<>();
@@ -129,14 +132,19 @@ final class Negotiation {
         this.dialogs = dialogs;
         this.sounds = sounds;
         this.clock = clock;
+        this.configuredAreas = ConfigAreas.ofDuel(config.negotiationArea());
     }
 
-    Box area() {
-        return Duels.box(config.negotiationArea());
+    void reload() {
+        configuredAreas = ConfigAreas.ofDuel(config.negotiationArea());
+    }
+
+    PolygonAreas areas() {
+        return configuredAreas;
     }
 
     boolean isOn(final Location at) {
-        return area().contains(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ());
+        return areas().containsBlock(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ());
     }
 
     private boolean held() {
@@ -398,11 +406,12 @@ final class Negotiation {
 
     /** Pushes a player away from the middle of the area, or backwards when standing on it. */
     private void push(final Player player) {
-        final Box box = area();
         final Location at = Objects.requireNonNull(player.getLocation());
-        final double middleX = (box.minX() + box.maxX() + 1) / 2.0;
-        final double middleZ = (box.minZ() + box.maxZ() + 1) / 2.0;
-        Vector away = new Vector(at.getX() - middleX, 0, at.getZ() - middleZ);
+        final PolygonAreas areas = areas();
+        final PolygonArea area = areas.atBlock(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ())
+                .orElse(areas.isEmpty() ? null : areas.all().getFirst());
+        final double[] middle = area == null ? new double[] {at.getX(), at.getZ()} : area.centre();
+        Vector away = new Vector(at.getX() - middle[0], 0, at.getZ() - middle[1]);
         if (away.lengthSquared() < 0.01) {
             away = at.getDirection().setY(0).multiply(-1);
         }

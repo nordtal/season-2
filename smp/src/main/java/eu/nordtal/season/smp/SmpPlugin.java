@@ -67,8 +67,8 @@ import eu.nordtal.season.smp.prestige.PrestigeColours;
 import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
 import eu.nordtal.season.smp.progress.StatisticPoller;
-import eu.nordtal.season.smp.region.Boxes;
-import eu.nordtal.season.smp.region.ConfigBoxes;
+import eu.nordtal.season.smp.region.ConfigAreas;
+import eu.nordtal.season.smp.region.PolygonAreas;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.state.SeasonState;
 import eu.nordtal.season.smp.takein.ItemTakeIn;
@@ -110,7 +110,7 @@ public final class SmpPlugin extends NordtalPlugin {
     Setting<CustomBorderSpec> customBorderSettings;
 
     /** The protected areas of the spawn, rebuilt when the spawn group changes. */
-    volatile Boxes protectedAreas;
+    volatile PolygonAreas protectedAreas;
 
     private Setting<MilestonesSpec> milestoneSettings;
 
@@ -247,16 +247,14 @@ public final class SmpPlugin extends NordtalPlugin {
                 .whileRunning());
         awardSettings = setting(
                 Group.of("advancement-awards", AdvancementAwardsSpec.class).whileRunning());
-        duelSettings = setting(Group.of("duels", DuelsSpec.class).whileRunning());
+        final String nordtal = worldsSettings.get().worldNordtal();
+        duelSettings = setting(SmpSettings.duelsGroup(nordtal));
         boardSettings = setting(Group.of("boards", BoardsSpec.class).whileRunning());
         npcDialogueSettings = setting(NetworkSettings.NPC_DIALOGUE);
-        spawnSettings = setting(Group.of("spawn", SpawnSpec.class).whileRunning());
+        spawnSettings = setting(SmpSettings.spawnGroup(nordtal));
         deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
         railSettings = setting(Group.of("rails", RailsSpec.class).whileRunning());
-        customBorderSettings = setting(Group.of("custom-border", CustomBorderSpec.class)
-                .checkedBy(spec ->
-                        SmpSettings.checkCustomBorder(spec, worldsSettings.get().worldNordtal()))
-                .whileRunning());
+        customBorderSettings = setting(SmpSettings.customBorderGroup(nordtal));
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
                 .checkedBy(spec -> SmpSettings.checkMilestones(spec, ExplorerMaps::knowsTag, reward -> {
                     final var stack = TakenItems.one(reward.item(), reward.data());
@@ -286,7 +284,7 @@ public final class SmpPlugin extends NordtalPlugin {
     @Override
     protected void enable() {
         getServer().getPluginManager().registerEvents(new PlayerTextListener(), this);
-        protectedAreas = ConfigBoxes.of(spawnSettings.get().protectedAreas());
+        protectedAreas = ConfigAreas.ofSpawn(spawnSettings.get().protectedAreas());
         trackRows = jdbi().onDemand(TrackDao.class);
         aura = jdbi().onDemand(AuraDao.class);
 
@@ -674,11 +672,15 @@ public final class SmpPlugin extends NordtalPlugin {
                 problems,
                 "the spawn",
                 spawnSettings,
-                () -> protectedAreas = ConfigBoxes.of(spawnSettings.get().protectedAreas()));
+                () -> protectedAreas = ConfigAreas.ofSpawn(spawnSettings.get().protectedAreas()));
         // These are read where they are used, so a reload alone applies them.
         reload(problems, "the wheel", wheelSettings, () -> {});
         reload(problems, "the advancement awards", awardSettings, () -> {});
-        reload(problems, "the duels", duelSettings, () -> {});
+        reload(
+                problems,
+                "the duels",
+                duelSettings,
+                () -> Objects.requireNonNull(duels).reload());
         reload(problems, "the deaths and graves", deathSettings, () -> {});
         reload(problems, "the rails", railSettings, () -> {});
         prestigeColours = prestigeColours();

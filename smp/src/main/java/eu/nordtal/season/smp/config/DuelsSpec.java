@@ -22,18 +22,16 @@ public interface DuelsSpec {
     @Order(21)
     @Name("Negotiation area")
     @Key("negotiation-area")
-    @Position(Position.Shape.AREA)
     @Explain("Two players standing here agree on a kit. Nobody else may step on while they do or while they fight.")
-    default DuelAreaSpec negotiationArea() {
+    default List<DuelAreaSpec> negotiationArea() {
         return DefaultSmp.DUEL_NEGOTIATION_AREA;
     }
 
     @Order(22)
     @Name("Arena")
     @Key("arena")
-    @Position(Position.Shape.AREA)
     @Explain("Saved before each duel and restored after it. Fighters may break and place blocks inside it.")
-    default DuelAreaSpec arena() {
+    default List<DuelAreaSpec> arena() {
         return DefaultSmp.DUEL_ARENA;
     }
 

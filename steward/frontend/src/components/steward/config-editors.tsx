@@ -5,6 +5,7 @@ import type { ComponentType } from "react"
 import type { ConfigDocument } from "@/lib/api"
 import type { Target } from "@/components/steward/settings-view"
 import { AwardsEditor, readsAwards } from "@/components/steward/game-groups/awards-editor"
+import { DuelsEditor, SpawnEditor, readsDuels, readsSpawn } from "@/components/steward/game-groups/area-3d-editor"
 import { CustomBorderEditor, readsCustomBorder } from "@/components/steward/game-groups/border-editor"
 import { WheelEditor, readsWheel } from "@/components/steward/game-groups/wheel-editor"
 import { MilestonesEditor, readsTrack } from "@/components/steward/milestones/milestones-editor"
@@ -23,6 +24,8 @@ const EDITORS: Readonly<Record<string, Editor>> = {
   "advancement-awards": { draw: AwardsEditor, reads: readsAwards },
   wheel: { draw: WheelEditor, reads: readsWheel },
   "custom-border": { draw: CustomBorderEditor, reads: readsCustomBorder },
+  spawn: { draw: SpawnEditor, reads: readsSpawn },
+  duels: { draw: DuelsEditor, reads: readsDuels },
 }
 
 /**

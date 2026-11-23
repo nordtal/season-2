@@ -2,7 +2,6 @@ package eu.nordtal.season.smp.duel;
 
 import com.destroystokyo.paper.event.player.PlayerAdvancementCriterionGrantEvent;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
@@ -45,11 +44,7 @@ public final class DuelListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onMove(final PlayerMoveEvent event) {
-        final Location to = event.getTo();
-        final Location from = event.getFrom();
-        if (to.getBlockX() == from.getBlockX()
-                && to.getBlockY() == from.getBlockY()
-                && to.getBlockZ() == from.getBlockZ()) {
+        if (!event.hasChangedPosition()) {
             return;
         }
         duels.moved(event);

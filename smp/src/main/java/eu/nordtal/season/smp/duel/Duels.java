@@ -14,7 +14,6 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.config.DuelAreaSpec;
 import eu.nordtal.season.smp.config.DuelKitSpec;
 import eu.nordtal.season.smp.config.DuelLoadoutItemSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
@@ -22,14 +21,18 @@ import eu.nordtal.season.smp.config.SpotSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.port.Arenas;
-import eu.nordtal.season.smp.region.Box;
+import eu.nordtal.season.smp.region.ConfigAreas;
+import eu.nordtal.season.smp.region.PolygonArea;
+import eu.nordtal.season.smp.region.PolygonAreas;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -49,6 +52,8 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.util.BoundingBox;
+import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -105,6 +110,8 @@ public final class Duels implements Arenas {
     private final FighterStateStore fighterStates;
     private final Negotiation negotiation;
 
+    private volatile PolygonAreas configuredArena;
+
     private @Nullable ActiveDuel active;
 
     /** {@link #respawned} restores the saved state of a fighter who died in the arena. */
@@ -112,6 +119,15 @@ public final class Duels implements Arenas {
 
     /** Teleports started by the duel itself, only while their event is running. */
     private final Set<UUID> ownTeleports = new HashSet<>();
+
+    /** Since when a non-fighter has been inside the arena without being pushed clear yet. */
+    private final Map<UUID, Long> arenaIntruderSince = new HashMap<>();
+
+    private final NoticeThrottle arenaPushSound = new NoticeThrottle(500);
+
+    private static final double ARENA_PUSH = 1.2;
+    private static final double ARENA_LIFT = 0.35;
+    private static final long ARENA_EJECT_MILLIS = 1_000;
 
     public Duels(
             final Plugin plugin,
@@ -134,8 +150,15 @@ public final class Duels implements Arenas {
         this.effects = effects;
         this.copy = new ArenaCopy(plugin);
         this.fighterStates = new FighterStateStore(plugin);
+        this.configuredArena = ConfigAreas.ofDuel(config.arena());
         this.negotiation =
                 new Negotiation(plugin, this, config, identities, renderer, documents, dialogs, sounds, clock);
+    }
+
+    /** Rebuilds the cached duel arena and negotiation areas after the {@code duels} settings group reloads. */
+    public void reload() {
+        configuredArena = ConfigAreas.ofDuel(config.arena());
+        negotiation.reload();
     }
 
     /** {@code discordIds} is read at the start, because the identity cache forgets a player on quit. */
@@ -143,7 +166,7 @@ public final class Duels implements Arenas {
             UUID first,
             UUID second,
             String kit,
-            Box arena,
+            PolygonAreas arena,
             Map<UUID, SavedState> saved,
             Map<UUID, String> discordIds,
             Set<UUID> projectiles,
@@ -163,6 +186,33 @@ public final class Duels implements Arenas {
         return active != null && active.fights(player.getUniqueId());
     }
 
+    @Override
+    public boolean allowsDuelDamage(final Player victim, final @Nullable Entity damager) {
+        final ActiveDuel duel = active;
+        if (duel == null || !duel.fights(victim.getUniqueId())) {
+            return false;
+        }
+        final Location at = Objects.requireNonNull(victim.getLocation());
+        if (!duel.arena().containsBlock(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ())) {
+            return false;
+        }
+        if (damager == null) {
+            return true;
+        }
+        final Entity attacker = damager instanceof final Projectile projectile
+                        && projectile.getShooter() instanceof final Entity shooter
+                ? shooter
+                : damager;
+        return !(attacker instanceof final Player other) || duel.fights(other.getUniqueId());
+    }
+
+    @Override
+    public boolean isActiveArenaBlock(final Block block) {
+        final ActiveDuel duel = active;
+        return duel != null
+                && duel.arena().containsBlock(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+    }
+
     /** Returns whether the player's advancement criteria are refused now. Main thread only. */
     public boolean refusesAdvancements(final Player player) {
         final UUID id = player.getUniqueId();
@@ -180,7 +230,7 @@ public final class Duels implements Arenas {
         final ActiveDuel duel = active;
         return duel != null
                 && duel.fights(player.getUniqueId())
-                && duel.arena().contains(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+                && duel.arena().containsBlock(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
     }
 
     boolean fighting() {
@@ -192,7 +242,7 @@ public final class Duels implements Arenas {
         final ActiveDuel duel = active;
         final boolean fights = duel != null && duel.fights(player.getUniqueId());
         final boolean inside = duel != null
-                && duel.arena().contains(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+                && duel.arena().containsBlock(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
         return DuelContainment.refusesBlockPlacement(fights, inside);
     }
 
@@ -201,22 +251,107 @@ public final class Duels implements Arenas {
         copy.restore();
     }
 
+    /** Keeps non-fighters out of the arena even when standing still or after a save. Main thread, every tick. */
+    public void tick(final Collection<? extends Player> players) {
+        final PolygonAreas currentArena = currentArena();
+        if (currentArena.isEmpty()) {
+            arenaIntruderSince.clear();
+            return;
+        }
+        final ActiveDuel duel = active;
+        final long now = clock.millis();
+        for (final Player player : players) {
+            final UUID id = player.getUniqueId();
+            final boolean fights = duel != null && duel.fights(id);
+            final Location at = Objects.requireNonNull(player.getLocation());
+            final Optional<PolygonArea> inside =
+                    currentArena.atBlock(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ());
+            if (!DuelContainment.pushesFromArena(
+                    inside.isPresent(),
+                    fights,
+                    player.getGameMode(),
+                    identities.of(id).admin())) {
+                arenaIntruderSince.remove(id);
+                continue;
+            }
+            final long since = arenaIntruderSince.computeIfAbsent(id, ignored -> now);
+            if (now - since >= ARENA_EJECT_MILLIS) {
+                arenaIntruderSince.remove(id);
+                player.teleport(outsideLocation(at, inside.get()));
+            } else {
+                pushOutOfArena(player, inside.get(), at);
+            }
+        }
+    }
+
+    private PolygonAreas currentArena() {
+        final ActiveDuel duel = active;
+        return duel != null ? duel.arena() : configuredArena;
+    }
+
     public void moved(final PlayerMoveEvent event) {
-        negotiation.moved(event);
+        if (event instanceof PlayerTeleportEvent || event.hasChangedBlock()) {
+            negotiation.moved(event);
+        }
         final ActiveDuel duel = active;
         final Player player = event.getPlayer();
         final Location to = event.getTo();
         final World world = to.getWorld();
         final boolean fights = duel != null && duel.fights(player.getUniqueId());
+        final PolygonAreas currentArena = currentArena();
+        final Optional<PolygonArea> entered = world == null
+                ? Optional.empty()
+                : currentArena.atBlock(world.getName(), to.getBlockX(), to.getBlockY(), to.getBlockZ());
+        if (DuelContainment.pushesFromArena(
+                entered.isPresent(),
+                fights,
+                player.getGameMode(),
+                identities.of(player.getUniqueId()).admin())) {
+            if (event instanceof PlayerTeleportEvent) {
+                event.setCancelled(true);
+                return;
+            }
+            final Location from = event.getFrom();
+            final boolean wasInside = from.getWorld() != null
+                    && currentArena.containsBlock(
+                            from.getWorld().getName(), from.getBlockX(), from.getBlockY(), from.getBlockZ());
+            if (!wasInside) {
+                event.setCancelled(true);
+            }
+            pushOutOfArena(player, entered.get(), to);
+            return;
+        }
         final boolean inside = duel != null
                 && world != null
-                && duel.arena().contains(world.getName(), to.getBlockX(), to.getBlockY(), to.getBlockZ());
+                && duel.arena().containsBlock(world.getName(), to.getBlockX(), to.getBlockY(), to.getBlockZ());
         final boolean ownTeleport = event instanceof PlayerTeleportEvent && ownTeleports.contains(player.getUniqueId());
         if (!DuelContainment.leavesArena(fights, ownTeleport, inside)) {
             return;
         }
         event.setCancelled(true);
         PaperScheduler.of(plugin).onMain(() -> decide(player));
+    }
+
+    private void pushOutOfArena(final Player player, final PolygonArea area, final Location at) {
+        final double[] away = area.outward(at.getX(), at.getZ());
+        player.setVelocity(new Vector(away[0] * ARENA_PUSH, ARENA_LIFT, away[1] * ARENA_PUSH));
+        if (arenaPushSound.allows(player.getUniqueId(), clock.millis())) {
+            sounds.play(player, Feedback.REFUSED);
+        }
+    }
+
+    private static Location outsideLocation(final Location at, final PolygonArea area) {
+        final double[] out = area.outsidePoint(at.getX(), at.getZ(), 1.2);
+        final Location target = at.clone();
+        target.setX(out[0]);
+        target.setZ(out[1]);
+        final BoundingBox body = new BoundingBox(
+                out[0] - 0.3, target.getY(), out[1] - 0.3, out[0] + 0.3, target.getY() + 1.8, out[1] + 0.3);
+        while (target.getY() < at.getWorld().getMaxHeight() && at.getWorld().hasCollisionsIn(body)) {
+            target.add(0, 1, 0);
+            body.shift(0, 1, 0);
+        }
+        return target;
     }
 
     /** Tracks projectiles so none survives the duel or can be collected by another player. */
@@ -240,6 +375,8 @@ public final class Duels implements Arenas {
     }
 
     public void quit(final Player player) {
+        arenaIntruderSince.remove(player.getUniqueId());
+        arenaPushSound.forget(player.getUniqueId());
         negotiation.quit(player);
         if (isInArena(player)) {
             decide(player);
@@ -322,10 +459,6 @@ public final class Duels implements Arenas {
         });
     }
 
-    static Box box(final DuelAreaSpec spec) {
-        return Box.spanning(spec.world(), spec.minX(), spec.minY(), spec.minZ(), spec.maxX(), spec.maxY(), spec.maxZ());
-    }
-
     /**
      * Called by the negotiation's countdown, never from a move event: Bukkit would undo the teleport.
      *
@@ -336,15 +469,14 @@ public final class Duels implements Arenas {
         if (active != null) {
             return Blocked.ARENA_BUSY;
         }
-        final Box arena = box(config.arena());
-        final World world = Bukkit.getWorld(arena.world());
+        final PolygonAreas arena = configuredArena;
         final Location startFirst = position(config.fighterStartFirst());
         final Location startSecond = position(config.fighterStartSecond());
-        if (world == null || startFirst == null || startSecond == null) {
-            plugin.getLogger().warning("duel world not loaded, duel refused");
+        if (arena.isEmpty() || startFirst == null || startSecond == null) {
+            plugin.getLogger().warning("duel world or arena not ready, duel refused");
             return Blocked.ARENA_NOT_READY;
         }
-        if (!copy.save(world, arena)) {
+        if (!copy.save(arena)) {
             return Blocked.ARENA_NOT_READY;
         }
 

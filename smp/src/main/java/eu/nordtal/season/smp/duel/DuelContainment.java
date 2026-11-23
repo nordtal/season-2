@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.duel;
 
 import java.util.EnumSet;
 import java.util.Set;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.event.block.Action;
 
@@ -26,6 +27,17 @@ final class DuelContainment {
 
     static boolean leavesArena(final boolean fights, final boolean ownTeleport, final boolean inside) {
         return fights && !ownTeleport && !inside;
+    }
+
+    /** Only admins in Creative or Spectator may pass the invisible arena pushback, matching the world border. */
+    static boolean bypassesArenaPushback(final GameMode mode, final boolean admin) {
+        return admin && (mode == GameMode.CREATIVE || mode == GameMode.SPECTATOR);
+    }
+
+    /** Everyone except active fighters and Creative/Spectator admins is pushed back out of the arena. */
+    static boolean pushesFromArena(
+            final boolean insideArena, final boolean fights, final GameMode mode, final boolean admin) {
+        return insideArena && !fights && !bypassesArenaPushback(mode, admin);
     }
 
     static boolean refusesInventory(final boolean fights, final boolean own) {

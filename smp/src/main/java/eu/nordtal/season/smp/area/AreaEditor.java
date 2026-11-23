@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
+import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
@@ -472,9 +473,18 @@ public final class AreaEditor implements Listener {
                 }
                 if (session.draft.heights()) {
                     final double[] centre = centre(area);
-                    wanted.put(
-                            new Key(shape, -1, Kind.BOTTOM), new Location(world, centre[0], area.bottom(), centre[1]));
-                    wanted.put(new Key(shape, -1, Kind.TOP), new Location(world, centre[0], topEdge(area), centre[1]));
+                    final double topY = topEdge(area);
+                    final int cx = (int) Math.floor(centre[0]);
+                    final int cz = (int) Math.floor(centre[1]);
+                    final double bottomY = world.isChunkLoaded(cx >> 4, cz >> 4)
+                            ? bottomHandleY(
+                                    area.bottom(),
+                                    topY,
+                                    world.getMaxHeight(),
+                                    y -> world.getBlockAt(cx, y, cz).isPassable())
+                            : area.bottom();
+                    wanted.put(new Key(shape, -1, Kind.BOTTOM), new Location(world, centre[0], bottomY, centre[1]));
+                    wanted.put(new Key(shape, -1, Kind.TOP), new Location(world, centre[0], topY, centre[1]));
                 }
             }
             wanted.values()
@@ -514,6 +524,20 @@ public final class AreaEditor implements Listener {
     static double cornerHeight(final AreaShape area, final double eyeY) {
         final double top = topEdge(area);
         return Math.clamp(eyeY, Math.min(area.bottom(), top), Math.max(area.bottom(), top));
+    }
+
+    /** The height of a 3D area's bottom handle: the first passable block at or above {@code bottom}. */
+    static double bottomHandleY(
+            final int bottom, final double topEdge, final int worldMaxHeight, final IntPredicate passable) {
+        final int limit = Math.max(bottom, worldMaxHeight - 1);
+        int y = bottom;
+        while (y < limit && !passable.test(y)) {
+            y++;
+        }
+        if (Math.abs(y - topEdge) < 0.9) {
+            return topEdge + 1.0;
+        }
+        return y;
     }
 
     /** Whether two places lie within horizontal sight of each other. */

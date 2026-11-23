@@ -42,15 +42,17 @@ final class DefaultSmp {
         return Specs.createUnsafe(CustomBorderSpec.Corner.class, Map.of("x", x, "z", z));
     }
 
-    static final List<SpawnRegionSpec> SPAWN_REGIONS =
-            List.of(region("nordtal", 7, 40, 56, 138, 140, 120), region("nordtal_nether", -32, 20, -32, 32, 120, 32));
+    static final List<SpawnRegionSpec> SPAWN_REGIONS = List.of(
+            region("Spawn", "nordtal", 7, 40, 56, 138, 140, 120),
+            region("Nether spawn", "nordtal_nether", -32, 20, -32, 32, 120, 32));
 
     static final List<BoardSpec> BOARDS = List.of(
             board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f), board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
 
-    static final DuelAreaSpec DUEL_NEGOTIATION_AREA = area("nordtal", 99, 68, 87, 101, 69, 89);
+    static final List<DuelAreaSpec> DUEL_NEGOTIATION_AREA =
+            List.of(area("Negotiation", "nordtal", 99, 68, 87, 101, 69, 89));
 
-    static final DuelAreaSpec DUEL_ARENA = area("nordtal", 115, 67, 80, 131, 76, 96);
+    static final List<DuelAreaSpec> DUEL_ARENA = List.of(area("Arena", "nordtal", 115, 67, 80, 131, 76, 96));
 
     /** The two starts face each other across the arena, east and west. */
     static final SpotSpec DUEL_START_FIRST = spot("nordtal", 118.5, 68.0, 88.5, -90f, 0f);
@@ -138,6 +140,7 @@ final class DefaultSmp {
     private DefaultSmp() {}
 
     private static SpawnRegionSpec region(
+            final String name,
             final String world,
             final int minX,
             final int minY,
@@ -146,13 +149,11 @@ final class DefaultSmp {
             final int maxY,
             final int maxZ) {
         final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("name", name);
         values.put("world", world);
-        values.put("min-x", minX);
         values.put("min-y", minY);
-        values.put("min-z", minZ);
-        values.put("max-x", maxX);
         values.put("max-y", maxY);
-        values.put("max-z", maxZ);
+        values.put("corners", rectangle(minX, minZ, maxX, maxZ));
         return Specs.createUnsafe(SpawnRegionSpec.class, values);
     }
 
@@ -170,6 +171,7 @@ final class DefaultSmp {
     }
 
     private static DuelAreaSpec area(
+            final String name,
             final String world,
             final int minX,
             final int minY,
@@ -178,14 +180,17 @@ final class DefaultSmp {
             final int maxY,
             final int maxZ) {
         final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("name", name);
         values.put("world", world);
-        values.put("min-x", minX);
         values.put("min-y", minY);
-        values.put("min-z", minZ);
-        values.put("max-x", maxX);
         values.put("max-y", maxY);
-        values.put("max-z", maxZ);
+        values.put("corners", rectangle(minX, minZ, maxX, maxZ));
         return Specs.createUnsafe(DuelAreaSpec.class, values);
+    }
+
+    private static List<CustomBorderSpec.Corner> rectangle(
+            final int minX, final int minZ, final int maxX, final int maxZ) {
+        return List.of(corner(minX, minZ), corner(maxX, minZ), corner(maxX, maxZ), corner(minX, maxZ));
     }
 
     private static WheelBlockSpec wheelBlock(final String world, final int x, final int y, final int z) {

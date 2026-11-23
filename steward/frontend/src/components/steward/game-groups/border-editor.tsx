@@ -1,6 +1,6 @@
 import { CursorClickIcon, PlusIcon } from "@/components/ui/icons"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 
 import {
@@ -177,7 +177,9 @@ export function CustomBorderEditor({ file, document, target }: CustomEditorProps
   return (
     <div className="flex flex-col gap-4">
       <AreaEditorPanel
-        cards={cards}
+        worlds={cards.map((card) => text(card, "world")).filter((name) => name !== "")}
+        shapesForWorld={(world) => shapesFrom(cards.find((card) => text(card, "world") === world))}
+        heights={false}
         disabled={!document.writable || save.isPending}
         liveDraft={liveDraft}
         onDraftChange={setLiveDraft}
@@ -209,18 +211,24 @@ export function CustomBorderEditor({ file, document, target }: CustomEditorProps
   )
 }
 
-function AreaEditorPanel({
-  cards,
+export function AreaEditorPanel({
+  worlds,
+  shapesForWorld,
+  heights,
   disabled,
   liveDraft,
   onDraftChange,
   onSave,
+  beforeWorld,
 }: {
-  cards: SectionValues[]
+  worlds: string[]
+  shapesForWorld: (world: string) => AreaShape[]
+  heights: boolean
   disabled: boolean
   liveDraft: LiveDraft | null
   onDraftChange: (draft: LiveDraft | null) => void
   onSave: (world: string, shapes: AreaShape[], done: () => void) => void
+  beforeWorld?: ReactNode
 }) {
   const client = useQueryClient()
   const taker = useQuery({
@@ -230,7 +238,7 @@ function AreaEditorPanel({
     refetchOnMount: "always",
     refetchOnWindowFocus: "always",
   })
-  const names = cards.map((card) => text(card, "world")).filter((name) => name !== "")
+  const names = worlds
   const [chosen, choose] = useState<string | undefined>(undefined)
   const editing = liveDraft !== null
   const selected = liveDraft?.world ?? chosen
@@ -285,8 +293,8 @@ function AreaEditorPanel({
 
   const edit = async () => {
     if (world === undefined) return
-    const shapes = shapesFrom(cards.find((card) => text(card, "world") === world))
-    if (await run("/api/smp/area-editor", { world, heights: false, shapes })) onDraftChange({ world, shapes })
+    const shapes = shapesForWorld(world)
+    if (await run("/api/smp/area-editor", { world, heights, shapes })) onDraftChange({ world, shapes })
   }
 
   const add = async () => {
@@ -317,6 +325,7 @@ function AreaEditorPanel({
   return (
     <section className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
+        {beforeWorld}
         <Select value={world ?? ""} onValueChange={choose} disabled={off || editing || names.length === 0}>
           <SelectTrigger aria-label={t("steward.game.area-world")} className="max-sm:w-full">
             <SelectValue />

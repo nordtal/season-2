@@ -24,7 +24,6 @@ public interface SpawnSpec {
     @Order(27)
     @Name("Protected areas")
     @Key("protected-areas")
-    @Position(Position.Shape.AREA)
     @NoExplanationNeeded
     default List<SpawnRegionSpec> protectedAreas() {
         return DefaultSmp.SPAWN_REGIONS;

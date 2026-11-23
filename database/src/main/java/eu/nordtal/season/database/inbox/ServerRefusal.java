@@ -50,7 +50,16 @@ public enum ServerRefusal implements RefusalReason {
     NOT_EDITABLE,
 
     /** The admin's player looks at no block within reach, for a position taken from a block. */
-    NO_BLOCK_IN_SIGHT;
+    NO_BLOCK_IN_SIGHT,
+
+    /** The admin's player holds no draft of areas, for a step of the area editor. */
+    NO_AREA_DRAFT,
+
+    /** The admin's player has no free hotbar slot for the area editor's tool. */
+    HOTBAR_FULL,
+
+    /** The admin's player stands in another world than the open area draft. */
+    WRONG_WORLD;
 
     /** Returns the names of the values that {@link #with} takes, in order: the message's arguments and columns. */
     public List<String> arguments() {
@@ -61,7 +70,10 @@ public enum ServerRefusal implements RefusalReason {
                     NOT_DELIVERED,
                     STACK_CHANGED,
                     NOT_EDITABLE,
-                    NO_BLOCK_IN_SIGHT -> List.of();
+                    NO_BLOCK_IN_SIGHT,
+                    NO_AREA_DRAFT,
+                    HOTBAR_FULL,
+                    WRONG_WORLD -> List.of();
             case NO_SUCH_OBJECTIVE -> List.of("key");
             case MILESTONE_NOT_ACTIVE -> List.of("key", "active");
             case WRONG_STATE -> List.of("state");
@@ -96,6 +108,9 @@ public enum ServerRefusal implements RefusalReason {
                     case STACK_CHANGED -> words.stackChanged();
                     case NOT_EDITABLE -> words.notEditable();
                     case NO_BLOCK_IN_SIGHT -> words.noBlockInSight();
+                    case NO_AREA_DRAFT -> words.noAreaDraft();
+                    case HOTBAR_FULL -> words.hotbarFull();
+                    case WRONG_WORLD -> words.wrongWorld();
                 });
     }
 

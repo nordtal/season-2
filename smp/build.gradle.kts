@@ -13,6 +13,7 @@ pluginDescriptor {
     editors.put("milestones", "milestones")
     editors.put("advancement-awards", "advancement-awards")
     editors.put("wheel", "wheel")
+    editors.put("custom-border", "custom-border")
 }
 
 // The base class calls prepare() and enable() before any code reads the fields of SmpPlugin.
@@ -118,6 +119,7 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.grave.Graves")
     documentClasses.add("eu.nordtal.season.smp.protect.ProtectionListener")
     documentClasses.add("eu.nordtal.season.smp.wall.BorderWall")
+    documentClasses.add("eu.nordtal.season.smp.area.AreaEditor")
     documentClasses.add("eu.nordtal.season.smp.travel.PortalGate")
     documentClasses.add("eu.nordtal.season.smp.npc.NpcTexts")
     documentClasses.add("eu.nordtal.season.smp.rail.StationDialog")

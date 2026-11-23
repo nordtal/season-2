@@ -408,6 +408,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V141__every_npc_name_plate_is_a_pill.sql",
                 "f4f4c37758a16e35e156074ad667fa1c7187f38c850e9344cf995e68f4f6fc9f");
+        FROZEN.put(
+                "V142__an_admin_shapes_areas_in_the_game.sql",
+                "a1f4e1983556a0896c0b8a940ce7dd5082c729e171cd6962d2d631db718e92e2");
     }
 
     @Test

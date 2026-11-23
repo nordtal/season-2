@@ -32,6 +32,7 @@ import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.settings.network.NpcDialogueSpec;
 import eu.nordtal.season.smp.announce.Announcer;
+import eu.nordtal.season.smp.area.AreaEditor;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.board.Boards;
 import eu.nordtal.season.smp.command.SmpAdmin;
@@ -160,6 +161,9 @@ public final class SmpPlugin extends NordtalPlugin {
     BorderWall borderWall;
 
     @Nullable
+    AreaEditor areaEditor;
+
+    @Nullable
     Duels duels;
 
     @Nullable
@@ -250,7 +254,8 @@ public final class SmpPlugin extends NordtalPlugin {
         deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
         railSettings = setting(Group.of("rails", RailsSpec.class).whileRunning());
         customBorderSettings = setting(Group.of("custom-border", CustomBorderSpec.class)
-                .checkedBy(SmpSettings::checkCustomBorder)
+                .checkedBy(spec ->
+                        SmpSettings.checkCustomBorder(spec, worldsSettings.get().worldNordtal()))
                 .whileRunning());
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
                 .checkedBy(spec -> SmpSettings.checkMilestones(spec, ExplorerMaps::knowsTag, reward -> {
@@ -317,6 +322,9 @@ public final class SmpPlugin extends NordtalPlugin {
         rails = SmpStart.wireRails(this, wired.effects());
         portals = SmpStart.wireMapPortals(this);
         borderWall = SmpStart.wireBorderWall(this);
+        final AreaEditor editor = SmpStart.wireAreaEditor(
+                this, wired.effects(), worldsSettings.get().worldNordtal());
+        areaEditor = editor;
         applyCustomLimit();
 
         admin = admin();
@@ -327,14 +335,15 @@ public final class SmpPlugin extends NordtalPlugin {
         takeIn.watch(hub());
         final PackSwap packSwap = new PackSwap(this, pool());
         getServer().getPluginManager().registerEvents(packSwap, this);
-        answerRequests(takeIn, new PositionTake(this, pool()), packSwap);
+        answerRequests(takeIn, new PositionTake(this, pool()), packSwap, editor);
         getLogger()
                 .info("track loaded: milestones=" + track.size() + " protected_areas="
                         + protectedAreas.all().size());
     }
 
     /** Carries out what Steward asks of smp, each request by its kind. */
-    private void answerRequests(final ItemTakeIn takeIn, final PositionTake positions, final PackSwap packSwap) {
+    private void answerRequests(
+            final ItemTakeIn takeIn, final PositionTake positions, final PackSwap packSwap, final AreaEditor editor) {
         answer(SmpRequest.TABLE, request -> switch (request.payload()) {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
@@ -349,6 +358,8 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.TakeInItem take -> takeIn.open(request.id(), take.player(), take.purpose());
             case SmpRequest.TakePosition take -> positions.take(request.id(), take.player(), take.block());
             case SmpRequest.SendPack send -> packSwap.send(request.id(), send.url(), send.sha1());
+            case SmpRequest.EditAreas edit -> editor.open(edit);
+            case SmpRequest.AreaDraft step -> editor.step(request.id(), step);
             case SmpRequest.RemoveStack remove ->
                 removeStack(
                         remove.player(),
@@ -495,6 +506,10 @@ public final class SmpPlugin extends NordtalPlugin {
             quietly("rides.stop", tracked.rides()::stop);
             quietly("riderCartPackets.stop", tracked.packets()::stop);
             quietly("rails.stop", tracked.networks()::stop);
+        }
+        final AreaEditor editing = areaEditor;
+        if (editing != null) {
+            quietly("areaEditor.stop", editing::stop);
         }
         final BorderWall wall = borderWall;
         if (wall != null) {

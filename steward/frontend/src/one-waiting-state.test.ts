@@ -73,6 +73,11 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "useMe is read for one number in a sentence, behind a default of five minutes. There is no" +
       " surface to reserve.",
   ],
+  [
+    "components/steward/game-groups/border-editor.tsx",
+    "useSaveConfig is a mutation, and useConfig reads smp/worlds only to name the overworld for optional" +
+      " edge warnings. The editor waited for its group, and there is no warning surface to reserve.",
+  ],
 ])
 
 /** The views that still draw flat grey bars, each with its reason. */

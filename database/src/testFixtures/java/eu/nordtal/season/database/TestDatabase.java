@@ -137,6 +137,16 @@ public final class TestDatabase {
         migrate(dataSource, placeholders, target);
     }
 
+    /** Adds the inbox columns of this release to an older schema so upgrade tests can read and write inbox rows. */
+    public void addInboxColumnsOfThisRelease() {
+        try (var connection = dataSource.getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE smp_inbox ADD COLUMN IF NOT EXISTS outcome jsonb");
+        } catch (final java.sql.SQLException failed) {
+            throw new IllegalStateException("the inbox columns of this release could not be added", failed);
+        }
+    }
+
     private static void migrate(final DataSource source, final Map<String, String> placeholders, final String target) {
         Flyway.configure(TestDatabase.class.getClassLoader())
                 .dataSource(source)

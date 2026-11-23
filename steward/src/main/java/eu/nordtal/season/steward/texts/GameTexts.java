@@ -326,6 +326,39 @@ public interface GameTexts {
     @Name("Position not taken")
     MessageRef takePositionFailed();
 
+    @Name("Edit areas in the game")
+    MessageRef editAreas();
+
+    @Name("Areas being edited")
+    MessageRef editingAreas();
+
+    @Name("World of the areas")
+    MessageRef areaWorld();
+
+    @Name("Name of a new polygon")
+    MessageRef polygonName();
+
+    @Name("New polygon")
+    MessageRef newPolygon();
+
+    @Name("Save the area draft")
+    MessageRef saveAreas();
+
+    @Name("Discard the area draft")
+    MessageRef discardAreas();
+
+    @Name("Area draft failed")
+    MessageRef areaDraftFailed();
+
+    @Name("Areas saved")
+    MessageRef areasSaved();
+
+    @Name("Area near the map edge")
+    MessageRef areaNearEdge(
+            @Arg("name") @Example("Spawn") String name,
+            @Arg("distance") @Example("120") int distance,
+            @Arg("margin") @Example("160") int margin);
+
     @Name("Corner")
     MessageRef corner(@Arg("index") @Example("1") int index);
 

@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.config;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -423,14 +424,42 @@ class SmpSettingsTest {
 
     @Test
     void theCustomBorderRefusesAnAreaOfTwoCornersAndAWorldTwice() {
-        final Group<CustomBorderSpec> checked = CUSTOM_BORDER.checkedBy(SmpSettings::checkCustomBorder);
+        final Group<CustomBorderSpec> checked =
+                CUSTOM_BORDER.checkedBy(spec -> SmpSettings.checkCustomBorder(spec, "nordtal"));
         final Map<String, Object> line =
                 Map.of("name", "spawn", "corners", List.of(Map.of("x", 1, "z", 2), Map.of("x", 3, "z", 4)));
+        final Map<String, Object> bowTie = Map.of(
+                "name",
+                "spawn",
+                "corners",
+                List.of(
+                        Map.of("x", 0, "z", 0),
+                        Map.of("x", 10, "z", 10),
+                        Map.of("x", 10, "z", 0),
+                        Map.of("x", 0, "z", 10)));
+        final Map<String, Object> offTheMap = Map.of(
+                "name",
+                "spawn",
+                "corners",
+                List.of(Map.of("x", -1, "z", 0), Map.of("x", 10, "z", 0), Map.of("x", 10, "z", 10)));
         assertAll(
                 () -> assertRefused(
                         checked,
                         Map.of("worlds", List.of(Map.of("world", "nordtal", "polygons", List.of(line)))),
-                        "the area \"spawn\" in nordtal needs at least 3 corners, has 2"),
+                        "the area \"spawn\" needs at least 3 corners, has 2 in nordtal"),
+                () -> assertRefused(
+                        checked,
+                        Map.of("worlds", List.of(Map.of("world", "nordtal", "polygons", List.of(bowTie)))),
+                        "the edges of the area \"spawn\" cross or touch each other in nordtal"),
+                () -> assertRefused(
+                        checked,
+                        Map.of("worlds", List.of(Map.of("world", "nordtal", "polygons", List.of(offTheMap)))),
+                        "has a corner at -1, 0 outside the map from 0 to 10239 in nordtal"),
+                () -> assertDoesNotThrow(() -> new MemorySettingStore()
+                        .checked(
+                                "smp",
+                                checked,
+                                Map.of("worlds", List.of(Map.of("world", "nether", "polygons", List.of(offTheMap)))))),
                 () -> assertRefused(
                         checked,
                         Map.of("worlds", List.of(Map.of("world", "nordtal"), Map.of("world", "nordtal"))),

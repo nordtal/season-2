@@ -36,7 +36,7 @@ function isDraftValue(value: unknown): value is DraftValue {
   )
 }
 
-function isDraftValueRecord(value: unknown): value is Record<string, DraftValue> {
+export function isDraftValueRecord(value: unknown): value is Record<string, DraftValue> {
   return typeof value === "object" && value !== null && Object.values(value).every(isDraftValue)
 }
 

@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -337,21 +338,20 @@ class TopologyDeploymentTest {
     @Test
     void composeNeverInterpolatesASecretOnlyOneServiceReadsSoTheAgentNeverReadsIt() {
         // steward-agent runs every compose command with the shared file, so whatever compose interpolates it reads.
-        final List<String> shared = List.of(
-                "NORDTAL_STEWARD_BUNQ_",
-                "NORDTAL_BOT_TOKEN",
-                "STEWARD_DISCORD_CLIENT_SECRET",
-                "STEWARD_WEB_PUSH_PRIVATE_KEY",
-                "STEWARD_TOTP_KEY",
-                "STEWARD_OFFSITE_PASSWORD");
-        final List<String> handed = List.of(
-                "BUNQ_API_KEY",
-                "BUNQ_ACCOUNT_ID",
-                "NORDTAL_BOT_TOKEN",
+        final List<String> steward = List.of(
                 "DISCORD_CLIENT_SECRET",
                 "WEB_PUSH_PRIVATE_KEY",
                 "TOTP_KEY",
-                "OFFSITE_PASSWORD");
+                "BACKUP_KEY",
+                "PLANE_BACKUP_TOKEN",
+                "GOOGLE_DRIVE_CLIENT_");
+        final List<String> shared = Stream.concat(
+                        Stream.of("NORDTAL_STEWARD_BUNQ_", "NORDTAL_BOT_TOKEN"),
+                        steward.stream().map(name -> "STEWARD_" + name))
+                .toList();
+        final List<String> handed = Stream.concat(
+                        Stream.of("BUNQ_API_KEY", "BUNQ_ACCOUNT_ID", "NORDTAL_BOT_TOKEN"), steward.stream())
+                .toList();
         for (final String name : shared) {
             assertFalse(
                     compose.text().contains("${" + name),
@@ -386,8 +386,7 @@ class TopologyDeploymentTest {
                                             "'" + name + "' must mount its secrets read only at /app/secrets, where"
                                                     + " deploy/jvm/secrets.sh reads them and no hand-over writes."));
                         }));
-        for (final String service :
-                List.of(BankWire.SERVICE, Topology.DISCORD_BOT, Topology.STEWARD, AgentWire.SERVICE)) {
+        for (final String service : List.of(BankWire.SERVICE, Topology.DISCORD_BOT, Topology.STEWARD)) {
             assertTrue(
                     compose.service(service).mounts().stream()
                             .anyMatch(mount -> mount.endsWith("}/" + service + ":/app/secrets:ro")),

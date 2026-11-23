@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AskButton, RunPage, savedCount } from "@/pages/operations"
 import { DataTable } from "@/components/steward/data-table"
+import { BackupDestinationsPanel } from "@/pages/backup-destinations"
 import { ScheduleDialog, entryAt, useStewardConfig } from "@/components/steward/group-form"
 
 /** steward-agent's four `backup.retention` keys, in the order the schedule dialog draws them. */
@@ -62,13 +63,15 @@ export function BackupsPage() {
 
       <Summary />
 
+      <BackupDestinationsPanel />
+
       <Runs />
     </div>
   )
 }
 
 /**
- * Three numbers, about two to a row on a phone. Nothing queries the Storage Box yet, so "Storage available" says so.
+ * Three numbers, about two to a row on a phone. Steward does not ask Google Drive for its free space, so "Storage available" says so.
  */
 function Summary() {
   const backups = useBackups()

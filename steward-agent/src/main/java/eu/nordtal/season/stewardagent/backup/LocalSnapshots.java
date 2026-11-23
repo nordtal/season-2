@@ -33,7 +33,7 @@ public final class LocalSnapshots implements Snapshots {
      *
      * @param sourcesRoot the mounted volumes, one directory per volume name
      * @param afterDatabaseRestore what a replaced database needs before use: fresh connections and the schema
-     * @param offsite where the newest archives are copied off this host, read at every copy
+     * @param offsite where the newest archives are copied off this host, asked at every copy
      */
     public LocalSnapshots(
             final Docker docker,
@@ -43,9 +43,9 @@ public final class LocalSnapshots implements Snapshots {
             final Clock clock,
             final Supplier<RunSpec> config,
             final Runnable afterDatabaseRestore,
-            final Supplier<java.util.Optional<OffsiteCopy.Target>> offsite) {
+            final OffsiteCopy.Destination offsite) {
         this.tars = new TarSnapshots(sourcesRoot, backups, clock);
-        this.offsite = new OffsiteCopy(backups, offsite);
+        this.offsite = new OffsiteCopy(backups, offsite, project, clock);
         this.dump = new DatabaseDump(docker, project, backups.toString(), clock);
         this.config = config;
         this.afterDatabaseRestore = afterDatabaseRestore;

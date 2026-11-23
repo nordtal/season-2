@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.auth;
 
+import eu.nordtal.season.common.SecretBox;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import java.nio.charset.StandardCharsets;

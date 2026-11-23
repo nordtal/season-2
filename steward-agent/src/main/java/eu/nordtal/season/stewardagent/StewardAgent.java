@@ -26,6 +26,7 @@ import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.stewardagent.backup.LocalSnapshots;
 import eu.nordtal.season.stewardagent.backup.OffsiteCopy;
+import eu.nordtal.season.stewardagent.backup.StewardDestination;
 import eu.nordtal.season.stewardagent.config.AgentSettings;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.descriptor.LocalJars;
@@ -531,23 +532,15 @@ public final class StewardAgent {
                 clock,
                 runs::get,
                 () -> afterDatabaseRestore(database, compose),
-                () -> offsiteTarget(server, compose));
+                offsiteDestination(server));
     }
 
-    private static Optional<OffsiteCopy.Target> offsiteTarget(final InternalServer server, final Compose compose) {
-        final String repository = server.setting("OFFSITE_REPOSITORY", "");
-        if (repository.isEmpty()) {
-            return Optional.empty();
-        }
-        final Path environment = Path.of(server.setting("ENV_FILE", "/app/env/.env"));
-        final Path directory = environment.toAbsolutePath().getParent();
-        final Path keys = directory == null ? Path.of("/app/env") : directory;
-        return Optional.of(new OffsiteCopy.Target(
-                repository,
-                server.setting("OFFSITE_PASSWORD", ""),
-                keys.resolve("offsite-key"),
-                keys.resolve("offsite-known-hosts"),
-                compose.projectName()));
+    /** Steward names the Google Drive account of every copy, and the agent token proves the caller. */
+    private static OffsiteCopy.Destination offsiteDestination(final InternalServer server) {
+        return new StewardDestination(
+                server.variable("STEWARD_URL"),
+                server.setting("STEWARD_URL", "http://steward:8080"),
+                server.setting("TOKEN", ""));
     }
 
     private static void reload(final Setting<RunSpec> runs) {

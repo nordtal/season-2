@@ -225,6 +225,9 @@ function backend(
       return found ? json(200, found) : json(404, { error: `There is no request ${one[1]}.` })
     }
     if (url.startsWith("/api/updates?")) return json(200, over.runs ?? [run()])
+    if (url === "/api/backup-destinations") {
+      return json(200, { offered: false, accounts: [], series: [], repositories: [] })
+    }
     if (url === "/api/schedule") {
       return json(200, { backupAt: "04:45", zone: "Europe/Berlin", nextBackupAt: null })
     }

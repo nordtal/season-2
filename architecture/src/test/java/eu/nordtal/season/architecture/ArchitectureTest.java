@@ -109,6 +109,7 @@ class ArchitectureTest {
         onlyOn(
                 "eu.nordtal.season.common..",
                 "java..",
+                "javax.crypto..",
                 "org.jspecify..",
                 "com.google.gson..",
                 "eu.nordtal.season.common..");

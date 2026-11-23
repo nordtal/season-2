@@ -5,11 +5,13 @@ import com.google.gson.JsonObject;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
+import eu.nordtal.season.internalapi.backup.BackupDestinationWire;
 import eu.nordtal.season.stewardagent.run.Snapshots;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -17,15 +19,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Copies the newest finished archive of every series into an encrypted restic repository off this host.
- *
- * A copied archive is marked by an empty file of its name under {@link #MARKS}, which the archive list reads.
+ * Copies the newest finished archive of every series into an encrypted restic repository on Google Drive.
+ * Steward names the account and the repository at every copy, and hears how the copy went. An empty file
+ * of the archive's name under {@link #MARKS} marks a copied archive, and the archive list reads it.
  */
 public final class OffsiteCopy {
 
@@ -33,6 +34,9 @@ public final class OffsiteCopy {
 
     /** The directory inside the backups that holds one mark per archive the repository has. */
     public static final String MARKS = "offsite";
+
+    /** The rclone remote that the repository lives on. */
+    static final String REMOTE = "gdrive";
 
     /**
      * The time for a first copy of every world over a slow uplink. A run holds the inbox that long.
@@ -42,60 +46,89 @@ public final class OffsiteCopy {
     /** restic's exit status for a repository that does not exist yet. */
     private static final int NO_REPOSITORY = 10;
 
-    /**
-     * Where the copies go and how the agent gets in.
-     *
-     * @param repository restic's repository, for a Storage Box {@code sftp://user@host:23/directory}
-     * @param password the repository's key, which encrypts every copy; only restic's environment carries it
-     * @param sshKey the private key the box accepts
-     * @param knownHosts the host keys of the box, so a changed key is refused
-     * @param tag the host and tag of the snapshots, so one repository can hold several deployments
-     */
-    public record Target(String repository, String password, Path sshKey, Path knownHosts, String tag) {
+    /** Where the copies go, as steward names it. */
+    public interface Destination {
 
-        @Override
-        public String toString() {
-            return "Target[" + repository + "]";
-        }
+        /** No destination, so nothing is copied. */
+        Destination NONE = new Destination() {
+            @Override
+            public Optional<BackupDestinationWire.Credentials> credentials() {
+                return Optional.empty();
+            }
+
+            @Override
+            public void report(final BackupDestinationWire.Report outcome) {}
+        };
+
+        /** Returns the account and repository of the next copy, or nothing while the stack copies nowhere. */
+        Optional<BackupDestinationWire.Credentials> credentials() throws IOException;
+
+        /** Tells steward how a copy went. A failed report is logged and never fails the copy. */
+        void report(BackupDestinationWire.Report outcome);
     }
 
     private final Path backups;
-    private final Supplier<Optional<Target>> target;
+    private final Destination destination;
+    private final String tag;
+    private final Clock clock;
 
-    public OffsiteCopy(final Path backups, final Supplier<Optional<Target>> target) {
+    /**
+     * @param tag the host and tag of the snapshots, so one repository can hold several deployments
+     */
+    public OffsiteCopy(final Path backups, final Destination destination, final String tag, final Clock clock) {
         this.backups = backups;
-        this.target = target;
+        this.destination = destination;
+        this.tag = tag;
+        this.clock = clock;
     }
 
     /**
      * Copies the newest finished archive of every series, then forgets and prunes what the policy no longer keeps.
      *
-     * @return empty when no repository is configured
+     * @return empty when steward names no destination
      */
     public Optional<SnapshotResult> copy(final Retention policy) {
-        final Optional<Target> configured = target.get();
-        if (configured.isEmpty()) {
+        final long startedAt = System.nanoTime();
+        final Optional<BackupDestinationWire.Credentials> credentials;
+        try {
+            credentials = destination.credentials();
+        } catch (final IOException unread) {
+            return Optional.of(failed(startedAt, "steward did not name the destination: " + unread.getMessage()));
+        }
+        if (credentials.isEmpty()) {
             return Optional.empty();
         }
-        final long startedAt = System.nanoTime();
+        final SnapshotResult result = copyTo(credentials.get(), policy, startedAt);
+        destination.report(new BackupDestinationWire.Report(
+                credentials.get().accountId(),
+                result.ok(),
+                result.ok() ? clock.instant() : null,
+                result.file(),
+                result.ok() ? result.bytes() : null,
+                result.message()));
+        return Optional.of(result);
+    }
+
+    private SnapshotResult copyTo(
+            final BackupDestinationWire.Credentials credentials, final Retention policy, final long startedAt) {
         final List<Path> newest = newestOfEverySeries();
         if (newest.isEmpty()) {
-            return Optional.of(SnapshotResult.failed(Snapshots.OFFSITE, since(startedAt), "no finished archive"));
+            return failed(startedAt, "no finished archive");
+        }
+        final Path config;
+        try {
+            config = RcloneConfig.write(credentials);
+        } catch (final IOException | IllegalArgumentException unwritten) {
+            return failed(startedAt, "the rclone config was not written: " + unwritten.getMessage());
         }
         try {
-            final Restic restic = new Restic(configured.get());
+            final Restic restic = new Restic(credentials, config, tag);
             final Optional<String> unopened = restic.open();
             if (unopened.isPresent()) {
                 return failed(startedAt, unopened.get());
             }
-            final List<String> backup = new ArrayList<>(List.of(
-                    "backup",
-                    "--host",
-                    configured.get().tag(),
-                    "--tag",
-                    configured.get().tag(),
-                    "--no-scan",
-                    "--json"));
+            final List<String> backup =
+                    new ArrayList<>(List.of("backup", "--host", tag, "--tag", tag, "--no-scan", "--json"));
             newest.forEach(file -> backup.add(file.toString()));
             final Path said = Files.createTempFile("restic-backup-", ".json");
             final Optional<Summary> summary;
@@ -117,16 +150,18 @@ public final class OffsiteCopy {
                 return failed(startedAt, "the copy is there, and applying the retention failed: " + forgot.describe());
             }
             // The snapshot is where the copy landed, and its bytes what the repository grew by.
-            return Optional.of(SnapshotResult.saved(
+            return SnapshotResult.saved(
                     Snapshots.OFFSITE,
                     summary.get().added(),
                     since(startedAt),
-                    summary.get().snapshot()));
+                    summary.get().snapshot());
         } catch (final IOException failure) {
             return failed(startedAt, failure.toString());
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             return failed(startedAt, "interrupted");
+        } finally {
+            RcloneConfig.delete(config);
         }
     }
 
@@ -206,9 +241,9 @@ public final class OffsiteCopy {
         }
     }
 
-    private static Optional<SnapshotResult> failed(final long startedAt, final String why) {
+    private static SnapshotResult failed(final long startedAt, final String why) {
         log.warn("offsite copy failed: cause={}", why);
-        return Optional.of(SnapshotResult.failed(Snapshots.OFFSITE, since(startedAt), why));
+        return SnapshotResult.failed(Snapshots.OFFSITE, since(startedAt), why);
     }
 
     private static Duration since(final long startedAtNanos) {
@@ -216,19 +251,24 @@ public final class OffsiteCopy {
     }
 
     /**
-     * One restic command against the target. The password is in the environment, never on the command line.
+     * One restic command against the repository.
+     * The password is in the environment, never on the command line. rclone reads the account from the config
+     * file that {@code RCLONE_CONFIG} names.
      */
-    private record Restic(Target target) {
+    private record Restic(BackupDestinationWire.Credentials credentials, Path config, String tag) {
 
         /** Creates the repository on the first copy; the reason when it neither answers nor could be created. */
         Optional<String> open() throws IOException, InterruptedException {
-            final Pipeline.Result config = run("cat", "config");
-            if (!config.exitCodes().equals(List.of(NO_REPOSITORY))) {
-                return config.failed()
-                        ? Optional.of("the repository did not answer: " + config.describe())
+            final Pipeline.Result found = run("cat", "config");
+            if (!found.exitCodes().equals(List.of(NO_REPOSITORY))) {
+                return found.failed()
+                        ? Optional.of("the repository did not answer: " + found.describe())
                         : Optional.empty();
             }
-            log.info("offsite repository creation started: repository={}", target.repository());
+            log.info(
+                    "offsite repository creation started: account=\"{}\" folder={}",
+                    credentials.email(),
+                    credentials.subpath());
             final Pipeline.Result created = run("init");
             return created.failed()
                     ? Optional.of("creating the repository failed: " + created.describe())
@@ -241,9 +281,9 @@ public final class OffsiteCopy {
             return run(
                     "forget",
                     "--host",
-                    target.tag(),
+                    tag,
                     "--tag",
-                    target.tag(),
+                    tag,
                     "--group-by",
                     "host,tags",
                     "--keep-daily",
@@ -261,18 +301,18 @@ public final class OffsiteCopy {
 
         Pipeline.Result run(final @Nullable Path stdout, final String... arguments)
                 throws IOException, InterruptedException {
-            final List<String> command = new ArrayList<>(List.of(
-                    "restic",
-                    "--retry-lock",
-                    "10m",
-                    "-o",
-                    "sftp.args=-i " + target.sshKey() + " -o UserKnownHostsFile=" + target.knownHosts()
-                            + " -o StrictHostKeyChecking=yes -o BatchMode=yes"));
+            final List<String> command = new ArrayList<>(List.of("restic", "--retry-lock", "10m"));
             command.addAll(List.of(arguments));
             return Pipeline.run(
                     PATIENCE,
                     stdout,
-                    Map.of("RESTIC_REPOSITORY", target.repository(), "RESTIC_PASSWORD", target.password()),
+                    Map.of(
+                            "RESTIC_REPOSITORY",
+                            "rclone:" + REMOTE + ":" + credentials.subpath(),
+                            "RESTIC_PASSWORD",
+                            credentials.resticPassword(),
+                            "RCLONE_CONFIG",
+                            config.toString()),
                     List.of(command));
         }
     }

@@ -81,6 +81,13 @@ class CaddyPolicyTest {
     }
 
     @Test
+    void theSiteAnswersNotFoundForTheInternalRoutes() {
+        final String directives = directives();
+        assertTrue(directives.contains("@internal path /api/internal/*"), directives);
+        assertTrue(directives.contains("respond @internal 404"), directives);
+    }
+
+    @Test
     void theImagePolicyAllowsHttpsMediaInDocumentPreviews() {
         final String policy = policy(directives());
         assertTrue(policy.contains("img-src 'self' data: blob: https:;"), policy);

@@ -423,6 +423,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V146__a_server_refuses_to_preview_a_menu_it_cannot_open.sql",
                 "2f5b8fa4c6163ea97483e8512b01eaaeef9f37c3519ab17db8aa86b041f231cc");
+        FROZEN.put(
+                "V147__backups_copy_to_google_drive.sql",
+                "7f0d9dc9f1709dedad3e173e2831ac5eca8905d72c6a42e28cb7260a75bf4f8f");
     }
 
     @Test

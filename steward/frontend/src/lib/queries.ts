@@ -519,6 +519,7 @@ export type { UseQueryOptions }
 export * from "@/lib/queries-access"
 export * from "@/lib/queries-announcements"
 export * from "@/lib/queries-alerts"
+export * from "@/lib/queries-backups"
 export * from "@/lib/queries-season"
 export * from "@/lib/queries-commands"
 export * from "@/lib/queries-settings"

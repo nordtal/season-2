@@ -48,6 +48,8 @@ class JournaledRoutesTest extends WebFixture {
             Map.entry("POST /auth/webauthn/register/start", Unjournaled.CEREMONY_START),
             Map.entry("POST /auth/webauthn/authenticate/start", Unjournaled.CEREMONY_START),
             Map.entry("POST /auth/totp/enrol/start", Unjournaled.CEREMONY_START),
+            Map.entry("POST /api/backup-destinations/google/start", Unjournaled.CEREMONY_START),
+            Map.entry("POST /api/internal/backup-destinations/{series}/report", Unjournaled.SERVICE_REPORT),
             Map.entry("POST /api/message-preview", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/pack/build", Unjournaled.RETRY),
             Map.entry("POST /api/message-changes", Unjournaled.SHOWN_TO_ONESELF),

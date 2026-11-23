@@ -84,7 +84,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
           to: "/operations/backups",
           note: t("steward.shell.note", { page: "backups" }),
           icon: TERM_ICON.backup,
-          keywords: ["backup", "archive", "snapshot", "retention", "storage box", "offsite", "restore"],
+          keywords: ["backup", "archive", "snapshot", "retention", "google drive", "offsite", "restore"],
         },
       ],
     },

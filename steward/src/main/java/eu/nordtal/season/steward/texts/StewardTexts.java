@@ -327,6 +327,18 @@ public interface StewardTexts {
             @Name("Backup not finished")
             MessageRef backupUnfinished(@Arg("backup") @Example("nordtal-20261020-0400.dump") String backup);
 
+            @Name("Google Drive not configured")
+            MessageRef driveUnconfigured();
+
+            @Name("No such backup account")
+            MessageRef noBackupAccount();
+
+            @Name("No such backup series")
+            MessageRef noBackupSeries(@Arg("series") @Example("stack") String series);
+
+            @Name("Recovery file already downloaded")
+            MessageRef recoveryTaken();
+
             @Name("Restore not confirmed")
             MessageRef confirmRestore(@Arg("replaces") @Example("smp-world") String replaces);
 

@@ -32,7 +32,7 @@ final class Setup {
 
     private record Secret(String name, int bytes) {}
 
-    static final List<String> SECRET_SERVICES = List.of("steward-bunq", "discord-bot", "steward", "steward-agent");
+    static final List<String> SECRET_SERVICES = List.of("steward-bunq", "discord-bot", "steward");
 
     private final Path root;
     private final LocalProject compose;

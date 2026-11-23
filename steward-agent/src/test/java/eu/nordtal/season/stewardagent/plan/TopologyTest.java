@@ -274,11 +274,10 @@ class TopologyTest {
 
     @Test
     void noServiceIsGivenAnOptionalOverrideOfASettingStewardEdits() {
-        // What a service needs before Steward can reach it: secrets, sign-in, releases and the offsite copy.
+        // What a service needs before Steward can reach it: secrets, sign-in, releases.
         final Set<String> bootstrap = Set.of(
                 "NORDTAL_STEWARD_AGENT_SEASON_REPO",
                 "NORDTAL_STEWARD_AGENT_GITHUB_TOKEN",
-                "NORDTAL_STEWARD_AGENT_OFFSITE_REPOSITORY",
                 "NORDTAL_PROXY_NETWORK_PUBLIC_ADDRESS",
                 "NORDTAL_STEWARD_WEB_WEBAUTHN_RELYING_PARTY_ID",
                 "NORDTAL_STEWARD_WEB_DISCORD_CLIENT_ID",

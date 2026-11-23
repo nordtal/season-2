@@ -738,6 +738,7 @@ export type TextArgs = {
     document: Arg["text"]
     reason: Arg["text"]
   }
+  "steward.answer.drive-unconfigured": Record<string, never>
   "steward.answer.editor-away": {
     server: Arg["text"]
   }
@@ -787,6 +788,10 @@ export type TextArgs = {
   "steward.answer.no-authenticator": Record<string, never>
   "steward.answer.no-backup": {
     backup: Arg["text"]
+  }
+  "steward.answer.no-backup-account": Record<string, never>
+  "steward.answer.no-backup-series": {
+    series: Arg["text"]
   }
   "steward.answer.no-bundle": {
     bundle: Arg["text"]
@@ -875,6 +880,7 @@ export type TextArgs = {
   "steward.answer.preview-unlinked": Record<string, never>
   "steward.answer.push-not-accepted": Record<string, never>
   "steward.answer.push-unconfigured": Record<string, never>
+  "steward.answer.recovery-taken": Record<string, never>
   "steward.answer.secret-setting": {
     path: Arg["text"]
   }
@@ -937,6 +943,11 @@ export type TextArgs = {
   "steward.backup-settings.no-at": Record<string, never>
   "steward.backup-settings.no-night": Record<string, never>
   "steward.backup-settings.retention-saved": Record<string, never>
+  "steward.backups.account-disconnected": Record<string, never>
+  "steward.backups.account-folder": {
+    folder: Arg["text"]
+  }
+  "steward.backups.accounts": Record<string, never>
   "steward.backups.all-backups": Record<string, never>
   "steward.backups.all-partial": Record<string, never>
   "steward.backups.archive": Record<string, never>
@@ -946,12 +957,28 @@ export type TextArgs = {
     id: Arg["text"]
   }
   "steward.backups.choose-archive": Record<string, never>
+  "steward.backups.connect": Record<string, never>
+  "steward.backups.copied": Record<string, never>
+  "steward.backups.copies": Record<string, never>
+  "steward.backups.copies-unconfigured": Record<string, never>
+  "steward.backups.copies-unconfigured-note": Record<string, never>
+  "steward.backups.copy-failed": Record<string, never>
   "steward.backups.database": Record<string, never>
   "steward.backups.database-replaced": Record<string, never>
+  "steward.backups.destination-saved": Record<string, never>
+  "steward.backups.disconnect": Record<string, never>
+  "steward.backups.disconnect-note": Record<string, never>
+  "steward.backups.disconnect-title": {
+    email: Arg["text"]
+  }
+  "steward.backups.disconnected": Record<string, never>
   "steward.backups.download-file": {
     file: Arg["text"]
   }
   "steward.backups.empty-directory": Record<string, never>
+  "steward.backups.google-result": {
+    result: Arg["choice"]
+  }
   "steward.backups.holds": {
     subject: Arg["text"]
     partial: Arg["choice"]
@@ -962,6 +989,8 @@ export type TextArgs = {
   "steward.backups.left": Record<string, never>
   "steward.backups.missing": Record<string, never>
   "steward.backups.next": Record<string, never>
+  "steward.backups.no-account": Record<string, never>
+  "steward.backups.no-accounts": Record<string, never>
   "steward.backups.no-archive": Record<string, never>
   "steward.backups.no-archive-yet": Record<string, never>
   "steward.backups.no-clock": Record<string, never>
@@ -969,14 +998,25 @@ export type TextArgs = {
   "steward.backups.none": Record<string, never>
   "steward.backups.none-finished": Record<string, never>
   "steward.backups.not-catalogued": Record<string, never>
+  "steward.backups.not-copied": Record<string, never>
   "steward.backups.not-tracked": Record<string, never>
   "steward.backups.nothing-to-restore": Record<string, never>
   "steward.backups.pruned": {
     rule: Arg["choice"]
   }
+  "steward.backups.recovery": {
+    series: Arg["choice"]
+  }
+  "steward.backups.recovery-note": Record<string, never>
+  "steward.backups.recovery-taken": {
+    series: Arg["choice"]
+  }
   "steward.backups.restore": Record<string, never>
   "steward.backups.run": Record<string, never>
   "steward.backups.runs": Record<string, never>
+  "steward.backups.series": {
+    series: Arg["choice"]
+  }
   "steward.backups.size": Record<string, never>
   "steward.backups.status": Record<string, never>
   "steward.backups.storage": Record<string, never>

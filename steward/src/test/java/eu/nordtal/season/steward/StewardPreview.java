@@ -181,7 +181,7 @@ public final class StewardPreview {
                     new DiscordAuth(config.discord(), config.publicUrl(), discordBase),
                     stackOf(configs, client, database, data, scheduler),
                     client,
-                    true,
+                    "preview-agent-token",
                     data,
                     configs.languages(),
                     Clock.systemUTC(),
@@ -720,8 +720,31 @@ public final class StewardPreview {
             public WebPushSpec webPush() {
                 return new WebPushSpec() {};
             }
+
+            // A key and a client that live for this run only, so the backups page offers Google Drive.
+            @Override
+            public String backupKey() {
+                return PREVIEW_TOTP_KEY;
+            }
+
+            @Override
+            public GoogleDriveSpec googleDrive() {
+                return PREVIEW_DRIVE;
+            }
         };
     }
+
+    private static final WebSpec.GoogleDriveSpec PREVIEW_DRIVE = new WebSpec.GoogleDriveSpec() {
+        @Override
+        public String clientId() {
+            return "preview.apps.googleusercontent.com";
+        }
+
+        @Override
+        public String clientSecret() {
+            return "preview";
+        }
+    };
 
     private static final String USAGE = "usage: [--port N] [--dump FILE] [--state FILE] [--jars DIR]";
 

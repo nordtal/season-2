@@ -204,16 +204,18 @@ SERVICE_SECRETS=(
     "STEWARD_DISCORD_CLIENT_SECRET steward NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET"
     "STEWARD_WEB_PUSH_PRIVATE_KEY steward NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY"
     "STEWARD_TOTP_KEY steward NORDTAL_STEWARD_WEB_TOTP_KEY"
-    "STEWARD_OFFSITE_PASSWORD steward-agent NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD"
+    "STEWARD_BACKUP_KEY steward NORDTAL_STEWARD_WEB_BACKUP_KEY"
+    "STEWARD_PLANE_BACKUP_TOKEN steward NORDTAL_STEWARD_WEB_PLANE_BACKUP_TOKEN"
+    "STEWARD_GOOGLE_DRIVE_CLIENT_ID steward NORDTAL_STEWARD_WEB_GOOGLE_DRIVE_CLIENT_ID"
+    "STEWARD_GOOGLE_DRIVE_CLIENT_SECRET steward NORDTAL_STEWARD_WEB_GOOGLE_DRIVE_CLIENT_SECRET"
 )
 
 # The uid of each of those services. It owns the file of the service. nordtal-test.sh compares it
-# with the `user:` of compose.yml. steward-agent has no entry and runs as root.
+# with the `user:` of compose.yml. steward-agent reads no secret of its own.
 declare -A SERVICE_UID=(
     [steward-bunq]=10003
     [discord-bot]=10001
     [steward]=10002
-    [steward-agent]=0
 )
 
 # The directory of the own files of the services, when the shared file names none. It lies beside
@@ -510,6 +512,8 @@ QUESTIONS=(
     STEWARD_ROOT_DISCORD_ID
     NORDTAL_STEWARD_BUNQ_API_KEY
     NORDTAL_STEWARD_BUNQ_ACCOUNT_ID
+    STEWARD_GOOGLE_DRIVE_CLIENT_ID
+    STEWARD_GOOGLE_DRIVE_CLIENT_SECRET
     COMPOSE_PROFILES
 )
 
@@ -524,6 +528,8 @@ declare -A QUESTION_KIND=(
     [STEWARD_ROOT_DISCORD_ID]=optional-plain
     [NORDTAL_STEWARD_BUNQ_API_KEY]=optional-secret
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]=plain
+    [STEWARD_GOOGLE_DRIVE_CLIENT_ID]=optional-plain
+    [STEWARD_GOOGLE_DRIVE_CLIENT_SECRET]=secret
     [COMPOSE_PROFILES]=plain
 )
 
@@ -538,6 +544,8 @@ declare -A QUESTION_CHECK=(
     [STEWARD_ROOT_DISCORD_ID]=looks_like_snowflake
     [NORDTAL_STEWARD_BUNQ_API_KEY]=-
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]=-
+    [STEWARD_GOOGLE_DRIVE_CLIENT_ID]=-
+    [STEWARD_GOOGLE_DRIVE_CLIENT_SECRET]=-
     [COMPOSE_PROFILES]=looks_like_profiles
 )
 
@@ -552,6 +560,8 @@ declare -A QUESTION_PROMPT=(
     [STEWARD_ROOT_DISCORD_ID]="Enter the Discord user ID for the first root admin."
     [NORDTAL_STEWARD_BUNQ_API_KEY]="Enter the bunq API key, or press Enter to leave payments disabled."
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="Enter the bunq monetary account ID that receives payments."
+    [STEWARD_GOOGLE_DRIVE_CLIENT_ID]="Enter the Google OAuth Client ID for backups, or press Enter to keep backups on this host."
+    [STEWARD_GOOGLE_DRIVE_CLIENT_SECRET]="Enter that Google OAuth client’s Client Secret."
     [COMPOSE_PROFILES]="Which Compose profiles should start?"
 )
 
@@ -571,6 +581,9 @@ declare -A QUESTION_HINT=(
     [NORDTAL_STEWARD_BUNQ_API_KEY]="Payments stay disabled without a key. You can grant access manually in Steward or
         with /access in Discord."
     [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="Enter a number. An account ID is required when a bunq API key is set."
+    [STEWARD_GOOGLE_DRIVE_CLIENT_ID]="Create a Web application client in the Google Cloud console. Set its redirect URI to
+        https://<the host name above>/api/backup-destinations/google/callback."
+    [STEWARD_GOOGLE_DRIVE_CLIENT_SECRET]="Copy the secret from the same client. Input is hidden."
     [COMPOSE_PROFILES]="Use a comma-separated list, normally db,bot,mc,steward. Include steward."
 )
 
@@ -590,6 +603,8 @@ GENERATED=(
     STEWARD_WEB_PUSH_PUBLIC_KEY
     STEWARD_WEB_PUSH_PRIVATE_KEY
     STEWARD_TOTP_KEY
+    STEWARD_BACKUP_KEY
+    STEWARD_PLANE_BACKUP_TOKEN
 )
 
 shown_value() {
@@ -880,6 +895,11 @@ generate_secrets() {
     # The key that steward seals the secret of each authenticator app with. A new key makes every
     # enrolled app unreadable, so each admin adds theirs again. This script never rotates it.
     set_secret STEWARD_TOTP_KEY
+    # The key that steward seals the Google Drive refresh tokens and the backup repository passwords
+    # with. A new key makes them unreadable, so every account is connected again. Never rotated here.
+    set_secret STEWARD_BACKUP_KEY
+    # The Bearer token of the host's Plane backup job, which asks steward for its Google Drive credentials.
+    set_secret STEWARD_PLANE_BACKUP_TOKEN
     SECRETS_MADE=true
 }
 
@@ -1477,10 +1497,10 @@ else
     fi
 fi
 
-# The menu asks for the bunq pair and the root id. COMPOSE_PROFILES has a default and changes in the menu.
+# The menu asks for the bunq pair, the Google Drive pair and the root id. COMPOSE_PROFILES has a default and changes in the menu.
 for question in "${QUESTIONS[@]}"; do
     case "$question" in
-        NORDTAL_STEWARD_BUNQ_*|STEWARD_ROOT_DISCORD_ID|COMPOSE_PROFILES) continue ;;
+        NORDTAL_STEWARD_BUNQ_*|STEWARD_GOOGLE_DRIVE_*|STEWARD_ROOT_DISCORD_ID|COMPOSE_PROFILES) continue ;;
     esac
     if [[ "$question" == EULA ]]; then
         # A refused licence ends the run.
@@ -1496,6 +1516,11 @@ ask_question STEWARD_ROOT_DISCORD_ID || true
 # bunq is optional. Without it nothing polls for payments. The key lives in the own file of steward-bunq.
 if ask_question NORDTAL_STEWARD_BUNQ_API_KEY; then
     ask_question NORDTAL_STEWARD_BUNQ_ACCOUNT_ID
+fi
+
+# Google Drive is optional. Without a client the backups page offers no remote copy.
+if ask_question STEWARD_GOOGLE_DRIVE_CLIENT_ID; then
+    ask_question STEWARD_GOOGLE_DRIVE_CLIENT_SECRET
 fi
 
 # Warns about the old bunq names, which nothing reads. The script copies no values, because a bunq
@@ -1552,6 +1577,12 @@ if $MENU; then
                     && -n "$(value_of "$ENV_FILE" NORDTAL_STEWARD_BUNQ_API_KEY)" \
                     && -z "$(value_of "$ENV_FILE" NORDTAL_STEWARD_BUNQ_ACCOUNT_ID)" ]]; then
                     ask_question NORDTAL_STEWARD_BUNQ_ACCOUNT_ID || true
+                fi
+                # Steward offers Google Drive only with both halves of the client.
+                if [[ "$picked" == STEWARD_GOOGLE_DRIVE_CLIENT_ID \
+                    && -n "$(value_of "$ENV_FILE" STEWARD_GOOGLE_DRIVE_CLIENT_ID)" \
+                    && -z "$(value_of "$ENV_FILE" STEWARD_GOOGLE_DRIVE_CLIENT_SECRET)" ]]; then
+                    ask_question STEWARD_GOOGLE_DRIVE_CLIENT_SECRET || true
                 fi
                 ;;
             *)

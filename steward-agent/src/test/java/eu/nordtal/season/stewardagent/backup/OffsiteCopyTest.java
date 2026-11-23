@@ -6,12 +6,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
+import eu.nordtal.season.internalapi.backup.BackupDestinationWire;
 import eu.nordtal.season.stewardagent.run.Snapshots;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -22,6 +27,49 @@ class OffsiteCopyTest {
 
     @TempDir
     Path backups;
+
+    private OffsiteCopy copy(final OffsiteCopy.Destination destination) {
+        return new OffsiteCopy(backups, destination, "nordtal-s2", Clock.systemUTC());
+    }
+
+    private static BackupDestinationWire.Credentials credentials(final String folderId) {
+        return new BackupDestinationWire.Credentials(
+                "account-1",
+                "admin@example.com",
+                folderId,
+                "Nordtal Backups",
+                "stack-0123456789ab",
+                "client-1",
+                "secret-1",
+                "refresh \"1\"",
+                "not the real one");
+    }
+
+    /** Names the given credentials, or none, or fails like an unreachable steward, and keeps each report. */
+    private static final class Recording implements OffsiteCopy.Destination {
+
+        private final boolean reachable;
+        private final BackupDestinationWire.@Nullable Credentials credentials;
+        final List<BackupDestinationWire.Report> reports = new ArrayList<>();
+
+        Recording(final boolean reachable, final BackupDestinationWire.@Nullable Credentials credentials) {
+            this.reachable = reachable;
+            this.credentials = credentials;
+        }
+
+        @Override
+        public Optional<BackupDestinationWire.Credentials> credentials() throws IOException {
+            if (!reachable) {
+                throw new IOException("connection refused");
+            }
+            return Optional.ofNullable(credentials);
+        }
+
+        @Override
+        public void report(final BackupDestinationWire.Report outcome) {
+            reports.add(outcome);
+        }
+    }
 
     private void touch(final String... names) throws IOException {
         for (final String name : names) {
@@ -41,10 +89,9 @@ class OffsiteCopyTest {
                 "nordtal-s2_bot-config-20261003T024600Z.tar.zst");
         Files.createDirectories(backups.resolve("runs"));
 
-        final List<String> picked = new OffsiteCopy(backups, Optional::empty)
-                .newestOfEverySeries().stream()
-                        .map(path -> path.getFileName().toString())
-                        .toList();
+        final List<String> picked = copy(OffsiteCopy.Destination.NONE).newestOfEverySeries().stream()
+                .map(path -> path.getFileName().toString())
+                .toList();
 
         assertEquals(
                 List.of(
@@ -55,38 +102,79 @@ class OffsiteCopyTest {
     }
 
     @Test
-    void withoutARepositoryThereIsNoCopyAndNoFailure() throws IOException {
+    void withoutADestinationThereIsNoCopyAndNoReport() throws IOException {
         touch("nordtal-20261005T024500Z.dump");
+        final Recording destination = new Recording(true, null);
 
-        assertEquals(Optional.empty(), new OffsiteCopy(backups, Optional::empty).copy(POLICY));
+        assertEquals(Optional.empty(), copy(destination).copy(POLICY));
+        assertEquals(List.of(), destination.reports);
     }
 
     @Test
-    void aCopyThatCouldNotRunFailsAndMarksNothing() throws IOException {
+    void aStewardThatDoesNotAnswerFailsTheCopyAndHearsNothing() throws IOException {
         touch("nordtal-20261005T024500Z.dump");
-        final OffsiteCopy.Target target = new OffsiteCopy.Target(
-                "sftp://u1@box.invalid:23/nordtal-s2",
-                "not the real one",
-                backups.resolve("missing-key"),
-                backups.resolve("missing-hosts"),
-                "nordtal-s2");
+        final Recording destination = new Recording(false, null);
 
-        final SnapshotResult result =
-                new OffsiteCopy(backups, () -> Optional.of(target)).copy(POLICY).orElseThrow();
+        final SnapshotResult result = copy(destination).copy(POLICY).orElseThrow();
+
+        assertFalse(result.ok(), String.valueOf(result));
+        assertTrue(String.valueOf(result.message()).contains("steward did not name the destination"), result.message());
+        assertEquals(List.of(), destination.reports);
+    }
+
+    @Test
+    void aCopyThatCouldNotRunFailsMarksNothingAndTellsStewardForWhichAccount() throws IOException {
+        touch("nordtal-20261005T024500Z.dump");
+        // A folder id that would add a line to the rclone config stops the copy before any tool runs.
+        final Recording destination = new Recording(true, credentials("folder\nscope = drive"));
+
+        final SnapshotResult result = copy(destination).copy(POLICY).orElseThrow();
 
         assertFalse(result.ok(), String.valueOf(result));
         assertEquals(Snapshots.OFFSITE, result.name());
         assertFalse(OffsiteCopy.isCopied(backups, "nordtal-20261005T024500Z.dump"));
         assertFalse(String.valueOf(result.message()).contains("not the real one"), "the password left its env");
+        final BackupDestinationWire.Report report = destination.reports.getFirst();
+        assertEquals("account-1", report.accountId());
+        assertFalse(report.ok());
+        assertEquals(result.message(), report.error());
+        assertEquals(null, report.copiedAt());
     }
 
     @Test
-    void theTargetNeverPrintsItsPassword() {
-        final OffsiteCopy.Target target =
-                new OffsiteCopy.Target("sftp://box/x", "hunter2", Path.of("k"), Path.of("h"), "nordtal-s2");
+    void theRcloneConfigRootsTheRemoteAtTheFolderAndHoldsTheTokenAsJson() {
+        final String text = RcloneConfig.text(credentials("folder-1"));
 
-        assertTrue(target.toString().contains("sftp://box/x"));
-        assertFalse(target.toString().contains("hunter2"));
+        assertTrue(text.startsWith("[gdrive]\ntype = drive\nscope = drive.file\n"), text);
+        assertTrue(text.contains("\nroot_folder_id = folder-1\n"), text);
+        assertTrue(text.contains("\nclient_id = client-1\n"), text);
+        assertTrue(text.contains("\"refresh_token\":\"refresh \\\"1\\\"\""), text);
+        assertFalse(text.contains("not the real one"), "the restic password is no rclone setting");
+    }
+
+    @Test
+    void theRcloneConfigIsReadableByThisProcessAloneAndGoneAfterwards() throws IOException {
+        final Path file = RcloneConfig.write(credentials("folder-1"));
+        final Path directory = file.getParent();
+        try {
+            assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(directory)));
+            assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(file)));
+            Files.writeString(directory.resolve("rclone.conf.renewed"), "token");
+        } finally {
+            RcloneConfig.delete(file);
+        }
+
+        assertFalse(Files.exists(directory), "the directory with the refresh token is left behind");
+    }
+
+    @Test
+    void theCredentialsNeverPrintTheirSecrets() {
+        final String printed = credentials("folder-1").toString();
+
+        assertTrue(printed.contains("admin@example.com"), printed);
+        assertFalse(printed.contains("not the real one"), printed);
+        assertFalse(printed.contains("refresh"), printed);
+        assertFalse(printed.contains("secret-1"), printed);
     }
 
     @Test

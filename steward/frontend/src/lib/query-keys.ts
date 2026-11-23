@@ -15,6 +15,7 @@ export const keys = {
   pluginSearch: (name: string, query: string) => ["plugin-search", name, query] as const,
   host: ["host"] as const,
   backups: ["backups"] as const,
+  backupDestinations: ["backup-destinations"] as const,
   schedule: ["schedule"] as const,
   runs: (limit: number) => ["runs", limit] as const,
   /** Under "runs", so asking for and cancelling a run refresh the list too. */

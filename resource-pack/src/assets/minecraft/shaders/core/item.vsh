@@ -43,8 +43,8 @@ layout(location = 6) out vec2 texCoordGlint;
 layout(location = 7) out vec4 wallCoord;
 // nordtal: the vertex seen from the camera, in blocks: x along the wall, y up, z at a right angle to the wall.
 layout(location = 8) out vec3 wallView;
-// nordtal: the ground under the panel, in blocks, or below -100000 when the server does not know it.
-layout(location = 9) flat out float wallGround;
+// nordtal: x = ground under the panel in blocks (or below -100000 when unknown), y = placement mode (0 air focus, 1 proximity window).
+layout(location = 9) flat out vec2 wallMeta;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
@@ -81,8 +81,13 @@ void main() {
     // nordtal: all three are linear in Position, so they are exact between the vertices
     wallView = vec3(dot(Position.xz, tangent), Position.y, dot(Position.xz, vec2(tangent.y, -tangent.x)));
     // nordtal: the server sends the ground plus 2048 in the item's tint, 5 bits a channel, each stored
-    // as 130 + 4 times its bits, so a channel read one off still decodes. White means not known.
+    // as base + 4 times its bits, so a channel read one off still decodes. Red's high bit selects the
+    // placement mode (1 = terrain + local air focus, 0 = terrain contour + mid-air proximity window).
     ivec3 channel = ivec3(round(Color.rgb * 255.0));
-    ivec3 bits = (channel - 128) >> 2;
-    wallGround = all(equal(channel, ivec3(255))) ? -1000000.0 : float((bits.r << 10 | bits.g << 5 | bits.b) - 2048);
+    float mode = channel.r < 128 ? 1.0 : 0.0;
+    int rChan = channel.r < 128 ? channel.r : channel.r - 128;
+    bool unknown = rChan >= 126 && channel.g >= 254 && channel.b >= 254;
+    ivec3 bits = ivec3(rChan, channel.g - 128, channel.b - 128) >> 2;
+    float ground = unknown ? -1000000.0 : float((bits.r << 10 | bits.g << 5 | bits.b) - 2048);
+    wallMeta = vec2(ground, mode);
 }

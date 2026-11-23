@@ -37,11 +37,25 @@ class BandTest {
     }
 
     @Test
-    void inACaveBelowTheWallsGroundTheBandStaysAtTheFeet() {
-        final Band.Range need = Band.need(List.of(new Band.Seen("border/field", 64)), 30 + Band.EYE, Look.FIELD);
+    void inACaveBelowTheWallsGroundTheBandCoversBothFeetAndGround() {
+        final Band.Range need =
+                Band.need(List.of(new Band.Seen("border/field", 64, Placement.AIR_FOCUS)), 30 + Band.EYE, Look.FIELD);
 
         assertEquals(Band.foot(Band.UNKNOWN, 30 - Band.CAMERA), need.bottom(), 1e-9);
-        assertEquals(Band.head(30 + Band.CAMERA, Look.FIELD), need.top(), 1e-9);
+        assertEquals(Band.head(64, Look.FIELD), need.top(), 1e-9);
+    }
+
+    @Test
+    void inAValleyBesideAHillTheRangeCoversTheHillsTerrainBand() {
+        final Band.Range need = Band.need(
+                List.of(
+                        new Band.Seen("border/field", 64, Placement.PROXIMITY_WINDOW),
+                        new Band.Seen("border/field", 85, Placement.PROXIMITY_WINDOW)),
+                64 + Band.EYE,
+                Look.FIELD);
+
+        assertEquals(Band.foot(64, 64 - Band.CAMERA), need.bottom(), 1e-9);
+        assertEquals(Band.head(85, Look.FIELD), need.top(), 1e-9);
     }
 
     @Test
@@ -60,8 +74,8 @@ class BandTest {
 
     /** Whether a player at 150, 0 with the eye at {@code eyeY} is sent the panel {@code along} blocks away. */
     private static boolean sent(final double eyeY, final double along) {
-        return Band.seen(LONG, Look.FIELD, 150, 0, eyeY, panel -> 64).keySet().stream()
-                .anyMatch(panel -> panel.z() == 0 && Math.abs(panel.x() - 150 - along) < 1e-9);
+        return Band.seen(LONG, Look.FIELD, Placement.AIR_FOCUS, 150, 0, eyeY, panel -> 64).keySet().stream()
+                .anyMatch(panel -> Math.abs(panel.z() - Wall.INSET) < 1e-9 && Math.abs(panel.x() - 150 - along) < 1e-9);
     }
 
     @Test
@@ -93,24 +107,47 @@ class BandTest {
     }
 
     @Test
-    void theTintCarriesTheGroundAndTheShaderReadsItBack() {
-        for (final int ground : new int[] {-64, -1, 0, 63, 64, 319, 2000}) {
-            assertEquals(ground, decode(Band.tint(ground)), "ground " + ground);
-            assertEquals(ground, decode(Band.tint(ground) + 0x010101), "a channel one high, ground " + ground);
-            assertEquals(ground, decode(Band.tint(ground) - 0x010101), "a channel one low, ground " + ground);
+    void theTintCarriesTheGroundAndPlacementAndTheShaderReadsBothBack() {
+        for (final Placement placement : Placement.values()) {
+            for (final int ground : new int[] {-64, -1, 0, 63, 64, 319, 2000}) {
+                final int rgb = Band.tint(ground, placement);
+                assertEquals(ground, decodeGround(rgb), placement + " ground " + ground);
+                assertEquals(placement, decodePlacement(rgb), placement + " mode " + ground);
+                assertEquals(ground, decodeGround(rgb + 0x010101), placement + " high " + ground);
+                assertEquals(placement, decodePlacement(rgb + 0x010101), placement + " high mode " + ground);
+                assertEquals(ground, decodeGround(rgb - 0x010101), placement + " low " + ground);
+                assertEquals(placement, decodePlacement(rgb - 0x010101), placement + " low mode " + ground);
+            }
         }
     }
 
     @Test
-    void anUnknownGroundIsWhite() {
-        assertEquals(0xFFFFFF, Band.tint(Band.UNKNOWN));
+    void anUnknownGroundEncodesOnlyItsPlacementMode() {
+        assertEquals(0xFFFFFF, Band.tint(Band.UNKNOWN, Placement.AIR_FOCUS));
+        assertEquals(0x7FFFFF, Band.tint(Band.UNKNOWN, Placement.PROXIMITY_WINDOW));
+        assertEquals(Band.UNKNOWN, decodeGround(Band.tint(Band.UNKNOWN, Placement.AIR_FOCUS)));
+        assertEquals(Band.UNKNOWN, decodeGround(Band.tint(Band.UNKNOWN, Placement.PROXIMITY_WINDOW)));
+        assertEquals(Placement.AIR_FOCUS, decodePlacement(Band.tint(Band.UNKNOWN, Placement.AIR_FOCUS)));
+        assertEquals(Placement.PROXIMITY_WINDOW, decodePlacement(Band.tint(Band.UNKNOWN, Placement.PROXIMITY_WINDOW)));
     }
 
-    /** What item.vsh reads from the tint. */
-    private static int decode(final int rgb) {
-        final int r = (((rgb >> 16) & 255) - 128) >> 2;
-        final int g = (((rgb >> 8) & 255) - 128) >> 2;
-        final int b = ((rgb & 255) - 128) >> 2;
+    /** What item.vsh reads from the tint for the ground height. */
+    private static int decodeGround(final int rgb) {
+        final int rRaw = (rgb >> 16) & 255;
+        final int gRaw = (rgb >> 8) & 255;
+        final int bRaw = rgb & 255;
+        final int rChan = rRaw < 128 ? rRaw : rRaw - 128;
+        if (rChan >= 126 && gRaw >= 254 && bRaw >= 254) {
+            return Band.UNKNOWN;
+        }
+        final int r = rChan >> 2;
+        final int g = (gRaw - 128) >> 2;
+        final int b = (bRaw - 128) >> 2;
         return (r << 10 | g << 5 | b) - 2048;
+    }
+
+    /** What item.vsh reads from the tint for the placement mode. */
+    private static Placement decodePlacement(final int rgb) {
+        return ((rgb >> 16) & 255) < 128 ? Placement.PROXIMITY_WINDOW : Placement.AIR_FOCUS;
     }
 }

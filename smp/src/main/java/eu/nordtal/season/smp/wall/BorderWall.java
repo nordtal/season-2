@@ -23,6 +23,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
@@ -63,6 +65,7 @@ public final class BorderWall implements Listener {
     private final Consumer<Player> pushSound;
 
     private Map<String, Walls.Drawn> walls = Map.of();
+    private Placement placement = Placement.configured();
     private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final Map<UUID, Long> pushed = new HashMap<>();
 
@@ -97,12 +100,49 @@ public final class BorderWall implements Listener {
         }
     }
 
+    /** Switches the vertical placement approach and redraws the wall for every online player. */
+    public void placement(final Placement next, final Collection<? extends Player> online) {
+        if (placement == next) {
+            return;
+        }
+        placement = next;
+        grounds.clear();
+        for (final Player player : online) {
+            show(player, Objects.requireNonNull(player.getLocation()));
+        }
+    }
+
+    /** Returns the active vertical placement approach. */
+    public Placement placement() {
+        return placement;
+    }
+
     /** Takes every panel away from every player. */
     public void stop(final Collection<? extends Player> online) {
         for (final Player player : online) {
             clear(player);
         }
         walls = Map.of();
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void blockPlaced(final BlockPlaceEvent event) {
+        final var block = event.getBlock();
+        if (!walls.containsKey(block.getWorld().getName())) {
+            return;
+        }
+        grounds.invalidate(block.getWorld().getName(), block.getX(), block.getZ());
+        show(event.getPlayer(), Objects.requireNonNull(event.getPlayer().getLocation()));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void blockBroken(final BlockBreakEvent event) {
+        final var block = event.getBlock();
+        if (!walls.containsKey(block.getWorld().getName())) {
+            return;
+        }
+        grounds.invalidate(block.getWorld().getName(), block.getX(), block.getZ());
+        show(event.getPlayer(), Objects.requireNonNull(event.getPlayer().getLocation()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -416,7 +456,13 @@ public final class BorderWall implements Listener {
         final double eye = at.getY() + player.getEyeHeight();
         final long now = clock.millis();
         final Map<Panel, Band.Seen> seen = Band.seen(
-                drawn.wall(), look, at.getX(), at.getZ(), eye, panel -> grounds.at(at.getWorld(), panel, now));
+                drawn.wall(),
+                look,
+                placement,
+                at.getX(),
+                at.getZ(),
+                eye,
+                panel -> grounds.at(at.getWorld(), panel, placement, now));
         final Band.Change change = Band.change(viewer.seen(), seen);
         packets.remove(id, viewer.forget(change.removed()));
         change.remodelled().forEach((panel, after) -> packets.remodel(id, viewer.remodel(panel, after), after));

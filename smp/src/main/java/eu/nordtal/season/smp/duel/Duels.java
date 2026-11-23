@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -100,6 +102,7 @@ public final class Duels implements Arenas {
     private final WorldEffects effects;
     private final Clock clock;
     private final ArenaCopy copy;
+    private final FighterStateStore fighterStates;
     private final Negotiation negotiation;
 
     private @Nullable ActiveDuel active;
@@ -130,6 +133,7 @@ public final class Duels implements Arenas {
         this.sounds = sounds;
         this.effects = effects;
         this.copy = new ArenaCopy(plugin);
+        this.fighterStates = new FighterStateStore(plugin);
         this.negotiation =
                 new Negotiation(plugin, this, config, identities, renderer, documents, dialogs, sounds, clock);
     }
@@ -242,6 +246,63 @@ public final class Duels implements Arenas {
         }
     }
 
+    /** What {@link #joined} does when a player logs in. */
+    enum JoinRecovery {
+        /** Nothing to restore: the player fights, already awaits respawn, or has no persisted state. */
+        SKIP,
+        /** The fighter logged in dead: park the saved state until respawn and trigger respawn. */
+        PARK_PENDING,
+        /** The fighter logged in alive: restore once at {@code duels.exit} and delete the persisted file. */
+        RESTORE_NOW;
+
+        static JoinRecovery of(
+                final boolean inArena, final boolean pending, final boolean dead, final boolean hasStored) {
+            if (inArena || pending || !hasStored) {
+                return SKIP;
+            }
+            return dead ? PARK_PENDING : RESTORE_NOW;
+        }
+    }
+
+    /** Restores a fighter whose duel was cut short by a crash, once, at {@code duels.exit}. */
+    public void joined(final Player player) {
+        recoverOnJoin(
+                player.getUniqueId(),
+                isInArena(player),
+                player.isDead(),
+                fighterStates,
+                pending,
+                stored -> SavedState.fromStored(stored, plugin.getLogger()),
+                state -> state.restore(player, exit()),
+                () -> player.spigot().respawn());
+    }
+
+    static <T> JoinRecovery recoverOnJoin(
+            final UUID playerId,
+            final boolean inArena,
+            final boolean dead,
+            final FighterStateStore store,
+            final Map<UUID, T> pending,
+            final Function<FighterStateStore.StoredState, T> decode,
+            final Consumer<T> restoreAtExit,
+            final Runnable triggerRespawn) {
+        final boolean alreadyPending = pending.containsKey(playerId);
+        final FighterStateStore.@Nullable StoredState stored = inArena || alreadyPending ? null : store.load(playerId);
+        final JoinRecovery action = JoinRecovery.of(inArena, alreadyPending, dead, stored != null);
+        switch (action) {
+            case SKIP -> {}
+            case PARK_PENDING -> {
+                pending.put(playerId, decode.apply(Objects.requireNonNull(stored)));
+                triggerRespawn.run();
+            }
+            case RESTORE_NOW -> {
+                restoreAtExit.accept(decode.apply(Objects.requireNonNull(stored)));
+                store.delete(playerId);
+            }
+        }
+        return action;
+    }
+
     /** The inventory is restored one tick later, after the respawn has written its own. */
     public void respawned(final org.bukkit.event.player.PlayerRespawnEvent event) {
         final SavedState state = pending.remove(event.getPlayer().getUniqueId());
@@ -256,6 +317,7 @@ public final class Duels implements Arenas {
             final Player player = Bukkit.getPlayer(event.getPlayer().getUniqueId());
             if (player != null) {
                 state.restore(player, exit());
+                fighterStates.delete(player.getUniqueId());
             }
         });
     }
@@ -286,9 +348,16 @@ public final class Duels implements Arenas {
             return Blocked.ARENA_NOT_READY;
         }
 
+        final SavedState firstState = SavedState.of(first);
+        final SavedState secondState = SavedState.of(second);
+        if (!persistStates(first.getUniqueId(), firstState, second.getUniqueId(), secondState)) {
+            copy.restore();
+            return Blocked.ARENA_NOT_READY;
+        }
+
         final Map<UUID, SavedState> saved = new HashMap<>();
-        saved.put(first.getUniqueId(), SavedState.of(first));
-        saved.put(second.getUniqueId(), SavedState.of(second));
+        saved.put(first.getUniqueId(), firstState);
+        saved.put(second.getUniqueId(), secondState);
 
         final Map<UUID, String> discordIds = new HashMap<>();
         identities.discordIdOf(first.getUniqueId()).ifPresent(id -> discordIds.put(first.getUniqueId(), id.value()));
@@ -311,6 +380,18 @@ public final class Duels implements Arenas {
         }
         countdown(duel);
         return null;
+    }
+
+    private boolean persistStates(
+            final UUID firstId, final SavedState firstState, final UUID secondId, final SavedState secondState) {
+        if (!fighterStates.save(firstId, firstState.toStored())) {
+            return false;
+        }
+        if (!fighterStates.save(secondId, secondState.toStored())) {
+            fighterStates.delete(firstId);
+            return false;
+        }
+        return true;
     }
 
     private static @Nullable Location position(final SpotSpec spec) {
@@ -432,6 +513,7 @@ public final class Duels implements Arenas {
             player.spigot().respawn();
         } else {
             state.restore(player, exit());
+            fighterStates.delete(playerId);
         }
         final java.util.Locale locale = identities.languageOf(playerId);
         final Result result = new Result(

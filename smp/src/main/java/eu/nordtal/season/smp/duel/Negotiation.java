@@ -160,6 +160,7 @@ final class Negotiation {
             left.remove(id);
         }
         switch (AreaStep.of(
+                player.getGameMode(),
                 isOn(event.getFrom()),
                 on,
                 negotiates(id),

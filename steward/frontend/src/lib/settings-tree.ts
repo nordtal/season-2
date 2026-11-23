@@ -33,7 +33,7 @@ export type TreeBranch<L> = {
 export type TreeNode<L> = TreeLeaf<L> | TreeBranch<L>
 
 /**
- * `farm-world` reads "Farm world" and `serverUuid` reads "Server UUID", for a section that nothing named. `keepBrands` keeps `bStats`.
+ * `resource-pack` reads "Resource pack" and `serverUuid` reads "Server UUID", for a section that nothing named. `keepBrands` keeps `bStats`.
  */
 export function humanise(segment: string, keepBrands = false): string {
   return sentenceOf(segment.split(/[-_.\s]+/), keepBrands) || segment

@@ -75,7 +75,7 @@ function shape<L>(nodes: TreeNode<L>[], depth = 0): string[] {
 
 describe("humanise", () => {
   it("turns a key segment into a sentence-case name", () => {
-    expect(humanise("farm-world")).toBe("Farm world")
+    expect(humanise("resource-pack")).toBe("Resource pack")
     expect(humanise("discord-bot")).toBe("Discord bot")
     expect(humanise("smp")).toBe("SMP")
   })
@@ -172,9 +172,9 @@ describe("a config file as a tree", () => {
   })
 
   it("names a section the file never listed after its key", () => {
-    const tree = configTree([config({ path: "farm-world.size", label: "Size" }), config({ path: "x", label: "X" })])
+    const tree = configTree([config({ path: "resource-pack.size", label: "Size" }), config({ path: "x", label: "X" })])
 
-    expect(shape(tree)).toEqual(["[Farm world]", "  farm-world.size", "x"])
+    expect(shape(tree)).toEqual(["[Resource pack]", "  resource-pack.size", "x"])
   })
 })
 
@@ -374,8 +374,8 @@ describe("the texts as a tree", () => {
   })
 
   it("shows a message by its name, or by its last segment made readable", () => {
-    expect(messageName(message({ key: "a.b.farm-reset", name: "Farm reset notice" }))).toBe("Farm reset notice")
-    expect(messageName(message({ key: "a.b.farm-reset" }))).toBe("Farm reset")
+    expect(messageName(message({ key: "a.b.world-reset", name: "World reset notice" }))).toBe("World reset notice")
+    expect(messageName(message({ key: "a.b.world-reset" }))).toBe("World reset")
   })
 })
 

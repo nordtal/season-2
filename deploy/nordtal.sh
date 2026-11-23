@@ -1103,7 +1103,7 @@ renew_self() {
     fi
     if ! fetch_url "$checksum_url" "$checksum"; then
         rm -f "$candidate" "$checksum"
-        running_from_a_file || die "Installation stopped: $checksum_url could not be downloaded to verify $script_url."
+        running_from_a_file || die "Installation stopped: $checksum_url could not be downloaded to verify $script_url. Download nordtal.sh and run it in the installation directory."
         warn "release checksum not fetched, local copy used: url=$checksum_url"
         ORIGIN="local copy, checksum unreachable"
         return 0

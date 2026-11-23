@@ -141,9 +141,14 @@ final class SmpStart {
                 () -> plugin.track,
                 plugin.season,
                 regions -> {
-                    final BorderWall wall = Objects.requireNonNull(plugin.borderWall);
-                    wall.open(regions, plugin.getServer().getOnlinePlayers());
-                    plugin.applyCustomLimit();
+                    final java.util.Set<String> current = plugin.season.borderRegions();
+                    final java.util.List<String> stillOpen =
+                            regions.stream().filter(current::contains).toList();
+                    if (!stillOpen.isEmpty()) {
+                        final BorderWall wall = Objects.requireNonNull(plugin.borderWall);
+                        wall.open(stillOpen, plugin.getServer().getOnlinePlayers());
+                        plugin.applyCustomLimit();
+                    }
                 },
                 plugin.identities(),
                 plugin.renderer(),

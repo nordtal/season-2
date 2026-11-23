@@ -5,6 +5,7 @@ DECLARE
     updated_milestones jsonb;
     worlds jsonb;
     updated_worlds jsonb;
+    overworld text;
     placeholders jsonb := '[
         {"name": "departure", "corners": [{"x": 3958, "z": 2167}, {"x": 4000, "z": 2167}, {"x": 4000, "z": 2209}, {"x": 3958, "z": 2209}]},
         {"name": "foothold", "corners": [{"x": 3929, "z": 2138}, {"x": 4029, "z": 2138}, {"x": 4029, "z": 2238}, {"x": 3929, "z": 2238}]},
@@ -21,7 +22,7 @@ BEGIN
         SELECT coalesce(jsonb_agg(
             CASE
                 WHEN jsonb_typeof(entry.milestone) <> 'object' THEN entry.milestone
-                WHEN entry.milestone ->> 'unlocks' = 'BORDER' AND NOT (entry.milestone ? 'border-regions')
+                WHEN upper(btrim(entry.milestone ->> 'unlocks', E' \t\r\n')) = 'BORDER' AND NOT (entry.milestone ? 'border-regions')
                     THEN (entry.milestone - 'border-diameter')
                         || jsonb_build_object(
                             'border-regions',
@@ -54,7 +55,7 @@ BEGIN
                 SELECT entry.milestone ->> 'key' AS region_name, min(entry.place) AS first_place
                 FROM jsonb_array_elements(updated_milestones) WITH ORDINALITY AS entry (milestone, place)
                 WHERE jsonb_typeof(entry.milestone) = 'object'
-                    AND entry.milestone ->> 'unlocks' = 'BORDER'
+                    AND upper(btrim(entry.milestone ->> 'unlocks', E' \t\r\n')) = 'BORDER'
                     AND coalesce(entry.milestone ->> 'key', '') <> ''
                     AND NOT EXISTS (
                         SELECT 1
@@ -66,11 +67,16 @@ BEGIN
         ), '[]'::jsonb);
     END IF;
 
+    SELECT coalesce(
+        nullif(btrim(setting_override_value('smp', 'worlds', 'world-nordtal') #>> '{}', E' \t\r\n'), ''),
+        'nordtal')
+    INTO overworld;
+
     SELECT setting_override_value('smp', 'custom-border', 'worlds') INTO worlds;
     IF jsonb_typeof(worlds) = 'array' THEN
         SELECT coalesce(jsonb_agg(
             CASE
-                WHEN jsonb_typeof(entry.world) = 'object' AND entry.world ->> 'world' = 'nordtal' THEN
+                WHEN jsonb_typeof(entry.world) = 'object' AND entry.world ->> 'world' = overworld THEN
                     jsonb_set(
                         entry.world,
                         '{polygons}',
@@ -100,10 +106,10 @@ BEGIN
 
         IF NOT EXISTS (
             SELECT 1 FROM jsonb_array_elements(updated_worlds) AS w (world)
-            WHERE w.world ->> 'world' = 'nordtal'
+            WHERE w.world ->> 'world' = overworld
         ) THEN
             updated_worlds := updated_worlds || jsonb_build_array(
-                jsonb_build_object('world', 'nordtal', 'enabled', true, 'polygons', placeholders));
+                jsonb_build_object('world', overworld, 'enabled', true, 'polygons', placeholders));
         END IF;
 
         IF NOT EXISTS (

@@ -18,7 +18,7 @@ class BorderRegionsUpgradeIntegrationTest {
             [
               {"key": "departure", "unlocks": "BORDER", "border-diameter": 43, "admin-unlocked": true, "objectives": []},
               {"key": "nether", "unlocks": "NETHER", "border-diameter": 0, "admin-unlocked": false, "objectives": []},
-              {"key": "exploration", "unlocks": "BORDER", "border-diameter": 5000, "admin-unlocked": false, "objectives": []}
+              {"key": "exploration", "unlocks": " border ", "border-diameter": 5000, "admin-unlocked": false, "objectives": []}
             ]
             """;
 

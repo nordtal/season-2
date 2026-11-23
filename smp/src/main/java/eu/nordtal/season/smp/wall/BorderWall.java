@@ -182,8 +182,23 @@ public final class BorderWall implements Listener {
             walls = Map.of();
             return;
         }
-        final Walls.Read read = Walls.read(spec, overworld, open, stages, readAt, speed.getAsDouble());
+        applyRead(Walls.read(spec, overworld, open, stages, readAt, speed.getAsDouble()));
+    }
+
+    private void readOverworld() {
+        readAt = clock.millis();
+        if (spec == null) {
+            walls = Map.of();
+            return;
+        }
+        applyRead(Walls.readOverworld(spec, overworld, walls, open, stages, readAt, speed.getAsDouble()));
+    }
+
+    private void applyRead(final Walls.Read read) {
         walls = read.walls();
+        if (!read.overworldEvaluated()) {
+            return;
+        }
         final Set<String> settled = new HashSet<>(open);
         final List<Front.Stage> left = new ArrayList<>();
         for (final Front.Stage stage : stages) {
@@ -204,7 +219,7 @@ public final class BorderWall implements Listener {
         if (stages.isEmpty() || clock.millis() - readAt < step) {
             return;
         }
-        read();
+        readOverworld();
         grounds.clear(overworld);
         for (final Player player : online) {
             final Location at = Objects.requireNonNull(player.getLocation());

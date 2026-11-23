@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.wall;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.smp.config.CustomBorderSpec;
@@ -55,27 +56,68 @@ class BorderWallTest {
         assertFalse(afterReset.inside(15, 5));
     }
 
+    @Test
+    void disablingOverworldMidSpreadDoesNotSettleStageAndSpreadReusesOtherDimensionWalls() {
+        final AtomicLong now = new AtomicLong(1_000);
+        final BorderWall border =
+                new BorderWall(clock(now), Runnable::run, ignored -> {}, ignored -> false, "nordtal", () -> 2.0);
+        border.apply(twoRegionAndNetherSpec(true), List.of());
+        border.regions(Set.of("base"), List.of());
+
+        border.open(List.of("east"), List.of());
+        assertTrue(border.spreading());
+        final Wall netherBefore = assertPresent(border.wall("nordtal_nether"));
+
+        // Advancing the overworld front reuses the cached Nether wall without rebuilding it.
+        now.set(3_000);
+        border.tick(List.of());
+        assertSame(netherBefore, border.wall("nordtal_nether"));
+
+        // Temporarily disabling the overworld wall must not settle the spreading stage.
+        border.apply(twoRegionAndNetherSpec(false), List.of());
+        assertTrue(border.spreading());
+
+        // Re-enabling resumes the front instead of jumping straight to fully open.
+        border.apply(twoRegionAndNetherSpec(true), List.of());
+        assertTrue(border.spreading());
+        assertFalse(assertPresent(border.wall("nordtal")).inside(25, 5));
+    }
+
     private static Wall assertPresent(final @Nullable Wall wall) {
         assertNotNull(wall);
         return wall;
     }
 
     private static CustomBorderSpec twoRegionSpec() {
+        return twoRegionAndNetherSpec(true);
+    }
+
+    private static CustomBorderSpec twoRegionAndNetherSpec(final boolean overworldEnabled) {
         return Specs.createUnsafe(
                 CustomBorderSpec.class,
                 Map.of(
                         "worlds",
-                        List.of(Specs.createUnsafe(
-                                CustomBorderSpec.World.class,
-                                Map.of(
-                                        "world",
-                                        "nordtal",
-                                        "enabled",
-                                        true,
-                                        "polygons",
-                                        List.of(
-                                                polygon("base", 0, 0, 10, 0, 10, 10, 0, 10),
-                                                polygon("east", 10, 0, 30, 0, 30, 10, 10, 10)))))));
+                        List.of(
+                                Specs.createUnsafe(
+                                        CustomBorderSpec.World.class,
+                                        Map.of(
+                                                "world",
+                                                "nordtal",
+                                                "enabled",
+                                                overworldEnabled,
+                                                "polygons",
+                                                List.of(
+                                                        polygon("base", 0, 0, 10, 0, 10, 10, 0, 10),
+                                                        polygon("east", 10, 0, 30, 0, 30, 10, 10, 10)))),
+                                Specs.createUnsafe(
+                                        CustomBorderSpec.World.class,
+                                        Map.of(
+                                                "world",
+                                                "nordtal_nether",
+                                                "enabled",
+                                                true,
+                                                "polygons",
+                                                List.of(polygon("Nether", -10, -10, 10, -10, 10, 10, -10, 10)))))));
     }
 
     private static CustomBorderSpec.Polygon polygon(final String name, final int... coords) {

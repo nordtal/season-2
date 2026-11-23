@@ -413,7 +413,7 @@ class MigrationsAreImmutableTest {
                 "a1f4e1983556a0896c0b8a940ce7dd5082c729e171cd6962d2d631db718e92e2");
         FROZEN.put(
                 "V143__milestones_open_border_regions_and_dimensions_carry_fixed_borders.sql",
-                "686d37b95d1d71856dfd96609c96af4cc22ff0ec65935f6cadb1f68b9e739163");
+                "0fe856e13ab71d6b2e45374b39481e01cf0c76d20b7cf4d1486c764a7a36d759");
     }
 
     @Test

@@ -488,7 +488,7 @@ public final class SmpPlugin extends NordtalPlugin {
             quietly("duels.stop", running::stop);
         }
         if (graves != null) {
-            quietly("graves.clearDisplays", graves::clearDisplays);
+            quietly("graves.stop", graves::stop);
         }
         final SmpStart.Rails tracked = rails;
         if (tracked != null) {

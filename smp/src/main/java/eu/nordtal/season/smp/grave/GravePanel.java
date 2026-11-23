@@ -51,6 +51,14 @@ public final class GravePanel {
         return slot >= 0 && slot < contentSlots(contentRows);
     }
 
+    /** Returns whether an item may move through {@code rawSlot}: a content slot or one of the viewer's own. */
+    static boolean leavesFree(final boolean holdsLoot, final int rawSlot, final int contentRows) {
+        return holdsLoot
+                && (rawSlot < 0
+                        || rawSlot >= rows(contentRows) * SlotGeometry.COLUMNS
+                        || isContent(rawSlot, contentRows));
+    }
+
     public static int headSlot(final int contentRows) {
         return SlotGeometry.slot(0, footerRow(contentRows));
     }

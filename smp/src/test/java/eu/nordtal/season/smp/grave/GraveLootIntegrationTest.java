@@ -118,7 +118,8 @@ class GraveLootIntegrationTest {
         execute("INSERT INTO smp_grave (id, owner_id, world, x, y, z, contents, experience)" + " VALUES ('" + fresh
                 + "', '" + OWNER + "', 'nordtal', 9, 9, 9, '\\x00', 0)");
 
-        final List<ExpiredGrave> gone = dao.expireGravesOlderThan(24);
+        final List<ExpiredGrave> gone =
+                dao.expireGravesCreatedBefore(Instant.now().minus(Duration.ofHours(24)));
 
         assertEquals(1, gone.size(), "exactly the old grave, and not the one made a moment ago");
         assertEquals(graveId, gone.getFirst().id());
@@ -142,7 +143,7 @@ class GraveLootIntegrationTest {
         dao.markGraveLooted(graveId, LOOTER);
         execute("UPDATE smp_grave SET created = now() - interval '400 hours' WHERE id = '" + graveId + "'");
 
-        assertEquals(List.of(), dao.expireGravesOlderThan(24));
+        assertEquals(List.of(), dao.expireGravesCreatedBefore(Instant.now().minus(Duration.ofHours(24))));
         assertEquals(LOOTER, scalar("SELECT looted_by FROM smp_grave WHERE id = '" + graveId + "'"));
     }
 
@@ -156,7 +157,9 @@ class GraveLootIntegrationTest {
 
         assertEquals(
                 List.of(graveId),
-                dao.expireGravesOlderThan(24).stream().map(ExpiredGrave::id).toList());
+                dao.expireGravesCreatedBefore(Instant.now().minus(Duration.ofHours(24))).stream()
+                        .map(ExpiredGrave::id)
+                        .toList());
         assertEquals(
                 "1",
                 scalar("SELECT count(*) FROM smp_grave WHERE id = '" + second + "'"),

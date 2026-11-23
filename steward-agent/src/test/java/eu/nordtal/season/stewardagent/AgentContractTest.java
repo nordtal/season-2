@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
@@ -15,6 +16,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.LogFollow;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import eu.nordtal.season.internalapi.agent.Topology;
+import eu.nordtal.season.stewardagent.measure.HostMetrics;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -135,6 +137,11 @@ class AgentContractTest {
         assertFalse(rounds.isEmpty(), "the first round is taken when the agent starts, not a period later");
         assertTrue(rounds.getLast().services().containsKey("smp"));
         assertEquals(List.of(), client.samples(rounds.getLast().at()));
+
+        final List<Path> unreadable = HostMetrics.REQUIRED_PROC_FILES.stream()
+                .filter(path -> !Files.isRegularFile(path) || !Files.isReadable(path))
+                .toList();
+        assumeTrue(unreadable.isEmpty(), () -> "missing readable Linux /proc metrics: " + unreadable);
 
         final AgentWire.Host host = client.host();
         assertNotNull(host.numbers(), host.unreadable());

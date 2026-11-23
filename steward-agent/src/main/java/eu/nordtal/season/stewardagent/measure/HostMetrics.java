@@ -21,6 +21,14 @@ public final class HostMetrics {
     /** Where the kernel's own numbers are; the tests pass a captured copy. */
     private static final String PROC = "/proc";
 
+    private static final String LOADAVG = "loadavg";
+    private static final String STAT = "stat";
+    private static final String MEMINFO = "meminfo";
+
+    /** Every Linux {@code /proc} file {@link #HostMetrics()} reads to build a snapshot. */
+    public static final List<Path> REQUIRED_PROC_FILES =
+            List.of(Path.of(PROC, LOADAVG), Path.of(PROC, STAT), Path.of(PROC, MEMINFO));
+
     /**
      * The default filesystem. Inside a container {@code /} reports the backing filesystem of the host.
      */
@@ -112,7 +120,7 @@ public final class HostMetrics {
     private record Load(double one, double five, double fifteen) {}
 
     private Load readLoad() throws IOException {
-        final Path file = procRoot.resolve("loadavg");
+        final Path file = procRoot.resolve(LOADAVG);
         final String line = Files.readString(file, StandardCharsets.UTF_8).strip();
         final String[] fields = WHITESPACE.splitAsStream(line).toArray(String[]::new);
         if (fields.length < 3) {
@@ -135,7 +143,7 @@ public final class HostMetrics {
      * Guest time is inside user and nice, so only eight fields are summed. iowait counts as idle, as in htop.
      */
     private Cpu readCpu() throws IOException {
-        final Path file = procRoot.resolve("stat");
+        final Path file = procRoot.resolve(STAT);
         final List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
 
         long total = -1;
@@ -201,7 +209,7 @@ public final class HostMetrics {
 
     /** Five lines of {@code /proc/meminfo}, in bytes: a missing memory field throws, a missing swap field is zero. */
     private Memory readMemory() throws IOException {
-        final Path file = procRoot.resolve("meminfo");
+        final Path file = procRoot.resolve(MEMINFO);
         long total = -1;
         long available = -1;
         long free = -1;

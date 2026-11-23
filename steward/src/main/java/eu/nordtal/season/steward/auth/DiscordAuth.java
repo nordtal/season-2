@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.auth;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.http.Reply;
 import eu.nordtal.season.common.http.WebClient;
@@ -15,9 +16,16 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.InstantSource;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,22 +42,31 @@ public final class DiscordAuth {
 
     private static final String AUTHORIZE = "https://discord.com/oauth2/authorize";
     private static final String SCOPES = "identify guilds.members.read";
+    private static final Duration ANSWER = Duration.ofSeconds(15);
+    private static final Duration DEFAULT_BACKOFF = Duration.ofSeconds(5);
+    private static final Duration MAX_BACKOFF = Duration.ofMinutes(10);
 
     private final WebSpec.DiscordSpec config;
     private final String redirectUri;
     private final String api;
-    private static final Duration ANSWER = Duration.ofSeconds(15);
-
+    private final InstantSource clock;
     private final WebClient web;
+    private final AtomicReference<Instant> blockedUntil = new AtomicReference<>(Instant.EPOCH);
 
     public DiscordAuth(final WebSpec.DiscordSpec config, final String publicUrl) {
-        this(config, publicUrl, DISCORD_API);
+        this(config, publicUrl, DISCORD_API, InstantSource.system());
     }
 
     public DiscordAuth(final WebSpec.DiscordSpec config, final String publicUrl, final String api) {
+        this(config, publicUrl, api, InstantSource.system());
+    }
+
+    public DiscordAuth(
+            final WebSpec.DiscordSpec config, final String publicUrl, final String api, final InstantSource clock) {
         this.config = config;
         this.redirectUri = publicUrl + "/auth/callback";
         this.api = plaintextOnlyToOurselves(api);
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.web = WebClient.create(Duration.ofSeconds(10), ANSWER);
     }
 
@@ -110,7 +127,7 @@ public final class DiscordAuth {
         try {
             accessToken = exchange(code);
         } catch (AuthException e) {
-            return Outcome.refused(e.why());
+            return e.status() == 429 ? Outcome.refused(429, e.why()) : Outcome.refused(e.why());
         }
 
         final JsonObject user;
@@ -119,6 +136,9 @@ public final class DiscordAuth {
             user = getJson("/users/@me", accessToken);
             member = getJson("/users/@me/guilds/" + config.guildId() + "/member", accessToken);
         } catch (AuthException e) {
+            if (e.status() == 429) {
+                return Outcome.refused(429, e.why());
+            }
             // A 404 means the user is not in the guild.
             return Outcome.refused(e.status() == 404 ? REFUSED.notInGuild() : e.why());
         }
@@ -160,13 +180,88 @@ public final class DiscordAuth {
     }
 
     private Reply send(final Exchange exchange) {
+        final Instant now = clock.instant();
+        if (now.isBefore(blockedUntil.get())) {
+            throw new AuthException(429, REFUSED.tooManySignIns());
+        }
+        final Reply response;
         try {
-            return exchange.send();
+            response = exchange.send();
         } catch (final InterruptedIOException e) {
             throw new AuthException(503, REFUSED.interrupted());
         } catch (final IOException e) {
             throw new AuthException(502, REFUSED.discordUnreachable(String.valueOf(e.getMessage())));
         }
+        if (response.status() == 429) {
+            final Duration pause = retryAfter(response, now);
+            final Instant until = blockedUntil.accumulateAndGet(
+                    now.plus(pause), (current, candidate) -> candidate.isAfter(current) ? candidate : current);
+            log.warn("discord rate-limited sign-in: pause={} until={}", pause, until);
+            throw new AuthException(429, REFUSED.tooManySignIns());
+        }
+        return response;
+    }
+
+    private static Duration retryAfter(final Reply response, final Instant now) {
+        final Optional<Duration> fromHeader =
+                response.header("Retry-After").flatMap(value -> parseRetryAfter(value, now));
+        final Duration raw =
+                fromHeader.or(() -> parseBodyRetryAfter(response.body())).orElse(DEFAULT_BACKOFF);
+        return raw.compareTo(MAX_BACKOFF) > 0 ? MAX_BACKOFF : raw;
+    }
+
+    private static Optional<Duration> parseRetryAfter(final String raw, final Instant now) {
+        final String trimmed = raw.strip();
+        if (trimmed.isEmpty()) {
+            return Optional.empty();
+        }
+        final Optional<Duration> seconds = positiveSeconds(trimmed);
+        if (seconds.isPresent()) {
+            return seconds;
+        }
+        try {
+            final Instant target = ZonedDateTime.parse(trimmed, DateTimeFormatter.RFC_1123_DATE_TIME)
+                    .toInstant();
+            final Duration until = Duration.between(now, target);
+            return until.isPositive() ? Optional.of(until) : Optional.empty();
+        } catch (final DateTimeParseException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<Duration> parseBodyRetryAfter(final String body) {
+        if (body.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            final JsonObject json = Json.decode(body, JsonObject.class);
+            if (json == null || !json.has("retry_after")) {
+                return Optional.empty();
+            }
+            final JsonElement value = json.get("retry_after");
+            if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+                return Optional.empty();
+            }
+            return positiveSeconds(value.getAsDouble());
+        } catch (final RuntimeException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<Duration> positiveSeconds(final String raw) {
+        try {
+            return positiveSeconds(Double.parseDouble(raw));
+        } catch (final NumberFormatException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<Duration> positiveSeconds(final double seconds) {
+        if (!Double.isFinite(seconds) || seconds <= 0.0) {
+            return Optional.empty();
+        }
+        final long millis = (long) Math.ceil(seconds * 1000.0);
+        return Optional.of(Duration.ofMillis(Math.max(1L, millis)));
     }
 
     @FunctionalInterface
@@ -186,14 +281,18 @@ public final class DiscordAuth {
     }
 
     public record Outcome(
-            @Nullable Account account, @Nullable MessageRef refusal) {
+            @Nullable Account account, @Nullable MessageRef refusal, int status) {
 
         public static Outcome signedIn(final Account account) {
-            return new Outcome(account, null);
+            return new Outcome(account, null, 200);
         }
 
         public static Outcome refused(final MessageRef why) {
-            return new Outcome(null, why);
+            return refused(403, why);
+        }
+
+        public static Outcome refused(final int status, final MessageRef why) {
+            return new Outcome(null, why, status);
         }
 
         public boolean ok() {

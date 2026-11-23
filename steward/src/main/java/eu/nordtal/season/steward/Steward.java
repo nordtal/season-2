@@ -217,7 +217,7 @@ public final class Steward {
         final Web web = new Web(
                 webConfig,
                 () -> new Thresholds(alerts.diskPercent(), alerts.memoryPercent(), alerts.backupAgeHours()),
-                new DiscordAuth(webConfig.discord(), webConfig.publicUrl()),
+                new DiscordAuth(webConfig.discord(), webConfig.publicUrl(), DiscordAuth.DISCORD_API, CLOCK),
                 stack,
                 agent,
                 !config.agent().token().isBlank(),

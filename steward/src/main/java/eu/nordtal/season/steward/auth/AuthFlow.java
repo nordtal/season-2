@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.steward.RequestLimit;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -15,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.InstantSource;
 import java.util.Base64;
 import java.util.Objects;
 import java.util.Optional;
@@ -27,6 +29,10 @@ public final class AuthFlow {
 
     public static final Duration SWEEP = Duration.ofHours(1);
 
+    private static final Duration EXCHANGE_WINDOW = Duration.ofMinutes(1);
+    private static final int EXCHANGES_PER_CLIENT = 5;
+    private static final int EXCHANGES_TOTAL = 30;
+
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
@@ -37,18 +43,21 @@ public final class AuthFlow {
     private final Data data;
     private final Sessions sessions;
     private final AdminTree admins;
+    private final RequestLimit<String> exchanges;
 
     public AuthFlow(
             final WebSpec config,
             final DiscordAuth discord,
             final Data data,
             final Sessions sessions,
-            final AdminTree admins) {
+            final AdminTree admins,
+            final InstantSource clock) {
         this.config = config;
         this.discord = discord;
         this.data = data;
         this.sessions = sessions;
         this.admins = admins;
+        this.exchanges = new RequestLimit<>(clock, EXCHANGE_WINDOW, EXCHANGES_PER_CLIENT, EXCHANGES_TOTAL);
     }
 
     /** An empty admin tree without {@code discord.root-id} counts as missing. */
@@ -85,7 +94,7 @@ public final class AuthFlow {
         }
         final String id;
         try {
-            id = signIn(ctx.queryParam("code"));
+            id = signIn(ctx.queryParam("code"), clientAddress(ctx));
         } catch (final RuntimeException failed) {
             // The state is used once, so a failed callback cannot be answered again with another code.
             ctx.removeCookie(Sessions.COOKIE, "/");
@@ -96,13 +105,18 @@ public final class AuthFlow {
     }
 
     /** Returns the new session's id. A new id prevents session fixation. */
-    private String signIn(final @Nullable String code) {
+    private String signIn(final @Nullable String code, final String client) {
         if (code == null || code.isBlank()) {
             throw new RequestRefused(400, ANSWER.noCode());
         }
+        if (!exchanges.acquire(client)) {
+            log.warn("sign-in exchange rate-limited: client={}", client);
+            throw new RequestRefused(429, ANSWER.tooManySignIns());
+        }
         final DiscordAuth.Outcome outcome = discord.signIn(code);
         if (!outcome.ok()) {
-            throw new RequestRefused(403, Objects.requireNonNull(outcome.refusal(), "a refused sign-in says why"));
+            throw new RequestRefused(
+                    outcome.status(), Objects.requireNonNull(outcome.refusal(), "a refused sign-in says why"));
         }
         final DiscordAuth.Account who = Objects.requireNonNull(outcome.account());
         // An empty admin tree lets only the {@code discord.root-id} account claim root.
@@ -112,6 +126,15 @@ public final class AuthFlow {
             throw new RequestRefused(403, ANSWER.notAnAdmin(who.name()));
         }
         return sessions.signIn(DiscordId.of(who.id()), who.name());
+    }
+
+    /** Returns the client address as Caddy forwards it in {@code Cf-Connecting-IP}, or the peer address. */
+    private static String clientAddress(final Context ctx) {
+        final String forwarded = ctx.header("Cf-Connecting-IP");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.strip();
+        }
+        return ctx.ip();
     }
 
     private boolean claimRoot(final DiscordAuth.Account who) {

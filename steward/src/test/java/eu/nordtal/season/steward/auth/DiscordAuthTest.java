@@ -7,13 +7,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.steward.config.WebSpec;
+import io.javalin.Javalin;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
@@ -150,5 +155,50 @@ class DiscordAuthTest {
         // Allowed are the real API and a stand-in on a loopback port.
         assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", DiscordAuth.DISCORD_API));
         assertDoesNotThrow(() -> new DiscordAuth(config, "https://steward.example", "http://127.0.0.1:18093"));
+    }
+
+    @Test
+    void backsOffWhenDiscordAnswersTooManyRequests() {
+        final AtomicInteger hits = new AtomicInteger();
+        final AtomicBoolean rateLimited = new AtomicBoolean(true);
+        final Javalin fakeDiscord = Javalin.create(cfg -> {
+                    cfg.startup.showJavalinBanner = false;
+                    cfg.routes.post("/oauth2/token", ctx -> {
+                        hits.incrementAndGet();
+                        if (rateLimited.get()) {
+                            ctx.header("Retry-After", "30").status(429).result("{\"retry_after\":30}");
+                            return;
+                        }
+                        ctx.result("{\"access_token\":\"ok\"}");
+                    });
+                    cfg.routes.get("/users/@me", ctx -> ctx.result("{\"id\":\"1\",\"username\":\"ally\"}"));
+                    cfg.routes.get("/users/@me/guilds/1234/member", ctx -> ctx.result("{\"nick\":\"Ally\"}"));
+                })
+                .start(0);
+        try {
+            final AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-11-23T12:00:00Z"));
+            final DiscordAuth auth = new DiscordAuth(
+                    new Values().withClientId("app").withClientSecret("secret").withGuildId("1234"),
+                    "https://steward.example",
+                    "http://127.0.0.1:" + fakeDiscord.port(),
+                    now::get);
+
+            final DiscordAuth.Outcome first = auth.signIn("code-1");
+            now.set(now.get().plusSeconds(10));
+            final DiscordAuth.Outcome second = auth.signIn("code-2");
+
+            assertEquals(429, first.status(), "429 must propagate");
+            assertEquals(429, second.status(), "a call during Retry-After must return 429");
+            assertEquals(1, hits.get(), "Discord must not be called again during Retry-After backoff");
+
+            rateLimited.set(false);
+            now.set(now.get().plusSeconds(20));
+            final DiscordAuth.Outcome resumed = auth.signIn("code-3");
+
+            assertTrue(resumed.ok(), "sign-in must resume once Retry-After expires");
+            assertEquals(2, hits.get(), "Discord should be called again once Retry-After expires");
+        } finally {
+            fakeDiscord.stop();
+        }
     }
 }

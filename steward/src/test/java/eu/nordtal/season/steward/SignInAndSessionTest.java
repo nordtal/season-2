@@ -461,4 +461,49 @@ class SignInAndSessionTest extends WebTestSupport {
                 .get("signedIn")
                 .getAsBoolean());
     }
+
+    @Test
+    void aFloodOfMadeUpCallbacksCannotStopAnAdminFromSigningIn() throws Exception {
+        final HttpClient flooder = browser();
+        final int before = fakeDiscord.tokenRequests.get();
+
+        int limited = 0;
+        for (int attempt = 0; attempt < 8; attempt++) {
+            final String state = stateFrom(get(flooder, "/auth/login"));
+            final HttpResponse<String> callback = flooder.send(
+                    HttpRequest.newBuilder(URI.create(
+                                    "http://127.0.0.1:" + webPort + "/auth/callback?code=made-up&state=" + state))
+                            .header("Cf-Connecting-IP", "203.0.113.10")
+                            .GET()
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (callback.statusCode() == 429) {
+                limited++;
+            } else {
+                assertEquals(403, callback.statusCode(), callback.body());
+            }
+        }
+
+        assertEquals(3, limited, "the flooder should be rate-limited after five exchanges");
+        assertEquals(
+                5,
+                fakeDiscord.tokenRequests.get() - before,
+                "rate-limited callbacks must not reach Discord's token endpoint");
+
+        final HttpClient admin = browser();
+        final String state = stateFrom(get(admin, "/auth/login"));
+        final HttpResponse<String> callback = admin.send(
+                HttpRequest.newBuilder(URI.create(
+                                "http://127.0.0.1:" + webPort + "/auth/callback?code=the-code&state=" + state))
+                        .header("Cf-Connecting-IP", "203.0.113.20")
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(302, callback.statusCode(), callback.body());
+        assertTrue(
+                GSON.fromJson(get(admin, "/api/me").body(), JsonObject.class)
+                        .get("signedIn")
+                        .getAsBoolean(),
+                "a real admin from another client address must still sign in");
+    }
 }

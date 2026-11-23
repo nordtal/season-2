@@ -911,6 +911,7 @@
     "steward.answer.take-in-offline": [["Your linked ",{"b":"terms.player","with":{"n":"1"}}," is not on ",{"b":"terms.smp"},"."]],
     "steward.answer.too-late": [["The countdown has ended."]],
     "steward.answer.too-many-codes": [["Too many incorrect codes entered. Try again after ",{"v":"until","k":"instant","s":"time"},"."]],
+    "steward.answer.too-many-sign-ins": [["Too many sign-in attempts. Try again in a minute."]],
     "steward.answer.unknown-person": [["No user has this Discord ID."]],
     "steward.artifact.status": [[{"c":"status","plural":false,"cases":{"up-to-date":["up to date"],"outdated":["outdated"],"missing":["not installed"],"unsupported":["unsupported"],"mount-missing":["no volume"],"unresolved":["could not ask"],"not-in-release":["not in the release"],"other":["unknown"]}}]],
     "steward.backup-settings.no-at": [["No backup.at setting is configured in Steward."]],

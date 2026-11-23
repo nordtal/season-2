@@ -276,7 +276,7 @@ public final class WebClient {
     private Reply send(final HttpRequest.Builder request, final URI uri) throws IOException {
         final HttpResponse<String> response = exchange(request, HttpResponse.BodyHandlers.ofString());
         return new Reply(
-                uri, response.statusCode(), Optional.ofNullable(response.body()).orElse(""));
+                uri, response.statusCode(), Optional.ofNullable(response.body()).orElse(""), response.headers());
     }
 
     private <T> HttpResponse<T> exchange(final HttpRequest.Builder request, final HttpResponse.BodyHandler<T> body)

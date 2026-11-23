@@ -927,6 +927,7 @@ export type TextArgs = {
   "steward.answer.too-many-codes": {
     until: Arg["instant"]
   }
+  "steward.answer.too-many-sign-ins": Record<string, never>
   "steward.answer.unknown-person": Record<string, never>
   "steward.artifact.status": {
     status: Arg["choice"]

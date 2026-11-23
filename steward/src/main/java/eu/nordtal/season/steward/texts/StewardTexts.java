@@ -255,6 +255,9 @@ public interface StewardTexts {
             @Name("Sign-in from elsewhere")
             MessageRef signInElsewhere();
 
+            @Name("Too many sign-in attempts")
+            MessageRef tooManySignIns();
+
             @Name("No code")
             MessageRef noCode();
 

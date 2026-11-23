@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -161,6 +162,22 @@ class ApplierTest {
 
         // "old" is what install() writes. A run that dies between the phases must not reuse an unverified jar.
         assertEquals("downloaded smp-0.2.0.jar", Files.readString(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
+    }
+
+    @Test
+    void aSymbolicLinkAtTheStagingPathIsRemovedWithoutTouchingItsTarget() throws IOException {
+        install("smp", "plugins/smp-0.1.0.jar");
+        final Path elsewhere = Files.createDirectories(volumes.resolve("elsewhere"));
+        Files.writeString(elsewhere.resolve("world.dat"), "kept");
+        final Path staging = volumes.resolve("smp/plugins").resolve(Applier.STAGING);
+        Files.createSymbolicLink(staging, elsewhere);
+
+        apply(new Fake(), plan(outdated("smp", "smp", "smp-0.1.0.jar", "smp-0.2.0.jar")));
+
+        assertEquals("kept", Files.readString(elsewhere.resolve("world.dat")));
+        assertEquals(List.of(elsewhere.resolve("world.dat")), listing(elsewhere), "nothing was staged in the target");
+        assertFalse(Files.exists(staging, LinkOption.NOFOLLOW_LINKS));
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.2.0.jar")));
     }
 
     @Test
@@ -462,6 +479,12 @@ class ApplierTest {
         final Path file = volumes.resolve(service).resolve(relative);
         Files.createDirectories(file.getParent());
         Files.writeString(file, "old", StandardCharsets.UTF_8);
+    }
+
+    private static List<Path> listing(final Path directory) throws IOException {
+        try (var entries = Files.list(directory)) {
+            return entries.toList();
+        }
     }
 
     /** Where the fetcher was asked to put one file, which is the staging directory. */

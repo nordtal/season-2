@@ -109,6 +109,7 @@ public final class SavedState {
                 stored,
                 Bukkit::getWorld,
                 data -> ItemStack.deserializeBytes(Base64.getDecoder().decode(data)),
+                key -> Registry.MOB_EFFECT.get(key) != null,
                 logger);
     }
 
@@ -116,6 +117,15 @@ public final class SavedState {
             final FighterStateStore.StoredState stored,
             final Function<String, @Nullable World> worldLookup,
             final Function<String, @Nullable ItemStack> decodeItem,
+            final Logger logger) {
+        return fromStored(stored, worldLookup, decodeItem, key -> true, logger);
+    }
+
+    static SavedState fromStored(
+            final FighterStateStore.StoredState stored,
+            final Function<String, @Nullable World> worldLookup,
+            final Function<String, @Nullable ItemStack> decodeItem,
+            final java.util.function.Predicate<Key> knownEffect,
             final Logger logger) {
         final FighterStateStore.@Nullable StoredLocation saved = stored.location();
         final @Nullable World world = saved == null ? null : worldLookup.apply(saved.world());
@@ -125,7 +135,11 @@ public final class SavedState {
         final List<FighterStateStore.StoredEffect> validEffects = new ArrayList<>();
         for (final FighterStateStore.StoredEffect effect : stored.effects()) {
             try {
-                Key.key(effect.type());
+                final Key key = Key.key(effect.type());
+                if (!knownEffect.test(key)) {
+                    logger.warning("duel saved effect unknown, skipped: type=" + effect.type());
+                    continue;
+                }
                 validEffects.add(effect);
             } catch (final InvalidKeyException | IllegalArgumentException invalid) {
                 logger.warning("duel saved effect key invalid, skipped: type=" + effect.type());

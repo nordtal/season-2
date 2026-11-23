@@ -1,5 +1,18 @@
 plugins {
     `kotlin-dsl`
+    alias(libs.plugins.spotless)
+}
+
+// Runs on a direct `:build-logic:check` with the same rules as the root build's Spotless.
+spotless {
+    kotlinGradle {
+        target("*.gradle.kts", "src/**/*.gradle.kts")
+        ktlint(libs.versions.ktlint.get())
+    }
+    kotlin {
+        target("src/**/*.kt")
+        ktlint(libs.versions.ktlint.get())
+    }
 }
 
 dependencies {

@@ -25,6 +25,7 @@ class TakeInPurposeUpgradeIntegrationTest {
                 """));
 
         upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "106");
+        upgraded.addInboxColumnsOfThisRelease();
 
         assertEquals(
                 new SmpRequest.TakeInItem(PlayerId.of(ALEX), TakeInPurpose.WHEEL_PRIZE),

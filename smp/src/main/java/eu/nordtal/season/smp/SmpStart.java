@@ -2,6 +2,7 @@ package eu.nordtal.season.smp;
 
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcStore;
 import eu.nordtal.season.messagerendering.Lines;
@@ -15,6 +16,7 @@ import eu.nordtal.season.papercommon.npc.NpcDialogues;
 import eu.nordtal.season.papercommon.npc.NpcMenus;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.announce.Announcer;
+import eu.nordtal.season.smp.area.AreaEditor;
 import eu.nordtal.season.smp.aura.DeathPenalty;
 import eu.nordtal.season.smp.board.Boards;
 import eu.nordtal.season.smp.config.DeathsSpec;
@@ -348,6 +350,24 @@ final class SmpStart {
         plugin.getServer().getPluginManager().registerEvents(wall, plugin);
         wall.apply(plugin.customBorderSettings.get(), plugin.getServer().getOnlinePlayers());
         return wall;
+    }
+
+    /** Starts the in-game area editor, its listener and its walk every tick. {@code overworld} names the overworld. */
+    static AreaEditor wireAreaEditor(final SmpPlugin plugin, final WorldEffects effects, final String overworld) {
+        final AreaEditor editor = new AreaEditor(
+                plugin,
+                Inbox.over(plugin.pool(), SmpRequest.TABLE),
+                effects,
+                (player, document) -> Lines.joined(plugin.renderer()
+                        .format(plugin.identities().languageOf(player.getUniqueId()), Sent.of(document))),
+                overworld::equals);
+        final PaperScheduler scheduler = PaperScheduler.of(plugin);
+        scheduler.onMainEvery(
+                PaperScheduler.TICK,
+                PaperScheduler.TICK,
+                () -> editor.tick(plugin.getServer().getCurrentTick()));
+        plugin.getServer().getPluginManager().registerEvents(editor, plugin);
+        return editor;
     }
 
     /** The rail networks and the rides on them, which stop together. */

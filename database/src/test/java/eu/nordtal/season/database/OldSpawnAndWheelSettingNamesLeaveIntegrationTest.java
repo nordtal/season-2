@@ -74,6 +74,7 @@ class OldSpawnAndWheelSettingNamesLeaveIntegrationTest {
     void aCornersRefusalReadsAsValidAndEveryRuleLeftIsStillKept() {
         final TestDatabase upgraded = TestDatabase.empty();
         upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "109");
+        upgraded.addInboxColumnsOfThisRelease();
         final Inbox<SmpRequest> smp = Inbox.over(upgraded.dataSource(), SmpRequest.TABLE);
         final long refused = smp.submit(
                         new SmpRequest.CheckSettings(new SettingsChange("spawn", Map.of(), List.of())),

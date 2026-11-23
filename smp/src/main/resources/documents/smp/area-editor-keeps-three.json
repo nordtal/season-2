@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>An area needs at least 3 corners.</bad>",
+            "de": "<bad>Ein Gebiet braucht mindestens 3 Ecken.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

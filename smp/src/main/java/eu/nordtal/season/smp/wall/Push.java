@@ -84,6 +84,41 @@ final class Push {
         return admin && (mode == GameMode.CREATIVE || mode == GameMode.SPECTATOR);
     }
 
+    /** The speed in blocks per tick that walks a player whom a save left outside back in. */
+    static final double DRIFT = 0.25;
+
+    /** How long a player whom a save left outside drifts in before a teleport takes it inside, in milliseconds. */
+    static final long DRIFT_PATIENCE = 20_000;
+
+    /** The velocity {x, z} that walks a player at {@code x}, {@code z} slowly inside, or null while inside. */
+    static double @Nullable [] drift(final Wall wall, final double x, final double z) {
+        if (!wall.hasOutline() || wall.inside(x, z)) {
+            return null;
+        }
+        final double[] inward = wall.inward(x, z);
+        return new double[] {inward[0] * DRIFT, inward[1] * DRIFT};
+    }
+
+    /** Blends a gentle inward nudge into a glider's horizontal velocity without stalling its flight. */
+    static double @Nullable [] driftGlide(
+            final Wall wall, final double x, final double z, final double vx, final double vz) {
+        if (!wall.hasOutline() || wall.inside(x, z)) {
+            return null;
+        }
+        final double[] inward = wall.inward(x, z);
+        final double towards = vx * inward[0] + vz * inward[1];
+        if (towards >= DRIFT) {
+            return new double[] {vx, vz};
+        }
+        final double nudge = Math.min(DRIFT, DRIFT - towards);
+        return new double[] {vx + nudge * inward[0], vz + nudge * inward[1]};
+    }
+
+    /** Whether a player whom a save left outside {@code elapsed} milliseconds ago still drifts in. */
+    static boolean drifts(final long elapsed) {
+        return elapsed <= DRIFT_PATIENCE;
+    }
+
     static boolean fallback(final double distance, final long elapsed) {
         return distance > 2 || elapsed > 1000;
     }

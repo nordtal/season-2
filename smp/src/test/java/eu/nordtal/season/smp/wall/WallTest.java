@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.smp.config.CustomBorderSpec;
+import eu.nordtal.season.spec.Specs;
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,72 @@ class WallTest {
             corners.add(new Area.Point(coordinates[i], coordinates[i + 1]));
         }
         return new Area(corners);
+    }
+
+    @Test
+    void aPlayerASaveLeftOutsideDriftsInSlowlyUntilItsPatienceEnds() {
+        final Wall wall = new Wall(List.of(L));
+
+        final double[] drift = Push.drift(wall, 65, 10);
+        assertArrayEquals(new double[] {-Push.DRIFT, 0}, drift, 1e-9);
+        assertTrue(Math.hypot(drift[0], drift[1]) < Push.HORIZONTAL / 4);
+        assertNull(Push.drift(wall, 10, 10));
+        assertTrue(Push.drifts(Push.DRIFT_PATIENCE));
+        assertFalse(Push.drifts(Push.DRIFT_PATIENCE + 1));
+    }
+
+    @Test
+    void aGliderLeftOutsideBlendsInwardWithoutStallingItsFlight() {
+        final Wall wall = new Wall(List.of(L));
+
+        // Gliding parallel to the eastern wall gets an inward nudge while keeping tangential speed.
+        assertArrayEquals(new double[] {-Push.DRIFT, 1.2}, Push.driftGlide(wall, 65, 10, 0, 1.2), 1e-9);
+        // Gliding away turns gently by at most DRIFT per tick.
+        assertArrayEquals(new double[] {1.0 - Push.DRIFT, 0.4}, Push.driftGlide(wall, 65, 10, 1.0, 0.4), 1e-9);
+        // Already gliding inward at least as fast as DRIFT keeps its velocity.
+        assertArrayEquals(new double[] {-0.8, 0.5}, Push.driftGlide(wall, 65, 10, -0.8, 0.5), 1e-9);
+        assertNull(Push.driftGlide(wall, 10, 10, 0, 1));
+    }
+
+    @Test
+    void wallsReadCornersAtBlockCentresToMatchTheAreaEditor() {
+        final CustomBorderSpec spec = Specs.createUnsafe(
+                CustomBorderSpec.class,
+                Map.of(
+                        "worlds",
+                        List.of(Specs.createUnsafe(
+                                CustomBorderSpec.World.class,
+                                Map.of(
+                                        "world",
+                                        "nordtal",
+                                        "enabled",
+                                        true,
+                                        "polygons",
+                                        List.of(Specs.createUnsafe(
+                                                CustomBorderSpec.Polygon.class,
+                                                Map.of(
+                                                        "name",
+                                                        "Spawn",
+                                                        "corners",
+                                                        List.of(
+                                                                Specs.createUnsafe(
+                                                                        CustomBorderSpec.Corner.class,
+                                                                        Map.of("x", 0, "z", 0)),
+                                                                Specs.createUnsafe(
+                                                                        CustomBorderSpec.Corner.class,
+                                                                        Map.of("x", 10, "z", 0)),
+                                                                Specs.createUnsafe(
+                                                                        CustomBorderSpec.Corner.class,
+                                                                        Map.of("x", 10, "z", 10)),
+                                                                Specs.createUnsafe(
+                                                                        CustomBorderSpec.Corner.class,
+                                                                        Map.of("x", 0, "z", 10)))))))))));
+        final Wall wall = Walls.read(spec).get("nordtal").wall();
+
+        assertFalse(wall.inside(0.25, 5));
+        assertTrue(wall.inside(0.75, 5));
+        assertTrue(wall.inside(10.25, 5));
+        assertFalse(wall.inside(10.75, 5));
     }
 
     @Test

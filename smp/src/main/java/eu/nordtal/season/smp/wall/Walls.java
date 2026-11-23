@@ -23,7 +23,7 @@ final class Walls {
                 // Fewer than three corners enclose nothing; the group's check refuses them, this keeps a read safe.
                 if (polygon.corners().size() >= 3) {
                     areas.add(new Area(polygon.corners().stream()
-                            .map(corner -> new Area.Point(corner.x(), corner.z()))
+                            .map(corner -> new Area.Point(corner.x() + 0.5, corner.z() + 0.5))
                             .toList()));
                 }
             }

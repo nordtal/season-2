@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Right-click a corner to pick it up. Right-click an edge to add a corner. Sneak and right-click a corner to remove it.",
+            "de": "Rechtsklicke eine Ecke, um sie aufzunehmen. Rechtsklicke eine Kante, um eine Ecke hinzuzufügen. Schleiche und rechtsklicke eine Ecke, um sie zu entfernen."
+          }
+        }
+      ]
+    }
+  ]
+}

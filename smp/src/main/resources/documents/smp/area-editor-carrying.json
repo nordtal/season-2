@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Right-click to set the handle down.",
+            "de": "Rechtsklicke, um den Griff abzusetzen."
+          }
+        }
+      ]
+    }
+  ]
+}

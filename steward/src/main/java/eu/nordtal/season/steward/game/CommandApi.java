@@ -11,6 +11,7 @@ import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.inbox.AreaShape;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
@@ -35,6 +36,7 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -240,6 +242,89 @@ public final class CommandApi {
         return "smp:" + ask(who, data.smp(), new SmpRequest.TakePosition(player, block));
     }
 
+    /** What Edit in the game asks for: the world, whether areas have heights, and the shapes the draft starts with. */
+    public record EditAreas(String world, boolean heights, List<AreaShape> shapes) {}
+
+    /** What a step of the admin's draft asks for: the step, and the name of a shape that New polygon adds. */
+    public record AreaDraft(
+            SmpRequest.AreaDraft.Step step, @Nullable String name) {}
+
+    /** Writes the request that gives the admin's player the area editor with a draft, and returns its name. */
+    public String editAreas(final Context ctx) {
+        final EditAreas edit = editAreasOf(ctx.body());
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final PlayerId player = onSmp(DiscordId.of(who.id()));
+        return "smp:"
+                + ask(who, data.smp(), new SmpRequest.EditAreas(player, edit.world(), edit.heights(), edit.shapes()));
+    }
+
+    /**
+     * Writes the request for a step of the admin's draft and returns its name.
+     * The answer carries the shapes the draft holds after the step.
+     */
+    public String areaDraft(final Context ctx) {
+        final AreaDraft step = areaDraftOf(ctx.body());
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final PlayerId player = onSmp(DiscordId.of(who.id()));
+        final String name = step.name() == null ? "" : step.name().strip();
+        return "smp:" + ask(who, data.smp(), new SmpRequest.AreaDraft(player, step.step(), name));
+    }
+
+    /** The most shapes and corners a draft carries, far above any border region a world needs. */
+    static final int MOST_SHAPES = 64;
+
+    static final int MOST_CORNERS = 512;
+
+    /** Reads what Edit in the game asks for; anything unreadable or larger than a draft holds is refused. */
+    static EditAreas editAreasOf(final String body) {
+        final EditAreas edit;
+        try {
+            edit = Json.gson().fromJson(body, EditAreas.class);
+        } catch (final RuntimeException unreadable) {
+            throw new BadRequestResponse("an area edit names a world and its shapes");
+        }
+        if (edit == null || edit.world() == null || edit.world().isBlank() || edit.shapes() == null) {
+            throw new BadRequestResponse("an area edit names a world and its shapes");
+        }
+        if (edit.shapes().size() > MOST_SHAPES
+                || edit.shapes().stream()
+                        .anyMatch(shape -> shape == null
+                                || shape.name() == null
+                                || shape.corners() == null
+                                || shape.corners().size() > MOST_CORNERS
+                                || shape.corners().stream().anyMatch(Objects::isNull))) {
+            throw new BadRequestResponse("an area edit holds at most " + MOST_SHAPES + " shapes of named corners");
+        }
+        return new EditAreas(edit.world(), edit.heights(), List.copyOf(edit.shapes()));
+    }
+
+    /** Reads a step of the admin's draft; anything unreadable is refused. */
+    static AreaDraft areaDraftOf(final String body) {
+        final AreaDraft step;
+        try {
+            step = Json.gson().fromJson(body, AreaDraft.class);
+        } catch (final RuntimeException unreadable) {
+            throw new BadRequestResponse("an area draft step names ADD, READ or CLOSE");
+        }
+        if (step == null || step.step() == null) {
+            throw new BadRequestResponse("an area draft step names ADD, READ or CLOSE");
+        }
+        if (step.step() == SmpRequest.AreaDraft.Step.ADD
+                && (step.name() == null || step.name().isBlank())) {
+            throw new BadRequestResponse("a new polygon has a name");
+        }
+        return step;
+    }
+
+    /** Returns the linked player of {@code admin}, or refuses while it is not on the SMP. */
+    private PlayerId onSmp(final DiscordId admin) {
+        final PlayerId player = linked(admin);
+        if (!serverOf(player).equals(Topology.SMP)) {
+            throw new RequestRefused(409, ANSWER.takeInOffline());
+        }
+        return player;
+    }
+
     /** Reads whether a position take asks for a block; anything unreadable is refused. */
     static boolean blockOf(final String body) {
         try {
@@ -374,9 +459,18 @@ public final class CommandApi {
                         .map(StewardTexts.TEXTS.steward().said()::words)
                         .orElse(null),
                 row.refusal().map(refusal -> refusal.reason().name()).orElse(null),
-                row.answer() == null
-                        ? null
-                        : Json.gson().toJsonTree(row.answer()).getAsJsonObject());
+                answerOf(row));
+    }
+
+    /** Returns the typed answer of a row kind, or the JSON answer of a draft step, or null for a row without one. */
+    private static <P> @Nullable JsonObject answerOf(final Request<P> row) {
+        if (row.answer() != null) {
+            return Json.gson().toJsonTree(row.answer()).getAsJsonObject();
+        }
+        if (row.payload() instanceof SmpRequest.AreaDraft && row.outcome() != null) {
+            return JsonParser.parseString(row.outcome()).getAsJsonObject();
+        }
+        return null;
     }
 
     /** Returns the status of the announcement and the result for one language. */

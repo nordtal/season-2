@@ -52,6 +52,10 @@ public final class BorderWall implements Listener {
     private final Map<UUID, Location> lastInside = new HashMap<>();
     private final Map<UUID, Location> mounts = new HashMap<>();
     private final Map<UUID, Long> outside = new HashMap<>();
+
+    /** Since when each player whom the last save left outside drifts back in. */
+    private final Map<UUID, Long> drifting = new HashMap<>();
+
     private final Map<UUID, Long> bounced = new HashMap<>();
     private final Set<EnderPearl> pearls = new HashSet<>();
 
@@ -81,7 +85,10 @@ public final class BorderWall implements Listener {
         this.pushSound = pushSound;
     }
 
-    /** Takes the settings and draws the wall again for every player. */
+    /**
+     * Takes the settings and draws the wall again for every player.
+     * A player the new wall leaves outside drifts slowly back in instead of being teleported.
+     */
     public void apply(final CustomBorderSpec spec, final Collection<? extends Player> online) {
         walls = Walls.read(spec);
         pearls.clear();
@@ -95,9 +102,16 @@ public final class BorderWall implements Listener {
         mounts.clear();
         lastInside.clear();
         outside.clear();
+        drifting.clear();
         for (final Player player : online) {
             clear(player);
-            refresh(player);
+            final Entity moving = Push.root(player);
+            final Location at = Objects.requireNonNull(moving.getLocation());
+            final Walls.Drawn drawn = walls.get(at.getWorld().getName());
+            if (drawn != null && !bypass(player) && !drawn.wall().inside(at.getX(), at.getZ())) {
+                drifting.put(player.getUniqueId(), clock.millis());
+            }
+            show(player, Objects.requireNonNull(player.getLocation()));
         }
     }
 
@@ -296,7 +310,21 @@ public final class BorderWall implements Listener {
             if (drawn == null || bypass(player)) {
                 lastInside.remove(id);
                 outside.remove(id);
+                drifting.remove(id);
                 continue;
+            }
+            final boolean inside = drawn.wall().inside(at.getX(), at.getZ());
+            if (inside) {
+                drifting.remove(id);
+            } else {
+                final Long saved = drifting.get(id);
+                if (saved != null && Push.drifts(clock.millis() - saved)) {
+                    if (moving.equals(player) || seen.add(moving.getUniqueId())) {
+                        drift(moving, moving.equals(player) && player.isGliding(), drawn.wall(), at);
+                    }
+                    continue;
+                }
+                drifting.remove(id);
             }
             if (!moving.equals(player)) {
                 if (seen.add(moving.getUniqueId())) {
@@ -304,7 +332,7 @@ public final class BorderWall implements Listener {
                 }
                 continue;
             }
-            if (drawn.wall().inside(at.getX(), at.getZ())) {
+            if (inside) {
                 outside.remove(id);
                 continue;
             }
@@ -372,6 +400,7 @@ public final class BorderWall implements Listener {
         final Player player = event.getPlayer();
         lastInside.remove(player.getUniqueId());
         outside.remove(player.getUniqueId());
+        drifting.remove(player.getUniqueId());
         nextTick.accept(() -> refresh(player));
     }
 
@@ -380,6 +409,7 @@ public final class BorderWall implements Listener {
         final Player player = event.getPlayer();
         lastInside.remove(player.getUniqueId());
         outside.remove(player.getUniqueId());
+        drifting.remove(player.getUniqueId());
         nextTick.accept(() -> refresh(player));
     }
 
@@ -389,6 +419,7 @@ public final class BorderWall implements Listener {
         clear(player);
         lastInside.remove(player.getUniqueId());
         outside.remove(player.getUniqueId());
+        drifting.remove(player.getUniqueId());
         nextTick.accept(() -> refresh(player));
     }
 
@@ -399,6 +430,7 @@ public final class BorderWall implements Listener {
         clear(player);
         lastInside.remove(player.getUniqueId());
         outside.remove(player.getUniqueId());
+        drifting.remove(player.getUniqueId());
         nextTick.accept(() -> refresh(player));
     }
 
@@ -406,6 +438,7 @@ public final class BorderWall implements Listener {
     public void quit(final PlayerQuitEvent event) {
         lastInside.remove(event.getPlayer().getUniqueId());
         outside.remove(event.getPlayer().getUniqueId());
+        drifting.remove(event.getPlayer().getUniqueId());
         bounced.remove(event.getPlayer().getUniqueId());
         viewers.remove(event.getPlayer().getUniqueId());
         pushed.remove(event.getPlayer().getUniqueId());
@@ -419,6 +452,16 @@ public final class BorderWall implements Listener {
                 player.teleport(inside(at, drawn.wall().returnPoint(at.getX(), at.getZ())));
             }
             show(player, Objects.requireNonNull(player.getLocation()));
+        }
+    }
+
+    private void drift(final Entity moving, final boolean gliding, final Wall wall, final Location at) {
+        final Vector current = moving.getVelocity();
+        final double[] velocity = gliding
+                ? Push.driftGlide(wall, at.getX(), at.getZ(), current.getX(), current.getZ())
+                : Push.drift(wall, at.getX(), at.getZ());
+        if (velocity != null) {
+            moving.setVelocity(new Vector(velocity[0], current.getY(), velocity[1]));
         }
     }
 

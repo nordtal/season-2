@@ -136,7 +136,14 @@ public final class HandInGui extends Menu {
         this.confirm = confirm;
         this.nextTick = nextTick;
         this.readOnly = readOnly;
-        this.inventory = frame(HandInPanel.ROWS, title());
+        this.inventory = frame(
+                HandInPanel.ROWS,
+                HandInPanel.title(
+                        name,
+                        mark(),
+                        header == HandIn.Header.NOT_COUNTED,
+                        document.label("confirm-button"),
+                        header == HandIn.Header.FINISHED));
 
         final ItemStack button = BlankItem.silent();
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
@@ -320,7 +327,7 @@ public final class HandInGui extends Menu {
         tickLore.add(sample.name());
         tickLore.addAll(sample.lore());
         final ItemStack tickItem = BlankItem.styled(
-                BlankItem.silent(), Component.text(document.label("accepted-title", new Window(accepted))), tickLore);
+                BlankItem.silent(), document.labelText("accepted-title", new Window(accepted)), tickLore);
         HandInPanel.TICK_SLOTS.forEach(slot -> inventory.setItem(slot, tickItem));
 
         // Return column (slots 7, 8): live return count + reason when items go back.
@@ -328,25 +335,23 @@ public final class HandInGui extends Menu {
         if (returned > 0) {
             final List<Component> returnLore = new ArrayList<>();
             if (notCounted > 0) {
-                returnLore.add(Component.text(document.label("return-not-counted", new Window(notCounted))));
+                returnLore.add(document.labelText("return-not-counted", new Window(notCounted)));
             }
             if (surplus > 0) {
-                returnLore.add(Component.text(document.label("return-surplus", new Window(surplus))));
+                returnLore.add(document.labelText("return-surplus", new Window(surplus)));
             }
             returnItem = BlankItem.styled(
-                    BlankItem.silent(),
-                    Component.text(document.label("return-title", new Window(returned))),
-                    returnLore);
+                    BlankItem.silent(), document.labelText("return-title", new Window(returned)), returnLore);
         } else {
             returnItem = BlankItem.silent();
         }
         HandInPanel.RETURN_SLOTS.forEach(slot -> inventory.setItem(slot, returnItem));
 
         // Row 1 (slots 9..17): live progress bar figure outside the title.
-        final String barLabel = accepted > 0
-                ? document.label("progress-offer", new Progress(amount, target, accepted))
-                : document.label("progress", new Progress(amount, target, 0));
-        final ItemStack barItem = BlankItem.styled(BlankItem.silent(), Component.text(barLabel), List.of());
+        final Component barLabel = accepted > 0
+                ? document.labelText("progress-offer", new Progress(amount, target, accepted))
+                : document.labelText("progress", new Progress(amount, target, 0));
+        final ItemStack barItem = BlankItem.styled(BlankItem.silent(), barLabel, List.of());
         HandInPanel.BAR_SLOTS.forEach(slot -> inventory.setItem(slot, barItem));
     }
 

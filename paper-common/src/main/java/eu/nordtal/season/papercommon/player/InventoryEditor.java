@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Stack;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.packrendering.ui.BodyLine;
@@ -11,7 +12,6 @@ import eu.nordtal.season.packrendering.ui.ChestTitle;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.Mark;
 import eu.nordtal.season.packrendering.ui.Symbol;
-import eu.nordtal.season.papercommon.chat.Previews;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
@@ -109,13 +109,13 @@ public final class InventoryEditor extends Menu {
     }
 
     /** Hands the draft preview both container editors over the reader's own containers, read-only. */
-    public static void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
+    public static void examples(final BiConsumer<DocumentSpec<?>, BiConsumer<Player, GameDocument>> example) {
         registerExample(example, INVENTORY, Container.INVENTORY);
         registerExample(example, ENDER_CHEST, Container.ENDER_CHEST);
     }
 
     private static void registerExample(
-            final BiConsumer<DocumentSpec<?>, Previews.Example> example,
+            final BiConsumer<DocumentSpec<?>, BiConsumer<Player, GameDocument>> example,
             final DocumentSpec<DocumentSpec.None> spec,
             final Container container) {
         example.accept(spec, (reader, drafted) -> example(reader, container, Dialogs.plain(drafted.title())));

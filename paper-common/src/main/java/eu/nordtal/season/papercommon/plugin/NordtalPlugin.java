@@ -474,7 +474,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 renderer,
                 service -> ToneColours.parse(Colours.current(store, service), unreadable -> {}),
                 PaperScheduler.of(this).mainThread());
-        InventoryEditor.examples(built::example);
+        InventoryEditor.examples((spec, open) -> built.example(spec, open::accept));
         return built;
     }
 

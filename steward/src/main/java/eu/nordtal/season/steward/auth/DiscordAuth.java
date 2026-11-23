@@ -43,8 +43,8 @@ public final class DiscordAuth {
     private static final String AUTHORIZE = "https://discord.com/oauth2/authorize";
     private static final String SCOPES = "identify guilds.members.read";
     private static final Duration ANSWER = Duration.ofSeconds(15);
-    private static final Duration DEFAULT_BACKOFF = Duration.ofSeconds(5);
-    private static final Duration MAX_BACKOFF = Duration.ofMinutes(10);
+    static final Duration DEFAULT_BACKOFF = Duration.ofSeconds(5);
+    static final Duration MAX_BACKOFF = Duration.ofMinutes(10);
 
     private final WebSpec.DiscordSpec config;
     private final String redirectUri;
@@ -127,7 +127,7 @@ public final class DiscordAuth {
         try {
             accessToken = exchange(code);
         } catch (AuthException e) {
-            return e.status() == 429 ? Outcome.refused(429, e.why()) : Outcome.refused(e.why());
+            return Outcome.refused(e);
         }
 
         final JsonObject user;
@@ -136,11 +136,8 @@ public final class DiscordAuth {
             user = getJson("/users/@me", accessToken);
             member = getJson("/users/@me/guilds/" + config.guildId() + "/member", accessToken);
         } catch (AuthException e) {
-            if (e.status() == 429) {
-                return Outcome.refused(429, e.why());
-            }
             // A 404 means the user is not in the guild.
-            return Outcome.refused(e.status() == 404 ? REFUSED.notInGuild() : e.why());
+            return e.status() == 404 ? Outcome.refused(REFUSED.notInGuild()) : Outcome.refused(e);
         }
 
         final String id = user.get("id").getAsString();
@@ -159,7 +156,7 @@ public final class DiscordAuth {
         form.put("grant_type", "authorization_code");
         form.put("code", code);
         form.put("redirect_uri", redirectUri);
-        final Reply response = send(() -> web.postForm(URI.create(api + "/oauth2/token"), form));
+        final Reply response = send(() -> web.postForm(URI.create(api + "/oauth2/token"), form), true);
         if (response.status() != 200) {
             throw new AuthException(response.status(), REFUSED.signInRefused(response.status(), redirectUri));
         }
@@ -171,7 +168,7 @@ public final class DiscordAuth {
     }
 
     private JsonObject getJson(final String path, final String accessToken) {
-        final Reply response = send(() -> web.bearer(accessToken).get(URI.create(api + path)));
+        final Reply response = send(() -> web.bearer(accessToken).get(URI.create(api + path)), false);
         if (response.status() != 200) {
             log.warn("discord api refused: status={} path={}", response.status(), path);
             throw new AuthException(response.status(), REFUSED.discordAnswered(response.status()));
@@ -179,10 +176,16 @@ public final class DiscordAuth {
         return Json.decode(response.body(), JsonObject.class);
     }
 
-    private Reply send(final Exchange exchange) {
+    /**
+     * Sends {@code exchange} unless every sign-in is paused.
+     *
+     * @param pausesAll whether a 429 on this route pauses every sign-in, as the token endpoint's limit is the app's
+     */
+    private Reply send(final Exchange exchange, final boolean pausesAll) {
         final Instant now = clock.instant();
-        if (now.isBefore(blockedUntil.get())) {
-            throw new AuthException(429, REFUSED.tooManySignIns());
+        final Instant paused = blockedUntil.get();
+        if (now.isBefore(paused)) {
+            throw AuthException.rateLimited(Duration.between(now, paused));
         }
         final Reply response;
         try {
@@ -194,19 +197,42 @@ public final class DiscordAuth {
         }
         if (response.status() == 429) {
             final Duration pause = retryAfter(response, now);
-            final Instant until = blockedUntil.accumulateAndGet(
-                    now.plus(pause), (current, candidate) -> candidate.isAfter(current) ? candidate : current);
-            log.warn("discord rate-limited sign-in: pause={} until={}", pause, until);
-            throw new AuthException(429, REFUSED.tooManySignIns());
+            if (pausesAll || global(response)) {
+                final Instant until = blockedUntil.accumulateAndGet(
+                        now.plus(pause), (current, candidate) -> candidate.isAfter(current) ? candidate : current);
+                log.warn("discord rate-limited every sign-in: pause={} until={}", pause, until);
+            } else {
+                log.warn(
+                        "discord rate-limited one sign-in: pause={} path={}",
+                        pause,
+                        response.uri().getPath());
+            }
+            throw AuthException.rateLimited(pause);
         }
         return response;
     }
 
-    private static Duration retryAfter(final Reply response, final Instant now) {
-        final Optional<Duration> fromHeader =
-                response.header("Retry-After").flatMap(value -> parseRetryAfter(value, now));
-        final Duration raw =
-                fromHeader.or(() -> parseBodyRetryAfter(response.body())).orElse(DEFAULT_BACKOFF);
+    /** Returns whether Discord marks a 429 as its global limit, by header or by body. */
+    static boolean global(final Reply response) {
+        if (response.header("X-RateLimit-Global").map("true"::equalsIgnoreCase).orElse(false)) {
+            return true;
+        }
+        return field(response.body(), "global")
+                .filter(value ->
+                        value.isJsonPrimitive() && value.getAsJsonPrimitive().isBoolean())
+                .map(JsonElement::getAsBoolean)
+                .orElse(false);
+    }
+
+    /** Returns the wait a 429 names in Retry-After, as seconds or a date, or else in the body's retry_after. */
+    static Duration retryAfter(final Reply response, final Instant now) {
+        final Duration raw = response.header("Retry-After")
+                .flatMap(value -> parseRetryAfter(value, now))
+                .or(() -> field(response.body(), "retry_after")
+                        .filter(value -> value.isJsonPrimitive()
+                                && value.getAsJsonPrimitive().isNumber())
+                        .flatMap(value -> positiveSeconds(value.getAsDouble())))
+                .orElse(DEFAULT_BACKOFF);
         return raw.compareTo(MAX_BACKOFF) > 0 ? MAX_BACKOFF : raw;
     }
 
@@ -229,21 +255,14 @@ public final class DiscordAuth {
         }
     }
 
-    private static Optional<Duration> parseBodyRetryAfter(final String body) {
+    private static Optional<JsonElement> field(final String body, final String name) {
         if (body.isBlank()) {
             return Optional.empty();
         }
         try {
             final JsonObject json = Json.decode(body, JsonObject.class);
-            if (json == null || !json.has("retry_after")) {
-                return Optional.empty();
-            }
-            final JsonElement value = json.get("retry_after");
-            if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
-                return Optional.empty();
-            }
-            return positiveSeconds(value.getAsDouble());
-        } catch (final RuntimeException ignored) {
+            return json == null ? Optional.empty() : Optional.ofNullable(json.get(name));
+        } catch (final RuntimeException notAnObject) {
             return Optional.empty();
         }
     }
@@ -280,19 +299,25 @@ public final class DiscordAuth {
         }
     }
 
+    /** The result of a sign-in. {@code retryAfter} is set when Discord limited it, and names the wait. */
     public record Outcome(
-            @Nullable Account account, @Nullable MessageRef refusal, int status) {
+            @Nullable Account account,
+            @Nullable MessageRef refusal,
+            int status,
+            @Nullable Duration retryAfter) {
 
         public static Outcome signedIn(final Account account) {
-            return new Outcome(account, null, 200);
+            return new Outcome(account, null, 200, null);
         }
 
         public static Outcome refused(final MessageRef why) {
-            return refused(403, why);
+            return new Outcome(null, why, 403, null);
         }
 
-        public static Outcome refused(final int status, final MessageRef why) {
-            return new Outcome(null, why, status);
+        private static Outcome refused(final AuthException failed) {
+            return failed.retryAfter() == null
+                    ? refused(failed.why())
+                    : new Outcome(null, failed.why(), 429, failed.retryAfter());
         }
 
         public boolean ok() {
@@ -306,10 +331,26 @@ public final class DiscordAuth {
 
         private final transient MessageRef why;
 
+        private final @Nullable Duration retryAfter;
+
         AuthException(final int status, final MessageRef why) {
+            this(status, why, null);
+        }
+
+        private AuthException(final int status, final MessageRef why, final @Nullable Duration retryAfter) {
             super(why.key(), null, false, false);
             this.status = status;
             this.why = why;
+            this.retryAfter = retryAfter;
+        }
+
+        static AuthException rateLimited(final Duration wait) {
+            return new AuthException(429, REFUSED.tooManySignIns(wait), wait);
+        }
+
+        @Nullable
+        Duration retryAfter() {
+            return retryAfter;
         }
 
         int status() {

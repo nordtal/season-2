@@ -256,7 +256,7 @@ public interface StewardTexts {
             MessageRef signInElsewhere();
 
             @Name("Too many sign-in attempts")
-            MessageRef tooManySignIns();
+            MessageRef tooManySignIns(@Arg("wait") @Example("PT45S") Duration wait);
 
             @Name("No code")
             MessageRef noCode();

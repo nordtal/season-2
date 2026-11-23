@@ -174,16 +174,22 @@ abstract class WebTestSupport extends WebFixture {
         final String state = stateFrom(get(browser, "/auth/login"));
         final String clientIp = "198.51.100." + (SIGN_IN_CLIENTS.incrementAndGet() % 250 + 1);
 
-        final HttpResponse<String> callback = browser.send(
+        final HttpResponse<String> callback = callback(browser, "the-code", state, clientIp);
+
+        assertEquals(302, callback.statusCode(), callback.body());
+        assertEquals("/", callback.headers().firstValue("Location").orElseThrow());
+    }
+
+    /** Answers Discord's redirect with {@code code} from {@code clientIp}, as Caddy forwards the browser's address. */
+    static HttpResponse<String> callback(
+            final HttpClient browser, final String code, final String state, final String clientIp) throws Exception {
+        return browser.send(
                 HttpRequest.newBuilder(URI.create(
-                                "http://127.0.0.1:" + webPort + "/auth/callback?code=the-code&state=" + state))
+                                "http://127.0.0.1:" + webPort + "/auth/callback?code=" + code + "&state=" + state))
                         .header("Cf-Connecting-IP", clientIp)
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
-
-        assertEquals(302, callback.statusCode(), callback.body());
-        assertEquals("/", callback.headers().firstValue("Location").orElseThrow());
     }
 
     static void admitBelowRoot(final DiscordId discordId) throws Exception {

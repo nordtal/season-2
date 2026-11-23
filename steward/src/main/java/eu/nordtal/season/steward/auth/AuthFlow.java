@@ -4,7 +4,6 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.steward.RequestLimit;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -29,10 +28,6 @@ public final class AuthFlow {
 
     public static final Duration SWEEP = Duration.ofHours(1);
 
-    private static final Duration EXCHANGE_WINDOW = Duration.ofMinutes(1);
-    private static final int EXCHANGES_PER_CLIENT = 5;
-    private static final int EXCHANGES_TOTAL = 30;
-
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
@@ -43,7 +38,7 @@ public final class AuthFlow {
     private final Data data;
     private final Sessions sessions;
     private final AdminTree admins;
-    private final RequestLimit<String> exchanges;
+    private final SignInAllowance allowance;
 
     public AuthFlow(
             final WebSpec config,
@@ -57,7 +52,7 @@ public final class AuthFlow {
         this.data = data;
         this.sessions = sessions;
         this.admins = admins;
-        this.exchanges = new RequestLimit<>(clock, EXCHANGE_WINDOW, EXCHANGES_PER_CLIENT, EXCHANGES_TOTAL);
+        this.allowance = new SignInAllowance(clock, config.discord().clientSecret());
     }
 
     /** An empty admin tree without {@code discord.root-id} counts as missing. */
@@ -79,7 +74,7 @@ public final class AuthFlow {
             throw new RequestRefused(503, ANSWER.signInUnconfigured(missing.get()));
         }
         final String state = random();
-        setSessionCookie(ctx, state, Sessions.SIGN_IN_WINDOW);
+        setCookie(ctx, Sessions.COOKIE, state, Sessions.SIGN_IN_WINDOW);
         ctx.redirect(discord.authorizeUrl(state).toString());
     }
 
@@ -94,26 +89,32 @@ public final class AuthFlow {
         }
         final String id;
         try {
-            id = signIn(ctx.queryParam("code"), clientAddress(ctx));
+            id = signIn(ctx, ctx.queryParam("code"));
         } catch (final RuntimeException failed) {
             // The state is used once, so a failed callback cannot be answered again with another code.
             ctx.removeCookie(Sessions.COOKIE, "/");
             throw failed;
         }
-        setSessionCookie(ctx, id, lifetime());
+        setCookie(ctx, Sessions.COOKIE, id, lifetime());
         ctx.redirect("/");
     }
 
     /** Returns the new session's id. A new id prevents session fixation. */
-    private String signIn(final @Nullable String code, final String client) {
+    private String signIn(final Context ctx, final @Nullable String code) {
         if (code == null || code.isBlank()) {
             throw new RequestRefused(400, ANSWER.noCode());
         }
-        if (!exchanges.acquire(client)) {
-            log.warn("sign-in exchange rate-limited: client={}", client);
-            throw new RequestRefused(429, ANSWER.tooManySignIns());
+        final String client = clientAddress(ctx);
+        final Optional<Duration> wait = allowance.admit(ctx.cookie(SignInAllowance.COOKIE), client);
+        if (wait.isPresent()) {
+            log.warn("sign-in exchange rate-limited: client={} wait={}", client, wait.get());
+            throw RequestRefused.retryAfter(429, wait.get(), ANSWER::tooManySignIns);
         }
         final DiscordAuth.Outcome outcome = discord.signIn(code);
+        final Duration discordWait = outcome.retryAfter();
+        if (discordWait != null) {
+            throw RequestRefused.retryAfter(429, discordWait, ANSWER::tooManySignIns);
+        }
         if (!outcome.ok()) {
             throw new RequestRefused(
                     outcome.status(), Objects.requireNonNull(outcome.refusal(), "a refused sign-in says why"));
@@ -125,11 +126,14 @@ public final class AuthFlow {
             log.info("sign-in refused, not an admin: actor=\"{}\" member={}", who.name(), signingIn);
             throw new RequestRefused(403, ANSWER.notAnAdmin(who.name()));
         }
-        return sessions.signIn(DiscordId.of(who.id()), who.name());
+        final String session = sessions.signIn(DiscordId.of(who.id()), who.name());
+        setCookie(ctx, SignInAllowance.COOKIE, allowance.knownCookie(who.id()), SignInAllowance.KNOWN_FOR);
+        return session;
     }
 
     /** Returns the client address as Caddy forwards it in {@code Cf-Connecting-IP}, or the peer address. */
     private static String clientAddress(final Context ctx) {
+        // Caddy overwrites the header with the address it resolved, and Steward publishes no port of its own.
         final String forwarded = ctx.header("Cf-Connecting-IP");
         if (forwarded != null && !forwarded.isBlank()) {
             return forwarded.strip();
@@ -156,10 +160,8 @@ public final class AuthFlow {
     }
 
     /** The cookie is {@code Secure} when the request arrived over TLS. */
-    private static void setSessionCookie(final Context ctx, final String id, final Duration maxAge) {
-        final Cookie cookie =
-                new Cookie(Sessions.COOKIE, id, "/", (int) maxAge.toSeconds(), overTls(ctx), true, null, SameSite.LAX);
-        ctx.cookie(cookie);
+    private static void setCookie(final Context ctx, final String name, final String value, final Duration maxAge) {
+        ctx.cookie(new Cookie(name, value, "/", (int) maxAge.toSeconds(), overTls(ctx), true, null, SameSite.LAX));
     }
 
     private static boolean overTls(final Context ctx) {

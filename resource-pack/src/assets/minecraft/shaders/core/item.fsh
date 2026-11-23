@@ -31,7 +31,7 @@ layout(location = 6) in vec2 texCoordGlint;
 #endif
 layout(location = 7) in vec4 wallCoord; // nordtal, from item.vsh
 layout(location = 8) in vec3 wallView;  // nordtal, from item.vsh
-layout(location = 9) flat in float wallGround; // nordtal, from item.vsh
+layout(location = 9) flat in vec2 wallMeta; // nordtal, from item.vsh
 
 #ifndef OIT_ALPHA_ONLY
 layout(location = 0) out vec4 fragColor;
@@ -359,24 +359,67 @@ vec4 wallField(vec4 coord, vec3 view, float fromTop, float fromBottom, float fad
     return vec4(colour, min(alpha * (1.0 + 0.2 * close), 0.97) * reach);
 }
 
-// The band, cut out of the panel by world height: it reaches from 3 blocks below the ground under
-// the panel, or below the feet when they are lower, to 7 above the feet, so a player high up sees
-// the wall stand on the ground, and a ground above the feet, as over a cave, changes nothing. Its lower
-// part lies below the camera, and there the wall reaches farther along its length, the farther
-// below the more, so from the air it reads as a line along the ground. The camera is at the height
-// coord.y - view.y, and the feet WALL_EYE below it; without a ground the band follows the feet.
+// Combine two vertical bands without double-darkening where they overlap.
+vec4 wallCombine(vec4 a, vec4 b) {
+    float alpha = max(a.a, b.a);
+    if (alpha < 0.012) {
+        return vec4(-1.0);
+    }
+    vec3 rgb = (a.rgb * a.a + b.rgb * b.a) / max(a.a + b.a, 0.0001);
+    return vec4(rgb, alpha);
+}
+
+// The band, cut out of the panel by world height:
+// Mode 0 (air focus): fixed terrain-anchored band along the edge, plus a short local second band at
+// player height that fades in when the player stands or flies several blocks above (or below) terrain.
+// Mode 1 (proximity window): fixed terrain-hugging band along the edge (including nearby pillars),
+// with no continuous band in open air; a soft elliptical local window appears when approaching close
+// to the border plane.
 // Returns the field's colour, or a negative alpha where nothing is drawn.
-vec4 wallBand(vec4 coord, vec3 view, float ground, float gameTime) {
+vec4 wallBand(vec4 coord, vec3 view, vec2 meta, float gameTime) {
+    float ground = meta.x;
+    bool proximityMode = meta.y > 0.5;
     float camera = coord.y - view.y;
     float feet = camera - WALL_EYE;
     float under = ground > -100000.0 ? ground : feet;
-    float fromTop = feet + WALL_ABOVE - coord.y;
-    float fromBottom = coord.y - (min(under, feet) - WALL_BELOW);
-    float fadeEnd = WALL_FADE_END + WALL_SLOPE * clamp(camera - coord.y - WALL_LEVEL, 0.0, WALL_DEPTH);
-    if (fromTop < 0.0 || fromBottom < 0.0 || length(coord.zw) > fadeEnd) {
-        return vec4(-1.0);
+
+    // Terrain-anchored band: steady while jumping, never stretched into a tall curtain across empty air.
+    float tFromTop = under + WALL_ABOVE - coord.y;
+    float tFromBottom = coord.y - (under - WALL_BELOW);
+    float tFadeEnd = WALL_FADE_END + WALL_SLOPE * clamp(camera - coord.y - WALL_LEVEL, 0.0, WALL_DEPTH);
+    vec4 terrain = vec4(0.0);
+    if (tFromTop >= 0.0 && tFromBottom >= 0.0 && length(coord.zw) <= tFadeEnd) {
+        terrain = wallField(coord, view, tFromTop, tFromBottom, tFadeEnd, gameTime);
     }
-    return wallField(coord, view, fromTop, fromBottom, fadeEnd, gameTime);
+
+    vec4 air = vec4(0.0);
+    if (!proximityMode) {
+        // Approach A: short local second band at player height when several blocks away from terrain.
+        float airWeight = max(wallEase(3.0, 7.0, feet - under), wallEase(3.0, 6.0, under - feet));
+        float alongFade = 1.0 - wallEase(7.0, 16.0, abs(view.x));
+        float distFade = 1.0 - wallEase(26.0, 40.0, abs(view.z));
+        float airMask = airWeight * alongFade * distFade;
+        float aFromTop = feet + 5.5 - coord.y;
+        float aFromBottom = coord.y - (feet - 2.0);
+        if (airMask > 0.005 && aFromTop >= 0.0 && aFromBottom >= 0.0) {
+            air = wallField(coord, view, aFromTop, aFromBottom, 45.0, gameTime);
+            air.a *= airMask;
+        }
+    } else {
+        // Approach B: soft local elliptical window when approaching close to the invisible border plane in open air.
+        float airWeight = max(wallEase(2.5, 6.0, feet - under), wallEase(2.5, 5.0, under - feet));
+        float proximity = 1.0 - wallEase(5.0, 15.0, abs(view.z));
+        float radial = length(vec2(view.x / 7.0, (coord.y - (feet + 1.5)) / 4.5));
+        float windowMask = airWeight * proximity * (1.0 - wallEase(0.35, 1.0, radial));
+        float wFromTop = feet + 6.0 - coord.y;
+        float wFromBottom = coord.y - (feet - 3.0);
+        if (windowMask > 0.005 && wFromTop >= 0.0 && wFromBottom >= 0.0) {
+            air = wallField(coord, view, wFromTop, wFromBottom, 25.0, gameTime);
+            air.a *= windowMask;
+        }
+    }
+
+    return wallCombine(terrain, air);
 }
 
 // END nordtal wall field
@@ -415,7 +458,7 @@ void main() {
     bool wall = wallIsMarker(texel);
 
     if (wall) {
-        color = wallBand(wallCoord, wallView, wallGround, GameTime);
+        color = wallBand(wallCoord, wallView, wallMeta, GameTime);
         color.a *= ColorModulator.a;
         if (color.a < 0.012) {
             discard;

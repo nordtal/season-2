@@ -156,18 +156,16 @@ final class WallPackets {
         }
     }
 
-    /** The panel's item: its model, and the ground under it in the tint the shader reads. */
+    /** The panel's item: its model, and its ground and placement in the tint the shader reads. */
     private ItemStack item(final Band.Seen seen) {
         return items.computeIfAbsent(seen, ignored -> {
             final org.bukkit.inventory.ItemStack stack = org.bukkit.inventory.ItemStack.of(Material.PAPER);
             stack.setData(DataComponentTypes.ITEM_MODEL, Key.key("nordtal", seen.model()));
-            if (seen.ground() != Band.UNKNOWN) {
-                stack.setData(
-                        DataComponentTypes.CUSTOM_MODEL_DATA,
-                        CustomModelData.customModelData()
-                                .addColor(Color.fromRGB(Band.tint(seen.ground())))
-                                .build());
-            }
+            stack.setData(
+                    DataComponentTypes.CUSTOM_MODEL_DATA,
+                    CustomModelData.customModelData()
+                            .addColor(Color.fromRGB(Band.tint(seen.ground(), seen.placement())))
+                            .build());
             return SpigotConversionUtil.fromBukkitItemStack(stack);
         });
     }

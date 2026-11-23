@@ -19,6 +19,9 @@ final class Wall {
     /** How far to each side of an edge the inside is tested, in blocks. */
     private static final double SIDE = 0.25;
 
+    /** How far inside the border line each panel is drawn, in blocks, so it never coincides with a block face. */
+    static final double INSET = 0.03;
+
     private static final int CELL = 16;
 
     private final java.awt.geom.Area region = new java.awt.geom.Area();
@@ -244,9 +247,16 @@ final class Wall {
             final boolean left = inside(x + normal[0] * SIDE, z + normal[1] * SIDE);
             final boolean right = inside(x - normal[0] * SIDE, z - normal[1] * SIDE);
             if (left != right) {
-                final Panel panel = new Panel(x, z, yaw);
+                final double sign = left ? 1 : -1;
+                final double px = x + sign * normal[0] * INSET;
+                final double pz = z + sign * normal[1] * INSET;
+                // Orient yaw so (-sin(yaw), cos(yaw)) always points inward.
+                final float orientedYaw = left ? yaw : (yaw + 180f) % 360f;
+                final Panel panel = new Panel(px, pz, orientedYaw);
                 cells.computeIfAbsent(
-                                key(Math.floorDiv((int) Math.floor(x), CELL), Math.floorDiv((int) Math.floor(z), CELL)),
+                                key(
+                                        Math.floorDiv((int) Math.floor(px), CELL),
+                                        Math.floorDiv((int) Math.floor(pz), CELL)),
                                 ignored -> new ArrayList<>())
                         .add(panel);
                 panelCount++;

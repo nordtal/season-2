@@ -117,14 +117,16 @@ class WallTest {
     }
 
     @Test
-    void panelsStandOnWholeBlocksCountedFromTheEdgesFirstCorner() {
-        // An edge of 3.4 blocks: slots at 0.5, 1.5 and 2.5, and the last panel ends at the corner.
+    void panelsStandOnWholeBlocksInsetInsideTheBorderLine() {
+        // An edge of 3.4 blocks: slots at 0.5, 1.5 and 2.5, and the last panel ends at the corner, inset by INSET.
         final Wall wall = new Wall(List.of(area(0.3, 0, 3.7, 0, 3.7, 10, 0.3, 10)));
 
         for (final double x : new double[] {0.8, 1.8, 2.8, 3.2}) {
-            assertEquals(1, wall.near(x, 0, 1e-6).size(), "a panel at " + x);
+            final List<Panel> found = wall.near(x, Wall.INSET, 1e-6);
+            assertEquals(1, found.size(), "a panel at " + x);
+            assertTrue(wall.inside(found.getFirst().x(), found.getFirst().z()));
         }
-        assertEquals(4, wall.near(2, 0, 1.6).size());
+        assertEquals(4, wall.near(2, Wall.INSET, 1.6).size());
     }
 
     @Test
@@ -135,17 +137,24 @@ class WallTest {
 
         assertEquals(2, atCorner.size());
         for (final Panel panel : atCorner) {
-            // A panel is one block wide, so its end reaches the corner.
-            assertTrue(panel.distance(30, 20) <= 0.5 + 1e-9, panel.toString());
+            // A panel is one block wide and inset by INSET, so its end reaches the corner.
+            assertTrue(panel.distance(30, 20) <= Math.hypot(0.5, Wall.INSET) + 1e-9, panel.toString());
         }
     }
 
     @Test
-    void aPanelTurnsAlongItsEdge() {
+    void aPanelTurnsAlongItsEdgeWithItsNormalPointingInward() {
         final Wall wall = new Wall(List.of(L));
 
         assertEquals(0f, wall.near(10.5, 0, 0.1).getFirst().yaw());
         assertEquals(90f, wall.near(60, 10.5, 0.1).getFirst().yaw());
+
+        // Reversing winding order still produces panels inset inside with inward-pointing normal.
+        final Wall reversed = new Wall(List.of(area(0, 0, 0, 10, 10, 10, 10, 0)));
+        final Panel north = reversed.near(5.5, 0, 0.1).getFirst();
+        assertTrue(reversed.inside(north.x(), north.z()));
+        final double rad = Math.toRadians(north.yaw());
+        assertTrue(reversed.inside(north.x() - Math.sin(rad) * 0.5, north.z() + Math.cos(rad) * 0.5));
     }
 
     @Test
@@ -252,8 +261,8 @@ class WallTest {
 
     /** Whether a player standing at 50, 0 on the wall's ground is sent the panel at {@code x} on its edge at z 0. */
     private static boolean seenAt(final Wall wall, final Look look, final double x) {
-        return Band.seen(wall, look, 50, 0, 64 + Band.EYE, panel -> 64).keySet().stream()
-                .anyMatch(panel -> panel.z() == 0 && Math.abs(panel.x() - x) < 1e-9);
+        return Band.seen(wall, look, Placement.AIR_FOCUS, 50, 0, 64 + Band.EYE, panel -> 64).keySet().stream()
+                .anyMatch(panel -> Math.abs(panel.z() - Wall.INSET) < 1e-9 && Math.abs(panel.x() - x) < 1e-9);
     }
 
     @Test
@@ -273,7 +282,7 @@ class WallTest {
                         gone,
                         seen("border/pixel"),
                         lower,
-                        new Band.Seen("border/field", 64)),
+                        new Band.Seen("border/field", 64, Placement.AIR_FOCUS)),
                 Map.of(
                         kept,
                         seen("border/pixel"),
@@ -282,17 +291,21 @@ class WallTest {
                         added,
                         seen("border/pixel"),
                         lower,
-                        new Band.Seen("border/field", 63)));
+                        new Band.Seen("border/field", 63, Placement.AIR_FOCUS)));
 
         assertEquals(Map.of(added, seen("border/pixel")), change.added());
         assertEquals(List.of(gone), change.removed());
         assertEquals(
-                Map.of(faded, seen("border/pixel_fade_1"), lower, new Band.Seen("border/field", 63)),
+                Map.of(
+                        faded,
+                        seen("border/pixel_fade_1"),
+                        lower,
+                        new Band.Seen("border/field", 63, Placement.AIR_FOCUS)),
                 change.remodelled());
     }
 
     private static Band.Seen seen(final String model) {
-        return new Band.Seen(model, Band.UNKNOWN);
+        return new Band.Seen(model, Band.UNKNOWN, Placement.AIR_FOCUS);
     }
 
     @Test

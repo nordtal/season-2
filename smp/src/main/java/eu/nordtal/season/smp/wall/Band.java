@@ -60,18 +60,19 @@ final class Band {
     /** The lowest and the highest ground the tint carries. */
     static final int LOWEST = -2048;
 
-    static final int HIGHEST = LOWEST + (1 << 15) - 1;
+    static final int HIGHEST = LOWEST + (1 << 15) - 2;
 
     private Band() {}
 
     /**
-     * The panels a player sees, each with its model and ground.
+     * The panels a player sees, each with its model, ground and placement.
      *
      * The player's feet are at {@code x}, {@code eyeY} minus their eye height, {@code z}.
      */
     static Map<Panel, Seen> seen(
             final Wall wall,
             final Look look,
+            final Placement placement,
             final double x,
             final double z,
             final double eyeY,
@@ -79,7 +80,7 @@ final class Band {
         final Map<Panel, Seen> seen = new HashMap<>();
         if (look != Look.FIELD) {
             for (final Panel panel : wall.near(x, z, RADIUS)) {
-                seen.put(panel, new Seen(look.model(panel.distance(x, z)), UNKNOWN));
+                seen.put(panel, new Seen(look.model(panel.distance(x, z)), UNKNOWN, placement));
             }
             return seen;
         }
@@ -87,7 +88,7 @@ final class Band {
         for (final Panel panel : wall.near(x, z, farthest)) {
             final int under = ground.applyAsInt(panel);
             if (panel.distance(x, z) <= reach(eyeY, under)) {
-                seen.put(panel, new Seen(look.model(panel.distance(x, z)), under));
+                seen.put(panel, new Seen(look.model(panel.distance(x, z)), under, placement));
             }
         }
         return seen;
@@ -113,7 +114,7 @@ final class Band {
         return (ground == UNKNOWN ? feetY : Math.min(ground, feetY)) - BELOW;
     }
 
-    /** The band's upper end for feet at {@code feetY}: a ground above them, as over a cave, does not raise it. */
+    /** The band's upper end for feet at {@code feetY}, before {@link #need} raises it to a ground above them. */
     static double head(final double feetY, final Look look) {
         return feetY - BELOW + look.height();
     }
@@ -123,10 +124,14 @@ final class Band {
         final double low = eyeY - CAMERA - EYE;
         final double high = eyeY + CAMERA - EYE;
         double bottom = foot(UNKNOWN, low);
+        double top = head(high, look);
         for (final Seen panel : seen) {
             bottom = Math.min(bottom, foot(panel.ground(), low));
+            if (panel.ground() != UNKNOWN) {
+                top = Math.max(top, head(panel.ground(), look));
+            }
         }
-        return new Range(bottom, head(high, look));
+        return new Range(bottom, top);
     }
 
     /** The heights the panels cover: {@code current} while it fits {@code need}, else {@code need} with room. */
@@ -140,20 +145,20 @@ final class Band {
     }
 
     /**
-     * The tint that carries a panel's ground to the shader, as RGB, or white while it is not known.
-     *
-     * The ground plus 2048 in 15 bits, five a channel, each 130 + 4 times its bits, so one off still decodes.
+     * The tint that carries a panel's ground and placement to the shader, as RGB.
+     * Ground plus 2048 uses 15 bits (five per channel); red's high bit selects the placement mode.
      */
-    static int tint(final int ground) {
+    static int tint(final int ground, final Placement placement) {
+        final int rBase = placement == Placement.PROXIMITY_WINDOW ? 2 : 130;
         if (ground == UNKNOWN) {
-            return 0xFFFFFF;
+            return (placement == Placement.PROXIMITY_WINDOW ? 0x7F : 0xFF) << 16 | 0xFFFF;
         }
         final int value = Math.clamp(ground, LOWEST, HIGHEST) - LOWEST;
-        return channel(value >> 10) << 16 | channel(value >> 5) << 8 | channel(value);
+        return channel(rBase, value >> 10) << 16 | channel(130, value >> 5) << 8 | channel(130, value);
     }
 
-    private static int channel(final int bits) {
-        return 130 + 4 * (bits & 31);
+    private static int channel(final int base, final int bits) {
+        return base + 4 * (bits & 31);
     }
 
     /** The height the pixel look's panels stand at for a player whose feet are at {@code feetY}. */
@@ -182,8 +187,8 @@ final class Band {
         return new Change(added, removed, remodelled);
     }
 
-    /** A panel as the player sees it: its item model, in the namespace {@code nordtal}, and the ground under it. */
-    record Seen(String model, int ground) {}
+    /** A panel as the player sees it: its item model, in the namespace {@code nordtal}, its ground and placement. */
+    record Seen(String model, int ground, Placement placement) {}
 
     /**
      * The height the field's entities stand at in a world whose blocks end below {@code maxHeight}.

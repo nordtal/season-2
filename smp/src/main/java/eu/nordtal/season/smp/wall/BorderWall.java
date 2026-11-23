@@ -16,6 +16,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Tag;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Minecart;
@@ -23,6 +24,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
@@ -63,6 +66,7 @@ public final class BorderWall implements Listener {
     private final Consumer<Player> pushSound;
 
     private Map<String, Walls.Drawn> walls = Map.of();
+    private final Placement placement = Placement.configured();
     private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final Map<UUID, Long> pushed = new HashMap<>();
 
@@ -103,6 +107,50 @@ public final class BorderWall implements Listener {
             clear(player);
         }
         walls = Map.of();
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void blockPlaced(final BlockPlaceEvent event) {
+        final Block block = event.getBlock();
+        if (changed(block)) {
+            redrawNear(block.getLocation());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void blockBroken(final BlockBreakEvent event) {
+        final Block block = event.getBlock();
+        if (changed(block)) {
+            // The broken block is still in the world while its event runs.
+            final Location at = block.getLocation();
+            nextTick.accept(() -> redrawNear(at));
+        }
+    }
+
+    /** Draws the wall again for every player whose shown panels may stand on the ground at {@code at}. */
+    private void redrawNear(final Location at) {
+        final double reach = Band.DEPTH + Band.LEAD;
+        for (final Player player : at.getWorld().getPlayers()) {
+            final Location location = Objects.requireNonNull(player.getLocation());
+            final double dx = location.getX() - at.getX();
+            final double dz = location.getZ() - at.getZ();
+            if (player.isOnline() && viewers.containsKey(player.getUniqueId()) && dx * dx + dz * dz <= reach * reach) {
+                show(player, location);
+            }
+        }
+    }
+
+    /** Forgets the grounds near a changed block beside the wall, and tells whether there were any. */
+    private boolean changed(final Block block) {
+        final Walls.Drawn drawn = walls.get(block.getWorld().getName());
+        if (drawn == null
+                || drawn.wall()
+                        .near(block.getX() + 0.5, block.getZ() + 0.5, Grounds.INVALIDATE_RADIUS)
+                        .isEmpty()) {
+            return false;
+        }
+        grounds.invalidate(block.getWorld().getName(), block.getX(), block.getZ());
+        return true;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -416,7 +464,13 @@ public final class BorderWall implements Listener {
         final double eye = at.getY() + player.getEyeHeight();
         final long now = clock.millis();
         final Map<Panel, Band.Seen> seen = Band.seen(
-                drawn.wall(), look, at.getX(), at.getZ(), eye, panel -> grounds.at(at.getWorld(), panel, now));
+                drawn.wall(),
+                look,
+                placement,
+                at.getX(),
+                at.getZ(),
+                eye,
+                panel -> grounds.at(at.getWorld(), panel, placement, now));
         final Band.Change change = Band.change(viewer.seen(), seen);
         packets.remove(id, viewer.forget(change.removed()));
         change.remodelled().forEach((panel, after) -> packets.remodel(id, viewer.remodel(panel, after), after));

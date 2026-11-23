@@ -661,6 +661,26 @@ export type NetworkMap = {
   services: NetworkBox[]
 }
 
+export type BackupDestinations = {
+  offered: boolean
+  accounts: BackupAccount[]
+  series: BackupSeries[]
+  repositories: BackupRepository[]
+}
+
+export type GoogleStart = {
+  authorizeUrl: string
+}
+
+export type SeriesChoice = {
+  accountId?: string
+}
+
+export type RecoveryDownload = {
+  name: string
+  text: string
+}
+
 export type AlertType = "service" | "backup" | "disk" | "memory" | "drift" | "pack" | "run" | "payment" | "bot"
 
 export type AlertChannel = "push" | "discord"
@@ -945,6 +965,10 @@ export type JournalAction =
   | "REQUEST_RUN"
   | "CANCEL_RUN"
   | "DOWNLOAD_BACKUP"
+  | "CONNECT_BACKUP_ACCOUNT"
+  | "DISCONNECT_BACKUP_ACCOUNT"
+  | "CHOOSE_BACKUP_ACCOUNT"
+  | "DOWNLOAD_RECOVERY_FILE"
   | "ANNOUNCE"
   | "COMPLETE_OBJECTIVE"
   | "UNLOCK_MILESTONE"
@@ -1249,6 +1273,35 @@ export type NetworkBox = {
   entry: boolean
   reaches: string[]
   storesIn: string[]
+}
+
+export type BackupAccount = {
+  id: string
+  email: string
+  folderId: string
+  folderName: string
+  connected: boolean
+  connectedAt: string
+}
+
+export type BackupSeries = {
+  series: string
+  accountId?: string
+  email?: string
+  lastCopiedAt?: string
+  lastSnapshotId?: string
+  lastBytes?: number
+  lastError?: string
+  lastFailedAt?: string
+}
+
+export type BackupRepository = {
+  id: string
+  accountId: string
+  series: string
+  subpath: string
+  createdAt: string
+  recoveryDownloadedAt?: string
 }
 
 export type StepUpLength = "QUARTER_HOUR" | "ONE_HOUR" | "SIX_HOURS"

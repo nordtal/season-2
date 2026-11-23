@@ -340,7 +340,7 @@ class RunnerTest {
     @Test
     void aBackupCopiesItsArchivesOffTheHostOnlyOnceItsServersAreBack() {
         snapshots.copiesOffsite(SnapshotResult.saved(
-                Snapshots.OFFSITE, 4_321_000_000L, Duration.ofSeconds(95), "sftp://box/nordtal-s2"));
+                Snapshots.OFFSITE, 4_321_000_000L, Duration.ofSeconds(95), "rclone:gdrive:stack-1"));
         final UpdateRequest request = claimed(UpdateKind.BACKUP, null);
 
         final Outcome outcome = runner.run(request, progress::add);

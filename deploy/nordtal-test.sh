@@ -260,7 +260,8 @@ for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA N
             STEWARD_DISCORD_CLIENT_SECRET; do
     contains "$name" "${REQUIRED[@]}" || bad "$name is not required and should be"
 done
-for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID STEWARD_ROOT_DISCORD_ID; do
+for name in NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID STEWARD_ROOT_DISCORD_ID \
+            STEWARD_GOOGLE_DRIVE_CLIENT_ID STEWARD_GOOGLE_DRIVE_CLIENT_SECRET; do
     if contains "$name" "${REQUIRED[@]}"; then
         bad "$name is required, and a deployment must not stop for it"
     fi
@@ -297,7 +298,8 @@ for name in "${QUESTIONS[@]}"; do
     [[ -n "${QUESTION_PROMPT[$name]:-}" ]] || bad "$name has no prompt"
     [[ -n "${QUESTION_HINT[$name]:-}" ]]   || bad "$name has no hint"
 done
-for name in NORDTAL_BOT_TOKEN STEWARD_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_BUNQ_API_KEY; do
+for name in NORDTAL_BOT_TOKEN STEWARD_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_BUNQ_API_KEY \
+            STEWARD_GOOGLE_DRIVE_CLIENT_SECRET; do
     case "${QUESTION_KIND[$name]}" in
         secret|optional-secret) ;;
         *) bad "$name is not a secret kind, so the menu would print it" ;;
@@ -724,7 +726,7 @@ move_case() {
     MOVED_SECRETS=()
     move_service_secrets "$WORK/move/season-2.env" "$WORK/move/secrets"
 }
-move_case '# bunq\nPLAIN=kept\nNORDTAL_STEWARD_BUNQ_API_KEY=the-key\nexport NORDTAL_STEWARD_BUNQ_ACCOUNT_ID="42"\nLAST=kept\nNORDTAL_BOT_TOKEN=bot\nSTEWARD_DISCORD_CLIENT_SECRET=client\nSTEWARD_WEB_PUSH_PRIVATE_KEY=push\nSTEWARD_OFFSITE_PASSWORD=offsite\n'
+move_case '# bunq\nPLAIN=kept\nNORDTAL_STEWARD_BUNQ_API_KEY=the-key\nexport NORDTAL_STEWARD_BUNQ_ACCOUNT_ID="42"\nLAST=kept\nNORDTAL_BOT_TOKEN=bot\nSTEWARD_DISCORD_CLIENT_SECRET=client\nSTEWARD_WEB_PUSH_PRIVATE_KEY=push\nSTEWARD_BACKUP_KEY=backup\n'
 bunq="$WORK/move/secrets/steward-bunq/secrets.env"
 steward="$WORK/move/secrets/steward/secrets.env"
 [[ "$(env_value "$bunq" NORDTAL_STEWARD_BUNQ_API_KEY)" == the-key ]] || bad "the key did not reach steward-bunq's file"
@@ -735,15 +737,15 @@ steward="$WORK/move/secrets/steward/secrets.env"
     || bad "the client secret did not reach steward's file under the name steward reads"
 [[ "$(env_value "$steward" NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY)" == push ]] \
     || bad "the Web Push key did not reach steward's file under the name steward reads"
-[[ "$(env_value "$WORK/move/secrets/steward-agent/secrets.env" NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD)" == offsite ]] \
-    || bad "the offsite password did not reach the agent's file under the name the agent reads"
+[[ "$(env_value "$steward" NORDTAL_STEWARD_WEB_BACKUP_KEY)" == backup ]] \
+    || bad "the backup key did not reach steward's file under the name steward reads"
 has_assignment "$steward" STEWARD_DISCORD_CLIENT_SECRET && bad "steward's file holds the shared file's name"
 [[ -z "$(stale_service_secrets "$WORK/move/season-2.env")" ]] || bad "the shared file still holds a moved line"
 [[ "$(grep -v '^SECRETS_REVISION_' "$WORK/move/season-2.env")" == $'# bunq\nPLAIN=kept\nLAST=kept' ]] \
     || bad "the rest of the shared file changed"
-[[ "${MOVED_SECRETS[*]}" == "NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID NORDTAL_BOT_TOKEN STEWARD_DISCORD_CLIENT_SECRET STEWARD_WEB_PUSH_PRIVATE_KEY STEWARD_OFFSITE_PASSWORD" ]] \
+[[ "${MOVED_SECRETS[*]}" == "NORDTAL_STEWARD_BUNQ_API_KEY NORDTAL_STEWARD_BUNQ_ACCOUNT_ID NORDTAL_BOT_TOKEN STEWARD_DISCORD_CLIENT_SECRET STEWARD_WEB_PUSH_PRIVATE_KEY STEWARD_BACKUP_KEY" ]] \
     || bad "the moved names were '${MOVED_SECRETS[*]}'"
-for service in steward-bunq discord-bot steward steward-agent; do
+for service in steward-bunq discord-bot steward; do
     [[ "$(env_value "$WORK/move/season-2.env" "$(revision_name "$service")")" =~ ^[0-9a-f]{16}$ ]] \
         || bad "$service was given no new SECRETS_REVISION"
 done
@@ -755,7 +757,7 @@ mode_is "$WORK/move/secrets" 700 || bad "the secrets directory is not mode 700"
 grep -qx "10003:10003 move/secrets/steward-bunq" "$WORK/chowned" || bad "steward-bunq's directory was not handed to 10003"
 grep -qx "10001:10001 move/secrets/discord-bot" "$WORK/chowned" || bad "the bot's directory was not handed to 10001"
 grep -qx "10002:10002 move/secrets/steward" "$WORK/chowned" || bad "steward's directory was not handed to 10002"
-grep -qx "0:0 move/secrets/steward-agent" "$WORK/chowned" || bad "the agent's directory was not handed to root"
+[[ -e "$WORK/move/secrets/steward-agent" ]] && bad "the agent, which reads no secret of its own, was given a directory"
 ok "every moved line in its service's file under the name it reads, the rest untouched, each file its uid's"
 
 move_case 'NORDTAL_STEWARD_BUNQ_API_KEY=\nPLAIN=kept\n'

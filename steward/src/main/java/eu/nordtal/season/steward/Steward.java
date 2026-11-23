@@ -220,7 +220,7 @@ public final class Steward {
                 new DiscordAuth(webConfig.discord(), webConfig.publicUrl(), DiscordAuth.DISCORD_API, CLOCK),
                 stack,
                 agent,
-                !config.agent().token().isBlank(),
+                config.agent().token(),
                 data,
                 configs.languages(),
                 CLOCK,

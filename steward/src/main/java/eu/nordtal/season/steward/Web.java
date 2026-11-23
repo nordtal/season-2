@@ -21,6 +21,7 @@ import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcStore;
 import eu.nordtal.season.database.pack.PackBuildStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
+import eu.nordtal.season.internalapi.backup.BackupDestinationWire;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.steward.access.AccessApi;
@@ -46,6 +47,9 @@ import eu.nordtal.season.steward.auth.Profile;
 import eu.nordtal.season.steward.auth.SecondFactor;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.auth.WebAuthn;
+import eu.nordtal.season.steward.backup.DestinationRoutes;
+import eu.nordtal.season.steward.backup.Destinations;
+import eu.nordtal.season.steward.backup.GoogleDrive;
 import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.data.ExampleValues;
@@ -89,6 +93,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -159,6 +164,8 @@ public final class Web {
     private final AuthFlow authFlow;
 
     private final AgentApi deployments;
+
+    private final DestinationRoutes backupDestinations;
 
     private final Updates updates;
     private final PackApi pack;
@@ -231,8 +238,13 @@ public final class Web {
                         stack.plainLine("smp", "milestone-name"), stack.plainLine("smp", "objective-name")));
     }
 
+    private static Authenticators authenticatorsOf(final WebSpec config, final Data data, final Clock clock) {
+        return new Authenticators(
+                data.dataSource(), SecretBox.of(config.totpKey()).orElse(null), clock);
+    }
+
     /**
-     * @param agentOffered whether an agent token is configured. Without one the page draws no recreate button
+     * @param agentToken the token steward-agent and steward share. Without one the page draws no recreate button
      * @param languages the network's languages, which the database bundle is loaded in
      */
     public Web(
@@ -241,7 +253,7 @@ public final class Web {
             final DiscordAuth discord,
             final StackApi stack,
             final AgentClient agent,
-            final boolean agentOffered,
+            final String agentToken,
             final Data data,
             final Languages languages,
             final Clock clock,
@@ -256,8 +268,7 @@ public final class Web {
         final Credentials localCredentials = new Credentials(data.dataSource());
         final WebAuthn localWebauthn =
                 new WebAuthn(config.webauthn().relyingPartyId(), config.publicUrl(), localCredentials);
-        final Authenticators localApps = new Authenticators(
-                data.dataSource(), SecretBox.of(config.totpKey()).orElse(null), clock);
+        final Authenticators localApps = authenticatorsOf(config, data, clock);
         this.secondFactor = new SecondFactor(
                 this::requireSession, localCredentials, this.sessions, localWebauthn, localApps, clock);
         this.authenticatorApp = new AuthenticatorApp(this::requireSession, secondFactor, localApps, this.sessions);
@@ -283,7 +294,8 @@ public final class Web {
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow(), secondFactor::requireStepUp);
         this.pack = new PackApi(PackBuildStore.using(data.dataSource()));
         this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow(), stack::online, clock);
-        this.deployments = new AgentApi(agent, agentOffered);
+        this.deployments = new AgentApi(agent, !agentToken.isBlank());
+        this.backupDestinations = backupDestinationsOf(config, agentToken, data, clock);
         final PushSubscriptions localPushSubscriptions = new PushSubscriptions(data.dataSource());
         this.profile = new Profile(
                 this::requireSession,
@@ -303,6 +315,23 @@ public final class Web {
         this.push = new PushEndpoints(this::requireSession, localPushSubscriptions, wiring.router(), localVapidKeys);
         this.live = watchLive(data, clock);
         this.overrides = MessageOverrideStore.using(data.dataSource());
+    }
+
+    /** The routes that connect Google accounts for remote backup copies. Without a backup key they offer nothing. */
+    private DestinationRoutes backupDestinationsOf(
+            final WebSpec config, final String agentToken, final Data data, final Clock clock) {
+        final @Nullable SecretBox box = SecretBox.of(config.backupKey()).orElse(null);
+        return new DestinationRoutes(
+                box == null ? null : new Destinations(data.dataSource(), box),
+                new GoogleDrive(
+                        config.googleDrive().clientId(),
+                        config.googleDrive().clientSecret(),
+                        GoogleDrive.Endpoints.GOOGLE),
+                config.publicUrl(),
+                Map.of(BackupDestinationWire.STACK, agentToken, BackupDestinationWire.PLANE, config.planeBackupToken()),
+                data.audit(),
+                ctx -> account(ctx).orElseThrow(),
+                clock);
     }
 
     /** The NPC editor's routes, which preview a draft through the SMP's inbox. */
@@ -429,6 +458,7 @@ public final class Web {
             // Registers before the update routes: /api/updates/available must precede /api/updates/{id}.
             stack.register(cfg, caller());
             deployments.register(cfg);
+            backupDestinations.register(cfg);
             metrics.register(cfg);
             updates.register(cfg);
             pack.register(cfg);

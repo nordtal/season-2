@@ -43,6 +43,11 @@ abstract class WebFixture {
 
     static final StandInDiscord fakeDiscord = new StandInDiscord();
 
+    /** The token that steward-agent sends, which also authorizes the stack's backup series. */
+    static final String AGENT_TOKEN = "agent-token-of-the-tests";
+
+    static final String PLANE_BACKUP_TOKEN = "plane-token-of-the-tests";
+
     /** Who the stand-in Discord says is signing in. A test can set it to use a 32-character nickname. */
     static final java.util.concurrent.atomic.AtomicReference<String> memberId = fakeDiscord.memberId;
 
@@ -119,6 +124,31 @@ abstract class WebFixture {
                 // A fixed key, so the authenticator app is offered. Only these tests seal with it.
                 return "0123456789abcdef".repeat(4);
             }
+
+            @Override
+            public String backupKey() {
+                return "fedcba9876543210".repeat(4);
+            }
+
+            @Override
+            public String planeBackupToken() {
+                return PLANE_BACKUP_TOKEN;
+            }
+
+            @Override
+            public GoogleDriveSpec googleDrive() {
+                return new GoogleDriveSpec() {
+                    @Override
+                    public String clientId() {
+                        return "client-of-the-tests.apps.googleusercontent.com";
+                    }
+
+                    @Override
+                    public String clientSecret() {
+                        return "secret-of-the-tests";
+                    }
+                };
+            }
         };
     }
 
@@ -167,7 +197,7 @@ abstract class WebFixture {
                 new DiscordAuth(config.discord(), config.publicUrl(), discordBase),
                 stack,
                 client,
-                true,
+                AGENT_TOKEN,
                 over,
                 NetworkSettings.defaultLanguages(),
                 Clock.systemUTC(),

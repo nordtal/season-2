@@ -35,11 +35,11 @@ EXPOSE 8080
 
 # The docker CLI and the compose plugin are static binaries. The container mounts the Docker socket
 # and /app/env, which holds the secrets of the deployment, and only compose reads the latter.
-# zstd compresses the backup tars, restic and ssh copy them off the host, and GNU tar is in the base image.
+# zstd compresses the backup tars, restic and rclone copy them to Google Drive, and GNU tar is in the base image.
 # `steward-agent` is also a command: `docker exec nordtal-s2-steward-agent-1 steward-agent request UPDATE`.
 FROM jvm AS steward-agent
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y zstd restic openssh-client \
+    && apt-get install --no-install-recommends -y zstd restic rclone \
     && rm -rf /var/lib/apt/lists/* \
     && printf '#!/bin/sh\nexec /app/entrypoint.sh "$@"\n' > /usr/local/bin/steward-agent \
     && chmod 0755 /usr/local/bin/steward-agent

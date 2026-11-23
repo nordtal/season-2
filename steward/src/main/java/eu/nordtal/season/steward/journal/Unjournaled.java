@@ -26,5 +26,8 @@ public enum Unjournaled implements RouteRole {
     DRAFT,
 
     /** Another try of work a journaled change asked for, which changes nothing that change did not. */
-    RETRY
+    RETRY,
+
+    /** A service of the stack reports how its own scheduled work went, which no admin asked for. */
+    SERVICE_REPORT
 }

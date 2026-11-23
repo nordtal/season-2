@@ -413,7 +413,7 @@ services:
       eu.nordtal.section: Steward
       eu.nordtal.reaches: steward-agent steward-bunq
       eu.nordtal.stores-in: postgres
-      eu.nordtal.secrets: NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY NORDTAL_STEWARD_WEB_TOTP_KEY
+      eu.nordtal.secrets: NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY NORDTAL_STEWARD_WEB_TOTP_KEY NORDTAL_STEWARD_WEB_BACKUP_KEY NORDTAL_STEWARD_WEB_PLANE_BACKUP_TOKEN
     build:
       <<: *jvm-build
       args: { MODULE: steward }
@@ -466,6 +466,10 @@ services:
       # Web Push keys from `steward generate-vapid-keys`; blank keeps what the web group holds. The
       # private one, NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY, is in steward's own secrets below, as is
       # NORDTAL_STEWARD_WEB_TOTP_KEY, which seals the authenticator apps' secrets.
+      # Backups to Google Drive: NORDTAL_STEWARD_WEB_BACKUP_KEY seals the refresh tokens and repository
+      # passwords, NORDTAL_STEWARD_WEB_PLANE_BACKUP_TOKEN lets the host's Plane backup job ask for its
+      # credentials, and the optional NORDTAL_STEWARD_WEB_GOOGLE_DRIVE_CLIENT_ID and _CLIENT_SECRET name the
+      # OAuth client. All four are in steward's own secrets below.
       NORDTAL_STEWARD_WEB_WEB_PUSH_PUBLIC_KEY: ${STEWARD_WEB_PUSH_PUBLIC_KEY:-}
       # A new value whenever deploy/nordtal.sh changes those, so the next run recreates steward.
       SECRETS_REVISION: ${SECRETS_REVISION_STEWARD:-}
@@ -514,7 +518,7 @@ services:
     # Root with Docker's default capabilities: the socket is root on the host whatever the uid, and it hands every
     # other service's volumes to that service's `user:`. Nothing it runs needs a setuid binary.
     security_opt: ["no-new-privileges:true"]
-    # Its runs count here too: compose, tar and zstd over the worlds, restic and ssh. The page cache they fill
+    # Its runs count here too: compose, tar and zstd over the worlds, restic and rclone. The page cache they fill
     # gives way at the limit.
     mem_limit: 2g
     pids_limit: 512
@@ -553,12 +557,6 @@ services:
       NORDTAL_STEWARD_AGENT_SEASON_REPO: ${SEASON_REPO:?set SEASON_REPO in the environment file - the GitHub repository of the season's releases, as owner/name; deploy/nordtal.sh writes it}
       # Optional; raises GitHub's rate limit.
       NORDTAL_STEWARD_AGENT_GITHUB_TOKEN: ${STEWARD_GITHUB_TOKEN:-}
-      # Optional; the restic repository every backup run copies its newest archives into, and its key. The SSH
-      # key and the host keys are the files offsite-key and offsite-known-hosts beside the environment file.
-      # The offsite password, NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD, is in the agent's own secrets below.
-      NORDTAL_STEWARD_AGENT_OFFSITE_REPOSITORY: ${STEWARD_OFFSITE_REPOSITORY:-}
-      # A new value whenever deploy/nordtal.sh changes those, so the next run renews the agent.
-      SECRETS_REVISION: ${SECRETS_REVISION_STEWARD_AGENT:-}
       # The installer's one question: whether Mojang's client jar may be fetched to draw item icons.
       NORDTAL_STEWARD_AGENT_MOJANG_ASSETS: ${NORDTAL_MOJANG_ASSETS:-false}
       # The address Caddy serves the built packs under, without a trailing slash; the proxy's pack address starts with it.
@@ -572,8 +570,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       # A directory, not the file: a file bind would keep the pre-rotation inode.
       - ${STEWARD_ENV_DIR:?set STEWARD_ENV_DIR in .env - the directory holding STEWARD_ENV_FILE, derived from it by deploy/nordtal.sh}:/app/env:ro
-      # Its own secrets, read by the entrypoint from secrets.env, as steward-bunq's are; only its own.
-      - ${NORDTAL_SECRETS_DIR:?set NORDTAL_SECRETS_DIR in .env - the directory of each service's own secrets, deploy/nordtal.sh writes it}/steward-agent:/app/secrets:ro
       # What a backup saves and a restore writes back. Proxy and limbo hold nothing worth saving.
       # Plugin paths must match the servers' expressions exactly; TopologyTest holds that.
       - ${SMP_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp}:/backup-sources/nordtal-s2_mc-smp
@@ -780,7 +776,10 @@ configs:
       		game_health
       	}
 
-      	# Only steward is exposed here; the internal APIs must never get a route.
+      	# Only steward is exposed here. The internal APIs must never get a route.
+      	@internal path /api/internal/*
+      	respond @internal 404
+
       	handle {
       		reverse_proxy steward:8080 {
       			# Keeps quiet Server-Sent Event streams open.

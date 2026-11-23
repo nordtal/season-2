@@ -60,6 +60,13 @@ class GateTest extends WebFixture {
             Map.entry("PUT /api/services/{name}/plugin-file", Gate.KEY_FRESH),
             Map.entry("DELETE /api/services/{name}/plugins/{artifact}", Gate.KEY_FRESH),
             Map.entry("POST /api/services/{name}/console", Gate.KEY_FRESH),
+            // These routes send the backups to another account or hand out the password that opens them.
+            Map.entry("POST /api/backup-destinations/google/start", Gate.KEY_FRESH),
+            Map.entry("POST /api/backup-destinations/accounts/{id}/disconnect", Gate.KEY_FRESH),
+            Map.entry("PUT /api/backup-destinations/series/{series}", Gate.KEY_FRESH),
+            Map.entry("POST /api/backup-destinations/accounts/{id}/repositories/{series}/recovery", Gate.KEY_FRESH),
+            // A backup series reports its copy with its own Bearer token, and the Caddyfile answers 404 outside.
+            Map.entry("POST /api/internal/backup-destinations/{series}/report", Gate.ANYONE),
             // These routes change admins or keys.
             Map.entry("POST /api/admins/grant", Gate.KEY_FRESH),
             Map.entry("POST /api/admins/revoke", Gate.KEY_FRESH),
@@ -152,6 +159,8 @@ class GateTest extends WebFixture {
                 "GET /api/texts",
                 "GET /auth/login",
                 "GET /auth/callback",
+                // A backup series reads its credentials with its own token. Caddy answers 404 from outside.
+                "GET /api/internal/backup-destinations/{series}/credentials",
                 // These routes answer "nothing at this address" and nothing else.
                 "GET /api/<path>",
                 "GET /auth/<path>");

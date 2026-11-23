@@ -117,15 +117,14 @@ services whose values changed.
 the service's directory of `NORDTAL_SECRETS_DIR` (`/etc/nordtal-secrets/season-2/<service>/`), has
 mode 600 and belongs to the uid of the service. Compose mounts the directory read-only at
 `/app/secrets` into that service alone and never interpolates its values.
-[`jvm/secrets.sh`](jvm/secrets.sh) exports them before the JVM starts. `steward-agent` mounts only
-its own directory, so it reads neither the bank key nor the bot token:
+[`jvm/secrets.sh`](jvm/secrets.sh) exports them before the JVM starts. `steward-agent` mounts no
+secrets directory, so it reads neither the bank key nor the bot token:
 
-| service         | secrets of the service (the name in the environment file, where it differs)                                                                                                                                     |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `steward-bunq`  | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`                                                                                                                                               |
-| `discord-bot`   | `NORDTAL_BOT_TOKEN`                                                                                                                                                                                             |
-| `steward`       | `NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET` (`STEWARD_DISCORD_CLIENT_SECRET`), `NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY` (`STEWARD_WEB_PUSH_PRIVATE_KEY`), `NORDTAL_STEWARD_WEB_TOTP_KEY` (`STEWARD_TOTP_KEY`) |
-| `steward-agent` | `NORDTAL_STEWARD_AGENT_OFFSITE_PASSWORD` (`STEWARD_OFFSITE_PASSWORD`)                                                                                                                                           |
+| service        | secrets of the service (the name in the environment file, where it differs)                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `steward-bunq` | `NORDTAL_STEWARD_BUNQ_API_KEY`, `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID`                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `discord-bot`  | `NORDTAL_BOT_TOKEN`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `steward`      | `NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET` (`STEWARD_DISCORD_CLIENT_SECRET`), `NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY` (`STEWARD_WEB_PUSH_PRIVATE_KEY`), `NORDTAL_STEWARD_WEB_TOTP_KEY` (`STEWARD_TOTP_KEY`), `NORDTAL_STEWARD_WEB_BACKUP_KEY` (`STEWARD_BACKUP_KEY`), `NORDTAL_STEWARD_WEB_PLANE_BACKUP_TOKEN` (`STEWARD_PLANE_BACKUP_TOKEN`), `NORDTAL_STEWARD_WEB_GOOGLE_DRIVE_CLIENT_ID` (`STEWARD_GOOGLE_DRIVE_CLIENT_ID`), `NORDTAL_STEWARD_WEB_GOOGLE_DRIVE_CLIENT_SECRET` (`STEWARD_GOOGLE_DRIVE_CLIENT_SECRET`) |
 
 `nordtal.sh` asks for these values and writes them into the service's file. Every run (the menu,
 `--deploy` and `update`) moves such a line out of the environment file. A line that someone puts back
@@ -347,16 +346,30 @@ refused before anything stops, and the failed run raises an alert. The `runs` se
 something finally removes the images that no container uses and the unused build cache.
 
 **Offsite:** when everything runs again, the run copies the newest archive of every series with
-restic into `STEWARD_OFFSITE_REPOSITORY`. That repository is a Storage Box over SFTP, encrypted with
-`STEWARD_OFFSITE_PASSWORD`, and it keeps the same retention. `offsite-key` and `offsite-known-hosts`
-lie beside the environment file. A failed copy fails the run. A copied archive gets a marker under
-`steward-backups/offsite/`. The backup alert turns red when the newest copied archive is older than
-the backup age. On a new host:
+restic and rclone into a Google Drive folder. An admin connects a Google account on the Backups page
+of Steward and chooses it for the stack series. Steward keeps the account's refresh token and the
+restic password of each repository, sealed with `STEWARD_BACKUP_KEY`. Before each copy the agent asks
+Steward for them over the `agent` network with its own token. The agent writes them into an rclone
+config of mode 600 in a directory of mode 700 and deletes the directory after the copy. Without a
+chosen account the run copies nothing. A failed copy fails the run. A copied archive gets a marker
+under `steward-backups/offsite/`. The backup alert turns red when the newest copied archive is older
+than the backup age. Caddy answers 404 for every `/api/internal/` route, so only the agent network
+reaches them.
+
+The Plane backup on the host uses the same routes as the series `plane`, with
+`STEWARD_PLANE_BACKUP_TOKEN` from Steward's secrets file. `STEWARD_GOOGLE_DRIVE_CLIENT_ID` and
+`STEWARD_GOOGLE_DRIVE_CLIENT_SECRET` name a Google OAuth client of the type web application with the
+redirect URI `https://<steward host>/api/backup-destinations/google/callback`. Without them the page
+offers no copy.
+
+Steward hands out the recovery file of each repository once. It holds the restic password and the
+steps that restore the copy without Steward, on a new host:
 
 ```bash
-export RESTIC_REPOSITORY=sftp://u123456@u123456.your-storagebox.de:23/nordtal-s2 RESTIC_PASSWORD=...
-restic -o sftp.args="-i offsite-key" snapshots
-restic -o sftp.args="-i offsite-key" restore latest --target ./restored
+rclone config create gdrive drive scope=drive.readonly root_folder_id=<folder ID>
+export RESTIC_REPOSITORY='rclone:gdrive:<repository folder>' RESTIC_PASSWORD=...
+restic snapshots --no-lock
+restic restore latest --no-lock --target ./restored
 ```
 
 **Restoring:** a restore is a run. An admin asks for it on the Backups page of Steward by choosing

@@ -75,6 +75,52 @@ public interface WebSpec {
         return "";
     }
 
+    @Order(9)
+    @Name("Backup key")
+    @Key("backup-key")
+    @Secret
+    @Explain("Use 64 hex digits. Changing this key makes connected Google accounts and backup passwords unreadable.")
+    default String backupKey() {
+        return "";
+    }
+
+    @Order(10)
+    @Name("Plane backup token")
+    @Key("plane-backup-token")
+    @Secret
+    @Explain("The host's Plane backup job sends this token. An empty value refuses the job.")
+    default String planeBackupToken() {
+        return "";
+    }
+
+    @Order(11)
+    @Name("Google Drive")
+    @Key("google-drive")
+    @NoExplanationNeeded
+    GoogleDriveSpec googleDrive();
+
+    /** The OAuth client that connects Google accounts for remote backup copies. */
+    @ConfigSpec
+    interface GoogleDriveSpec {
+
+        @Order(1)
+        @Name("Client ID")
+        @Key("client-id")
+        @NoExplanationNeeded
+        default String clientId() {
+            return "";
+        }
+
+        @Order(2)
+        @Name("Client secret")
+        @Key("client-secret")
+        @Secret
+        @Explain("An empty value hides Google Drive on the backups page.")
+        default String clientSecret() {
+            return "";
+        }
+    }
+
     /** The display name is fixed in code. */
     @ConfigSpec
     interface WebAuthnSpec {

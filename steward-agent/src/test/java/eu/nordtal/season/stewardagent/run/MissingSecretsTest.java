@@ -37,7 +37,9 @@ class MissingSecretsTest {
                         "discord-bot:NORDTAL_BOT_TOKEN",
                         "steward:NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET",
                         "steward:NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY",
-                        "steward:NORDTAL_STEWARD_WEB_TOTP_KEY"),
+                        "steward:NORDTAL_STEWARD_WEB_TOTP_KEY",
+                        "steward:NORDTAL_STEWARD_WEB_BACKUP_KEY",
+                        "steward:NORDTAL_STEWARD_WEB_PLANE_BACKUP_TOKEN"),
                 containers.secretsAsked,
                 "each service is asked for what its label names, in the order of compose.yml");
     }

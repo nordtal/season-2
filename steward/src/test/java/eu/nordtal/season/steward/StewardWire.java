@@ -41,6 +41,7 @@ import eu.nordtal.season.steward.auth.AuthenticatorApp;
 import eu.nordtal.season.steward.auth.Profile;
 import eu.nordtal.season.steward.auth.SecondFactor;
 import eu.nordtal.season.steward.auth.WebAuthn;
+import eu.nordtal.season.steward.backup.DestinationRoutes;
 import eu.nordtal.season.steward.game.Announcements;
 import eu.nordtal.season.steward.game.CommandApi;
 import eu.nordtal.season.steward.game.ConsoleCommands;
@@ -160,7 +161,11 @@ public final class StewardWire {
             TranslationSearch.Hit.class,
             AgentWire.PluginAdded.class,
             Routes.ConsoleSent.class,
-            StackApi.NetworkMap.class);
+            StackApi.NetworkMap.class,
+            DestinationRoutes.BackupDestinations.class,
+            DestinationRoutes.GoogleStart.class,
+            DestinationRoutes.SeriesChoice.class,
+            DestinationRoutes.RecoveryDownload.class);
 
     public static final Map<Class<?>, String> NAMES = Map.ofEntries(
             Map.entry(Metrics.Curve.class, "Metrics"),

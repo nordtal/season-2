@@ -167,6 +167,37 @@ class StandbysTest {
     }
 
     @Test
+    void theStandbyKeepsItsOwnBStatsSettingsSoMetricsStayOff() throws IOException {
+        // The entrypoint turns bStats off at each start, and the live server's file can predate that start.
+        write("limbo/plugins/limbo-0.9.3.jar", "new");
+        write("limbo/plugins/bStats/config.yml", "serverUuid: live\nenabled: true\n");
+        write("limbo-standby/plugins/bStats/config.yml", "serverUuid: standby\nenabled: false\n");
+
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.LIMBO), DeclaredTopology.topology());
+
+        assertEquals(ApplyResult.Status.DONE, outcomes.getFirst().status(), detail(outcomes));
+        assertEquals("new", read("limbo-standby/plugins/limbo-0.9.3.jar"));
+        assertEquals(
+                "serverUuid: standby\nenabled: false\n",
+                read("limbo-standby/plugins/bStats/config.yml"),
+                "the live server's bStats settings were copied over the standby's");
+    }
+
+    @Test
+    void aStandbyWithoutBStatsSettingsGetsNoneFromTheLiveServer() throws IOException {
+        write("proxy/plugins/proxy-0.9.3.jar", "new");
+        write("proxy/plugins/bStats/config.txt", "enabled=true\n");
+        mounted(DeclaredTopology.topology().standbyOf(Topology.PROXY).orElseThrow());
+
+        Standbys.fill(volumes, List.of(Topology.PROXY), DeclaredTopology.topology());
+
+        assertFalse(
+                Files.exists(volumes.resolve("proxy-standby/plugins/bStats"), LinkOption.NOFOLLOW_LINKS),
+                "the standby's entrypoint writes its own bStats settings at its next start");
+    }
+
+    @Test
     void aSecondRunInARowCopiesNothingAndSaysSo() throws IOException {
         write("proxy/plugins/proxy-0.9.3.jar", "new");
         mounted(DeclaredTopology.topology().standbyOf(Topology.PROXY).orElseThrow());

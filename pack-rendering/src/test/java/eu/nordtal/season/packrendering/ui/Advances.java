@@ -10,6 +10,7 @@ import java.util.Map;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.TextDecoration;
 
 /** Measures a composed component against the assembled pack's fonts, as the client advances through it. */
 final class Advances {
@@ -33,7 +34,7 @@ final class Advances {
                 if (codePoint == '\n') {
                     rows.add(0);
                 } else {
-                    rows.set(rows.size() - 1, rows.getLast() + advance(id, codePoint));
+                    rows.set(rows.size() - 1, rows.getLast() + advance(id, codePoint) + bold(component));
                 }
             }
         }
@@ -49,7 +50,7 @@ final class Advances {
             final Key font = component.style().font();
             final String id = font == null ? "minecraft:default" : font.asString();
             for (final int codePoint : text.content().codePoints().toArray()) {
-                total += advance(id, codePoint);
+                total += advance(id, codePoint) + bold(component);
             }
         }
         for (final Component child : component.children()) {
@@ -58,8 +59,14 @@ final class Advances {
         return total;
     }
 
+    /** The client's extra column for a bold letter. */
+    private static int bold(final Component component) {
+        return component.style().decoration(TextDecoration.BOLD) == TextDecoration.State.TRUE ? 1 : 0;
+    }
+
     private static int advance(final String font, final int codePoint) {
-        if (Glyphs.FONT_UI_TEXT.containsValue(font) || "minecraft:default".equals(font)) {
+        final boolean letters = Glyphs.FONT_UI_TEXT.containsValue(font) || "minecraft:default".equals(font);
+        if (letters && !Character.isSupplementaryCodePoint(codePoint)) {
             // Vanilla's letters, which the pack does not hold: the build's measured table.
             return Letters.advance(codePoint);
         }

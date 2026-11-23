@@ -12,9 +12,11 @@ public enum DialogPanel {
     RIDE_LIST_102(276, 102, Glyphs.UI_DIALOG_RIDE_LIST_102),
     RIDE_LIST_122(276, 122, Glyphs.UI_DIALOG_RIDE_LIST_122),
     RIDE_LIST_33(276, 33, Glyphs.UI_DIALOG_RIDE_LIST_33),
-    STATION_78(198, 78, Glyphs.UI_DIALOG_STATION_78),
-    STATION_104(198, 104, Glyphs.UI_DIALOG_STATION_104),
-    STATION_122(198, 122, Glyphs.UI_DIALOG_STATION_122),
+    STATION_48(200, 48, Glyphs.UI_DIALOG_STATION_48),
+    STATION_57(200, 57, Glyphs.UI_DIALOG_STATION_57),
+    STATION_66(200, 66, Glyphs.UI_DIALOG_STATION_66),
+    STATION_102(200, 102, Glyphs.UI_DIALOG_STATION_102),
+    STATION_117(200, 117, Glyphs.UI_DIALOG_STATION_117),
     OBJECTIVES_124(262, 124, Glyphs.UI_DIALOG_OBJECTIVES_124),
     OBJECTIVES_33(262, 33, Glyphs.UI_DIALOG_OBJECTIVES_33),
     DUEL_124(206, 124, Glyphs.UI_DIALOG_DUEL_124),
@@ -30,6 +32,9 @@ public enum DialogPanel {
     /** The ride list's panels for 1 to 5 rows on one page. */
     public static final List<DialogPanel> RIDE_LIST_ROWS =
             List.of(RIDE_LIST_42, RIDE_LIST_62, RIDE_LIST_82, RIDE_LIST_102, RIDE_LIST_122);
+
+    /** The station visitor's panels for 1 to 3 rows of its hint. */
+    public static final List<DialogPanel> STATION_VISITOR_ROWS = List.of(STATION_48, STATION_57, STATION_66);
 
     /** The draft preview's panels for 1 to 3 rows on one page. */
     public static final List<DialogPanel> DRAFT_PREVIEW_ROWS =

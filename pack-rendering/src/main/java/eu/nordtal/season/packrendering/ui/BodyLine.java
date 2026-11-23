@@ -38,6 +38,14 @@ public final class BodyLine {
     /** The width of a native button that carries a 98 x 18 plate inside its 1 px rim. */
     public static final int NATIVE_BUTTON = 100;
 
+    /** The width of the station's native text field. */
+    public static final int FIELD = 180;
+
+    /** A native checkbox's box, and the gap from it to its label. */
+    private static final int BOX = 17;
+
+    private static final int BOX_GAP = 4;
+
     private final Pen pen = Pen.start();
     private final int down;
     private final int textShift;
@@ -102,6 +110,33 @@ public final class BodyLine {
                 .moveTo(inside + (PRIMARY_WIDTH - Letters.visibleWidth(text) + 1) / 2)
                 .text(0, text, look.ink())
                 .build(0);
+    }
+
+    /**
+     * Returns the label of a native button in the primary look that also rings the station's text field above it.
+     * The field stands centred over the button, its top 63 rows above the label's text row; the ring takes its frame
+     * colour, so the client's white focus border on the field never shows.
+     */
+    public static Component primaryButtonOverField(final String label) {
+        return primaryButton(label)
+                .append(Pen.start()
+                        .moveTo(-(FIELD / 2))
+                        .art(Glyphs.FONT_UI_RING, Glyphs.UI_FIELD_RING, FIELD)
+                        .build(0));
+    }
+
+    /**
+     * Returns a checkbox's label: {@code text} in ink after a ring over the box itself.
+     * The ring takes the box's frame colour, so the client's white focus border and highlight never show; it advances
+     * 0, so the client lays the checkbox out by the text alone.
+     */
+    public static Component checkboxLabel(final String text) {
+        return Pen.start()
+                .moveTo(-(BOX + BOX_GAP))
+                .art(Glyphs.FONT_UI_RING, Glyphs.UI_BOX_RING, BOX)
+                .moveTo(0)
+                .text(0, text, Colours.INK)
+                .build(Letters.width(text));
     }
 
     /** Moves to {@code x} of the line, forward or back, without drawing. */

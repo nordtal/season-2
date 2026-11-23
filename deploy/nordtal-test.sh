@@ -465,7 +465,36 @@ answer='{"url":"x","tag_name": "v0.11.0","name":"v0.11.0","target_commitish":"ma
 [[ "$(self_url_for 0.11.0)" == "https://raw.githubusercontent.com/nordtal/season-2/v0.11.0/deploy/nordtal.sh" ]] \
     || bad "the script is not fetched from the release's tag"
 [[ "$(self_url_for 0.11.0)" != */main/* ]] || bad "the script is fetched from main"
-ok "tag_name, v stripped, raw file at the tag"
+[[ "$(self_sha256_url_for 0.11.0)" == "https://github.com/nordtal/season-2/releases/download/v0.11.0/nordtal.sh.sha256" ]] \
+    || bad "the checksum is not fetched from the release's assets"
+ok "tag_name, v stripped, raw file and checksum at the tag"
+
+case_begin "a release checksum is parsed strictly and rejects tampering or junk"
+printf '#!/usr/bin/env bash\nSELF_NAME="nordtal.sh"\necho ok\n' > "$WORK/verify-target.sh"
+target_sha="$(sha256_of "$WORK/verify-target.sh")"
+[[ "$target_sha" =~ ^[0-9a-f]{64}$ ]] || bad "sha256_of did not return 64 hex characters: $target_sha"
+printf '%s  nordtal.sh\n' "$target_sha" > "$WORK/sha-std.sha256"
+printf '%s *nordtal.sh\n' "$target_sha" > "$WORK/sha-bin.sha256"
+printf '%s  deploy/nordtal.sh\n' "$target_sha" > "$WORK/sha-path.sha256"
+printf '%s\n' "${target_sha^^}" > "$WORK/sha-bare-upper.sha256"
+printf '%s  other.sh\n' "$target_sha" > "$WORK/sha-other.sha256"
+printf '%s  nordtal.sh\n%s  nordtal.sh\n' "$target_sha" "$target_sha" > "$WORK/sha-multi.sha256"
+printf '<html>404</html>\n' > "$WORK/sha-html.sha256"
+: > "$WORK/sha-empty.sha256"
+printf '%s  nordtal.sh\n' "${target_sha:0:63}0" > "$WORK/sha-short.sha256"
+printf '%064d  nordtal.sh\n' 0 > "$WORK/sha-wrong.sha256"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-std.sha256"        || bad "standard sha256sum format was refused"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-bin.sha256"        || bad "binary-mode sha256sum format was refused"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-path.sha256"       || bad "deploy/nordtal.sh format was refused"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-bare-upper.sha256" || bad "bare uppercase hex was refused"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-other.sha256"      && bad "a checksum for another file was accepted"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-multi.sha256"      && bad "a multi-line checksum file was accepted"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-html.sha256"       && bad "an HTML error page was accepted as a checksum"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-empty.sha256"      && bad "an empty checksum file was accepted"
+verify_sha256 "$WORK/verify-target.sh" "$WORK/sha-wrong.sha256"      && bad "a mismatched checksum was accepted"
+{ cat "$WORK/verify-target.sh"; printf '# tampered\n'; } > "$WORK/verify-tampered.sh"
+verify_sha256 "$WORK/verify-tampered.sh" "$WORK/sha-std.sha256"      && bad "a tampered script passed checksum verification"
+ok "standard, binary, path and bare hex pass; wrong file, multi-line, HTML, empty, mismatch and tampering fail"
 
 case_begin "a running, healthy agent gets a request; everything else gets up"
 [[ "$(deploy_by false true)" == request ]] || bad "a healthy agent was bypassed"
@@ -477,19 +506,120 @@ case_begin "update: the copy that asks for a run is renewed to the newest releas
 # A host that is only updated runs the script of the release, not the script it was installed with.
 printf '{"tag_name": "v9.9.9"}\n' > "$WORK/latest.json"
 { cat "$SETUP"; printf '# release 9.9.9\n'; } > "$WORK/release.sh"
+printf '%s  nordtal.sh\n' "$(sha256_of "$WORK/release.sh")" > "$WORK/release.sh.sha256"
+{ cat "$WORK/release.sh"; printf '# tampered\n'; } > "$WORK/tampered.sh"
 cp "$SETUP" "$WORK/installed.sh"
-renewed() { RELEASES_API="$1" NORDTAL_SH_URL="$2" renew_file "$WORK/installed.sh" >/dev/null 2>&1; }
-renewed "file://$WORK/latest.json" "file://$WORK/release.sh" || bad "an older copy was not replaced"
+renewed() {
+    RELEASES_API="$1" NORDTAL_SH_URL="$2" NORDTAL_SH_SHA256_URL="$3" \
+        renew_file "$WORK/installed.sh" >/dev/null 2>&1
+}
+renewed "file://$WORK/latest.json" "file://$WORK/release.sh" "file://$WORK/release.sh.sha256" \
+    || bad "an older copy was not replaced"
 cmp -s "$WORK/installed.sh" "$WORK/release.sh" || bad "the file is not the release's copy"
 [[ -x "$WORK/installed.sh" ]] || bad "the renewed file cannot be run"
-renewed "file://$WORK/latest.json" "file://$WORK/release.sh" && bad "the release's own copy was replaced again"
+renewed "file://$WORK/latest.json" "file://$WORK/release.sh" "file://$WORK/release.sh.sha256" \
+    && bad "the release's own copy was replaced again"
 ok "an older copy becomes the release's, and the release's copy stays"
 
 cp "$SETUP" "$WORK/installed.sh"
-renewed "file://$WORK/nothing.json" "file://$WORK/release.sh" && bad "a copy was replaced without a release"
-renewed "file://$WORK/latest.json" "file://$WORK/page.html" && bad "an error page replaced the script"
+renewed "file://$WORK/nothing.json" "file://$WORK/release.sh" "file://$WORK/release.sh.sha256" \
+    && bad "a copy was replaced without a release"
+renewed "file://$WORK/latest.json" "file://$WORK/page.html" "file://$WORK/release.sh.sha256" \
+    && bad "an error page replaced the script"
+renewed "file://$WORK/latest.json" "file://$WORK/release.sh" "file://$WORK/missing.sha256" \
+    && bad "a copy was replaced when the checksum asset was missing"
+renewed "file://$WORK/latest.json" "file://$WORK/tampered.sh" "file://$WORK/release.sh.sha256" \
+    && bad "a tampered script replaced the installed copy"
+renewed "file://$WORK/latest.json" "file://$WORK/release.sh" "file://$WORK/sha-wrong.sha256" \
+    && bad "a script with a mismatched checksum replaced the installed copy"
+renewed "file://$WORK/latest.json" "file://$WORK/release.sh" "file://$WORK/sha-html.sha256" \
+    && bad "a script with a malformed checksum replaced the installed copy"
 cmp -s "$WORK/installed.sh" "$SETUP" || bad "a failed renewal changed the file"
-ok "without GitHub or with a broken download, the copy that is here runs"
+ok "without GitHub, with a broken download, or with a missing or mismatched checksum, the copy that is here runs"
+
+case_begin "renew_self verifies the release checksum before executing a downloaded copy"
+cat > "$WORK/self-good.sh" <<'EOF'
+#!/usr/bin/env bash
+SELF_NAME="nordtal.sh"
+printf 'VERIFIED_SELF_RAN\n'
+EOF
+printf '%s  nordtal.sh\n' "$(sha256_of "$WORK/self-good.sh")" > "$WORK/self-good.sh.sha256"
+cat > "$WORK/self-tampered.sh" <<EOF
+#!/usr/bin/env bash
+SELF_NAME="nordtal.sh"
+: > "$WORK/tampered-ran"
+EOF
+
+out="$(
+    SELF_UPDATE=true RELEASE=9.9.9 SELF_URL="" ARGV=()
+    NORDTAL_SH_URL="file://$WORK/self-good.sh"
+    NORDTAL_SH_SHA256_URL="file://$WORK/self-good.sh.sha256"
+    from_a_checkout() { return 1; }
+    running_from_a_file() { return 1; }
+    renew_self 2>/dev/null
+)" || bad "renew_self refused a verified piped script"
+grep -qx 'VERIFIED_SELF_RAN' <<<"$out" || bad "verified piped script did not run, got: $out"
+
+out="$(
+    SELF_UPDATE=true RELEASE=9.9.9 SELF_URL="" ARGV=()
+    NORDTAL_SH_URL="file://$WORK/self-good.sh"
+    NORDTAL_SH_SHA256_URL="file://$WORK/self-good.sh.sha256"
+    from_a_checkout() { return 1; }
+    running_from_a_file() { return 0; }
+    renew_self 2>/dev/null
+)" || bad "renew_self refused a verified file-based script update"
+grep -qx 'VERIFIED_SELF_RAN' <<<"$out" || bad "verified file-based script did not run, got: $out"
+
+rm -f "$WORK/tampered-ran"
+if (
+    SELF_UPDATE=true RELEASE=9.9.9 SELF_URL="" ARGV=()
+    NORDTAL_SH_URL="file://$WORK/self-tampered.sh"
+    NORDTAL_SH_SHA256_URL="file://$WORK/self-good.sh.sha256"
+    from_a_checkout() { return 1; }
+    running_from_a_file() { return 1; }
+    renew_self
+) >/dev/null 2>&1; then
+    bad "renew_self accepted a tampered piped script"
+fi
+[[ ! -e "$WORK/tampered-ran" ]] || bad "tampered piped script was executed"
+
+if (
+    SELF_UPDATE=true RELEASE=9.9.9 SELF_URL="" ARGV=()
+    NORDTAL_SH_URL="file://$WORK/self-tampered.sh"
+    NORDTAL_SH_SHA256_URL="file://$WORK/self-good.sh.sha256"
+    from_a_checkout() { return 1; }
+    running_from_a_file() { return 0; }
+    renew_self
+) >/dev/null 2>&1; then
+    bad "renew_self accepted a tampered script when running from a file"
+fi
+[[ ! -e "$WORK/tampered-ran" ]] || bad "tampered file-based script was executed"
+
+if (
+    SELF_UPDATE=true RELEASE=9.9.9 SELF_URL="" ARGV=()
+    NORDTAL_SH_URL="file://$WORK/self-tampered.sh"
+    NORDTAL_SH_SHA256_URL="file://$WORK/missing.sha256"
+    from_a_checkout() { return 1; }
+    running_from_a_file() { return 1; }
+    renew_self
+) >/dev/null 2>&1; then
+    bad "renew_self accepted a piped script without a checksum asset"
+fi
+[[ ! -e "$WORK/tampered-ran" ]] || bad "unverified piped script was executed when checksum was missing"
+
+origin_missing="$(
+    SELF_UPDATE=true RELEASE=9.9.9 SELF_URL="" ARGV=() ORIGIN=""
+    NORDTAL_SH_URL="file://$WORK/self-tampered.sh"
+    NORDTAL_SH_SHA256_URL="file://$WORK/missing.sha256"
+    from_a_checkout() { return 1; }
+    running_from_a_file() { return 0; }
+    renew_self >/dev/null 2>&1
+    printf '%s' "$ORIGIN"
+)" || bad "renew_self failed to fall back to local copy when checksum asset was unreachable"
+[[ "$origin_missing" == "local copy, checksum unreachable" ]] \
+    || bad "unexpected origin on missing checksum fallback: $origin_missing"
+[[ ! -e "$WORK/tampered-ran" ]] || bad "unverified script was executed when checksum was missing"
+ok "verified copies run; tampered copies fail; missing checksums fail piped and fall back locally"
 
 case_begin "update: once a run is done, the copy is the release that run installed"
 # Just after a tag, the newest release on GitHub can still be the previous one. The tag of the agent is what ran.
@@ -499,7 +629,14 @@ docker() {
     printf 'nordtal-s2-steward-agent-1\tghcr.io/nordtal/steward-agent:9.9.9\n'
     printf 'other-steward-agent-1\tregistry.example:5000/steward-agent\n'
 }
-fetch_url() { printf '%s\n' "$1" >> "$WORK/fetched"; cp "$WORK/release.sh" "$2"; }
+fetch_url() {
+    printf '%s\n' "$1" >> "$WORK/fetched"
+    if [[ "$1" == *.sha256 ]]; then
+        cp "$WORK/release.sh.sha256" "$2"
+    else
+        cp "$WORK/release.sh" "$2"
+    fi
+}
 [[ "$(agent_release nordtal-s2-steward-agent-1)" == 9.9.9 ]] || bad "the agent's release was not read from its tag"
 [[ -z "$(agent_release other-steward-agent-1)" ]] || bad "a registry port was taken for a release"
 [[ -z "$(agent_release nordtal-s2-steward)" ]] || bad "a container was matched by a prefix of its name"
@@ -509,9 +646,10 @@ cp "$SETUP" "$WORK/installed.sh"
 renew_to_installed "$WORK/installed.sh" nordtal-s2-steward-agent-1 >/dev/null 2>&1 \
     || bad "the copy was not replaced by the installed release's"
 cmp -s "$WORK/installed.sh" "$WORK/release.sh" || bad "the file is not the installed release's copy"
-[[ "$(cat "$WORK/fetched")" == "$(self_url_for 9.9.9)" ]] \
-    || bad "fetched $(tr '\n' ' ' < "$WORK/fetched")instead of release 9.9.9's copy alone"
-ok "the installed release's copy, asked for by its tag and not as GitHub's newest"
+expected_fetched="$(printf '%s\n%s' "$(self_url_for 9.9.9)" "$(self_sha256_url_for 9.9.9)")"
+[[ "$(cat "$WORK/fetched")" == "$expected_fetched" ]] \
+    || bad "fetched $(tr '\n' ' ' < "$WORK/fetched")instead of release 9.9.9's copy and checksum"
+ok "the installed release's copy and checksum, asked for by its tag and not as GitHub's newest"
 
 cp "$SETUP" "$WORK/installed.sh"
 renew_to_installed "$WORK/installed.sh" other-steward-agent-1 >/dev/null 2>&1 \

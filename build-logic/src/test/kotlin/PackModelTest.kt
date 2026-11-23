@@ -135,7 +135,7 @@ class PackModelTest {
     fun aCellNamesTheStatusItShowsAndTheHeightAndAscentOfItsBlock() {
         allocation(
             """
-            {"fonts": [{"font": "nordtal:bossbar", "blocks": [
+            {"fonts": [{"font": "nordtal:gui", "blocks": [
               {"range": "FE110-FE11F", "title": "Icons", "texture": "nordtal:icons.png", "height": 8, "ascent": -9,
                "status": "keep", "glyphs": [{"code": "FE110", "title": "Glyph", "constant": "SPAWN"}, {"code": "FE111", "title": "Glyph", "constant": "DEATH", "status": "placeholder"}]},
               {"title": "Text", "texture": "nordtal:text.png", "height": 5, "ascent": -10, "chars": ["A"]}]}]}

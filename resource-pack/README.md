@@ -81,10 +81,9 @@ image, which builds the pack at its start. A wrong hash shows in the client as `
 - The font files: one per font and six for `nordtal:gui_r{row}`. `assemblePack` copies them into `build/pack`.
 - `Glyphs`, compiled into `:pack-rendering`. It holds a constant per glyph and per space, the lists
   and `named()` for `<glyph:name>`.
-- `nordtal/hud/bossbar-advances.properties` and `nordtal/menu/gui-row-advances.properties`. They hold
-  the widths that the plugins compose pills and rows with, derived from the written fonts by the
-  client's rule, and ship in the jar of `:pack-rendering`. `BossBarAdvancesTest` and `MenuFontTest`
-  derive the widths again independently.
+- `nordtal/menu/gui-row-advances.properties`. It holds the widths that the plugins compose rows
+  with, derived from the written fonts by the client's rule, and ships in the jar of
+  `:pack-rendering`. `MenuFontTest` derives the widths again independently.
 - `manifest.json` and one PNG per named glyph, which Steward's translation editor lists.
 - `nordtal/menu/item-sprites.properties`, written by `writeItemSprites` from `src/` and the client jar, ships in the jar
   of `:pack-rendering`. It names the atlas sprite of each item that a text draws before the item's name: the `layer0`,
@@ -163,8 +162,8 @@ the reason when it refuses. The app writes the `.aseprite` source itself.
 ```bash
 ./gradlew -q :resource-pack:createGlyph -Pfont=minecraft:default "-Pblock=Player badges" \
   -Ptexture=nordtal:badges/moon.png -Pname=half-moon -Pwidth=7 -Pheight=7
-./gradlew -q :resource-pack:createGlyphBlock -Pfont=nordtal:bossbar -Ptitle=Arrows -Pheight=8 -Pascent=-9
-./gradlew -q :resource-pack:createGlyphSheet -Pfont=nordtal:bossbar -Ptitle=Arrows \
+./gradlew -q :resource-pack:createGlyphBlock -Pfont=nordtal:gui -Ptitle=Arrows -Pheight=8 -Pascent=-9
+./gradlew -q :resource-pack:createGlyphSheet -Pfont=nordtal:gui -Ptitle=Arrows \
   -Ptexture=nordtal:hud/arrows.png -Pconstants=ARROW_LEFT,ARROW_RIGHT -Pwidth=6 -Pheight=5 -Pascent=-4
 ./gradlew -q :resource-pack:createItem -Pitem=nordtal:wand
 ./gradlew -q :resource-pack:createTexture -Ptexture=nordtal:gui/frame.png -Pwidth=24 -Pheight=12
@@ -251,9 +250,9 @@ and fails with the reason when it refuses.
 ```bash
 ./gradlew -q :resource-pack:createFont -Pfont=nordtal:signs -Pconstant=FONT_SIGNS -Pabout='Shop signs'
 ./gradlew -q :resource-pack:editFont -Pfont=nordtal:signs -Pconstant=FONT_SHOP_SIGNS
-./gradlew -q :resource-pack:editGlyphBlock -Pfont=nordtal:bossbar -Pblock=Arrows -Ptitle='Bearing arrows' -Pstatus=keep
-./gradlew -q :resource-pack:addSheetCells -Pfont=nordtal:bossbar -Pblock=Arrows -Pconstants=ARROW_UP,ARROW_DOWN
-./gradlew -q :resource-pack:deleteGlyphBlock -Pfont=nordtal:bossbar -Pblock=Arrows
+./gradlew -q :resource-pack:editGlyphBlock -Pfont=nordtal:gui -Pblock=Arrows -Ptitle='Bearing arrows' -Pstatus=keep
+./gradlew -q :resource-pack:addSheetCells -Pfont=nordtal:gui -Pblock=Arrows -Pconstants=ARROW_UP,ARROW_DOWN
+./gradlew -q :resource-pack:deleteGlyphBlock -Pfont=nordtal:gui -Pblock=Arrows
 ./gradlew -q :resource-pack:deleteFont -Pfont=nordtal:signs
 ```
 
@@ -667,33 +666,27 @@ glyph or list becomes the doc comment of its constant.
 | glyph | `status`                     | `keep` is shipping art, `final candidate` can ship, `placeholder` is for testing; unset is unjudged           |
 
 The build checks every rule before it writes anything. It names each broken rule by its place, such as
-`glyphs.json > nordtal:bossbar > Status icons`.
+`glyphs.json > nordtal:gui > Status icons`.
 
 - Every code point lies in Supplementary Private Use Area A, `U+F0000` to `U+FFFFD`. A `space` may
   also be the ordinary space. Other glyph plugins assign the private use area of the basic plane.
 - Blocks and their glyphs ascend, do not overlap and stay inside their block. A font draws a code point once.
-- Only `nordtal:bossbar` numbers on its own, and its bar segments are named by their width in
-  decimal. The blocks of every other font never overlap the blocks of another font, so a code point in
-  a log names one glyph.
+- The blocks of every font never overlap the blocks of another font, so a code point in a log names
+  one glyph.
 - A code point declared as a space has the same advance in every font that declares it.
 - Constants are unique across the file, names are unique among the glyphs, and no text holds `*/`.
 - A font id and a texture are resource locations by the rule under _New textures_, and a texture ends in `.png`.
 
 ## The fonts
 
-`U+FE001` is a different glyph in `minecraft:default` than in `nordtal:bossbar`. A component without
-a font draws `minecraft:default`, so every component with a `nordtal:` glyph names its font.
-`:architecture` lets only `BossBarLine` name a boss bar. Every code point is a surrogate pair in
-UTF-16: `Glyphs` writes `cp(0xFE004)`, and no message bundle holds one (`TabListTest`). A glyph reaches
-a bundle as a `{parameter}` or as `<glyph:name>`.
+A component without a font draws `minecraft:default`, so every component with a `nordtal:` glyph
+names its font. `:architecture` lets only `BossBarLine` name a boss bar. Every code point is a
+surrogate pair in UTF-16: `Glyphs` writes `cp(0xFE004)`, and no message bundle holds one
+(`TabListTest`). A glyph reaches a bundle as a `{parameter}` or as `<glyph:name>`.
 
 - **`nordtal:board`:** a row draws its left edge, advances by the configured width
   (`boards[].width` in the `boards` group of `smp`, 32 to 240 px), draws the right edge and goes back.
   Only the client knows the width of a text line.
-- **`nordtal:bossbar`:** its spaces are a `space` provider. The low digits of a code point are its
-  advance in decimal, negative advances included, so a line can draw over itself. A HUD line is one
-  rounded pill per piece of information. The HUD now draws in the UI kit's fonts, and nothing draws this
-  font any more. No advance may be allocated onto an assigned character.
 - **`nordtal:gui`:** menu panels, drawn from the inventory title. A title holds a bitmap as large as
   the window on a high `ascent`, over the emptied `generic_54.png`. A title needs **-8** to reach the left edge of
   the window and **-169** to go back from the 177 px advance of the panel. The positive spaces are the

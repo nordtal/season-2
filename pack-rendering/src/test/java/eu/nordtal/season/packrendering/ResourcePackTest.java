@@ -41,8 +41,6 @@ class ResourcePackTest {
     private static final FontFile DEFAULT_FONT =
             FontFile.load("minecraft:default", ASSETS + "/minecraft/font/default.json");
     private static final FontFile BOARD_FONT = FontFile.load(Glyphs.FONT_BOARD, ASSETS + "/nordtal/font/board.json");
-    private static final FontFile BOSSBAR_FONT =
-            FontFile.load(Glyphs.FONT_BOSSBAR, ASSETS + "/nordtal/font/bossbar.json");
     private static final FontFile GUI_FONT = FontFile.load(Glyphs.FONT_GUI, ASSETS + "/nordtal/font/gui.json");
 
     /** The six row fonts, which declare the same characters at six different ascents. */
@@ -72,9 +70,7 @@ class ResourcePackTest {
             .toList();
 
     private static final List<FontFile> FONTS = Stream.of(
-                    Stream.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT),
-                    GUI_ROW_FONTS.stream(),
-                    UI_FONTS.stream())
+                    Stream.of(DEFAULT_FONT, BOARD_FONT, GUI_FONT), GUI_ROW_FONTS.stream(), UI_FONTS.stream())
             .flatMap(fonts -> fonts)
             .toList();
 
@@ -243,7 +239,7 @@ class ResourcePackTest {
         // The client multiplies a glyph by its text colour, so a dark pixel stays dark whatever colour is asked for.
         final Path textures = RepositoryRoot.resolve(ASSETS + "/nordtal/textures");
         final List<String> notWhite = new ArrayList<>();
-        for (final String folder : List.of("prestige", "badges/donor_star.png", "ui/bossbar/arrows")) {
+        for (final String folder : List.of("prestige", "badges/donor_star.png")) {
             try (Stream<Path> files = Files.walk(textures.resolve(folder))) {
                 for (final Path file :
                         files.filter(f -> f.toString().endsWith(".png")).toList()) {
@@ -262,18 +258,8 @@ class ResourcePackTest {
         assertEquals(
                 List.of(),
                 notWhite.stream().distinct().toList(),
-                "the crests, the donor star and the bearing arrows are tinted by the component that draws them,"
+                "the crests and the donor star are tinted by the component that draws them,"
                         + " so every visible pixel has to be white");
-    }
-
-    @Test
-    void theBearingArrowsShareNoEmptyLeftColumn() throws IOException {
-        final Path arrows = RepositoryRoot.resolve(ASSETS + "/nordtal/textures/ui/bossbar/arrows");
-        try (Stream<Path> files = Files.list(arrows)) {
-            assertTrue(
-                    files.map(ResourcePackTest::read).anyMatch(image -> hasPixels(image, 0, 0, 1, image.getHeight())),
-                    "a column every arrow leaves empty widens the left padding of the pill around it");
-        }
     }
 
     @Test

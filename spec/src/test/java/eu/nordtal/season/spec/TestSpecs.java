@@ -77,7 +77,7 @@ public final class TestSpecs {
 
         @Order(2)
         @Key("reset-day")
-        @Explain("Day of the week the farm world resets.")
+        @Explain("Day of the week the worlds reset.")
         default String resetDay() {
             return "monday";
         }

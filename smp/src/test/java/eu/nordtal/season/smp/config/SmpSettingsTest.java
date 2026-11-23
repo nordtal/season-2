@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.config;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -147,6 +148,22 @@ class SmpSettingsTest {
         assertEquals(
                 List.of(),
                 items.stream().filter(item -> !item.startsWith("minecraft:")).toList());
+    }
+
+    @Test
+    void theBuiltInWheelPrizesCarryEveryPropertyDefaultWithoutStoredSettings() throws Exception {
+        final List<List<WheelPrizeSpec>> pools = List.of(
+                Specs.createDefault(WheelSpec.class).wheelPrizes(),
+                store.checked("smp", Group.of("wheel", WheelSpec.class), Map.of())
+                        .wheelPrizes());
+        for (final List<WheelPrizeSpec> pool : pools) {
+            assertFalse(pool.isEmpty());
+            for (final WheelPrizeSpec prize : pool) {
+                assertFalse(prize.item().isBlank());
+                assertEquals("", prize.data());
+                assertNotNull(prize.structure());
+            }
+        }
     }
 
     @Test

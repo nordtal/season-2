@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonObject;
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import eu.nordtal.season.internalapi.backup.BackupDestinationWire;
@@ -13,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -150,6 +153,24 @@ class OffsiteCopyTest {
         assertTrue(text.contains("\nclient_id = client-1\n"), text);
         assertTrue(text.contains("\"refresh_token\":\"refresh \\\"1\\\"\""), text);
         assertFalse(text.contains("not the real one"), "the restic password is no rclone setting");
+        assertTrue(text.contains("\nuse_trash = false\n"), text);
+    }
+
+    @Test
+    void theRcloneTokenHasExpiredSoRcloneRefreshesItBeforeItsFirstCall() {
+        final String line = RcloneConfig.text(credentials("folder-1"))
+                .lines()
+                .filter(each -> each.startsWith("token = "))
+                .findFirst()
+                .orElseThrow();
+        final JsonObject token = Json.decode(line.substring("token = ".length()), JsonObject.class);
+
+        // rclone 1.60 drops the refresh token of a token without an access token.
+        assertFalse(token.get("access_token").getAsString().isEmpty(), line);
+        assertEquals("refresh \"1\"", token.get("refresh_token").getAsString());
+        // A zero expiry never expires, so rclone would send the placeholder to Google as it is.
+        final Instant expiry = Instant.parse(token.get("expiry").getAsString());
+        assertTrue(expiry.isAfter(Instant.EPOCH) && expiry.isBefore(Instant.now()), line);
     }
 
     @Test

@@ -5,7 +5,7 @@ import java.util.Optional;
 /** What a milestone does when it unlocks. */
 public enum Unlock {
 
-    /** Sets the Nordtal world border to the {@code border-diameter} of the milestone. */
+    /** Opens the overworld regions named in the {@code border-regions} of the milestone. */
     BORDER,
 
     /** Opens the Nether. */

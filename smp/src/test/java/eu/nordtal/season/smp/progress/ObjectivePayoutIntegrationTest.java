@@ -108,7 +108,7 @@ class ObjectivePayoutIntegrationTest {
         final MilestoneTrack track = new MilestoneTrack(List.of(new Milestone(
                 "foothold",
                 Unlock.BORDER,
-                99,
+                List.of("foothold"),
                 false,
                 List.of(
                         new Objective(

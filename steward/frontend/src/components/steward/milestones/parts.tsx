@@ -195,13 +195,20 @@ export function milestoneFields(schema: TrackSchema): ConfigEntry[] {
 }
 
 /**
- * A field that does not apply, such as a diameter without a border, is left out. A number that applies only for a choice sits in that choice's pill.
+ * A field that does not apply, such as border regions without a border unlock, is left out. A value that applies only for a choice sits in that choice's pill.
  */
 export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues; schema: TrackSchema }) {
   const marks = MARKED.flatMap((key) => {
     const field = schema.milestone.find((candidate) => candidate.key === key)
+    if (!field || !appliesTo(field, milestone)) return []
+    if (field.kind === "LIST") {
+      const items = strings(milestone, key)
+        .map((item) => item.trim())
+        .filter((item) => item !== "")
+      return items.length === 0 ? [] : [{ key, field, value: items.join(", ") }]
+    }
     const value = text(milestone, key).trim()
-    if (!field || !appliesTo(field, milestone) || value === "" || value === "0" || value === "false") return []
+    if (value === "" || value === "0" || value === "false") return []
     return [{ key, field, value }]
   })
   const joined = (choice: string) => marks.filter(({ field }) => field.appliesWhen?.key === choice && !field.choices)
@@ -214,7 +221,9 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
               <ChoiceIcon choices={field.choices} value={value} size={18} />
               <span className="truncate">{choiceName(field.choices, value)}</span>
               {joined(key).map((mark) => (
-                <span key={mark.key}>{Number(mark.value).toLocaleString("en")}</span>
+                <span key={mark.key} className="truncate">
+                  {mark.field.kind === "LIST" ? mark.value : Number(mark.value).toLocaleString("en")}
+                </span>
               ))}
             </Pill>
           )
@@ -232,7 +241,7 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
         return (
           <Pill key={key} tip={field.label}>
             {mark}
-            {Number(value).toLocaleString("en")}
+            {field.kind === "LIST" ? value : Number(value).toLocaleString("en")}
           </Pill>
         )
       })}

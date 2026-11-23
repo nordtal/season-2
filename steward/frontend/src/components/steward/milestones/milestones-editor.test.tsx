@@ -113,10 +113,10 @@ const MILESTONE: ConfigEntry[] = [
       },
     },
   }),
-  entry("border-diameter", {
-    label: "Border diameter",
-    type: "INTEGER",
-    value: "0",
+  entry("border-regions", {
+    label: "Border regions",
+    kind: "LIST",
+    items: [],
     appliesWhen: { key: "unlocks", values: ["BORDER"] },
   }),
   entry("objectives", {
@@ -159,14 +159,18 @@ const DOCUMENT: ConfigDocument = {
           scalars: {
             key: "waiting",
             unlocks: "BORDER",
-            "border-diameter": "20",
+          },
+          lists: {
+            "border-regions": ["departure"],
           },
         }),
         section(MILESTONE, {
           scalars: {
             key: "foothold",
             unlocks: "BORDER",
-            "border-diameter": "99",
+          },
+          lists: {
+            "border-regions": ["foothold", "harbour"],
           },
           sections: {
             objectives: [
@@ -201,7 +205,8 @@ const DOCUMENT: ConfigDocument = {
           },
         }),
         section(MILESTONE, {
-          scalars: { key: "deep", unlocks: "NETHER", "border-diameter": "0" },
+          scalars: { key: "deep", unlocks: "NETHER" },
+          lists: { "border-regions": [] },
           sections: {
             objectives: [
               section(OBJECTIVE, {
@@ -377,13 +382,14 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
         .getAllByRole("listitem")
         .map((item) => item.getAttribute("aria-label")),
     ).toEqual(["waiting", "foothold", "deep"])
-    expect(within(list).getByText("99")).toBeTruthy()
+    expect(within(list).getByText("foothold, harbour")).toBeTruthy()
     expect(within(list).queryByRole("textbox")).toBeNull()
     expect(screen.getByRole("region", { name: "waiting" })).toBeTruthy()
 
     fireEvent.click(within(list).getByRole("button", { name: /foothold/ }))
     const open = screen.getByRole("region", { name: "foothold" })
-    expect(within(open).getByRole("textbox", { name: "Border diameter" })).toHaveProperty("value", "99")
+    expect(within(open).getByText("Border regions")).toBeTruthy()
+    expect(within(open).getByDisplayValue("harbour")).toBeTruthy()
     expect(
       within(list)
         .getByRole("button", { name: /foothold/ })
@@ -459,14 +465,14 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     expect(within(list).getByLabelText("Spin budget").parentElement?.textContent).toBe("41")
   })
 
-  it("names a milestone's unlock by its plugin's text and icon, a border with its diameter in the same pill", async () => {
+  it("names a milestone's unlock by its plugin's text and icon, a border with its regions in the same pill", async () => {
     backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
 
     const list = screen.getByRole("list", { name: "Milestones" })
     const foothold = within(list).getByRole("listitem", { name: "foothold" })
     const deep = within(list).getByRole("listitem", { name: "deep" })
-    expect(within(foothold).getByText("Border").parentElement?.textContent).toBe("Border99")
+    expect(within(foothold).getByText("Border").parentElement?.textContent).toBe("Borderfoothold, harbour")
     expect(tipOf(within(foothold).getByText("Border").parentElement)).toBeNull()
     expect(within(deep).getByText("Nether").parentElement?.textContent).toBe("Nether")
     await waitFor(() => expect(foothold.querySelector('[data-icon="minecraft:map"]')).toBeTruthy())
@@ -650,17 +656,17 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     const saved = backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
 
-    fireEvent.change(
-      within(screen.getByRole("region", { name: "waiting" })).getByRole("textbox", { name: "Border diameter" }),
-      { target: { value: "30" } },
-    )
+    const waiting = screen.getByRole("region", { name: "waiting" })
+    fireEvent.change(within(waiting).getByDisplayValue("departure"), {
+      target: { value: "valley" },
+    })
     fireEvent.click(await screen.findByRole("button", { name: "Save 1" }))
 
     await waitFor(() => expect(saved).toHaveLength(1))
     expect(saved[0]).toMatchObject({
       changes: {
         milestones: [
-          { key: "waiting", "border-diameter": "30" },
+          { key: "waiting", "border-regions": ["valley"] },
           {
             objectives: [
               { key: "logs", items: ["minecraft:oak_log"] },

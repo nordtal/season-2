@@ -10,16 +10,17 @@ import org.bukkit.NamespacedKey;
  *
  * @param key the YAML key and {@code smp_milestone.key}
  * @param unlock what the milestone does when it unlocks
- * @param borderDiameter the border diameter, read only with {@link Unlock#BORDER}
+ * @param borderRegions the names of the overworld regions it opens, read only with {@link Unlock#BORDER}
  * @param adminUnlocked whether an admin unlocks the milestone instead of its objectives
  * @param objectives the objectives in file order
  */
 public record Milestone(
-        String key, Unlock unlock, int borderDiameter, boolean adminUnlocked, List<Objective> objectives) {
+        String key, Unlock unlock, List<String> borderRegions, boolean adminUnlocked, List<Objective> objectives) {
 
     public Milestone {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(unlock, "unlock");
+        borderRegions = borderRegions == null ? List.of() : List.copyOf(borderRegions);
         objectives = objectives == null ? List.of() : List.copyOf(objectives);
     }
 

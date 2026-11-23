@@ -140,7 +140,16 @@ final class SmpStart {
                 plugin.jdbi(),
                 () -> plugin.track,
                 plugin.season,
-                plugin.worlds,
+                regions -> {
+                    final java.util.Set<String> current = plugin.season.borderRegions();
+                    final java.util.List<String> stillOpen =
+                            regions.stream().filter(current::contains).toList();
+                    if (!stillOpen.isEmpty()) {
+                        final BorderWall wall = Objects.requireNonNull(plugin.borderWall);
+                        wall.open(stillOpen, plugin.getServer().getOnlinePlayers());
+                        plugin.applyCustomLimit();
+                    }
+                },
                 plugin.identities(),
                 plugin.renderer(),
                 new ExtraSpins(plugin.jdbi().onDemand(SpinDao.class)),
@@ -342,7 +351,9 @@ final class SmpStart {
                     player.sendActionBar(Lines.joined(plugin.renderer()
                             .format(plugin.identities().languageOf(player.getUniqueId()), Sent.of(BorderWall.LIMIT))));
                 },
-                player -> plugin.identities().of(player.getUniqueId()).admin());
+                player -> plugin.identities().of(player.getUniqueId()).admin(),
+                plugin.worlds.nameOf(WorldRole.NORDTAL),
+                () -> plugin.borderSettings.get().borderExpansionBlocksPerSecond());
         scheduler.onMainEvery(
                 PaperScheduler.TICK,
                 PaperScheduler.TICK,

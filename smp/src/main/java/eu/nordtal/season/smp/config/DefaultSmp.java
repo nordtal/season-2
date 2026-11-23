@@ -8,25 +8,35 @@ import java.util.Map;
 /** The default lists of the smp groups. Every spec built here sets every key. */
 final class DefaultSmp {
 
-    static final List<CustomBorderSpec.World> BORDER_WORLDS = List.of(Specs.createUnsafe(
-            CustomBorderSpec.World.class,
-            Map.of(
-                    "world",
+    static final List<CustomBorderSpec.World> BORDER_WORLDS = List.of(
+            borderWorld(
                     "nordtal",
-                    "enabled",
-                    false,
-                    "polygons",
-                    List.of(Specs.createUnsafe(
-                            CustomBorderSpec.Polygon.class,
-                            Map.of(
-                                    "name",
-                                    "Spawn",
-                                    "corners",
-                                    List.of(
-                                            corner(3969, 2178),
-                                            corner(3989, 2178),
-                                            corner(3989, 2198),
-                                            corner(3969, 2198))))))));
+                    true,
+                    List.of(
+                            square("departure", 3958, 2167, 4000, 2209),
+                            square("foothold", 3929, 2138, 4029, 2238),
+                            square("settlement", 3779, 1988, 4179, 2388),
+                            square("expanse", 3529, 1738, 4429, 2638),
+                            square("frontier", 1979, 188, 5979, 4188))),
+            borderWorld("nordtal_nether", true, List.of(square("Nether", -2500, -2500, 2499, 2499))),
+            borderWorld("nordtal_the_end", true, List.of(square("End", -2500, -2500, 2499, 2499))));
+
+    private static CustomBorderSpec.World borderWorld(
+            final String world, final boolean enabled, final List<CustomBorderSpec.Polygon> polygons) {
+        return Specs.createUnsafe(
+                CustomBorderSpec.World.class, Map.of("world", world, "enabled", enabled, "polygons", polygons));
+    }
+
+    private static CustomBorderSpec.Polygon square(
+            final String name, final int minX, final int minZ, final int maxX, final int maxZ) {
+        return Specs.createUnsafe(
+                CustomBorderSpec.Polygon.class,
+                Map.of(
+                        "name",
+                        name,
+                        "corners",
+                        List.of(corner(minX, minZ), corner(maxX, minZ), corner(maxX, maxZ), corner(minX, maxZ))));
+    }
 
     private static CustomBorderSpec.Corner corner(final int x, final int z) {
         return Specs.createUnsafe(CustomBorderSpec.Corner.class, Map.of("x", x, "z", z));

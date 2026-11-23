@@ -6,18 +6,19 @@ import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.milestone.Unlock;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Holds the unlocks, the border diameter and the active milestone in memory.
+ * Holds the unlocks, the open border regions and the active milestone in memory.
  * The methods that refresh it run asynchronously, and every reader may run on any thread.
  */
 public final class SeasonState {
 
     private volatile Set<Unlock> unlocked = Collections.unmodifiableSet(EnumSet.noneOf(Unlock.class));
-    private volatile int borderDiameter;
+    private volatile Set<String> borderRegions = Set.of();
     private volatile List<String> completedKeys = List.of();
     private volatile Active active = Active.UNREAD;
 
@@ -51,12 +52,12 @@ public final class SeasonState {
     }
 
     /**
-     * Sets the unlocks and the border diameter from the milestones in {@code completed}.
+     * Sets the unlocks and the open border regions from the milestones in {@code completed}.
      * It ignores a key that {@code track} does not contain.
      */
     public void refresh(final List<String> completed, final MilestoneTrack track) {
         final Set<Unlock> found = EnumSet.noneOf(Unlock.class);
-        int border = 0;
+        final Set<String> regions = new LinkedHashSet<>();
         for (final String key : completed) {
             final Milestone milestone = track.milestone(key).orElse(null);
             if (milestone == null) {
@@ -64,11 +65,11 @@ public final class SeasonState {
             }
             found.add(milestone.unlock());
             if (milestone.unlock() == Unlock.BORDER) {
-                border = Math.max(border, milestone.borderDiameter());
+                regions.addAll(milestone.borderRegions());
             }
         }
         this.unlocked = Collections.unmodifiableSet(found);
-        this.borderDiameter = border;
+        this.borderRegions = Collections.unmodifiableSet(regions);
         this.completedKeys = List.copyOf(completed);
     }
 
@@ -80,9 +81,9 @@ public final class SeasonState {
         return unlocked.contains(unlock);
     }
 
-    /** Returns the largest border diameter of the completed milestones, or 0 without one. */
-    public int borderDiameter() {
-        return borderDiameter;
+    /** Returns the names of the overworld regions the completed milestones open, in track order. */
+    public Set<String> borderRegions() {
+        return borderRegions;
     }
 
     public List<String> completedKeys() {

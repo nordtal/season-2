@@ -136,7 +136,7 @@ export const TERM_ICON = {
   round: FlagCheckeredIcon,
   milestone: FlagBannerIcon,
   target: TargetIcon,
-  borderDiameter: CircleDashedIcon,
+  borderRegions: CircleDashedIcon,
   aura: SparkleIcon,
   spins: SpinnerBallIcon,
   statistic: ChartBarIcon,
@@ -172,7 +172,7 @@ const FIELD_TERM: Record<string, Term> = {
   "spin-budget": "spins",
   spins: "spins",
   target: "target",
-  "border-diameter": "borderDiameter",
+  "border-regions": "borderRegions",
   "admin-unlocked": "admin",
 }
 

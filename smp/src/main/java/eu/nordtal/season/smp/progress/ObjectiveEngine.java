@@ -28,7 +28,6 @@ import eu.nordtal.season.smp.port.ItemRewards;
 import eu.nordtal.season.smp.port.OwnContributionRow;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.state.SeasonState;
-import eu.nordtal.season.smp.world.Worlds;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -36,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.kyori.adventure.title.Title;
@@ -75,7 +75,7 @@ public final class ObjectiveEngine implements Contributions {
     private final Supplier<MilestoneTrack> track;
 
     private final SeasonState season;
-    private final Worlds worlds;
+    private final Consumer<List<String>> borderOpened;
     private final Identities identities;
     private final MessageRenderer renderer;
     private final PrizeSource prizes;
@@ -97,13 +97,16 @@ public final class ObjectiveEngine implements Contributions {
     /** An objective completed in a transaction, announced after the commit. */
     private record Finished(String milestoneKey, String objectiveKey, List<DiscordId> itemRecipients) {}
 
-    /** @param jdbi the {@code Jdbi} whose transactions the writes of {@link PrizeSource} join */
+    /**
+     * @param jdbi the {@code Jdbi} whose transactions the writes of {@link PrizeSource} join
+     * @param borderOpened takes the regions a milestone opens, on the main thread
+     */
     public ObjectiveEngine(
             final Plugin plugin,
             final Jdbi jdbi,
             final Supplier<MilestoneTrack> track,
             final SeasonState season,
-            final Worlds worlds,
+            final Consumer<List<String>> borderOpened,
             final Identities identities,
             final MessageRenderer renderer,
             final PrizeSource prizes,
@@ -120,7 +123,7 @@ public final class ObjectiveEngine implements Contributions {
         this.itemRewards = itemRewards;
         this.track = track;
         this.season = season;
-        this.worlds = worlds;
+        this.borderOpened = borderOpened;
         this.identities = identities;
         this.renderer = renderer;
         this.prizes = prizes;
@@ -362,7 +365,7 @@ public final class ObjectiveEngine implements Contributions {
         final Milestone milestone = now.milestone(milestoneKey).orElse(null);
         PaperScheduler.of(plugin).onMain(() -> {
             if (milestone != null && milestone.unlock() == Unlock.BORDER) {
-                worlds.expandNordtal(milestone.borderDiameter(), true);
+                borderOpened.accept(milestone.borderRegions());
             }
             announceMilestone(milestoneKey, completedBy, milestone == null ? Unlock.NOTHING : milestone.unlock());
         });

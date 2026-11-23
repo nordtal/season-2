@@ -70,7 +70,8 @@ public final class Milestones {
             readObjective(key, objectiveEntry, problems, objectives);
         }
 
-        milestones.add(new Milestone(key, unlock, entry.borderDiameter(), entry.adminUnlocked(), objectives));
+        milestones.add(
+                new Milestone(key, unlock, trimmedList(entry.borderRegions()), entry.adminUnlocked(), objectives));
     }
 
     private static void readObjective(

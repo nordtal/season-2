@@ -42,11 +42,11 @@ function objective(key: string, type: string, target: number, more: Partial<Reco
   ]
 }
 
-function milestone(key: string, unlocks: string, border: number, objectives: ConfigEntry[][]) {
+function milestone(key: string, unlocks: string, regions: string[], objectives: ConfigEntry[][]) {
   return [
     entry("key", key),
     entry("unlocks", unlocks, { label: "Unlocks" }),
-    entry("border-diameter", String(border), { label: "Border diameter", type: "INTEGER" }),
+    entry("border-regions", undefined, { label: "Border regions", kind: "LIST", items: regions }),
     entry("objectives", undefined, { kind: "SECTIONS", sections: objectives }),
   ]
 }
@@ -66,12 +66,17 @@ const FILE: ConfigDocument = {
     entry("milestones", undefined, {
       kind: "SECTIONS",
       sections: [
-        milestone("waiting", "BORDER", 20, []),
-        milestone("foothold", "BORDER", 9900, [
-          objective("logs", "HAND_IN", 2048, { items: ["minecraft:oak_log", "SPRUCE_LOG", "minecraft:gone"] }),
-          objective("coal", "STATISTIC", 1500),
-        ]),
-        milestone("nether", "NETHER", 0, [objective("obsidian", "HAND_IN", 64)]),
+        milestone("waiting", "BORDER", ["departure"], []),
+        milestone(
+          "foothold",
+          "BORDER",
+          ["foothold", "harbour"],
+          [
+            objective("logs", "HAND_IN", 2048, { items: ["minecraft:oak_log", "SPRUCE_LOG", "minecraft:gone"] }),
+            objective("coal", "STATISTIC", 1500),
+          ],
+        ),
+        milestone("nether", "NETHER", [], [objective("obsidian", "HAND_IN", 64)]),
       ],
     }),
   ],
@@ -168,7 +173,7 @@ describe("trackSteps", () => {
     const steps = trackSteps(TRACK, FILE)
 
     expect(steps.map((step) => step.key)).toEqual(["waiting", "foothold", "nether"])
-    expect(steps[1].fields.map((field) => field.key)).toEqual(["unlocks", "border-diameter"])
+    expect(steps[1].fields.map((field) => field.key)).toEqual(["unlocks", "border-regions"])
     expect(steps[1].objectives.map((task) => [task.key, task.amount])).toEqual([
       ["logs", 512],
       ["coal", 1500],
@@ -233,8 +238,9 @@ describe("SmpActions", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /^Foothold/ }))
     const popover = await screen.findByRole("dialog")
-    expect(within(popover).getByText("Border diameter")).toBeTruthy()
-    expect(within(popover).getByText("9,900")).toBeTruthy()
+    expect(within(popover).getByText("Border regions")).toBeTruthy()
+    expect(within(popover).getByText("foothold")).toBeTruthy()
+    expect(within(popover).getByText("harbour")).toBeTruthy()
     expect(within(popover).getByText("BORDER")).toBeTruthy()
     expect(within(popover).getByText("1 of 2 objectives")).toBeTruthy()
   })

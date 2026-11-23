@@ -30,8 +30,8 @@ class TrackValidationTest {
             "logs", ObjectiveType.HAND_IN, "gathering", 2048, List.of("OAK_LOG"), "", List.of(), "", 0, 0);
 
     private final MilestoneTrack track = new MilestoneTrack(List.of(
-            new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
-            new Milestone("foothold", Unlock.BORDER, 99, false, List.of(LOGS, GATE))));
+            new Milestone("departure", Unlock.BORDER, List.of("departure"), false, List.of()),
+            new Milestone("foothold", Unlock.BORDER, List.of("foothold"), false, List.of(LOGS, GATE))));
 
     @Test
     void loweringTheTargetOfALiveObjectiveIsAllowed() {
@@ -66,8 +66,8 @@ class TrackValidationTest {
                 "iron.ore", ObjectiveType.HAND_IN, "gathering", 64, List.of("IRON_ORE"), "", List.of(), "", 0, 0);
 
         final List<TrackValidation.Problem> problems = TrackShape.validate(List.of(
-                new Milestone("Harbour_2", Unlock.BORDER, 20, false, List.of(LOGS, GATE)),
-                new Milestone("Hafen Nord", Unlock.BORDER, 99, false, List.of(dotted, GATE))));
+                new Milestone("Harbour_2", Unlock.BORDER, List.of("harbour"), false, List.of(LOGS, GATE)),
+                new Milestone("Hafen Nord", Unlock.BORDER, List.of("north"), false, List.of(dotted, GATE))));
 
         assertEquals(
                 List.of("Hafen Nord/null", "Hafen Nord/iron.ore"),
@@ -81,10 +81,10 @@ class TrackValidationTest {
     void twoMilestonesWithoutObjectivesInARowAreRefused() {
         // Two in a row take two admin unlocks, as the season's start once did. One alone, at either end, is allowed.
         final List<TrackValidation.Problem> problems = TrackShape.validate(List.of(
-                new Milestone("departure", Unlock.BORDER, 43, true, List.of()),
-                new Milestone("crossing", Unlock.BORDER, 70, false, List.of()),
-                new Milestone("foothold", Unlock.BORDER, 99, false, List.of(LOGS, GATE)),
-                new Milestone("exploration", Unlock.BORDER, 5000, true, List.of())));
+                new Milestone("departure", Unlock.BORDER, List.of("departure"), true, List.of()),
+                new Milestone("crossing", Unlock.BORDER, List.of("crossing"), false, List.of()),
+                new Milestone("foothold", Unlock.BORDER, List.of("foothold"), false, List.of(LOGS, GATE)),
+                new Milestone("exploration", Unlock.BORDER, List.of("exploration"), true, List.of())));
 
         assertEquals(
                 List.of("crossing/null"),
@@ -100,8 +100,8 @@ class TrackValidationTest {
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack renamed = new MilestoneTrack(List.of(
-                new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
-                new Milestone("first-steps", Unlock.BORDER, 99, false, List.of(LOGS, GATE))));
+                new Milestone("departure", Unlock.BORDER, List.of("departure"), false, List.of()),
+                new Milestone("first-steps", Unlock.BORDER, List.of("foothold"), false, List.of(LOGS, GATE))));
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(renamed, stored);
 
@@ -114,8 +114,8 @@ class TrackValidationTest {
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack without = new MilestoneTrack(List.of(
-                new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
-                new Milestone("foothold", Unlock.BORDER, 99, false, List.of(GATE))));
+                new Milestone("departure", Unlock.BORDER, List.of("departure"), false, List.of()),
+                new Milestone("foothold", Unlock.BORDER, List.of("foothold"), false, List.of(GATE))));
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(without, stored);
 
@@ -161,9 +161,9 @@ class TrackValidationTest {
         final StoredProgress stored =
                 progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
         final MilestoneTrack longer = new MilestoneTrack(List.of(
-                new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
-                new Milestone("foothold", Unlock.BORDER, 99, false, List.of(LOGS, GATE)),
-                new Milestone("beyond", Unlock.BORDER, 8000, false, List.of(LOGS, GATE))));
+                new Milestone("departure", Unlock.BORDER, List.of("departure"), false, List.of()),
+                new Milestone("foothold", Unlock.BORDER, List.of("foothold"), false, List.of(LOGS, GATE)),
+                new Milestone("beyond", Unlock.BORDER, List.of("beyond"), false, List.of(LOGS, GATE))));
 
         assertTrue(TrackValidation.validate(longer, stored).isEmpty());
     }
@@ -216,8 +216,8 @@ class TrackValidationTest {
                         : objective)
                 .toList();
         return new MilestoneTrack(List.of(
-                new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
-                new Milestone("foothold", Unlock.BORDER, 99, false, objectives)));
+                new Milestone("departure", Unlock.BORDER, List.of("departure"), false, List.of()),
+                new Milestone("foothold", Unlock.BORDER, List.of("foothold"), false, objectives)));
     }
 
     private static StoredProgress progress(final MilestoneState state, final StoredProgress.StoredObjective objective) {

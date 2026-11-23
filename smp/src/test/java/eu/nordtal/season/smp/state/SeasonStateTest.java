@@ -8,20 +8,21 @@ import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.Unlock;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class SeasonStateTest {
 
     private static final MilestoneTrack TRACK = new MilestoneTrack(List.of(
-            milestone("opening", Unlock.BORDER, 43),
-            milestone("settling", Unlock.BORDER, 99),
-            milestone("the-nether", Unlock.NETHER, 0),
-            milestone("expansion", Unlock.BORDER, 400),
-            milestone("the-end", Unlock.END, 0),
-            milestone("the-last-one", Unlock.NOTHING, 0)));
+            milestone("opening", Unlock.BORDER, List.of("departure")),
+            milestone("settling", Unlock.BORDER, List.of("foothold", "harbour")),
+            milestone("the-nether", Unlock.NETHER, List.of()),
+            milestone("expansion", Unlock.BORDER, List.of("settlement")),
+            milestone("the-end", Unlock.END, List.of()),
+            milestone("the-last-one", Unlock.NOTHING, List.of())));
 
-    private static Milestone milestone(final String key, final Unlock unlock, final int border) {
-        return new Milestone(key, unlock, border, false, List.of());
+    private static Milestone milestone(final String key, final Unlock unlock, final List<String> regions) {
+        return new Milestone(key, unlock, regions, false, List.of());
     }
 
     @Test
@@ -41,25 +42,25 @@ class SeasonStateTest {
         state.refresh(List.of(), TRACK);
 
         assertTrue(state.unlocked().isEmpty());
-        assertEquals(0, state.borderDiameter(), "the first milestone's border waits for its unlock");
+        assertEquals(Set.of(), state.borderRegions(), "the first milestone's border waits for its unlock");
         assertFalse(state.isUnlocked(Unlock.NETHER));
     }
 
     @Test
-    void theBorderIsTheLargestAnyCompletedMilestoneAsked() {
+    void theOpenRegionsAreTheUnionOfCompletedBorderMilestones() {
         final SeasonState state = new SeasonState();
         state.refresh(List.of("opening", "settling"), TRACK);
 
-        assertEquals(99, state.borderDiameter());
+        assertEquals(Set.of("departure", "foothold", "harbour"), state.borderRegions());
     }
 
-    /** An admin completing a milestone out of order does not shrink the world on the next restart. */
+    /** An admin completing a milestone out of order still opens every completed milestone's regions. */
     @Test
-    void anOutOfOrderCompletionCannotShrinkTheWorld() {
+    void anOutOfOrderCompletionOpensBothRegions() {
         final SeasonState state = new SeasonState();
         state.refresh(List.of("expansion", "opening"), TRACK);
 
-        assertEquals(400, state.borderDiameter());
+        assertEquals(Set.of("settlement", "departure"), state.borderRegions());
     }
 
     @Test
@@ -77,7 +78,7 @@ class SeasonStateTest {
         final SeasonState state = new SeasonState();
         state.refresh(List.of("opening", "a-milestone-that-was-deleted"), TRACK);
 
-        assertEquals(43, state.borderDiameter());
+        assertEquals(Set.of("departure"), state.borderRegions());
         assertEquals(2, state.completedKeys().size(), "the raw keys are still reported as stored");
     }
 
@@ -98,7 +99,7 @@ class SeasonStateTest {
         final SeasonState state = new SeasonState();
         state.refresh(List.of("the-last-one"), TRACK);
 
-        assertEquals(0, state.borderDiameter(), "no border is unlocked");
+        assertEquals(Set.of(), state.borderRegions(), "no border is unlocked");
         assertTrue(state.unlocked().contains(Unlock.NOTHING));
         assertFalse(state.isUnlocked(Unlock.NETHER));
     }

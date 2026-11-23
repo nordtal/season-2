@@ -114,7 +114,7 @@ final class Band {
         return (ground == UNKNOWN ? feetY : Math.min(ground, feetY)) - BELOW;
     }
 
-    /** The band's upper end for feet at {@code feetY}: a ground above them, as over a cave, does not raise it. */
+    /** The band's upper end for feet at {@code feetY}, before {@link #need} raises it to a ground above them. */
     static double head(final double feetY, final Look look) {
         return feetY - BELOW + look.height();
     }

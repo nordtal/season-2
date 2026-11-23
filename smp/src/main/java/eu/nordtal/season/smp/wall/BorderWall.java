@@ -16,6 +16,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Tag;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Minecart;
@@ -65,7 +66,7 @@ public final class BorderWall implements Listener {
     private final Consumer<Player> pushSound;
 
     private Map<String, Walls.Drawn> walls = Map.of();
-    private Placement placement = Placement.configured();
+    private final Placement placement = Placement.configured();
     private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final Map<UUID, Long> pushed = new HashMap<>();
 
@@ -100,23 +101,6 @@ public final class BorderWall implements Listener {
         }
     }
 
-    /** Switches the vertical placement approach and redraws the wall for every online player. */
-    public void placement(final Placement next, final Collection<? extends Player> online) {
-        if (placement == next) {
-            return;
-        }
-        placement = next;
-        grounds.clear();
-        for (final Player player : online) {
-            show(player, Objects.requireNonNull(player.getLocation()));
-        }
-    }
-
-    /** Returns the active vertical placement approach. */
-    public Placement placement() {
-        return placement;
-    }
-
     /** Takes every panel away from every player. */
     public void stop(final Collection<? extends Player> online) {
         for (final Player player : online) {
@@ -127,22 +111,28 @@ public final class BorderWall implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void blockPlaced(final BlockPlaceEvent event) {
-        final var block = event.getBlock();
-        if (!walls.containsKey(block.getWorld().getName())) {
-            return;
+        if (changed(event.getBlock())) {
+            show(event.getPlayer(), Objects.requireNonNull(event.getPlayer().getLocation()));
         }
-        grounds.invalidate(block.getWorld().getName(), block.getX(), block.getZ());
-        show(event.getPlayer(), Objects.requireNonNull(event.getPlayer().getLocation()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void blockBroken(final BlockBreakEvent event) {
-        final var block = event.getBlock();
-        if (!walls.containsKey(block.getWorld().getName())) {
-            return;
+        if (changed(event.getBlock())) {
+            // The broken block is still in the world while its event runs.
+            final Player player = event.getPlayer();
+            nextTick.accept(() -> show(player, Objects.requireNonNull(player.getLocation())));
+        }
+    }
+
+    /** Forgets the grounds near a changed block beside the wall, and tells whether there were any. */
+    private boolean changed(final Block block) {
+        final Walls.Drawn drawn = walls.get(block.getWorld().getName());
+        if (drawn == null || drawn.wall().near(block.getX() + 0.5, block.getZ() + 0.5, Grounds.INVALIDATE_RADIUS).isEmpty()) {
+            return false;
         }
         grounds.invalidate(block.getWorld().getName(), block.getX(), block.getZ());
-        show(event.getPlayer(), Objects.requireNonNull(event.getPlayer().getLocation()));
+        return true;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

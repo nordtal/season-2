@@ -12,7 +12,7 @@ final class Grounds {
     static final long FRESH = 5000;
 
     /** Radius around a placed or broken block within which cached panel grounds are invalidated, in blocks. */
-    private static final double INVALIDATE_RADIUS = 4.0;
+    static final double INVALIDATE_RADIUS = 4.0;
 
     private final Map<String, Map<Panel, Read>> worlds = new HashMap<>();
 
@@ -22,12 +22,12 @@ final class Grounds {
     int at(final World world, final Panel panel, final Placement placement, final long now) {
         final Map<Panel, Read> reads = worlds.computeIfAbsent(world.getName(), ignored -> new HashMap<>());
         final Read before = reads.get(panel);
-        if (before != null && before.placement() == placement && now - before.at() < FRESH) {
+        if (before != null && now - before.at() < FRESH) {
             return before.ground();
         }
         final int ground = read(world, panel, placement);
         if (ground != Band.UNKNOWN) {
-            reads.put(panel, new Read(ground, placement, now));
+            reads.put(panel, new Read(ground, now));
         }
         return ground;
     }
@@ -75,5 +75,5 @@ final class Grounds {
         return world.getHighestBlockYAt(blockX, blockZ, HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
     }
 
-    private record Read(int ground, Placement placement, long at) {}
+    private record Read(int ground, long at) {}
 }

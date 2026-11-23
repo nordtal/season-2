@@ -21,9 +21,6 @@ public enum Placement {
         if (property == null || property.isBlank()) {
             return DEFAULT;
         }
-        return switch (property.trim().toLowerCase(java.util.Locale.ROOT)) {
-            case "proximity-window", "proximity_window", "b" -> PROXIMITY_WINDOW;
-            default -> AIR_FOCUS;
-        };
+        return "proximity-window".equals(property.trim()) ? PROXIMITY_WINDOW : AIR_FOCUS;
     }
 }

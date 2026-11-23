@@ -69,8 +69,11 @@ final class NegotiationDialog {
     private static final int TIGHT_GAP = 6;
     private static final int WIDE_GAP = 14;
     private static final int NAME_GAP = 4;
-    private static final int FACE_INSET = 2;
     private static final int FACE = 8;
+    private static final int RING = (BodyLine.ACCENT_FRAME - TILE) / 2;
+    private static final int FACE_OUT = 2;
+    private static final int FACE_UP = 4;
+    private static final int FACE_IN = (BodyLine.FACE_FRAME - FACE) / 2;
     private static final int STATUS_Y = 66;
     private static final int BAR_Y = 80;
     private static final int BAR = 140;
@@ -153,18 +156,21 @@ final class NegotiationDialog {
         }
         final BodyLine.Press press = new BodyLine.Press(
                 send == null ? null : send.click(player -> picked.accept(player, kit)), Tooltip.hover(rows, titleRows));
+        final boolean mine = Integer.valueOf(kit).equals(view.mine());
+        final boolean theirs = Integer.valueOf(kit).equals(view.theirs());
+        if (mine && theirs) {
+            canvas.place(x - RING, TILE_Y - RING, true, BodyLine::accentFrame);
+        }
         canvas.place(x, TILE_Y, true, line -> line.button(press, part -> part.darkField(TILE)));
         final int middle = (TILE - FACE) / 2;
         canvas.itemPicture(
                 x + middle, TILE_Y + middle, ItemPicture.of(shown.icon(), Symbol.SWORDS, Colours.FAINT), press);
-        final boolean mine = Integer.valueOf(kit).equals(view.mine());
-        final boolean theirs = Integer.valueOf(kit).equals(view.theirs());
         if (mine) {
-            canvas.place(x + FACE_INSET, TILE_Y + FACE_INSET, false, line -> line.face(view.self()));
+            face(canvas, x - FACE_OUT, view.self());
         }
         final @Nullable UUID opponent = view.opponentId();
         if (theirs && opponent != null) {
-            canvas.place(x + TILE - FACE_INSET - FACE, TILE_Y + FACE_INSET, false, line -> line.face(opponent));
+            face(canvas, x + TILE + FACE_OUT - BodyLine.FACE_FRAME, opponent);
         }
         final int nameX = x + (TILE - Letters.visibleWidth(name)) / 2;
         final int nameY = TILE_Y + TILE + NAME_GAP;
@@ -173,6 +179,12 @@ final class NegotiationDialog {
         } else {
             canvas.text(nameX, nameY, name, mine ? Colours.INK : Colours.SOFT);
         }
+    }
+
+    /** Draws {@code player}'s face on its plate, whose corner lies at {@code x}, {@link #FACE_UP} above the tile. */
+    private static void face(final DialogCanvas canvas, final int x, final UUID player) {
+        canvas.place(x, TILE_Y - FACE_UP, true, BodyLine::faceFrame);
+        canvas.place(x + FACE_IN, TILE_Y - FACE_UP + FACE_IN, false, line -> line.face(player));
     }
 
     /**

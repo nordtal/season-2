@@ -46,6 +46,12 @@ public final class BodyLine {
     /** The width of the station's native text field. */
     public static final int FIELD = 180;
 
+    /** The side of the plate under a face. */
+    public static final int FACE_FRAME = 12;
+
+    /** The side of the accent ring around a large dark field. */
+    public static final int ACCENT_FRAME = ItemPicture.LARGE_FIELD + 4;
+
     /** A native checkbox's box, and the gap from it to its label. */
     private static final int BOX = 17;
 
@@ -187,6 +193,18 @@ public final class BodyLine {
             default -> throw new IllegalArgumentException("unsupported dark field size " + size);
         };
         pen.art(Pen.artFont(down), glyph, size);
+        return this;
+    }
+
+    /** Draws the {@link #FACE_FRAME} px plate that carries a {@link #face(UUID)} 2 px in from its corner. */
+    public BodyLine faceFrame() {
+        pen.art(Pen.artFont(down), Glyphs.UI_FACE_FRAME_12, FACE_FRAME);
+        return this;
+    }
+
+    /** Draws the accent ring that lies 2 px around a {@link ItemPicture#LARGE_FIELD} dark field. */
+    public BodyLine accentFrame() {
+        pen.art(Pen.artFont(down), Glyphs.UI_ACCENT_FRAME_44, ACCENT_FRAME);
         return this;
     }
 

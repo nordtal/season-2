@@ -2011,6 +2011,24 @@
               "texture": "nordtal:ui/kit/deposit_slot.png",
               "height": 18,
               "ascent": 7
+            },
+            {
+              "code": "FE37E",
+              "title": "Face frame 12",
+              "constant": "UI_FACE_FRAME_12",
+              "texture": "nordtal:ui/kit/face_frame_12.png",
+              "height": 12,
+              "ascent": 7,
+              "about": "A 12 x 12 white plate in a dark border under an 8 px player face, so the face stands out on a dark field."
+            },
+            {
+              "code": "FE37F",
+              "title": "Accent frame 44",
+              "constant": "UI_ACCENT_FRAME_44",
+              "texture": "nordtal:ui/kit/accent_frame_44.png",
+              "height": 44,
+              "ascent": 7,
+              "about": "A 2 px accent ring around a 40 px dark field, which marks the field both players picked."
             }
           ]
         },

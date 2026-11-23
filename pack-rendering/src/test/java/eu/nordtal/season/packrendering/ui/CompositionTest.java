@@ -136,6 +136,11 @@ class CompositionTest {
                 Advances.of(BodyLine.start()
                         .plate(120, null, "Fahren", Look.PRIMARY)
                         .build()));
+        assertEquals(
+                BodyLine.FACE_FRAME, Advances.of(BodyLine.start().faceFrame().build()));
+        assertEquals(
+                BodyLine.ACCENT_FRAME,
+                Advances.of(BodyLine.start().accentFrame().build()));
     }
 
     @Test

@@ -14,12 +14,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * An item picture drawn in a dialog: an atlas sprite from {@link ItemSprites}, or a fallback {@link Symbol}.
- * A sprite draws 8 by 8 on the text row and advances 9; a fallback symbol draws 7 by 7 and advances 8.
+ * A sprite draws 8 by 8 and advances 8; a fallback symbol draws 7 by 7 and advances 8.
  */
 public record ItemPicture(GameContent.@Nullable Sprite sprite, Symbol fallback, TextColor fallbackColour) {
 
-    /** The cursor advance of an inline atlas sprite: 8 ink columns and 1 spacing column. */
-    public static final int SPRITE_ADVANCE = 9;
+    /** The cursor advance of an inline atlas sprite or face: the client gives an object no spacing column. */
+    public static final int SPRITE_ADVANCE = 8;
 
     /** The small dark field's size in a two-column card. */
     public static final int SMALL_FIELD = 22;

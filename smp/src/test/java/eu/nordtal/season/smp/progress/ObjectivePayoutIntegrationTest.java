@@ -19,11 +19,11 @@ import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.Objective;
 import eu.nordtal.season.smp.milestone.ObjectiveType;
 import eu.nordtal.season.smp.milestone.Unlock;
+import eu.nordtal.season.smp.pending.PendingItems;
 import eu.nordtal.season.smp.port.ItemRewards;
 import eu.nordtal.season.smp.port.OwnContributionRow;
 import eu.nordtal.season.smp.port.PrizeSource;
 import eu.nordtal.season.smp.wheel.ExtraSpins;
-import eu.nordtal.season.smp.wheel.PendingItems;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
@@ -166,6 +166,9 @@ class ObjectivePayoutIntegrationTest {
 
             @Override
             public void handOutIfOnline(final DiscordId recipient) {}
+
+            @Override
+            public void handOutTo(final UUID player) {}
         };
     }
 
@@ -211,7 +214,7 @@ class ObjectivePayoutIntegrationTest {
         engine.credit(OTHER, "logs", 1L, MINECRAFT_ID);
 
         final var map = new PendingItems.Item(
-                "minecraft:buried_ancient_city_map", 1, "", "minecraft:on_ancient_city_maps", true);
+                "minecraft:buried_ancient_city_map", 1, "", "minecraft:on_ancient_city_maps", true, false);
         assertEquals(List.of(map), pending.claim(PLAYER));
         assertEquals(List.of(map), pending.claim(OTHER));
         assertTrue(pending.claim(PLAYER).isEmpty());

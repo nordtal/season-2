@@ -96,6 +96,20 @@ public final class FocusRing {
      */
     public static Component frame(
             final Component line, final int art, final int rows, final Ground ground, final Component over) {
+        return frame(line, art, rows, ground, over, Map.of());
+    }
+
+    /**
+     * As {@link #frame(Component, int, int, Ground, Component)}, with {@code below} drawn on the lower text rows.
+     * Each entry maps a row from 1 to {@code rows - 1} to art that advances 0 from the left edge of {@code line}.
+     */
+    public static Component frame(
+            final Component line,
+            final int art,
+            final int rows,
+            final Ground ground,
+            final Component over,
+            final Map<Integer, Component> below) {
         if (rows < SINGLE_ROW) {
             throw new IllegalArgumentException("a framed line has at least " + SINGLE_ROW + " row, not " + rows);
         }
@@ -125,14 +139,26 @@ public final class FocusRing {
         pen.moveTo(from).runs(font, ring.subList(bottom, bottom + RUN_COUNT), to - from);
         pen.moveTo(left + (width - art) / 2).append(line, art);
         pen.moveTo(left + width / 2).append(over, 0);
+        for (final int row : below.keySet()) {
+            if (row < 1 || row >= rows) {
+                throw new IllegalArgumentException("a framed line of " + rows + " rows has no lower row " + row);
+            }
+        }
         if (single) {
             return pen.build(width - PADDING);
         }
-        Component framed = pen.build(0)
-                .append(Component.newline())
-                .append(Pen.start().move(width - PADDING).build());
-        if (rows > MIN_ROWS) {
-            framed = framed.append(Component.text("\n".repeat(rows - MIN_ROWS)));
+        // A lower row advances the box's text width, so the client starts it at the text's left edge.
+        final int lineLeft = (width - PADDING - art) / 2;
+        Component framed = pen.build(0);
+        for (int row = 1; row < rows; row++) {
+            framed = framed.append(Component.newline());
+            final Component drawn = below.get(row);
+            if (drawn != null) {
+                framed = framed.append(
+                        Pen.start().move(lineLeft).append(drawn, 0).build(width - PADDING));
+            } else if (row == 1) {
+                framed = framed.append(Pen.start().move(width - PADDING).build());
+            }
         }
         return framed;
     }

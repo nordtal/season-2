@@ -426,6 +426,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V147__backups_copy_to_google_drive.sql",
                 "7f0d9dc9f1709dedad3e173e2831ac5eca8905d72c6a42e28cb7260a75bf4f8f");
+        FROZEN.put(
+                "V148__a_duel_holds_both_stakes_until_it_ends.sql",
+                "8512480ccea79def1d200b3ec747bbfeb3623bfaa405516f7dfa9cb716e5e110");
     }
 
     @Test

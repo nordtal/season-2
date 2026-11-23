@@ -41,6 +41,12 @@ public final class BodyLine {
     /** The width of the station's native text field. */
     public static final int FIELD = 180;
 
+    /** The side of the plate under a face. */
+    public static final int FACE_FRAME = 12;
+
+    /** The side of the accent ring around a large dark field. */
+    public static final int ACCENT_FRAME = ItemPicture.LARGE_FIELD + 4;
+
     /** A native checkbox's box, and the gap from it to its label. */
     private static final int BOX = 17;
 
@@ -185,6 +191,18 @@ public final class BodyLine {
         return this;
     }
 
+    /** Draws the {@link #FACE_FRAME} px plate that carries a {@link DialogCanvas#face} 2 px in from its corner. */
+    public BodyLine faceFrame() {
+        pen.art(Pen.artFont(down), Glyphs.UI_FACE_FRAME_12, FACE_FRAME);
+        return this;
+    }
+
+    /** Draws the accent ring that lies 2 px around a {@link ItemPicture#LARGE_FIELD} dark field. */
+    public BodyLine accentFrame() {
+        pen.art(Pen.artFont(down), Glyphs.UI_ACCENT_FRAME_44, ACCENT_FRAME);
+        return this;
+    }
+
     /** Draws the 17 by 72 sunken scroll track. */
     public BodyLine scrollTrack() {
         pen.art(Pen.artFont(down), Glyphs.UI_SCROLL_TRACK_72, ScrollState.COLUMN_WIDTH);
@@ -203,13 +221,15 @@ public final class BodyLine {
         return this;
     }
 
-    /** Draws {@code picture} on the line's label row: its atlas sprite or its fallback symbol. */
+    /**
+     * Draws {@code picture}'s fallback symbol on the line's label row.
+     * Refuses a picture with a sprite, which only {@link DialogCanvas#itemPicture} can lower to its row.
+     */
     public BodyLine itemPicture(final ItemPicture picture) {
         if (picture.hasSprite()) {
-            pen.append(picture.spriteComponent(), ItemPicture.SPRITE_ADVANCE);
-        } else {
-            pen.symbol(textShift, picture.fallback(), picture.fallbackColour());
+            throw new IllegalArgumentException("a sprite ignores the line's shift; place it on a dialog canvas");
         }
+        pen.symbol(textShift, picture.fallback(), picture.fallbackColour());
         return this;
     }
 

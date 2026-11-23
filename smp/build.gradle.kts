@@ -113,6 +113,7 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.duel.Duels")
     documentClasses.add("eu.nordtal.season.smp.duel.Negotiation")
     documentClasses.add("eu.nordtal.season.smp.duel.NegotiationDialog")
+    documentClasses.add("eu.nordtal.season.smp.duel.StakeTable")
     documentClasses.add("eu.nordtal.season.smp.progress.ObjectiveEngine")
     documentClasses.add("eu.nordtal.season.smp.progress.AdvancementListener")
     documentClasses.add("eu.nordtal.season.smp.grave.GraveListener")

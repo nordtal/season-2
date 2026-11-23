@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Your stake is back:</muted> <emphasis>{amount} × {item}</emphasis><muted>.</muted>",
+            "de": "<muted>Dein Einsatz ist zurück:</muted> <emphasis>{amount} × {item}</emphasis><muted>.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

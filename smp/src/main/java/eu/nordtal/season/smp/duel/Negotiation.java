@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.duel;
 
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.document.AppliedDocuments;
@@ -14,6 +15,7 @@ import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.config.DuelKitSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
@@ -22,29 +24,34 @@ import eu.nordtal.season.smp.region.PolygonArea;
 import eu.nordtal.season.smp.region.PolygonAreas;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.RejectedExecutionException;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The two players on the negotiation area and the kits they pick, main thread only; a held area pushes others back.
+ * The two players on the negotiation area, their stake in the {@link StakeTable} and their kit, main thread only.
  *
- * Esc ends nothing. A pair ends further than {@link #APART} blocks apart, offline, after a minute or with the duel.
+ * A pair ends further than {@link #APART} blocks apart, offline, when a limit runs out or with the duel.
  */
 final class Negotiation {
 
-    /** @param fighting whether the pair in the area fights, rather than still picking kits */
+    /** @param fighting whether the pair in the area fights, rather than still negotiating */
     record Held(@Example("true") boolean fighting) {}
 
     static final DocumentSpec<Held> AREA_HELD = DocumentSpec.game(
@@ -70,7 +77,7 @@ final class Negotiation {
                     "smp", "duel-ended-time", "Duels", DocumentSpec.Shape.CHAT)
             .titled("Duel over, time ran out");
 
-    /** To a player who closed the dialog, under their chat line: a click on it opens the dialog again. */
+    /** To a player who closed the chest or the dialog: a click on it opens it again. */
     static final DocumentSpec<DocumentSpec.None> OPEN = DocumentSpec.game(
                     "smp", "duel-open", "Duels", DocumentSpec.Shape.CHAT)
             .titled("Duel open");
@@ -78,15 +85,26 @@ final class Negotiation {
     /** A pair further apart than this many blocks ends. */
     static final int APART = 16;
 
-    private static final Duration TIMEOUT = Duration.ofSeconds(60);
+    /** The seconds from the agreed kit to the fight. */
+    static final int COUNTDOWN_SECONDS = 3;
 
-    private static final Duration COUNTDOWN = Duration.ofSeconds(3);
+    /** Each phase has this long: the stake from the second player's step, the kits from the lock. */
+    private static final Duration LIMIT = Duration.ofSeconds(60);
+
+    private static final Duration SECOND = Duration.ofSeconds(1);
 
     private static final long NOTICE_INTERVAL_MILLIS = 3_000;
 
     private static final double PUSH = 0.8;
 
     private static final double LIFT = 0.35;
+
+    /** Where a pair stands: filling the stake chests, waiting for the lock to be written, or picking a kit. */
+    private enum Phase {
+        STAKE,
+        LOCKING,
+        KITS
+    }
 
     private final Plugin plugin;
     private final Duels duels;
@@ -97,21 +115,37 @@ final class Negotiation {
     private final Dialogs dialogs;
     private final SmpSounds sounds;
     private final Clock clock;
+    private final AuraDao aura;
+    private final Escrow escrow;
     private final NoticeThrottle notices = new NoticeThrottle(NOTICE_INTERVAL_MILLIS);
 
     private volatile PolygonAreas configuredAreas;
     private @Nullable UUID first;
     private @Nullable UUID second;
+    private Phase phase = Phase.STAKE;
+    private @Nullable StakeTable table;
     private final Map<UUID, Integer> picks = new HashMap<>();
+
+    /** The stake held for the pair from the lock on; the lock's answer for another stake is stale. */
+    private @Nullable UUID stake;
+
+    private int[] staked = {0, 0};
+
+    /** The kits as they were at the lock, so a settings change during the pick changes nothing for the pair. */
+    private List<DuelKitSpec> kits = List.of();
 
     /** A player whose pair ended here negotiates again only after stepping off. */
     private final Set<UUID> left = new HashSet<>();
 
-    /** A negotiator who typed since the last send closed the dialog, and gets no redraw until reopening it. */
+    /** A player who typed since the last send closed the dialog, and gets no redraw until reopening it. */
     private final Set<UUID> closed = new HashSet<>();
 
     private Scheduler.@Nullable Task countdown;
+    private int seconds;
     private Scheduler.@Nullable Task timeout;
+
+    /** The limit ran out during a countdown, which may finish; the pair ends if it stops. */
+    private boolean late;
 
     Negotiation(
             final Plugin plugin,
@@ -122,7 +156,9 @@ final class Negotiation {
             final AppliedDocuments documents,
             final Dialogs dialogs,
             final SmpSounds sounds,
-            final Clock clock) {
+            final Clock clock,
+            final AuraDao aura,
+            final Escrow escrow) {
         this.plugin = plugin;
         this.duels = duels;
         this.config = config;
@@ -132,6 +168,8 @@ final class Negotiation {
         this.dialogs = dialogs;
         this.sounds = sounds;
         this.clock = clock;
+        this.aura = aura;
+        this.escrow = escrow;
         this.configuredAreas = ConfigAreas.ofDuel(config.negotiationArea());
     }
 
@@ -189,17 +227,36 @@ final class Negotiation {
                     tell(player, AREA_HELD.with(new Held(duels.fighting())), Feedback.REFUSED);
                 }
             }
-            case WAIT -> {
-                first = id;
-                // Opening a dialog inside the move event lets Bukkit apply the move over it.
-                PaperScheduler.of(plugin).onMain(() -> redraw(null));
-            }
-            case JOIN -> {
-                second = id;
-                timeout = PaperScheduler.of(plugin).onMainAfter(TIMEOUT, this::timedOut);
-                PaperScheduler.of(plugin).onMain(() -> redraw(id));
-            }
+            case WAIT -> step(player, 0);
+            case JOIN -> step(player, 1);
         }
+    }
+
+    /** Seats a player who stepped onto the area, once their account is linked. */
+    private void step(final Player player, final int side) {
+        final UUID id = player.getUniqueId();
+        final Optional<DiscordId> account = identities.discordIdOf(id);
+        if (account.isEmpty()) {
+            left.add(id);
+            tell(player, UNAVAILABLE.with(new Unavailable(Duels.Blocked.NOT_LINKED)), Feedback.REFUSED);
+            return;
+        }
+        if (side == 0) {
+            first = id;
+            phase = Phase.STAKE;
+            table = new StakeTable(plugin, this::stakeWords, aura, sounds, new TableEvents(), escrow);
+        } else {
+            second = id;
+            timeout = PaperScheduler.of(plugin).onMainAfter(LIMIT, this::timedOut);
+        }
+        final @Nullable StakeTable seating = table;
+        // Opening a window inside the move event lets Bukkit apply the move over it.
+        PaperScheduler.of(plugin).onMain(() -> {
+            final @Nullable Player online = Bukkit.getPlayer(id);
+            if (seating != null && seating == table && negotiates(id) && online != null) {
+                seating.seat(side, online, account.get());
+            }
+        });
     }
 
     /** Whether {@code at} is more than {@link #APART} blocks from {@code other}, or in another world. */
@@ -218,19 +275,101 @@ final class Negotiation {
         return !sameWorld || distanceSquared > (double) APART * APART;
     }
 
+    /** What the stake table tells the pair. */
+    private final class TableEvents implements StakeTable.Events {
+
+        @Override
+        public void locked(final List<DiscordId> accounts, final List<List<ItemStack>> items, final int[] offers) {
+            lock(accounts, items, offers);
+        }
+
+        @Override
+        public void closed(final Player player) {
+            offerReopen(player);
+        }
+
+        @Override
+        public void countdownStopped() {
+            if (late) {
+                end(Sent.of(ENDED_TIME), Sent.of(ENDED_TIME));
+            }
+        }
+    }
+
+    /** Writes both stakes for the accounts seated at the step; the kit pick starts once the write answers. */
+    private void lock(final List<DiscordId> accounts, final List<List<ItemStack>> items, final int[] offers) {
+        final @Nullable UUID one = first;
+        final @Nullable UUID two = second;
+        table = null;
+        cancel(timeout);
+        timeout = null;
+        late = false;
+        final UUID duel = UUID.randomUUID();
+        final List<DuelStakes.Offer> held = new ArrayList<>();
+        for (int side = 0; side < 2; side++) {
+            held.add(new DuelStakes.Offer(
+                    accounts.get(side),
+                    offers[side],
+                    items.get(side).stream().map(Escrow::staked).toList()));
+        }
+        if (one == null || two == null) {
+            // The pair ended in the same tick: the items go back through the pending store.
+            for (int side = 0; side < 2; side++) {
+                escrow.giveBack(accounts.get(side), items.get(side));
+            }
+            return;
+        }
+        phase = Phase.LOCKING;
+        stake = duel;
+        staked = offers.clone();
+        escrow.lock(duel, held, locked -> {
+            try {
+                PaperScheduler.of(plugin).onMain(() -> lockAnswered(duel, locked));
+            } catch (final RejectedExecutionException stopping) {
+                // The next start refunds the held stake.
+            }
+        });
+    }
+
+    private void lockAnswered(final UUID duel, final boolean locked) {
+        if (!duel.equals(stake)) {
+            if (locked) {
+                escrow.refund(duel);
+            }
+            return;
+        }
+        if (!locked) {
+            stake = null;
+            final Sent<?> shortLine = UNAVAILABLE.with(new Unavailable(Duels.Blocked.STAKE_SHORT));
+            end(shortLine, shortLine);
+            return;
+        }
+        phase = Phase.KITS;
+        kits = List.copyOf(shownKits());
+        timeout = PaperScheduler.of(plugin).onMainAfter(LIMIT, this::timedOut);
+        redraw(null);
+    }
+
     private void picked(final Player player, final int kit) {
         final UUID id = player.getUniqueId();
-        if (!negotiates(id) || kit < 0 || kit >= shownKits().size()) {
+        if (phase != Phase.KITS || !negotiates(id) || kit < 0 || kit >= kits.size()) {
             return;
         }
         picks.put(id, kit);
         if (agreed()) {
             if (countdown == null) {
-                countdown = PaperScheduler.of(plugin).onMainAfter(COUNTDOWN, this::tick);
+                seconds = COUNTDOWN_SECONDS;
+                countdown = PaperScheduler.of(plugin).onMainEvery(SECOND, SECOND, this::tick);
+                tickSound();
             }
-        } else {
+        } else if (countdown != null) {
             cancel(countdown);
             countdown = null;
+            seconds = 0;
+            if (late) {
+                end(Sent.of(ENDED_TIME), Sent.of(ENDED_TIME));
+                return;
+            }
         }
         redraw(id);
     }
@@ -238,18 +377,27 @@ final class Negotiation {
     /** A negotiator chatted or ran a command, so their dialog is closed: they get one line to open it again. */
     void typed(final Player player) {
         final UUID id = player.getUniqueId();
-        if (!negotiates(id) || !closed.add(id)) {
-            return;
+        if (phase == Phase.KITS && negotiates(id) && closed.add(id)) {
+            offerReopen(player);
         }
+    }
+
+    private void offerReopen(final Player player) {
         final Dialogs.Send send = dialogs.send();
-        player.sendMessage(
-                renderer.format(identities.languageOf(id), Sent.of(OPEN)).clickEvent(send.click(this::reopen)));
+        player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), Sent.of(OPEN))
+                .clickEvent(send.click(this::reopen)));
     }
 
     private void reopen(final Player player) {
         final UUID id = player.getUniqueId();
-        closed.remove(id);
-        if (negotiates(id)) {
+        if (!negotiates(id)) {
+            return;
+        }
+        final @Nullable StakeTable seated = table;
+        if (phase == Phase.STAKE && seated != null) {
+            seated.reopen(player);
+        } else if (phase == Phase.KITS) {
+            closed.remove(id);
             show(player, false);
         }
     }
@@ -264,35 +412,64 @@ final class Negotiation {
         final Sent<?> gone =
                 ENDED_OFFLINE.with(new NegotiationDialog.Opponent(PlayerContext.of(PlayerId.of(id), player.getName())));
         // The one who quit gets nothing: only the one still online is told.
-        end(id.equals(first) ? null : gone, id.equals(second) ? null : gone);
+        end(id.equals(first) ? null : gone, id.equals(second) ? null : gone, Set.of(id));
     }
 
-    /** Closes every negotiator's dialog and forgets the pair, for a server stop. */
+    /** Gives back every stake and forgets the pair, for a server stop. */
     void stop() {
-        end(null, null);
+        final Set<UUID> everyone = new HashSet<>();
+        if (first != null) {
+            everyone.add(first);
+        }
+        if (second != null) {
+            everyone.add(second);
+        }
+        end(null, null, everyone);
     }
 
     /**
-     * Ends the negotiation, telling each negotiator their line if one is given.
+     * Ends the negotiation, gives back what the pair staked and tells each negotiator their line if one is given.
      *
-     * It closes each open dialog. A player still on the area negotiates again only after stepping off.
+     * A player still on the area negotiates again only after stepping off.
      */
     private void end(final @Nullable Sent<?> toFirst, final @Nullable Sent<?> toSecond) {
+        end(toFirst, toSecond, Set.of());
+    }
+
+    /** @param leaving the players who quit or stop with the server, whose stake goes through the pending store */
+    private void end(final @Nullable Sent<?> toFirst, final @Nullable Sent<?> toSecond, final Set<UUID> leaving) {
         cancel(countdown);
         cancel(timeout);
         countdown = null;
         timeout = null;
+        seconds = 0;
+        late = false;
         final boolean paired = second != null;
         final @Nullable UUID one = first;
         final @Nullable UUID two = second;
+        final Phase was = phase;
+        final @Nullable StakeTable seated = table;
+        final @Nullable UUID held = stake;
         first = null;
         second = null;
+        table = null;
+        stake = null;
+        phase = Phase.STAKE;
         picks.clear();
-        endFor(one, toFirst, paired);
-        endFor(two, toSecond, paired);
+        kits = List.of();
+        if (seated != null) {
+            seated.end(leaving);
+        }
+        // A lock still being written finds no stake and refunds itself.
+        if (was == Phase.KITS && held != null) {
+            escrow.refund(held);
+        }
+        endFor(one, toFirst, paired, was == Phase.KITS);
+        endFor(two, toSecond, paired, was == Phase.KITS);
     }
 
-    private void endFor(final @Nullable UUID id, final @Nullable Sent<?> line, final boolean paired) {
+    private void endFor(
+            final @Nullable UUID id, final @Nullable Sent<?> line, final boolean paired, final boolean dialog) {
         if (id == null) {
             return;
         }
@@ -304,7 +481,7 @@ final class Negotiation {
         if (player == null) {
             return;
         }
-        if (shown) {
+        if (dialog && shown) {
             player.closeDialog();
         }
         if (line != null) {
@@ -312,39 +489,68 @@ final class Negotiation {
         }
     }
 
-    /** Whether the one-minute limit ends a pair whose countdown was running when the timer fired. */
+    /** Whether a limit ends the pair at once; a countdown already running may finish first. */
     static boolean timeoutExpired(final boolean countdownRunning) {
-        return true;
+        return !countdownRunning;
     }
 
     private void timedOut() {
         timeout = null;
-        if (timeoutExpired(countdown != null)) {
+        final @Nullable StakeTable seated = table;
+        final boolean counting = countdown != null || (seated != null && seated.counting());
+        if (timeoutExpired(counting)) {
             end(Sent.of(ENDED_TIME), Sent.of(ENDED_TIME));
+        } else {
+            late = true;
         }
     }
 
-    /** The countdown's own task, a tick after any event, starts the duel. */
     private void tick() {
+        seconds--;
+        if (seconds > 0) {
+            tickSound();
+            redraw(null);
+            return;
+        }
+        cancel(countdown);
         countdown = null;
         start();
     }
 
+    private void tickSound() {
+        for (final @Nullable UUID id : new UUID[] {first, second}) {
+            final @Nullable Player player = id == null ? null : Bukkit.getPlayer(id);
+            if (player != null) {
+                sounds.play(player, Feedback.COUNTDOWN_TICK);
+            }
+        }
+    }
+
+    /** Hands the pair and its stake to the duel; a duel that cannot start refunds the stake. */
     private void start() {
         final @Nullable UUID one = first;
         final @Nullable UUID two = second;
         final @Nullable Integer kit = one == null ? null : picks.get(one);
         final @Nullable Player fighter = one == null ? null : Bukkit.getPlayer(one);
         final @Nullable Player other = two == null ? null : Bukkit.getPlayer(two);
+        final @Nullable UUID held = stake;
+        final int[] offers = staked;
+        final List<DuelKitSpec> frozen = kits;
+        // The duel owns the stake from here, so the end below gives nothing back.
+        stake = null;
         end(null, null);
         left.remove(one);
         left.remove(two);
-        if (fighter == null || other == null || kit == null) {
+        if (held == null) {
             return;
         }
-        final Duels.@Nullable Blocked blocked =
-                duels.begin(fighter, other, shownKits().get(kit));
+        if (fighter == null || other == null || kit == null) {
+            escrow.refund(held);
+            return;
+        }
+        final Duels.@Nullable Blocked blocked = duels.begin(fighter, other, frozen.get(kit), held, offers);
         if (blocked != null) {
+            escrow.refund(held);
             tell(fighter, UNAVAILABLE.with(new Unavailable(blocked)), Feedback.REFUSED);
             tell(other, UNAVAILABLE.with(new Unavailable(blocked)), Feedback.REFUSED);
         }
@@ -361,7 +567,7 @@ final class Negotiation {
         }
     }
 
-    /** Sends the dialog to each negotiator who has it open, with no redraw title for {@code cause}. */
+    /** Sends the dialog to each negotiator who has it open, with the redraw title for all but {@code cause}. */
     private void redraw(final @Nullable UUID cause) {
         if (first != null) {
             redrawFor(first, cause);
@@ -382,26 +588,50 @@ final class Negotiation {
         final UUID id = viewer.getUniqueId();
         final @Nullable UUID otherId = opponentOf(id);
         final @Nullable Player other = otherId == null ? null : Bukkit.getPlayer(otherId);
+        final Locale locale = identities.languageOf(id);
         final GameDocument document = new GameDocument(
-                renderer,
-                documents.applied(NegotiationDialog.DOCUMENT),
-                Viewer.of(identities.languageOf(id)),
-                new DocumentSpec.None());
+                renderer, documents.applied(NegotiationDialog.DOCUMENT), Viewer.of(locale), new DocumentSpec.None());
         viewer.showDialog(NegotiationDialog.of(
                 document,
                 new NegotiationDialog.View(
-                        shownKits().stream().map(DuelKitSpec::name).toList(),
+                        shown(kits, locale),
+                        id,
                         picks.get(id),
-                        other == null ? null : picks.get(other.getUniqueId()),
-                        other == null ? null : PlayerContext.of(PlayerId.of(other.getUniqueId()), other.getName()),
+                        otherId == null ? null : picks.get(otherId),
+                        otherId,
+                        otherId == null || other == null
+                                ? null
+                                : PlayerContext.of(PlayerId.of(otherId), other.getName()),
+                        countdown == null ? 0 : seconds,
                         redrawn),
                 dialogs.send(),
                 this::picked));
     }
 
+    /** Returns the kits as a player of {@code locale} reads them. */
+    static List<NegotiationDialog.Kit> shown(final List<DuelKitSpec> kits, final Locale locale) {
+        return kits.stream()
+                .map(kit -> new NegotiationDialog.Kit(
+                        nameIn(kit, locale), kit.icon(), NegotiationDialog.loadout(kit.loadout())))
+                .toList();
+    }
+
+    /** Returns the kit's name a player of {@code locale} reads, the English one when no German one is set. */
+    static String nameIn(final DuelKitSpec kit, final Locale locale) {
+        return locale.getLanguage().equals("de") && !kit.nameDe().isBlank() ? kit.nameDe() : kit.name();
+    }
+
+    private GameDocument stakeWords(final UUID player) {
+        return new GameDocument(
+                renderer,
+                documents.applied(StakeTable.DOCUMENT),
+                Viewer.of(identities.languageOf(player)),
+                new DocumentSpec.None());
+    }
+
     private List<DuelKitSpec> shownKits() {
-        final List<DuelKitSpec> kits = config.duelKits();
-        return kits.subList(0, Math.min(kits.size(), NegotiationDialog.KITS));
+        final List<DuelKitSpec> configured = config.duelKits();
+        return configured.subList(0, Math.min(configured.size(), NegotiationDialog.KITS));
     }
 
     /** Pushes a player away from the middle of the area, or backwards when standing on it. */

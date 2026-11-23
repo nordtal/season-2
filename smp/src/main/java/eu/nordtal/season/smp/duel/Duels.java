@@ -1,18 +1,16 @@
 package eu.nordtal.season.smp.duel;
 
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.common.time.CountdownPlan;
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
-import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.papercommon.chat.Previews;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.TakenItems;
-import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.config.DuelKitSpec;
 import eu.nordtal.season.smp.config.DuelLoadoutItemSpec;
@@ -35,6 +33,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import net.kyori.adventure.title.Title;
@@ -66,7 +65,11 @@ public final class Duels implements Arenas {
     /** Why a duel cannot start. */
     enum Blocked {
         ARENA_BUSY,
-        ARENA_NOT_READY
+        ARENA_NOT_READY,
+        /** The player's Minecraft account is not linked to Discord. */
+        NOT_LINKED,
+        /** An aura balance fell below its offer before the lock. */
+        STAKE_SHORT
     }
 
     enum Outcome {
@@ -75,7 +78,11 @@ public final class Duels implements Arenas {
         INTERRUPTED
     }
 
-    /** An interrupted duel moves no aura and shows no title. */
+    /**
+     * An interrupted duel refunds both stakes and shows no title.
+     *
+     * @param aura the pot to the winner, the own stake to the loser
+     */
     record Result(Outcome outcome, @Example("25") int aura) {}
 
     /** The beat at zero seconds is the start of the fight. */
@@ -91,15 +98,11 @@ public final class Duels implements Arenas {
                     "smp", "duel-result-title", "Duels", DocumentSpec.Shape.TITLE, Result.class)
             .titled("Duel result title");
 
-    private static final int COUNTDOWN_SECONDS = 3;
-
-    private static final CountdownPlan COUNTDOWN = CountdownPlan.at().everySecondFrom(COUNTDOWN_SECONDS);
-
     private static final Title.Times OUTCOME =
             Title.Times.times(Duration.ofMillis(200), Duration.ofSeconds(2), Duration.ofMillis(600));
 
     private final Plugin plugin;
-    private final AuraDao aura;
+    private final Escrow escrow;
     private final DuelsSpec config;
     private final Identities identities;
     private final MessageRenderer renderer;
@@ -116,6 +119,9 @@ public final class Duels implements Arenas {
 
     /** {@link #respawned} restores the saved state of a fighter who died in the arena. */
     private final Map<UUID, SavedState> pending = new HashMap<>();
+
+    /** Players whose respawn restores their inventory on the next tick. */
+    private final Set<UUID> restoring = new HashSet<>();
 
     /** Teleports started by the duel itself, only while their event is running. */
     private final Set<UUID> ownTeleports = new HashSet<>();
@@ -139,10 +145,11 @@ public final class Duels implements Arenas {
             final Dialogs dialogs,
             final SmpSounds sounds,
             final WorldEffects effects,
-            final Clock clock) {
+            final Clock clock,
+            final Escrow escrow) {
         this.clock = Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
-        this.aura = aura;
+        this.escrow = escrow;
         this.config = config;
         this.identities = identities;
         this.renderer = renderer;
@@ -151,8 +158,22 @@ public final class Duels implements Arenas {
         this.copy = new ArenaCopy(plugin);
         this.fighterStates = new FighterStateStore(plugin);
         this.configuredArena = ConfigAreas.ofDuel(config.arena());
-        this.negotiation =
-                new Negotiation(plugin, this, config, identities, renderer, documents, dialogs, sounds, clock);
+        this.negotiation = new Negotiation(
+                plugin, this, config, identities, renderer, documents, dialogs, sounds, clock, aura, escrow);
+    }
+
+    /** Registers Steward's draft previews of the stake chest and the kit dialog, both read-only. */
+    public void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
+        example.accept(StakeTable.DOCUMENT, (reader, drafted) -> StakeTable.example(drafted, reader));
+        example.accept(
+                NegotiationDialog.DOCUMENT,
+                (reader, drafted) -> NegotiationDialog.example(
+                        drafted,
+                        reader,
+                        Negotiation.shown(
+                                config.duelKits()
+                                        .subList(0, Math.min(config.duelKits().size(), NegotiationDialog.KITS)),
+                                identities.languageOf(reader.getUniqueId()))));
     }
 
     /** Rebuilds the cached duel arena and negotiation areas after the {@code duels} settings group reloads. */
@@ -161,11 +182,17 @@ public final class Duels implements Arenas {
         negotiation.reload();
     }
 
-    /** {@code discordIds} is read at the start, because the identity cache forgets a player on quit. */
+    /**
+     * One fight and the stake it holds; {@code discordIds} is read at the start, because the cache forgets on quit.
+     *
+     * @param staked the aura each fighter staked, for the result line
+     */
     private record ActiveDuel(
             UUID first,
             UUID second,
             String kit,
+            UUID stake,
+            Map<UUID, Integer> staked,
             PolygonAreas arena,
             Map<UUID, SavedState> saved,
             Map<UUID, String> discordIds,
@@ -211,6 +238,15 @@ public final class Duels implements Arenas {
         final ActiveDuel duel = active;
         return duel != null
                 && duel.arena().containsBlock(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+    }
+
+    /**
+     * Returns whether a duel still writes the player's inventory, so items given now are lost to its restore.
+     *
+     * That holds through the fight, a death awaiting the respawn and the tick after it. Main thread only.
+     */
+    public boolean holdsInventory(final UUID player) {
+        return (active != null && active.fights(player)) || pending.containsKey(player) || restoring.contains(player);
     }
 
     /** Returns whether the player's advancement criteria are refused now. Main thread only. */
@@ -450,11 +486,15 @@ public final class Duels implements Arenas {
         if (where != null) {
             event.setRespawnLocation(where);
         }
+        final UUID id = event.getPlayer().getUniqueId();
+        restoring.add(id);
         PaperScheduler.of(plugin).onMain(() -> {
-            final Player player = Bukkit.getPlayer(event.getPlayer().getUniqueId());
+            restoring.remove(id);
+            final Player player = Bukkit.getPlayer(id);
             if (player != null) {
                 state.restore(player, exit());
-                fighterStates.delete(player.getUniqueId());
+                fighterStates.delete(id);
+                restored(id);
             }
         });
     }
@@ -462,10 +502,13 @@ public final class Duels implements Arenas {
     /**
      * Called by the negotiation's countdown, never from a move event: Bukkit would undo the teleport.
      *
+     * @param stake  the stake both fighters locked, which the duel pays out or refunds once it started
+     * @param offers the aura the first and the second fighter staked
      * @return why no duel could start, with the two players left where they stand, or {@code null} once it started
      */
     @Nullable
-    Blocked begin(final Player first, final Player second, final DuelKitSpec kit) {
+    Blocked begin(
+            final Player first, final Player second, final DuelKitSpec kit, final UUID stake, final int[] offers) {
         if (active != null) {
             return Blocked.ARENA_BUSY;
         }
@@ -499,6 +542,8 @@ public final class Duels implements Arenas {
                 first.getUniqueId(),
                 second.getUniqueId(),
                 kit.name(),
+                stake,
+                Map.of(first.getUniqueId(), offers[0], second.getUniqueId(), offers[1]),
                 arena,
                 saved,
                 discordIds,
@@ -510,7 +555,12 @@ public final class Duels implements Arenas {
             abort(duel);
             return null;
         }
-        countdown(duel);
+        // The kit dialog counted down, so the fight starts at once.
+        forBoth(duel, player -> {
+            player.sendMessage(renderer.format(
+                    identities.languageOf(player.getUniqueId()), COUNTDOWN_LINE.with(new Countdown(0))));
+            sounds.play(player, Feedback.COUNTDOWN_TICK);
+        });
         return null;
     }
 
@@ -536,13 +586,14 @@ public final class Duels implements Arenas {
         return position(config.exit());
     }
 
-    /** Books no stake. */
+    /** Refunds the stake. */
     private void abort(final ActiveDuel duel) {
         active = null;
         removeProjectiles(duel);
         restore(duel, duel.first(), null);
         restore(duel, duel.second(), null);
         copy.restore();
+        escrow.refund(duel.stake());
     }
 
     /** Returns false when the player is not in the arena. */
@@ -557,7 +608,7 @@ public final class Duels implements Arenas {
         } finally {
             ownTeleports.remove(player.getUniqueId());
         }
-        player.setGameMode(GameMode.ADVENTURE);
+        player.setGameMode(GameMode.SURVIVAL);
         giveLoadout(player, loadout);
         sounds.play(player, Feedback.TRAVEL);
         effects.arenaEntered(at);
@@ -594,27 +645,6 @@ public final class Duels implements Arenas {
         return true;
     }
 
-    /** The last beat is the start of the fight. */
-    private void countdown(final ActiveDuel duel) {
-        for (final CountdownPlan.Beat<Sent<Countdown>> beat : COUNTDOWN.beats(
-                Duration.ofSeconds(COUNTDOWN_SECONDS),
-                seconds -> COUNTDOWN_LINE.with(new Countdown(seconds)),
-                COUNTDOWN_LINE.with(new Countdown(0)))) {
-            PaperScheduler.of(plugin).onMainAfter(beat.delay(), () -> say(duel, beat));
-        }
-    }
-
-    private void say(final ActiveDuel duel, final CountdownPlan.Beat<Sent<Countdown>> beat) {
-        if (!duel.equals(active)) {
-            return;
-        }
-        forBoth(duel, player -> {
-            player.setGameMode(beat.seconds() > 0 ? GameMode.ADVENTURE : GameMode.SURVIVAL);
-            player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), beat.said()));
-            sounds.play(player, Feedback.COUNTDOWN_TICK);
-        });
-    }
-
     public void decide(final Player loser) {
         final ActiveDuel duel = active;
         if (duel == null || !duel.fights(loser.getUniqueId())) {
@@ -646,11 +676,15 @@ public final class Duels implements Arenas {
         } else {
             state.restore(player, exit());
             fighterStates.delete(playerId);
+            restored(playerId);
         }
         final java.util.Locale locale = identities.languageOf(playerId);
-        final Result result = new Result(
-                feedback == null ? Outcome.INTERRUPTED : feedback == Feedback.BIG_SUCCESS ? Outcome.WON : Outcome.LOST,
-                config.duelStake());
+        final Outcome outcome =
+                feedback == null ? Outcome.INTERRUPTED : feedback == Feedback.BIG_SUCCESS ? Outcome.WON : Outcome.LOST;
+        final int own = duel.staked().getOrDefault(playerId, 0);
+        final int pot =
+                duel.staked().values().stream().mapToInt(Integer::intValue).sum();
+        final Result result = new Result(outcome, outcome == Outcome.WON ? pot : own);
         player.sendMessage(renderer.format(locale, RESULT.with(result)));
         if (feedback != null) {
             player.showTitle(renderer.title(locale, RESULT_TITLE.with(result), OUTCOME));
@@ -658,6 +692,11 @@ public final class Duels implements Arenas {
         if (feedback != null) {
             sounds.play(player, feedback);
         }
+    }
+
+    /** Hands out the items the hand-out held back while the duel wrote the inventory. */
+    private void restored(final UUID player) {
+        escrow.handOutTo(player);
     }
 
     private static void removeProjectiles(final ActiveDuel duel) {
@@ -670,20 +709,16 @@ public final class Duels implements Arenas {
         duel.projectiles().clear();
     }
 
+    /** Pays both stakes to the winner; a fighter without a linked account gets both back instead. */
     private void book(final UUID winnerId, final UUID loserId, final ActiveDuel duel) {
         // A disconnect has already cleared the identity cache.
         final String winner = duel.discordIds().get(winnerId);
         final String loser = duel.discordIds().get(loserId);
         if (winner == null || loser == null) {
+            escrow.refund(duel.stake());
             return;
         }
-        final int stake = config.duelStake();
-        final String kit = duel.kit();
-
-        PaperScheduler.of(plugin).execute(() -> {
-            aura.addAura(DiscordId.of(winner), stake, new AuraCause.Duel(true, kit));
-            aura.addAura(DiscordId.of(loser), -stake, new AuraCause.Duel(false, kit));
-        });
+        escrow.payOut(duel.stake(), DiscordId.of(winner), DiscordId.of(loser), duel.kit());
     }
 
     public void stop() {
@@ -694,8 +729,10 @@ public final class Duels implements Arenas {
             removeProjectiles(duel);
             restore(duel, duel.first(), null);
             restore(duel, duel.second(), null);
+            escrow.refund(duel.stake());
         }
         copy.restore();
+        escrow.stop();
     }
 
     private void forBoth(final ActiveDuel duel, final java.util.function.Consumer<Player> action) {

@@ -10,6 +10,7 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.milestone.Objective.ItemReward;
+import eu.nordtal.season.smp.pending.PendingItems;
 import eu.nordtal.season.smp.port.ItemRewards;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import java.util.Base64;
@@ -26,6 +27,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
@@ -36,6 +38,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
@@ -53,6 +56,31 @@ public final class ItemHandout implements Listener, ItemRewards {
     static final DocumentSpec<Won> REWARD = DocumentSpec.game(
                     "smp", "objective-item-reward", "Objectives", DocumentSpec.Shape.CHAT, Won.class)
             .titled("Objective item received");
+
+    static final DocumentSpec<Won> STAKE_RETURNED = DocumentSpec.game(
+                    "smp", "duel-stake-returned", "Duels", DocumentSpec.Shape.CHAT, Won.class)
+            .titled("Duel stake returned");
+
+    /** What a claim does with a player. */
+    enum Delivery {
+        /** The player is free: the items go into the inventory now. */
+        GIVE,
+        /** The player left: the rows go back and wait for the next join. */
+        STORE,
+        /**
+         * The player is dead, or a duel still writes their inventory: the rows go back.
+         *
+         * The respawn or the duel's restore claims them again.
+         */
+        WAIT;
+
+        static Delivery of(final boolean online, final boolean dead, final boolean held) {
+            if (!online) {
+                return STORE;
+            }
+            return dead || held ? WAIT : GIVE;
+        }
+    }
 
     /** Rows taken from the store and not given yet. */
     private static final class Claim {
@@ -81,6 +109,7 @@ public final class ItemHandout implements Listener, ItemRewards {
     private final MessageRenderer renderer;
     private final Executor background;
     private final Supplier<World> overworld;
+    private final Predicate<UUID> held;
     private final Set<Claim> claims = ConcurrentHashMap.newKeySet();
     /** One party for {@link #stop} and one for each write or claim still running. */
     private final Phaser running = new Phaser(1);
@@ -91,13 +120,15 @@ public final class ItemHandout implements Listener, ItemRewards {
             final Identities identities,
             final MessageRenderer renderer,
             final Executor background,
-            final Supplier<World> overworld) {
+            final Supplier<World> overworld,
+            final Predicate<UUID> held) {
         this.plugin = plugin;
         this.pending = pending;
         this.identities = identities;
         this.renderer = renderer;
         this.background = background;
         this.overworld = overworld;
+        this.held = held;
     }
 
     /**
@@ -109,7 +140,8 @@ public final class ItemHandout implements Listener, ItemRewards {
         final String data = Base64.getEncoder().encodeToString(item.asOne().serializeAsBytes());
         put(
                 discordId,
-                List.of(new PendingItems.Item(item.getType().getKey().asString(), item.getAmount(), data, "", false)));
+                List.of(new PendingItems.Item(
+                        item.getType().getKey().asString(), item.getAmount(), data, "", false, false)));
     }
 
     @Override
@@ -118,19 +150,26 @@ public final class ItemHandout implements Listener, ItemRewards {
     }
 
     void storeMap(final DiscordId discordId, final String item, final int amount, final String structure) {
-        put(discordId, List.of(new PendingItems.Item(item, amount, "", structure, false)));
+        put(discordId, List.of(new PendingItems.Item(item, amount, "", structure, false, false)));
     }
 
     private void put(final DiscordId discordId, final List<PendingItems.Item> items) {
-        put(discordId, items, true);
+        put(discordId, items, () -> handOutIfOnline(discordId));
     }
 
-    private void put(final DiscordId discordId, final List<PendingItems.Item> items, final boolean notify) {
+    /** Writes {@code items} to the store, then runs {@code written} while smp still runs. */
+    private void put(final DiscordId discordId, final List<PendingItems.Item> items, final Runnable written) {
         final Runnable write = () -> {
             items.forEach(each -> pending.store(
-                    discordId, each.item(), each.amount(), each.data(), each.structure(), each.objectiveReward()));
-            if (notify && plugin.isEnabled()) {
-                handOutIfOnline(discordId);
+                    discordId,
+                    each.item(),
+                    each.amount(),
+                    each.data(),
+                    each.structure(),
+                    each.objectiveReward(),
+                    each.returnedStake()));
+            if (plugin.isEnabled()) {
+                written.run();
             }
         };
         if (!Bukkit.isPrimaryThread()) {
@@ -160,8 +199,38 @@ public final class ItemHandout implements Listener, ItemRewards {
         }
     }
 
+    @Override
+    public void handOutTo(final UUID player) {
+        identities.discordIdOf(player).ifPresent(this::handOutIfOnline);
+    }
+
+    /**
+     * Claims the rows a {@link Delivery#WAIT} put back once {@code player} is free.
+     * The respawn or the duel's restore that frees them may have looked at the store before the rows were back.
+     */
+    private void handOutIfFree(final UUID player, final DiscordId discordId) {
+        try {
+            PaperScheduler.of(plugin).onMain(() -> {
+                final @Nullable Player online = Bukkit.getPlayer(player);
+                if (online != null
+                        && Delivery.of(online.isOnline(), online.isDead(), held.test(player)) == Delivery.GIVE) {
+                    claimFor(player, discordId);
+                }
+            });
+        } catch (final RejectedExecutionException stopping) {
+            // The rows wait for the next join.
+        }
+    }
+
     @EventHandler
     public void onJoin(final PlayerJoinEvent event) {
+        final UUID player = event.getPlayer().getUniqueId();
+        identities.discordIdOf(player).ifPresent(discordId -> claimFor(player, discordId));
+    }
+
+    /** A claim that met a dead player went back to the store; the respawn claims it again, unless a duel holds it. */
+    @EventHandler
+    public void onRespawn(final PlayerRespawnEvent event) {
         final UUID player = event.getPlayer().getUniqueId();
         identities.discordIdOf(player).ifPresent(discordId -> claimFor(player, discordId));
     }
@@ -190,9 +259,16 @@ public final class ItemHandout implements Listener, ItemRewards {
             return;
         }
         claims.remove(claim);
-        final Player player = Bukkit.getPlayer(claim.player);
-        if (player == null || !player.isOnline()) {
+        final @Nullable Player player = Bukkit.getPlayer(claim.player);
+        final Delivery delivery = player == null
+                ? Delivery.STORE
+                : Delivery.of(player.isOnline(), player.isDead(), held.test(claim.player));
+        if (player == null || delivery == Delivery.STORE) {
             put(claim.discordId, claim.items);
+            return;
+        }
+        if (delivery == Delivery.WAIT) {
+            put(claim.discordId, claim.items, () -> handOutIfFree(claim.player, claim.discordId));
             return;
         }
         final Locale locale = identities.languageOf(player.getUniqueId());
@@ -218,11 +294,11 @@ public final class ItemHandout implements Listener, ItemRewards {
         } else {
             stack = makeMap(player, recipient, item);
             if (stack == null) {
-                put(recipient, List.of(item), false);
+                put(recipient, List.of(item), () -> {});
                 return;
             }
         }
-        give(player, stack, locale, item.objectiveReward() ? REWARD : WON);
+        give(player, stack, locale, item.returnedStake() ? STAKE_RETURNED : item.objectiveReward() ? REWARD : WON);
     }
 
     private @Nullable ItemStack makeMap(final Player player, final DiscordId recipient, final PendingItems.Item item) {

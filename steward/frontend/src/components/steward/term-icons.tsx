@@ -168,7 +168,6 @@ export const SERVICE_ICON: Readonly<Record<string, Glyph>> = {
 const FIELD_TERM: Record<string, Term> = {
   aura: "aura",
   "aura-budget": "aura",
-  "duel-stake": "aura",
   "spin-budget": "spins",
   spins: "spins",
   target: "target",

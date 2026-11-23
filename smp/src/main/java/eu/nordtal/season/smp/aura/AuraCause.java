@@ -21,6 +21,14 @@ public sealed interface AuraCause {
         }
     }
 
+    /** @param refund whether the stake goes back to its owner, rather than into the duel's escrow */
+    record Stake(boolean refund) implements AuraCause {
+        @Override
+        public AuraReason reason() {
+            return refund ? AuraReason.DUEL_REFUND : AuraReason.DUEL_STAKE;
+        }
+    }
+
     /**
      * A death outside the duel arena.
      *

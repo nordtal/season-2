@@ -2,7 +2,6 @@ package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.rule.Entries;
-import eu.nordtal.season.settings.rule.NotNegative;
 import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
@@ -62,22 +61,13 @@ public interface DuelsSpec {
         return DefaultSmp.DUEL_EXIT;
     }
 
-    @Order(31)
-    @Name("Duel stake")
-    @Key("duel-stake")
-    @NotNegative
-    @NoExplanationNeeded
-    default int duelStake() {
-        return 10;
-    }
-
-    /** The negotiation dialog has four kit rows. */
+    /** The kit dialog has four tiles. */
     @Order(38)
     @Name("Duel kits")
     @Key("duel-kits")
     @Required
     @Entries(most = 4)
-    @Explain("One to four kits: the negotiation dialog has a row for each.")
+    @Explain("One to four kits: the kit dialog shows a tile for each.")
     default List<DuelKitSpec> duelKits() {
         return DefaultSmp.DUEL_KITS;
     }

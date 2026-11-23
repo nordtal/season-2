@@ -21,7 +21,9 @@ import eu.nordtal.season.smp.aura.DeathPenalty;
 import eu.nordtal.season.smp.board.Boards;
 import eu.nordtal.season.smp.config.DeathsSpec;
 import eu.nordtal.season.smp.duel.DuelListener;
+import eu.nordtal.season.smp.duel.DuelStakes;
 import eu.nordtal.season.smp.duel.Duels;
+import eu.nordtal.season.smp.duel.Escrow;
 import eu.nordtal.season.smp.eye.MapPortals;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
@@ -31,6 +33,7 @@ import eu.nordtal.season.smp.grave.Graves;
 import eu.nordtal.season.smp.npc.NpcNamePlates;
 import eu.nordtal.season.smp.npc.NpcTexts;
 import eu.nordtal.season.smp.npc.ObjectivesMenu;
+import eu.nordtal.season.smp.pending.PendingItems;
 import eu.nordtal.season.smp.player.PlayerComposition;
 import eu.nordtal.season.smp.player.PlayerSurfaces;
 import eu.nordtal.season.smp.player.PlayerSurfacesListener;
@@ -57,7 +60,6 @@ import eu.nordtal.season.smp.welcome.SeasonWelcome;
 import eu.nordtal.season.smp.welcome.WelcomeDao;
 import eu.nordtal.season.smp.wheel.ExtraSpins;
 import eu.nordtal.season.smp.wheel.ItemHandout;
-import eu.nordtal.season.smp.wheel.PendingItems;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.wheel.WheelListener;
@@ -189,33 +191,23 @@ final class SmpStart {
                 Duration.ofSeconds(1), Duration.ofMinutes(1), () -> graves.expire(deaths.graveMaxAgeHours()));
         // Runs every second on the main thread. It writes only near expiry.
         scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), graves::tickHolograms);
-        final Duels duels = new Duels(
-                plugin,
-                plugin.aura,
-                plugin.duelSettings.get(),
-                plugin.identities(),
-                plugin.renderer(),
-                plugin.documents(),
-                plugin.dialogs(),
-                plugin.sounds,
-                effects,
-                plugin.clock());
-        scheduler.onMainEvery(
-                PaperScheduler.TICK,
-                PaperScheduler.TICK,
-                () -> duels.tick(plugin.getServer().getOnlinePlayers()));
-
-        // Built per death, so a saved penalty applies to the next one.
-        final Supplier<DeathPenalty> penalty = () -> new DeathPenalty(
-                deaths.deathPenalty(), deaths.deathPenaltyListed(), java.util.Set.copyOf(deaths.deathCausesListed()));
         final ItemHandout handout = new ItemHandout(
                 plugin,
                 plugin.jdbi().onDemand(PendingItems.class),
                 plugin.identities(),
                 plugin.renderer(),
                 plugin.itemWork,
-                () -> plugin.worlds.world(WorldRole.NORDTAL).orElseThrow());
+                () -> plugin.worlds.world(WorldRole.NORDTAL).orElseThrow(),
+                player -> {
+                    final Duels running = plugin.duels;
+                    return running != null && running.holdsInventory(player);
+                });
         plugin.getServer().getPluginManager().registerEvents(handout, plugin);
+        final Duels duels = wireDuels(plugin, effects, handout, scheduler);
+
+        // Built per death, so a saved penalty applies to the next one.
+        final Supplier<DeathPenalty> penalty = () -> new DeathPenalty(
+                deaths.deathPenalty(), deaths.deathPenaltyListed(), java.util.Set.copyOf(deaths.deathCausesListed()));
         final Wheel wheel = new Wheel(
                 plugin,
                 plugin.jdbi().onDemand(SpinDao.class),
@@ -230,6 +222,35 @@ final class SmpStart {
                 WheelTimetable.load(),
                 plugin.clock());
         return new Activities(penalty, handout, wheel, graves, duels);
+    }
+
+    /** Builds the duels with the escrow that holds their stakes, and refunds what a stop or crash left held. */
+    private static Duels wireDuels(
+            final SmpPlugin plugin,
+            final WorldEffects effects,
+            final ItemHandout handout,
+            final PaperScheduler scheduler) {
+        final Escrow escrow =
+                new Escrow(plugin.jdbi().onDemand(DuelStakes.class), handout, plugin.itemWork, plugin.getLogger());
+        escrow.refundLeftover();
+        final Duels duels = new Duels(
+                plugin,
+                plugin.aura,
+                plugin.duelSettings.get(),
+                plugin.identities(),
+                plugin.renderer(),
+                plugin.documents(),
+                plugin.dialogs(),
+                plugin.sounds,
+                effects,
+                plugin.clock(),
+                escrow);
+        scheduler.onMainEvery(
+                PaperScheduler.TICK,
+                PaperScheduler.TICK,
+                () -> duels.tick(plugin.getServer().getOnlinePlayers()));
+        duels.examples(plugin::example);
+        return duels;
     }
 
     static void registerActivityListeners(final SmpPlugin plugin, final Activities activities) {

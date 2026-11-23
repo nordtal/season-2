@@ -1,0 +1,184 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Stake",
+            "de": "Einsatz"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "ready",
+      "lines": [
+        {
+          "text": {
+            "en": "Ready",
+            "de": "Bereit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "ready-hint",
+      "lines": [
+        {
+          "text": {
+            "en": "Click once your stake is complete.",
+            "de": "Klicken, sobald dein Einsatz steht."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "withdraw",
+      "lines": [
+        {
+          "text": {
+            "en": "Take back your confirmation",
+            "de": "Bestätigung zurücknehmen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "aura-own",
+      "lines": [
+        {
+          "text": {
+            "en": "Your aura: {amount}",
+            "de": "Deine Aura: {amount}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "aura-negative",
+      "lines": [
+        {
+          "text": {
+            "en": "Your aura is below zero, so you offer none.",
+            "de": "Deine Aura ist unter null, also bietest du keine."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "offer-own",
+      "lines": [
+        {
+          "text": {
+            "en": "You offer {amount} aura.",
+            "de": "Du bietest {amount} Aura."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "raise",
+      "lines": [
+        {
+          "text": {
+            "en": "1 aura more, with Shift 10",
+            "de": "1 Aura mehr, mit Shift 10"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "lower",
+      "lines": [
+        {
+          "text": {
+            "en": "1 aura less, with Shift 10",
+            "de": "1 Aura weniger, mit Shift 10"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "name",
+      "lines": [
+        {
+          "text": {
+            "en": "{player.name}",
+            "de": "{player.name}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "their-offer",
+      "lines": [
+        {
+          "text": {
+            "en": "{opponent.name} offers {amount} aura.",
+            "de": "{opponent.name} bietet {amount} Aura."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "their-ready",
+      "lines": [
+        {
+          "text": {
+            "en": "{opponent.name} is ready.",
+            "de": "{opponent.name} ist bereit."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "alone",
+      "lines": [
+        {
+          "text": {
+            "en": "Waiting for an opponent",
+            "de": "Warten auf einen Gegner"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "cursor",
+      "lines": [
+        {
+          "text": {
+            "en": "Put down the item on your cursor first.",
+            "de": "Leg zuerst den Gegenstand am Mauszeiger ab."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "countdown",
+      "lines": [
+        {
+          "text": {
+            "en": "{seconds} s",
+            "de": "{seconds} s"
+          }
+        }
+      ]
+    }
+  ]
+}

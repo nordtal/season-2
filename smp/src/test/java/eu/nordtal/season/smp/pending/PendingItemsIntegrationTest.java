@@ -1,4 +1,4 @@
-package eu.nordtal.season.smp.wheel;
+package eu.nordtal.season.smp.pending;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

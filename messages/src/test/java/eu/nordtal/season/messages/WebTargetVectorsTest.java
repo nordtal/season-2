@@ -57,7 +57,7 @@ class WebTargetVectorsTest {
             final MessageText text = MessageText.parse(vector.get("text").getAsString(), markup(vector));
             final Map<String, Object> args = MessageJson.decodeArgs(asRead(vector.get("args")));
             final String shown = PlainText.of(
-                    Filling.fill(text, args, Map.of(), name -> {}, TEST.blocks(Locale.ENGLISH)),
+                    Filling.fill(text, args, Map.of(), name -> {}, blocks(vector)),
                     Locale.ENGLISH,
                     ZoneOffset.UTC,
                     WORDS);
@@ -90,6 +90,20 @@ class WebTargetVectorsTest {
      */
     private static boolean markup(final JsonObject vector) {
         return vector.has("markup") && vector.get("markup").getAsBoolean();
+    }
+
+    /** The building blocks of English, with the texts the vector holds in place of packaged ones as an admin would. */
+    private static Filling.Blocks blocks(final JsonObject vector) {
+        final Filling.Blocks packaged = TEST.blocks(Locale.ENGLISH);
+        final JsonObject held = vector.has("blocks") ? vector.getAsJsonObject("blocks") : new JsonObject();
+        return key -> {
+            final Filling.Block block = packaged.block(key);
+            if (block == null || !held.has(key)) {
+                return block;
+            }
+            return new Filling.Block(
+                    MessageText.parse(held.get(key).getAsString(), false), block.values(), block.language());
+        };
     }
 
     private static Map<?, ?> asRead(final JsonElement args) {

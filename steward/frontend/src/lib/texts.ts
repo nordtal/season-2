@@ -177,6 +177,7 @@ function fill(
   out: Run[],
   texts: Texts,
   open: Set<string>,
+  locale: string = LOCALE,
 ): void {
   for (const node of nodes) {
     if (typeof node === "string") {
@@ -186,9 +187,9 @@ function fill(
     } else if ("pound" in node) {
       out.push(filled(node.pound, "number", undefined, args, declared))
     } else if ("c" in node) {
-      fill(chosen(node, args[node.c]), args, declared, out, texts, open)
+      fill(chosen(node, args[node.c]), args, declared, out, texts, open, locale)
     } else if ("b" in node) {
-      block(node, args, declared, out, texts, open)
+      block(node, args, declared, out, texts, open, locale)
     } else if (LINE_BREAKS.has(node.tag)) {
       out.push({ text: "\n" })
     }
@@ -198,7 +199,7 @@ function fill(
 const DIGIT_FIRST = /^\d/
 
 /**
- * Fills a building block with the values around it, as Java's `Filling` does. A bound value takes the outer one and its `outer.*` attributes, a number is a constant, and so is a word bound to a choice the text has no value of. A cycle or a key that is no text shows the missing word.
+ * Fills a building block with the values around it, as Java's `Filling` does. A bound value takes the outer one and its `outer.*` attributes, a number is a constant, and so is a word bound to a choice the text has no value of. A cycle or a key that is no text shows the missing word. `capital=first` writes the first cased letter as a capital.
  */
 function block(
   node: { b: string; with?: Record<string, string> },
@@ -207,6 +208,7 @@ function block(
   out: Run[],
   texts: Texts,
   open: Set<string>,
+  locale: string = LOCALE,
 ): void {
   const variants = texts[node.b] ?? current[node.b] ?? PACKAGED.texts[node.b]
   if (open.has(node.b) || !variants || variants.length === 0) {
@@ -218,6 +220,7 @@ function block(
     [...Object.keys(args), ...Object.keys(declared)].some((held) => held === outer || held.startsWith(`${outer}.`))
   const inner: Record<string, unknown> = { ...args }
   for (const [name, outer] of Object.entries(node.with ?? {})) {
+    if (name === CAPITAL) continue
     for (const held of Object.keys(inner)) if (held === name || held.startsWith(`${name}.`)) delete inner[held]
     if (DIGIT_FIRST.test(outer)) {
       inner[name] = { kind: "number", value: Number(outer) }
@@ -232,7 +235,33 @@ function block(
       else if (given.startsWith(`${outer}.`)) inner[name + given.slice(outer.length)] = value
     }
   }
-  fill(variants[0], inner, kinds, out, texts, new Set([...open, node.b]))
+  const start = out.length
+  fill(variants[0], inner, kinds, out, texts, new Set([...open, node.b]), locale)
+  if (node.with?.[CAPITAL] === "first") capital(out, start, locale)
+}
+
+/** The binding that sets a block's capital, as Java's `Node.Block.CAPITAL` names it. */
+const CAPITAL = "capital"
+
+const CASED = /\p{Cased}/u
+
+/**
+ * Writes the first cased letter of the runs from `start` as a capital, as Java's `Filling` does. A value that opens the block ends the search.
+ */
+function capital(out: Run[], start: number, locale: string): void {
+  for (let at = start; at < out.length; at++) {
+    const run = out[at]
+    if (run.kind !== undefined) return
+    const first = CASED.exec(run.text)
+    if (first) {
+      const after = first.index + first[0].length
+      out[at] = {
+        ...run,
+        text: run.text.slice(0, first.index) + first[0].toLocaleUpperCase(locale) + run.text.slice(after),
+      }
+      return
+    }
+  }
 }
 
 /** Returns a building block's words with the values around it, or the missing word for a block that is no text. */
@@ -242,7 +271,7 @@ export function blockText(
   words: Words,
 ): string {
   const out: Run[] = []
-  block(node, args, {}, out, words.texts, new Set())
+  block(node, args, {}, out, words.texts, new Set(), words.locale)
   return plain(out)
 }
 

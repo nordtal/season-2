@@ -183,5 +183,18 @@
     "args": { "days": { "kind": "number", "value": 3 } },
     "plain": "in 3 days"
   },
-  { "text": "{@nothing.here} left", "nodes": [{ "b": "nothing.here" }, " left"], "args": {}, "plain": "something left" }
+  { "text": "{@nothing.here} left", "nodes": [{ "b": "nothing.here" }, " left"], "args": {}, "plain": "something left" },
+  { "text": "{@terms.season, capital=first} launched", "nodes": [{ "b": "terms.season", "with": { "capital": "first" } }, " launched"], "args": {}, "plain": "Season launched" },
+  { "text": "{@terms.season} launched", "nodes": [{ "b": "terms.season" }, " launched"], "args": {}, "plain": "season launched" },
+  { "text": "{@terms.season, capital=first} launched", "nodes": [{ "b": "terms.season", "with": { "capital": "first" } }, " launched"], "args": {}, "blocks": { "terms.season": " (season)" }, "plain": " (Season) launched" },
+  { "text": "[{@terms.season, capital=first}]", "nodes": ["[", { "b": "terms.season", "with": { "capital": "first" } }, "]"], "args": {}, "blocks": { "terms.season": "" }, "plain": "[]" },
+  { "text": "{@terms.season, capital=first} launched", "nodes": [{ "b": "terms.season", "with": { "capital": "first" } }, " launched"], "args": {}, "blocks": { "terms.season": "überwelt" }, "plain": "Überwelt launched" },
+  { "text": "{@terms.season, capital=first} launched", "nodes": [{ "b": "terms.season", "with": { "capital": "first" } }, " launched"], "args": {}, "blocks": { "terms.season": "ßaison" }, "plain": "SSaison launched" },
+  {
+    "text": "{@terms.player, n=count, case=dative, capital=first} online",
+    "nodes": [{ "b": "terms.player", "with": { "n": "count", "case": "dative", "capital": "first" } }, " online"],
+    "args": { "count": { "kind": "number", "value": 2 } },
+    "plain": "Players online"
+  }
 ]
+

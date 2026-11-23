@@ -199,7 +199,9 @@ class EveryBundleIsCompleteTest {
                 case Node.Block block ->
                     // A language may name a term where another writes around it; only the values it binds count.
                     block.with().forEach((name, outer) -> {
-                        if (!name.equals(Node.Block.CASE) && !Node.Block.number(outer)) {
+                        if (!name.equals(Node.Block.CASE)
+                                && !name.equals(Node.Block.CAPITAL)
+                                && !Node.Block.number(outer)) {
                             into.add(outer);
                         }
                     });

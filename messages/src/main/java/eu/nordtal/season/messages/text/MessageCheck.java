@@ -201,8 +201,12 @@ public final class MessageCheck {
             error(SAYS.block().unknown(key));
             return;
         }
+        final String capital = reference.with().get(Node.Block.CAPITAL);
+        if (capital != null && !capital.equals(Node.Block.FIRST)) {
+            error(SAYS.block().noCase(key, Node.Block.CAPITAL, capital, List.of(Node.Block.FIRST)));
+        }
         for (final String name : reference.with().keySet()) {
-            if (!block.roles().contains(name)) {
+            if (!name.equals(Node.Block.CAPITAL) && !block.roles().contains(name)) {
                 error(SAYS.block().noValue(key, name, sorted(block.roles())));
             }
         }

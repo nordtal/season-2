@@ -549,7 +549,11 @@ public final class DocumentCheck {
                 }
                 case Node.Tag tag -> tag.args().forEach(arg -> nodes(arg.parts(), where));
                 case Node.Block block -> {
-                    used.addAll(block.with().values());
+                    block.with().forEach((name, outer) -> {
+                        if (!name.equals(Node.Block.CAPITAL)) {
+                            used.add(outer);
+                        }
+                    });
                     final Declaration declared = Messages.blocks().get(block.key());
                     if (declared != null) {
                         declared.roles().stream()

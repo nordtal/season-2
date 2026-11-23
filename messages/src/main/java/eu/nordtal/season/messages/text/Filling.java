@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -14,8 +15,12 @@ import org.jspecify.annotations.Nullable;
 /** Chooses a text's plurals and selects, finds its values and draws its building blocks. */
 public final class Filling {
 
-    /** A building block's text in the reader's language, with the kinds its values declare. */
-    public record Block(MessageText text, Map<String, Kind> values) {}
+    /**
+     * A building block's text in the reader's language, with the kinds its values declare.
+     *
+     * @param language the reader's language, whose uppercase mapping draws {@code capital=first}
+     */
+    public record Block(MessageText text, Map<String, Kind> values, Locale language) {}
 
     /** Finds the building blocks a text names. */
     @FunctionalInterface
@@ -113,6 +118,9 @@ public final class Filling {
         }
         final Map<String, Object> inner = new HashMap<>(values);
         reference.with().forEach((name, outer) -> {
+            if (name.equals(Node.Block.CAPITAL)) {
+                return;
+            }
             inner.keySet().removeIf(shown -> shown.equals(name) || shown.startsWith(name + "."));
             if (Node.Block.number(outer)) {
                 inner.put(name, new BigDecimal(outer));
@@ -132,8 +140,48 @@ public final class Filling {
         });
         final Set<String> around = new HashSet<>(open);
         around.add(key);
+        final int start = into.size();
         new Filling(inner, block.values(), missing, blocks, around)
                 .add(block.text().nodes(), into);
+        if (reference.capital()) {
+            capital(into.subList(start, into.size()), block.language());
+        }
+    }
+
+    /**
+     * Writes the first cased letter of a drawn block as a capital and skips the tags before it.
+     * shortcut: a value that opens the block ends the search, since only its renderer knows its words. Upgrade
+     * when a block that opens with a value needs a capital.
+     */
+    private static void capital(final List<Piece> pieces, final Locale language) {
+        for (int at = 0; at < pieces.size(); at++) {
+            switch (pieces.get(at)) {
+                case Piece.Markup ignored -> {}
+                case Piece.Filled ignored -> {
+                    return;
+                }
+                case Piece.Text text -> {
+                    final String capital = capital(text.text(), language);
+                    if (capital != null) {
+                        pieces.set(at, new Piece.Text(capital));
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /** Returns {@code text} with its first cased code point upper cased, else {@code null} when it has none. */
+    private static @Nullable String capital(final String text, final Locale language) {
+        for (int at = 0; at < text.length(); ) {
+            final int point = text.codePointAt(at);
+            final int next = at + Character.charCount(point);
+            if (Character.isLowerCase(point) || Character.isUpperCase(point) || Character.isTitleCase(point)) {
+                return text.substring(0, at) + text.substring(at, next).toUpperCase(language) + text.substring(next);
+            }
+            at = next;
+        }
+        return null;
     }
 
     /** Returns whether this text has a value {@code name}, or a context of that name with attributes. */

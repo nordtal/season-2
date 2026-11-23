@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { dateTime, money, relative } from "@/lib/format"
+import { parseText } from "@/lib/message-tree"
 import {
+  blockText,
   choice,
   message,
   packagedTexts,
@@ -19,7 +21,13 @@ import {
 } from "@/lib/texts"
 
 /** The vectors that Java's own test also reads. */
-type Vector = { text: string; nodes: TextNode[]; args: Record<string, Typed>; plain: string }
+type Vector = {
+  text: string
+  nodes: TextNode[]
+  args: Record<string, Typed>
+  blocks?: Record<string, string>
+  plain: string
+}
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..")
 const vectors: Vector[] = JSON.parse(
@@ -38,7 +46,8 @@ describe("the web target", () => {
   it.each(vectors.map((vector) => [vector.text, vector] as const))(
     "shows %s as Java's plain target does",
     (_, vector) => {
-      replaceTexts({ ...PACKAGED, vector: [vector.nodes] })
+      const blocks = Object.entries(vector.blocks ?? {}).map(([key, text]) => [key, [parseText(text, false)]])
+      replaceTexts({ ...PACKAGED, ...Object.fromEntries(blocks), vector: [vector.nodes] })
       expect(message({ key: "vector", args: vector.args })).toBe(vector.plain)
     },
   )
@@ -100,6 +109,11 @@ describe("the web target", () => {
       vector: [["for ", { b: "values.duration.days", with: { n: "days" } }]],
     })
     expect(message({ key: "vector", args })).toBe("for 3 days")
+  })
+
+  it("writes a capital in the preview's language, also for a block inside a block", () => {
+    const texts = { outer: [[{ b: "inner", with: { capital: "first" } }]], inner: [["istanbul"]] }
+    expect(blockText({ b: "outer" }, {}, { locale: "tr", texts })).toBe("\u0130stanbul")
   })
 
   it("chooses on an enum constant as Java names it", () => {

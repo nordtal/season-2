@@ -251,6 +251,18 @@ class MessageCheckTest {
     }
 
     @Test
+    void everyBlockTakesACapitalFirstBesideItsCaseAndValues() {
+        assertEquals(List.of(), packaged("{winner.name} {@values.duration.days, n=n, case=dative, capital=first}"));
+        assertEquals(List.of(), packaged("{winner.name} {n} {@terms.season, capital=first}"));
+    }
+
+    @Test
+    void aCapitalOtherThanFirstIsRefused() {
+        refused(packaged("{winner.name} {n} {@terms.season, capital=all}"), "has no all for capital, only first");
+        refused(packaged("{winner.name} {n} {@terms.season, capital=1}"), "has no 1 for capital, only first");
+    }
+
+    @Test
     void aBlockInATagArgumentIsUnreadable() {
         refused(packaged("{winner.name} {n} <hover:show_text:'{@values.duration.days}'>x</hover>"), "tag's argument");
     }

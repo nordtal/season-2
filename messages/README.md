@@ -58,8 +58,15 @@ names it. `n=days` binds the block's value `n` to the outer value `days`; a bind
 also binds its attributes. A value left unbound takes the outer value of the same name. A block may
 name another block. A cycle, or a key that is no block, shows the replacement word of `text`.
 
+Every block takes the binding `capital=first` beside its own values, which the block never sees:
+`{@terms.season, capital=first} launched` shows `Season launched`. After the block is drawn, its
+admin's override included, the reader's language upper cases its first cased letter and keeps the
+characters before and after it. `ß` becomes `SS`. A value that opens the block ends the search,
+because only the renderer knows the value's words.
+
 The check refuses a key that is no block, a binding of a value the block does not declare, a value
-the block needs and the text does not offer, a value of another kind, and a block in a tag argument.
+the block needs and the text does not offer, a value of another kind, a capital other than `first`
+and a block in a tag argument.
 Its declarations come from the block specs (`Messages.BLOCK_SPECS`).
 `MessageCheck` and `DocumentCheck` measure a text with the blocks they are given, the packaged
 English ones by default, so Steward checks a document with an admin's blocks.

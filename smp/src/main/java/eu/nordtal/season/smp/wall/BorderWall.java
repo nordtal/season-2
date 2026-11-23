@@ -111,17 +111,32 @@ public final class BorderWall implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void blockPlaced(final BlockPlaceEvent event) {
-        if (changed(event.getBlock())) {
-            show(event.getPlayer(), Objects.requireNonNull(event.getPlayer().getLocation()));
+        final Block block = event.getBlock();
+        if (changed(block)) {
+            redrawNear(block.getLocation());
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void blockBroken(final BlockBreakEvent event) {
-        if (changed(event.getBlock())) {
+        final Block block = event.getBlock();
+        if (changed(block)) {
             // The broken block is still in the world while its event runs.
-            final Player player = event.getPlayer();
-            nextTick.accept(() -> show(player, Objects.requireNonNull(player.getLocation())));
+            final Location at = block.getLocation();
+            nextTick.accept(() -> redrawNear(at));
+        }
+    }
+
+    /** Draws the wall again for every player whose shown panels may stand on the ground at {@code at}. */
+    private void redrawNear(final Location at) {
+        final double reach = Band.DEPTH + Band.LEAD;
+        for (final Player player : at.getWorld().getPlayers()) {
+            final Location location = Objects.requireNonNull(player.getLocation());
+            final double dx = location.getX() - at.getX();
+            final double dz = location.getZ() - at.getZ();
+            if (player.isOnline() && viewers.containsKey(player.getUniqueId()) && dx * dx + dz * dz <= reach * reach) {
+                show(player, location);
+            }
         }
     }
 

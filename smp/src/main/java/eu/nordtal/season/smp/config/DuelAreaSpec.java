@@ -1,18 +1,29 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
+import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
+import java.util.List;
 
-/** A cuboid between two corner blocks, both inside it. Either corner may be the lower one. */
+/** A named 3D polygon in one world, from {@code min-y} to {@code max-y} (both inclusive). */
 @ConfigSpec
 public interface DuelAreaSpec {
 
     @Order(1)
+    @Name("Name")
+    @Key("name")
+    @NoExplanationNeeded
+    default String name() {
+        return "";
+    }
+
+    @Order(2)
     @Name("World")
     @Key("world")
     @Required
@@ -20,14 +31,6 @@ public interface DuelAreaSpec {
     @NoExplanationNeeded
     default String world() {
         return "nordtal";
-    }
-
-    @Order(2)
-    @Name("Corner 1 X")
-    @Key("min-x")
-    @NoExplanationNeeded
-    default int minX() {
-        return 0;
     }
 
     @Order(3)
@@ -39,22 +42,6 @@ public interface DuelAreaSpec {
     }
 
     @Order(4)
-    @Name("Corner 1 Z")
-    @Key("min-z")
-    @NoExplanationNeeded
-    default int minZ() {
-        return 0;
-    }
-
-    @Order(5)
-    @Name("Corner 2 X")
-    @Key("max-x")
-    @NoExplanationNeeded
-    default int maxX() {
-        return 0;
-    }
-
-    @Order(6)
     @Name("Y to")
     @Key("max-y")
     @NoExplanationNeeded
@@ -62,11 +49,12 @@ public interface DuelAreaSpec {
         return 64;
     }
 
-    @Order(7)
-    @Name("Corner 2 Z")
-    @Key("max-z")
-    @NoExplanationNeeded
-    default int maxZ() {
-        return 0;
+    @Order(5)
+    @Name("Corners")
+    @Key("corners")
+    @Position(Position.Shape.CENTRE)
+    @Explain("In order around the area, at least three. The last corner joins the first.")
+    default List<CustomBorderSpec.Corner> corners() {
+        return List.of();
     }
 }

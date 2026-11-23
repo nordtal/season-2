@@ -101,4 +101,57 @@ class PolygonsTest {
         // Straight up has no horizontal part, so the eye's height stays.
         assertEquals(64, Polygons.heightAt(new double[] {0, 64, 0}, new double[] {0, 1, 0}, 4, 0), 1e-9);
     }
+
+    @Test
+    void containsBlockAndPointAreEdgeInclusiveOnAllSidesIncludingEastAndSouth() {
+        final List<Corner> square = corners(0, 0, 10, 0, 10, 10, 0, 10);
+
+        // All four corners and midpoints on north, south, west and east edges count as inside.
+        assertTrue(Polygons.containsBlock(square, 0, 0));
+        assertTrue(Polygons.containsBlock(square, 10, 0));
+        assertTrue(Polygons.containsBlock(square, 10, 10));
+        assertTrue(Polygons.containsBlock(square, 0, 10));
+        assertTrue(Polygons.containsBlock(square, 5, 0));
+        assertTrue(Polygons.containsBlock(square, 5, 10));
+        assertTrue(Polygons.containsBlock(square, 0, 5));
+        assertTrue(Polygons.containsBlock(square, 10, 5));
+        assertTrue(Polygons.containsBlock(square, 5, 5));
+
+        assertFalse(Polygons.containsBlock(square, -1, 5));
+        assertFalse(Polygons.containsBlock(square, 11, 5));
+        assertFalse(Polygons.containsBlock(square, 5, -1));
+        assertFalse(Polygons.containsBlock(square, 5, 11));
+
+        // Continuous point check at block centres on east and south edges is also inclusive.
+        assertTrue(Polygons.containsPoint(square, 10.5, 5.5));
+        assertTrue(Polygons.containsPoint(square, 5.5, 10.5));
+        assertTrue(Polygons.containsPoint(square, 10.5, 10.5));
+        assertFalse(Polygons.containsPoint(square, 10.6, 5.5));
+        assertFalse(Polygons.containsPoint(square, 5.5, 10.6));
+    }
+
+    @Test
+    void containsBlockHandlesDiagonalEdgesAndLNotch() {
+        final List<Corner> triangle = corners(0, 0, 10, 0, 0, 10);
+        assertTrue(Polygons.containsBlock(triangle, 5, 5), "block centre on diagonal hypotenuse is inside");
+        assertFalse(Polygons.containsBlock(triangle, 6, 5));
+
+        final List<Corner> lShape = corners(0, 0, 10, 0, 10, 10, 5, 10, 5, 5, 0, 5);
+        assertTrue(Polygons.containsBlock(lShape, 5, 5));
+        assertTrue(Polygons.containsBlock(lShape, 8, 8));
+        assertFalse(Polygons.containsBlock(lShape, 2, 8));
+    }
+
+    @Test
+    void outwardAndOutsidePointDirectAnIntruderClearOfThePolygon() {
+        final List<Corner> square = corners(0, 0, 10, 0, 10, 10, 0, 10);
+
+        final double[] eastPush = Polygons.outward(square, 9.5, 5.5);
+        assertArrayEquals(new double[] {1, 0}, eastPush, 1e-9);
+
+        final double[] outside = Polygons.outsidePoint(square, 9.5, 5.5, 1.2);
+        assertFalse(Polygons.containsPoint(square, outside[0], outside[1]));
+        assertEquals(11.7, outside[0], 1e-9);
+        assertEquals(5.5, outside[1], 1e-9);
+    }
 }

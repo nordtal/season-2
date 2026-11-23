@@ -34,4 +34,14 @@ class AreaEditorTest {
         assertTrue(AreaEditor.withinSight(10 + AreaEditor.SIGHT, 20, 10, 20));
         assertFalse(AreaEditor.withinSight(10 + AreaEditor.SIGHT + 0.1, 20, 10, 20));
     }
+
+    @Test
+    void anUndergroundBottomHandleRisesToTheFirstFreeBlockAndAvoidsOverlappingTheTopHandle() {
+        // Free at bottom -> stays at bottom.
+        assertEquals(64.0, AreaEditor.bottomHandleY(64, 81.0, 320, y -> y >= 64));
+        // Solid underground up to y=67 -> rises to first free block y=68.
+        assertEquals(68.0, AreaEditor.bottomHandleY(40, 141.0, 320, y -> y >= 68));
+        // First free block collides with topEdge (70.0) -> nudged above topEdge so both stay clickable.
+        assertEquals(71.0, AreaEditor.bottomHandleY(40, 70.0, 320, y -> y >= 70));
+    }
 }

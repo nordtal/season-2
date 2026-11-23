@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.database.inbox.AreaShape;
 import eu.nordtal.season.database.setting.SettingRule;
+import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.smp.area.Polygons;
 import java.util.Collection;
@@ -85,5 +86,74 @@ public final class SmpSettings {
                         .toList(),
                 0,
                 0);
+    }
+
+    /** Throws {@link SettingRefused} for any protected area whose 3D polygon or height span is invalid. */
+    public static void checkSpawn(final SpawnSpec config, final String overworld) {
+        for (final SpawnRegionSpec region : config.protectedAreas()) {
+            check3d("protected-areas", shapeOf(region), region.world(), overworld);
+        }
+    }
+
+    /** Throws {@link SettingRefused} for any negotiation area or arena whose 3D polygon or height span is invalid. */
+    public static void checkDuels(final DuelsSpec config, final String overworld) {
+        for (final DuelAreaSpec area : config.negotiationArea()) {
+            check3d("negotiation-area", shapeOf(area), area.world(), overworld);
+        }
+        for (final DuelAreaSpec area : config.arena()) {
+            check3d("arena", shapeOf(area), area.world(), overworld);
+        }
+    }
+
+    private static void check3d(
+            final String setting, final AreaShape shape, final String world, final String overworld) {
+        final Polygons.Problem problem = Polygons.problem(shape, true, world.equals(overworld));
+        if (problem != null) {
+            throw new SettingRefused(
+                    setting + "." + problem.field(), SettingRule.VALID, problem.sentence() + " in " + world);
+        }
+    }
+
+    /** Returns a spawn protection region as the area editor and its checks hold it. */
+    public static AreaShape shapeOf(final SpawnRegionSpec region) {
+        return new AreaShape(
+                region.name(),
+                region.corners().stream()
+                        .map(corner -> new AreaShape.Corner(corner.x(), corner.z()))
+                        .toList(),
+                region.minY(),
+                region.maxY());
+    }
+
+    /** Returns the {@code duels} group with its 3D area checks wired for {@code overworld}. */
+    public static Group<DuelsSpec> duelsGroup(final String overworld) {
+        return Group.of("duels", DuelsSpec.class)
+                .checkedBy(spec -> checkDuels(spec, overworld))
+                .whileRunning();
+    }
+
+    /** Returns the {@code spawn} group with its 3D area checks wired for {@code overworld}. */
+    public static Group<SpawnSpec> spawnGroup(final String overworld) {
+        return Group.of("spawn", SpawnSpec.class)
+                .checkedBy(spec -> checkSpawn(spec, overworld))
+                .whileRunning();
+    }
+
+    /** Returns the {@code custom-border} group with its 2D area checks wired for {@code overworld}. */
+    public static Group<CustomBorderSpec> customBorderGroup(final String overworld) {
+        return Group.of("custom-border", CustomBorderSpec.class)
+                .checkedBy(spec -> checkCustomBorder(spec, overworld))
+                .whileRunning();
+    }
+
+    /** Returns a duel area as the area editor and its checks hold it. */
+    public static AreaShape shapeOf(final DuelAreaSpec area) {
+        return new AreaShape(
+                area.name(),
+                area.corners().stream()
+                        .map(corner -> new AreaShape.Corner(corner.x(), corner.z()))
+                        .toList(),
+                area.minY(),
+                area.maxY());
     }
 }

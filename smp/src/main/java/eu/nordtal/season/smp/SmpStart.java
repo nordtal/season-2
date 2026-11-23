@@ -200,6 +200,10 @@ final class SmpStart {
                 plugin.sounds,
                 effects,
                 plugin.clock());
+        scheduler.onMainEvery(
+                PaperScheduler.TICK,
+                PaperScheduler.TICK,
+                () -> duels.tick(plugin.getServer().getOnlinePlayers()));
 
         // Built per death, so a saved penalty applies to the next one.
         final Supplier<DeathPenalty> penalty = () -> new DeathPenalty(

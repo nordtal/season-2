@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.event.block.Action;
 import org.junit.jupiter.api.Test;
@@ -104,5 +105,19 @@ class DuelContainmentTest {
                 DuelContainment.refusesBlockHandOff(true, true, Action.RIGHT_CLICK_BLOCK, Material.SUSPICIOUS_GRAVEL));
         assertFalse(DuelContainment.refusesBlockHandOff(true, true, Action.RIGHT_CLICK_BLOCK, Material.STONE));
         assertFalse(DuelContainment.refusesBlockHandOff(true, true, Action.RIGHT_CLICK_BLOCK, Material.BOOKSHELF));
+    }
+
+    @Test
+    void arenaPushbackKeepsNonFightersOutAndAllowsOnlyCreativeOrSpectatorAdmins() {
+        for (final GameMode mode : GameMode.values()) {
+            assertFalse(DuelContainment.bypassesArenaPushback(mode, false), "non-admin never bypasses");
+            final boolean expectedBypass = mode == GameMode.CREATIVE || mode == GameMode.SPECTATOR;
+            assertTrue(DuelContainment.bypassesArenaPushback(mode, true) == expectedBypass);
+
+            assertFalse(DuelContainment.pushesFromArena(false, false, mode, false));
+            assertFalse(DuelContainment.pushesFromArena(true, true, mode, false));
+            assertTrue(DuelContainment.pushesFromArena(true, false, mode, false));
+            assertTrue(DuelContainment.pushesFromArena(true, false, mode, true) == !expectedBypass);
+        }
     }
 }

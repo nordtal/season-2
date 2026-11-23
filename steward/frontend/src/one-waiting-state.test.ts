@@ -78,6 +78,11 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "useSaveConfig is a mutation, and useConfig reads smp/worlds only to name the overworld for optional" +
       " edge warnings. The editor waited for its group, and there is no warning surface to reserve.",
   ],
+  [
+    "components/steward/game-groups/area-3d-editor.tsx",
+    "useSaveConfig is a mutation, and useConfig reads smp/worlds only to list world names beside the" +
+      " areas already loaded with the group. The editor waited for its group.",
+  ],
 ])
 
 /** The views that still draw flat grey bars, each with its reason. */

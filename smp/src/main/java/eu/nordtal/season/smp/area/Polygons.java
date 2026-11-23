@@ -177,4 +177,179 @@ public final class Polygons {
                 new Corner(x + half, z + half),
                 new Corner(x - half, z + half));
     }
+
+    /**
+     * Whether the block at {@code x}, {@code z} lies inside or on the boundary of {@code corners}.
+     * Polygon corners name blocks and edges run through block centres, so a block centre on an edge counts as inside.
+     */
+    public static boolean containsBlock(final List<Corner> corners, final int x, final int z) {
+        final int n = corners.size();
+        if (n < 3) {
+            return false;
+        }
+        final Corner point = new Corner(x, z);
+        boolean inside = false;
+        for (int i = 0, j = n - 1; i < n; j = i++) {
+            final Corner a = corners.get(j);
+            final Corner b = corners.get(i);
+            if (cross(a, b, point) == 0 && within(a, b, point)) {
+                return true;
+            }
+            if ((a.z() > z) != (b.z() > z)) {
+                final long lhs = (long) (x - a.x()) * (b.z() - a.z());
+                final long rhs = (long) (b.x() - a.x()) * (z - a.z());
+                if (b.z() > a.z() ? lhs < rhs : lhs > rhs) {
+                    inside = !inside;
+                }
+            }
+        }
+        return inside;
+    }
+
+    /** Whether the continuous point {@code x}, {@code z} lies inside or on the boundary of {@code corners}. */
+    public static boolean containsPoint(final List<Corner> corners, final double x, final double z) {
+        final int n = corners.size();
+        if (n < 3) {
+            return false;
+        }
+        boolean inside = false;
+        for (int i = 0, j = n - 1; i < n; j = i++) {
+            final double ax = corners.get(j).x() + 0.5;
+            final double az = corners.get(j).z() + 0.5;
+            final double bx = corners.get(i).x() + 0.5;
+            final double bz = corners.get(i).z() + 0.5;
+            if (pointOnSegment(ax, az, bx, bz, x, z)) {
+                return true;
+            }
+            if ((az > z) != (bz > z) && x < (bx - ax) * (z - az) / (bz - az) + ax) {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
+    private static boolean pointOnSegment(
+            final double ax, final double az, final double bx, final double bz, final double x, final double z) {
+        final double dx = bx - ax;
+        final double dz = bz - az;
+        final double lengthSquared = dx * dx + dz * dz;
+        final double t = lengthSquared == 0 ? 0 : Math.clamp(((x - ax) * dx + (z - az) * dz) / lengthSquared, 0, 1);
+        final double px = ax + t * dx;
+        final double pz = az + t * dz;
+        return Math.hypot(px - x, pz - z) <= 1e-9;
+    }
+
+    /** Returns the average of the polygon's block centres as {@code {x, z}}. */
+    public static double[] centre(final List<Corner> corners) {
+        double x = 0;
+        double z = 0;
+        for (final Corner corner : corners) {
+            x += corner.x() + 0.5;
+            z += corner.z() + 0.5;
+        }
+        final int n = Math.max(1, corners.size());
+        return new double[] {x / n, z / n};
+    }
+
+    /**
+     * Returns a unit vector {@code {x, z}} pushing a point at {@code x}, {@code z} out of {@code corners}.
+     * Points toward the nearest boundary edge, or along that edge's outward normal when standing on it.
+     */
+    public static double[] outward(final List<Corner> corners, final double x, final double z) {
+        final int n = corners.size();
+        if (n < 3) {
+            return new double[] {1, 0};
+        }
+        double best = Double.POSITIVE_INFINITY;
+        double bestPx = x;
+        double bestPz = z;
+        double bestDx = 1;
+        double bestDz = 0;
+        for (int i = 0; i < n; i++) {
+            final double ax = corners.get(i).x() + 0.5;
+            final double az = corners.get(i).z() + 0.5;
+            final double bx = corners.get((i + 1) % n).x() + 0.5;
+            final double bz = corners.get((i + 1) % n).z() + 0.5;
+            final double dx = bx - ax;
+            final double dz = bz - az;
+            final double lengthSquared = dx * dx + dz * dz;
+            final double t = lengthSquared == 0 ? 0 : Math.clamp(((x - ax) * dx + (z - az) * dz) / lengthSquared, 0, 1);
+            final double px = ax + t * dx;
+            final double pz = az + t * dz;
+            final double distance = Math.hypot(px - x, pz - z);
+            if (distance < best) {
+                best = distance;
+                bestPx = px;
+                bestPz = pz;
+                bestDx = dx;
+                bestDz = dz;
+            }
+        }
+        if (best > 0.05) {
+            final boolean inside = containsPoint(corners, x, z);
+            final double sign = inside ? 1 : -1;
+            return new double[] {sign * (bestPx - x) / best, sign * (bestPz - z) / best};
+        }
+        final double length = Math.hypot(bestDx, bestDz);
+        if (length < 1e-9) {
+            return new double[] {1, 0};
+        }
+        final double nx = -bestDz / length;
+        final double nz = bestDx / length;
+        return containsPoint(corners, bestPx + nx * 0.25, bestPz + nz * 0.25)
+                ? new double[] {-nx, -nz}
+                : new double[] {nx, nz};
+    }
+
+    /** Returns a point {@code margin} blocks outside the nearest edge of {@code corners} from {@code x}, {@code z}. */
+    public static double[] outsidePoint(
+            final List<Corner> corners, final double x, final double z, final double margin) {
+        final int n = corners.size();
+        if (n < 3) {
+            return new double[] {x, z};
+        }
+        double best = Double.POSITIVE_INFINITY;
+        double bestPx = x;
+        double bestPz = z;
+        double bestAx = 0;
+        double bestAz = 0;
+        double bestBx = 0;
+        double bestBz = 0;
+        for (int i = 0; i < n; i++) {
+            final double ax = corners.get(i).x() + 0.5;
+            final double az = corners.get(i).z() + 0.5;
+            final double bx = corners.get((i + 1) % n).x() + 0.5;
+            final double bz = corners.get((i + 1) % n).z() + 0.5;
+            final double dx = bx - ax;
+            final double dz = bz - az;
+            final double lengthSquared = dx * dx + dz * dz;
+            final double t = lengthSquared == 0 ? 0 : Math.clamp(((x - ax) * dx + (z - az) * dz) / lengthSquared, 0, 1);
+            final double px = ax + t * dx;
+            final double pz = az + t * dz;
+            final double distance = Math.hypot(px - x, pz - z);
+            if (distance < best) {
+                best = distance;
+                bestPx = px;
+                bestPz = pz;
+                bestAx = ax;
+                bestAz = az;
+                bestBx = bx;
+                bestBz = bz;
+            }
+        }
+        final double dx = bestBx - bestAx;
+        final double dz = bestBz - bestAz;
+        final double length = Math.hypot(dx, dz);
+        if (length < 1e-9) {
+            return new double[] {x, z};
+        }
+        final double nx = -dz / length;
+        final double nz = dx / length;
+        final double mx = (bestAx + bestBx) / 2;
+        final double mz = (bestAz + bestBz) / 2;
+        final boolean positiveIsInside = containsPoint(corners, mx + nx * 0.25, mz + nz * 0.25);
+        final double ox = positiveIsInside ? -nx : nx;
+        final double oz = positiveIsInside ? -nz : nz;
+        return new double[] {bestPx + ox * margin, bestPz + oz * margin};
+    }
 }

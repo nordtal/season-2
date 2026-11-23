@@ -20,8 +20,8 @@ import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.settings.SettingsException;
-import eu.nordtal.season.smp.region.Box;
-import eu.nordtal.season.smp.region.ConfigBoxes;
+import eu.nordtal.season.smp.region.ConfigAreas;
+import eu.nordtal.season.smp.region.PolygonArea;
 import eu.nordtal.season.spec.SpecProperty;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
@@ -295,13 +295,32 @@ class SmpSettingsTest {
     }
 
     @Test
-    void aProtectedAreaTakesItsCornersInEitherOrder() throws Exception {
-        final Map<String, Object> area =
-                Map.of("world", "nordtal", "min-x", 10, "min-y", 80, "min-z", 4, "max-x", 0, "max-y", 60, "max-z", 0);
+    void aProtectedAreaReadsNamed3dPolygons() throws Exception {
+        final Map<String, Object> area = Map.of(
+                "name",
+                "Spawn",
+                "world",
+                "nordtal",
+                "min-y",
+                60,
+                "max-y",
+                80,
+                "corners",
+                List.of(
+                        Map.of("x", 0, "z", 0),
+                        Map.of("x", 10, "z", 0),
+                        Map.of("x", 10, "z", 4),
+                        Map.of("x", 0, "z", 4)));
         final SpawnSpec spawn = store.checked("smp", SPAWN, Map.of("protected-areas", List.of(area)));
 
-        final Box box = ConfigBoxes.of(spawn.protectedAreas()).all().getFirst();
-        assertEquals(new Box("nordtal", 0, 60, 0, 10, 80, 4), box);
+        final PolygonArea polygon =
+                ConfigAreas.ofSpawn(spawn.protectedAreas()).all().getFirst();
+        assertEquals("Spawn", polygon.name());
+        assertEquals("nordtal", polygon.world());
+        assertEquals(60, polygon.minY());
+        assertEquals(80, polygon.maxY());
+        assertTrue(polygon.containsBlock("nordtal", 10, 80, 4));
+        assertFalse(polygon.containsBlock("nordtal", 11, 70, 2));
     }
 
     @Test
@@ -378,7 +397,9 @@ class SmpSettingsTest {
     void theDuelRulesRefuseWhatTheChecksRefused() {
         assertAll(
                 () -> assertRefused(
-                        DUELS, Map.of("negotiation-area.world", ""), "negotiation-area.world must not be empty"),
+                        DUELS,
+                        Map.of("negotiation-area", List.of(Map.of("world", ""))),
+                        "negotiation-area[0].world must not be empty"),
                 () -> assertRefused(
                         DUELS, Map.of("fighter-start-first.world", ""), "fighter-start-first.world must not be empty"),
                 () -> assertRefused(
@@ -390,7 +411,8 @@ class SmpSettingsTest {
                         Map.of("duel-kits", List.of(Map.of("name", " "))),
                         "duel-kits[0].name must not be empty"),
                 () -> assertRefused(DUELS, Map.of("duel-stake", -1), "duel-stake must not be negative"),
-                () -> assertRefused(DUELS, Map.of("arena.world", ""), "arena.world must not be empty"),
+                () -> assertRefused(
+                        DUELS, Map.of("arena", List.of(Map.of("world", ""))), "arena[0].world must not be empty"),
                 () -> assertRefused(DUELS, Map.of("exit.world", ""), "exit.world must not be empty"),
                 () -> assertRefused(
                         DUELS,
@@ -403,7 +425,7 @@ class SmpSettingsTest {
         final Map<String, Object> award = Map.of("advancement", "minecraft:story/mine_stone", "aura", 1);
         final Map<String, Object> board = Map.of("kind", "OBJECTIVE", "world", "nordtal", "width", 241);
         final Map<String, Object> prize = Map.of("item", "minecraft:diamond", "amount", 1, "weight", 0);
-        final Map<String, Object> area = Map.of("world", "", "min-x", 0, "max-x", 1);
+        final Map<String, Object> area = Map.of("world", "", "min-y", 0, "max-y", 10);
         assertAll(
                 () -> assertRefused(
                         Group.of("advancement-awards", AdvancementAwardsSpec.class),
@@ -489,6 +511,40 @@ class SmpSettingsTest {
                         "holds nordtal twice"));
     }
 
+    @Test
+    void spawnAndDuel3dAreasRefuseMinYAboveMaxYAndBrokenPolygons() {
+        final Group<SpawnSpec> checkedSpawn = SPAWN.checkedBy(spec -> SmpSettings.checkSpawn(spec, "nordtal"));
+        final Group<DuelsSpec> checkedDuels = DUELS.checkedBy(spec -> SmpSettings.checkDuels(spec, "nordtal"));
+        final List<Map<String, Object>> square = List.of(
+                Map.of("x", 10, "z", 10), Map.of("x", 20, "z", 10), Map.of("x", 20, "z", 20), Map.of("x", 10, "z", 20));
+        final Map<String, Object> inverted =
+                Map.of("name", "Spawn", "world", "nordtal", "min-y", 90, "max-y", 60, "corners", square);
+        final Map<String, Object> twoCorners = Map.of(
+                "name",
+                "Arena",
+                "world",
+                "nordtal",
+                "min-y",
+                60,
+                "max-y",
+                80,
+                "corners",
+                List.of(Map.of("x", 10, "z", 10), Map.of("x", 20, "z", 10)));
+        assertAll(
+                () -> assertRefused(
+                        checkedSpawn,
+                        Map.of("protected-areas", List.of(inverted)),
+                        "has its bottom at 90, above its top at 60 in nordtal"),
+                () -> assertRefused(
+                        checkedDuels,
+                        Map.of("arena", List.of(inverted)),
+                        "has its bottom at 90, above its top at 60 in nordtal"),
+                () -> assertRefused(
+                        checkedDuels,
+                        Map.of("negotiation-area", List.of(twoCorners)),
+                        "needs at least 3 corners, has 2 in nordtal"));
+    }
+
     private void assertRefused(final Group<?> group, final Map<String, ?> values, final String sentence) {
         final SettingsException refused =
                 assertThrows(SettingsException.class, () -> new MemorySettingStore().checked("smp", group, values));
@@ -515,8 +571,12 @@ class SmpSettingsTest {
                         .size(),
                 duels.duelKits().getFirst().loadout().size());
         assertEquals(
-                Specs.createDefault(DuelsSpec.class).arena().maxX(),
-                duels.arena().maxX());
+                Specs.createDefault(DuelsSpec.class)
+                        .arena()
+                        .getFirst()
+                        .corners()
+                        .size(),
+                duels.arena().getFirst().corners().size());
         final SpawnSpec written = Specs.createDefault(SpawnSpec.class);
         assertEquals(written.protectedAreas().size(), reread.protectedAreas().size());
 
@@ -618,14 +678,14 @@ class SmpSettingsTest {
                         Map.entry("border.border-centre", Position.Shape.CENTRE),
                         Map.entry("custom-border.worlds.polygons.corners", Position.Shape.CENTRE),
                         Map.entry("wheel.wheel-blocks", Position.Shape.BLOCK),
-                        Map.entry("duels.negotiation-area", Position.Shape.AREA),
-                        Map.entry("duels.arena", Position.Shape.AREA),
+                        Map.entry("duels.negotiation-area.corners", Position.Shape.CENTRE),
+                        Map.entry("duels.arena.corners", Position.Shape.CENTRE),
                         Map.entry("duels.fighter-start-first", Position.Shape.SPOT),
                         Map.entry("duels.fighter-start-second", Position.Shape.SPOT),
                         Map.entry("duels.exit", Position.Shape.SPOT),
                         Map.entry("boards.boards", Position.Shape.SPOT),
                         Map.entry("spawn.nordtal-spawn", Position.Shape.SPOT),
-                        Map.entry("spawn.protected-areas", Position.Shape.AREA),
+                        Map.entry("spawn.protected-areas.corners", Position.Shape.CENTRE),
                         Map.entry("rails.spawn-station", Position.Shape.BLOCK)),
                 positions);
         assertTrue(unmarked.isEmpty(), "a spec holds coordinates but is no Position field: " + unmarked);

@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,7 +67,11 @@ class RunnerTest {
 
     @BeforeEach
     void open() {
-        open(TestDatabase.fresh());
+        open(TestDatabase::fresh);
+    }
+
+    void open(final Supplier<TestDatabase> databases) {
+        open(databases.get());
     }
 
     private void open(final TestDatabase over) {
@@ -93,9 +98,15 @@ class RunnerTest {
         runner = new Runner(defaults(), database, containers, snapshots, directory, driven(), removal);
     }
 
+    Database database() {
+        return database;
+    }
+
     @AfterEach
     void close() {
-        database.close();
+        if (database != null) {
+            database.close();
+        }
     }
 
     @Test

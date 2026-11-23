@@ -26,6 +26,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,11 @@ class LiveSwapTest {
 
     @BeforeEach
     void open() {
-        postgres = TestDatabase.fresh();
+        open(TestDatabase::fresh);
+    }
+
+    void open(final Supplier<TestDatabase> databases) {
+        postgres = databases.get();
         database = Database.open(
                 new DatabaseSpec() {
                     @Override
@@ -91,9 +96,15 @@ class LiveSwapTest {
                 PluginRemoval.NONE);
     }
 
+    Database database() {
+        return database;
+    }
+
     @AfterEach
     void close() {
-        database.close();
+        if (database != null) {
+            database.close();
+        }
     }
 
     @Test

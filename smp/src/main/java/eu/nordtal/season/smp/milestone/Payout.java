@@ -184,10 +184,11 @@ public final class Payout {
             left -= floor;
         }
         final List<String> byRemainder = contributors.keySet().stream()
-                .sorted(Comparator.comparingLong((String id) -> remainders.get(id))
+                .sorted(Comparator.comparingLong((String id) -> Objects.requireNonNull(remainders.get(id)))
                         .reversed()
-                        .thenComparing(Comparator.comparingLong((String id) -> contributors.get(id))
-                                .reversed())
+                        .thenComparing(
+                                Comparator.comparingLong((String id) -> Objects.requireNonNull(contributors.get(id)))
+                                        .reversed())
                         .thenComparing(Comparator.naturalOrder()))
                 .toList();
         for (int index = 0; index < left; index++) {

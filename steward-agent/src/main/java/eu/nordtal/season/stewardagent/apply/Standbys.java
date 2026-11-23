@@ -186,12 +186,12 @@ public final class Standbys {
             // Through the provider, as Error Prone wants Files.newDirectoryStream closed where it opens.
             final DirectoryStream<Path> entries =
                     path.getFileSystem().provider().newDirectoryStream(path, entry -> true);
-            if (!(entries instanceof SecureDirectoryStream<Path>)) {
+            if (!(entries instanceof SecureDirectoryStream<Path> secure)) {
                 entries.close();
                 throw new IOException("this file system cannot open a directory relative to another, so " + path
                         + " cannot be copied without following a link someone puts in its place");
             }
-            return new Folder((SecureDirectoryStream<Path>) entries, path);
+            return new Folder(secure, path);
         }
 
         /** Opens an entry as a directory and refuses it if it is a symbolic link by then. */

@@ -5,8 +5,8 @@ tag, the boss bar and tab list layers in `hud`, the chest menus, dialogs and too
 chest menu title of the menus not yet in `ui` in `menu` and the frame of a
 Text Display board in `board`. Only the Minecraft plugins depend on it.
 
-`:resource-pack`'s `generateGlyphs` writes `Glyphs` and the advance tables of the boss bar and the
-menu rows from `resource-pack/glyphs.json` on every build. They are never committed. The build
+`:resource-pack`'s `generateGlyphs` writes `Glyphs` and the advance table of the menu rows from
+`resource-pack/glyphs.json` on every build. They are never committed. The build
 copies `Glyphs` into this module's build directory before compiling, because Checkstyle and Error
 Prone skip generated sources there.
 
@@ -35,9 +35,9 @@ does.
 
 ## Glyph previews
 
-`renderGlyphPreviews` draws one glyph in the places the plugins compose: the chest menu panel, the
-HUD line in the boss bar and the board. It calls `MenuTitle` and `BoardFrame`, so a preview is
-what a player sees. Nordtal Designer runs it and hands each component to the bridge mod.
+`renderGlyphPreviews` draws one glyph in the places the plugins compose: the chest menu panel and
+the board. It calls `MenuTitle` and `BoardFrame`, so a preview is what a player sees. Nordtal
+Designer runs it and hands each component to the bridge mod.
 
 ```bash
 sh gradlew :pack-rendering:renderGlyphPreviews -Pfont='nordtal:gui_r{row}' -Pcode=FE100 -Prow=1
@@ -55,17 +55,15 @@ does not fit. The file holds one object:
 | `code`  | the code point in capital hex  |
 | `glyph` | the glyph alone in its font    |
 | `menu`  | the chest menu title, or null  |
-| `hud`   | the boss bar name, or null     |
 | `board` | the text of the board, or null |
 
 Each component is Minecraft text-component JSON as Adventure's Gson serializer writes it. `glyph`
 names the font of a row glyph's row and has no shadow, except in `minecraft:default`. A place
 that the font never reaches is null:
 
-| font                 | menu                                         | hud             | board                     |
-| -------------------- | -------------------------------------------- | --------------- | ------------------------- |
-| `nordtal:gui`        | the panel if 176 wide, else drawn on it at x | null            | null                      |
-| `nordtal:gui_r{row}` | drawn on its row at x                        | null            | null                      |
-| `nordtal:bossbar`    | null                                         | the glyph alone | null                      |
-| `nordtal:board`      | null                                         | null            | the frame, with no lines  |
-| `minecraft:default`  | in the title before the text                 | null            | in a line before the text |
+| font                 | menu                                         | board                     |
+| -------------------- | -------------------------------------------- | ------------------------- |
+| `nordtal:gui`        | the panel if 176 wide, else drawn on it at x | null                      |
+| `nordtal:gui_r{row}` | drawn on its row at x                        | null                      |
+| `nordtal:board`      | null                                         | the frame, with no lines  |
+| `minecraft:default`  | in the title before the text                 | in a line before the text |

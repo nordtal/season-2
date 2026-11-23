@@ -2316,7 +2316,7 @@ describe("the Minecraft bar of the Nordtal tab", function()
   local function rendered(t, dlg)
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     t.world.reads = { [previews]=dkjson.encode({ font="minecraft:default", code="F0000", glyph={ text="\u{F0000}" },
-                                                 menu={ text="menu" }, hud=dkjson.null, board={ text="board" } }) }
+                                                 menu={ text="menu" }, board={ text="board" } }) }
     click(dlg, "minecraft.render")
     assert.equal(":pack-rendering:renderGlyphPreviews -Pcode=F0000 -Pfont=minecraft:default", run(t.started[#t.started]))
     finish(t, 0, previews)

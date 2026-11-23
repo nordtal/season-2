@@ -71,8 +71,7 @@ val generateGlyphs =
         allocation.set(layout.projectDirectory.file("glyphs.json"))
         assets.set(packSource.dir("assets"))
         className.set("eu.nordtal.season.packrendering.Glyphs")
-        // The paths where BossBarAdvances, MenuFont and SmallFont read the tables.
-        advanceTables.put("nordtal:bossbar", "nordtal/hud/bossbar-advances.properties")
+        // The paths where MenuFont and SmallFont read the tables.
         advanceTables.put("nordtal:gui_r0", "nordtal/menu/gui-row-advances.properties")
         advanceTables.put("nordtal:npc_small_0", "nordtal/npc/small-advances.properties")
         // The table that Letters reads: vanilla's letters, the symbols and the spaces, as every ui text font draws them.

@@ -93,25 +93,48 @@ class SmpSettingsTest {
     }
 
     @Test
-    void theSpawnBorderIsOffByDefaultAndReadsConfiguredAreas() throws Exception {
-        final CustomBorderSpec.World defaultWorld =
-                store.checked("smp", CUSTOM_BORDER, Map.of()).worlds().getFirst();
-        assertFalse(defaultWorld.enabled());
-        assertEquals("nordtal", defaultWorld.world());
+    void theDefaultCustomBordersHoldThePlaceholdersAndTheFiveThousandDimensionSquares() throws Exception {
+        final BorderSpec border = store.checked("smp", Group.of("border", BorderSpec.class), Map.of());
+        assertEquals(5000, border.netherBorderDiameter());
+        assertEquals(5000, border.endBorderDiameter());
+
+        final List<CustomBorderSpec.World> defaults =
+                store.checked("smp", CUSTOM_BORDER, Map.of()).worlds();
         assertEquals(
-                List.of(3969, 3989, 3989, 3969),
-                defaultWorld.polygons().getFirst().corners().stream()
-                        .map(CustomBorderSpec.Corner::x)
-                        .toList());
+                List.of("nordtal", "nordtal_nether", "nordtal_the_end"),
+                defaults.stream().map(CustomBorderSpec.World::world).toList());
+        assertTrue(defaults.stream().allMatch(CustomBorderSpec.World::enabled));
+
+        final CustomBorderSpec.World overworld = defaults.getFirst();
         assertEquals(
-                List.of(2178, 2178, 2198, 2198),
-                defaultWorld.polygons().getFirst().corners().stream()
-                        .map(CustomBorderSpec.Corner::z)
+                List.of("departure", "foothold", "settlement", "expanse", "frontier"),
+                overworld.polygons().stream()
+                        .map(CustomBorderSpec.Polygon::name)
                         .toList());
+        for (final CustomBorderSpec.Polygon polygon : overworld.polygons()) {
+            for (final CustomBorderSpec.Corner corner : polygon.corners()) {
+                assertTrue(corner.x() >= 160 && corner.x() <= 10079, polygon.name() + " x=" + corner.x());
+                assertTrue(corner.z() >= 160 && corner.z() <= 10079, polygon.name() + " z=" + corner.z());
+            }
+        }
+        for (final CustomBorderSpec.World dimension : defaults.subList(1, 3)) {
+            assertEquals(1, dimension.polygons().size());
+            final List<CustomBorderSpec.Corner> corners =
+                    dimension.polygons().getFirst().corners();
+            assertEquals(
+                    List.of(-2500, 2499, 2499, -2500),
+                    corners.stream().map(CustomBorderSpec.Corner::x).toList());
+            assertEquals(
+                    List.of(-2500, -2500, 2499, 2499),
+                    corners.stream().map(CustomBorderSpec.Corner::z).toList());
+        }
         assertTrue(store.checked("smp", CUSTOM_BORDER, Map.of("worlds", List.of()))
                 .worlds()
                 .isEmpty());
+    }
 
+    @Test
+    void customBorderReadsConfiguredAreas() throws Exception {
         final CustomBorderSpec read = store.checked(
                 "smp",
                 CUSTOM_BORDER,

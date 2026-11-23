@@ -51,7 +51,7 @@ class MilestonesTest {
         final var foothold = track.milestone("foothold").orElseThrow();
         assertEquals(4, foothold.objectives().size());
         assertEquals(Unlock.BORDER, foothold.unlock());
-        assertEquals(99, foothold.borderDiameter());
+        assertEquals(List.of("foothold"), foothold.borderRegions());
 
         // The item list of a HAND_IN is the deepest value in the file.
         final var logs = foothold.objective("logs").orElseThrow();
@@ -73,16 +73,21 @@ class MilestonesTest {
     void theTrackMatchesTheTableInTheConcept() throws Exception {
         final MilestoneTrack track = Milestones.read(load()).track();
 
-        assertEquals(43, track.milestone("departure").orElseThrow().borderDiameter());
-        assertEquals(400, track.milestone("settlement").orElseThrow().borderDiameter());
-        assertEquals(900, track.milestone("expanse").orElseThrow().borderDiameter());
-        assertEquals(4000, track.milestone("frontier").orElseThrow().borderDiameter());
+        assertEquals(
+                List.of("departure"), track.milestone("departure").orElseThrow().borderRegions());
+        assertEquals(
+                List.of("settlement"),
+                track.milestone("settlement").orElseThrow().borderRegions());
+        assertEquals(
+                List.of("expanse"), track.milestone("expanse").orElseThrow().borderRegions());
+        assertEquals(
+                List.of("frontier"), track.milestone("frontier").orElseThrow().borderRegions());
 
         assertEquals(Unlock.NETHER, track.milestone("nether").orElseThrow().unlock());
         assertEquals(Unlock.END, track.milestone("end").orElseThrow().unlock());
         assertEquals(
-                0,
-                track.milestone("nether").orElseThrow().borderDiameter(),
+                List.of(),
+                track.milestone("nether").orElseThrow().borderRegions(),
                 "the Nether and the End carry no border step - the dimension is the reward");
 
         assertEquals(
@@ -142,7 +147,7 @@ class MilestonesTest {
                 milestones:
                   - key: foothold
                     unlocks: BORDER
-                    border-diameter: 99
+                    border-regions: [foothold]
                     admin-unlocked: false
                     objectives:
                       - key: logs
@@ -166,7 +171,7 @@ class MilestonesTest {
                 milestones:
                   - key: foothold
                     unlocks: BORDER
-                    border-diameter: 99
+                    border-regions: [foothold]
                     admin-unlocked: false
                     objectives:
                       - key: logs
@@ -190,7 +195,7 @@ class MilestonesTest {
                 milestones:
                   - key: foothold
                     unlocks: BORDER
-                    border-diameter: 99
+                    border-regions: [foothold]
                     admin-unlocked: false
                     objectives:
                       - key: logs
@@ -222,7 +227,7 @@ class MilestonesTest {
                 milestones:
                   - key: foothold
                     unlocks: BORDER
-                    border-diameter: 99
+                    border-regions: [foothold]
                     admin-unlocked: false
                     objectives:
                       - key: gate
@@ -248,7 +253,7 @@ class MilestonesTest {
                 milestones:
                   - key: foothold
                     unlocks: BORDER
-                    border-diameter: 99
+                    border-regions: [foothold]
                     admin-unlocked: false
                     objectives:
                       - key: coal
@@ -271,6 +276,21 @@ class MilestonesTest {
 
         final SettingsException error = assertThrows(SettingsException.class, () -> load());
         assertTrue(error.getMessage().contains("belongs to"), error.getMessage());
+    }
+
+    @Test
+    void aBorderMilestoneWithNoRegionsStopsTheLoad() {
+        writeTrack("""
+                milestones:
+                  - key: departure
+                    unlocks: BORDER
+                    border-regions: []
+                    admin-unlocked: true
+                    objectives: []
+                """);
+
+        final SettingsException error = assertThrows(SettingsException.class, () -> load());
+        assertTrue(error.getMessage().contains("names no border region"), error.getMessage());
     }
 
     private void writeTrack(final String yaml) {

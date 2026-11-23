@@ -411,6 +411,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V142__an_admin_shapes_areas_in_the_game.sql",
                 "a1f4e1983556a0896c0b8a940ce7dd5082c729e171cd6962d2d631db718e92e2");
+        FROZEN.put(
+                "V143__milestones_open_border_regions_and_dimensions_carry_fixed_borders.sql",
+                "686d37b95d1d71856dfd96609c96af4cc22ff0ec65935f6cadb1f68b9e739163");
     }
 
     @Test

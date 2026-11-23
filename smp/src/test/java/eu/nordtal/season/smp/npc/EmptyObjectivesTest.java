@@ -13,9 +13,11 @@ import org.junit.jupiter.api.Test;
 
 class EmptyObjectivesTest {
 
-    private static final Milestone OPENING = new Milestone("opening", Unlock.BORDER, 43, true, List.of());
-    private static final Milestone FOOTHOLD = new Milestone("foothold", Unlock.BORDER, 99, false, List.of(gate()));
-    private static final Milestone LAST = new Milestone("last", Unlock.NOTHING, 0, true, List.of());
+    private static final Milestone OPENING =
+            new Milestone("opening", Unlock.BORDER, List.of("opening"), true, List.of());
+    private static final Milestone FOOTHOLD =
+            new Milestone("foothold", Unlock.BORDER, List.of("foothold"), false, List.of(gate()));
+    private static final Milestone LAST = new Milestone("last", Unlock.NOTHING, List.of(), true, List.of());
     private static final MilestoneTrack TRACK = new MilestoneTrack(List.of(OPENING, FOOTHOLD, LAST));
 
     private static Objective gate() {

@@ -3,14 +3,17 @@ package eu.nordtal.season.smp.wall;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.smp.config.CustomBorderSpec;
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -38,6 +41,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The custom border: shows each player the wall near them, by packet, and pushes back whoever walks through it.
@@ -74,15 +78,39 @@ public final class BorderWall implements Listener {
     private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final Map<UUID, Long> pushed = new HashMap<>();
 
+    /** The world whose regions open with milestones. */
+    private final String overworld;
+
+    /** How far a front travels, in blocks per second. */
+    private final DoubleSupplier speed;
+
+    private @Nullable CustomBorderSpec spec;
+
+    /** The overworld's regions that are fully playable. */
+    private Set<String> open = Set.of();
+
+    /** The overworld's openings whose front still spreads, in their order. */
+    private List<Front.Stage> stages = List.of();
+
+    /** Whether the initial open regions have been loaded. */
+    private boolean loaded;
+
+    /** When the walls were last read, in milliseconds. */
+    private long readAt;
+
     public BorderWall(
             final Clock clock,
             final Consumer<Runnable> nextTick,
             final Consumer<Player> pushSound,
-            final Predicate<Player> admin) {
+            final Predicate<Player> admin,
+            final String overworld,
+            final DoubleSupplier speed) {
         this.admin = admin;
         this.clock = clock;
         this.nextTick = nextTick;
         this.pushSound = pushSound;
+        this.overworld = overworld;
+        this.speed = speed;
     }
 
     /**
@@ -90,10 +118,107 @@ public final class BorderWall implements Listener {
      * A player the new wall leaves outside drifts slowly back in instead of being teleported.
      */
     public void apply(final CustomBorderSpec spec, final Collection<? extends Player> online) {
-        walls = Walls.read(spec);
+        this.spec = spec;
+        redraw(online);
+    }
+
+    /**
+     * Synchronises the overworld's open regions with the track.
+     * Sets at once on startup or reset, and opens newly added regions through a moving front after startup.
+     */
+    public void regions(final Set<String> regions, final Collection<? extends Player> online) {
+        final Set<String> known = new HashSet<>(open);
+        stages.forEach(stage -> known.addAll(stage.regions()));
+        if (!loaded || !regions.containsAll(known)) {
+            loaded = true;
+            if (regions.equals(open) && stages.isEmpty()) {
+                return;
+            }
+            open = Set.copyOf(regions);
+            stages = List.of();
+            redraw(online);
+            return;
+        }
+        final Set<String> fresh = new HashSet<>(regions);
+        fresh.removeAll(known);
+        if (!fresh.isEmpty()) {
+            open(fresh, online);
+        }
+    }
+
+    /** Opens {@code regions} of the overworld, which a front from the area playable now reaches at the set speed. */
+    public void open(final Collection<String> regions, final Collection<? extends Player> online) {
+        loaded = true;
+        final Set<String> fresh = new HashSet<>(regions);
+        fresh.removeAll(open);
+        stages.forEach(stage -> fresh.removeAll(stage.regions()));
+        if (fresh.isEmpty()) {
+            return;
+        }
+        final List<Front.Stage> more = new ArrayList<>(stages);
+        more.add(new Front.Stage(fresh, clock.millis()));
+        stages = List.copyOf(more);
+        redraw(online);
+    }
+
+    @Nullable
+    Wall wall(final String world) {
+        final Walls.Drawn drawn = walls.get(world);
+        return drawn == null ? null : drawn.wall();
+    }
+
+    boolean spreading() {
+        return !stages.isEmpty();
+    }
+
+    /**
+     * Reads the walls from the settings, the open regions and the fronts.
+     * The regions of a stage the front fully reached open in full once every stage before it has too, so a later
+     * stage never changes where an earlier one spreads from.
+     */
+    private void read() {
+        readAt = clock.millis();
+        if (spec == null) {
+            walls = Map.of();
+            return;
+        }
+        final Walls.Read read = Walls.read(spec, overworld, open, stages, readAt, speed.getAsDouble());
+        walls = read.walls();
+        final Set<String> settled = new HashSet<>(open);
+        final List<Front.Stage> left = new ArrayList<>();
+        for (final Front.Stage stage : stages) {
+            if (left.isEmpty() && !read.spreading().contains(stage)) {
+                settled.addAll(stage.regions());
+            } else {
+                left.add(stage);
+            }
+        }
+        open = Set.copyOf(settled);
+        stages = List.copyOf(left);
+    }
+
+    /** Moves each front on and sends every player the wall that changed, once a front has travelled a block. */
+    private void spread(final Collection<? extends Player> online) {
+        // shortcut: rebuilds the wall on the main thread; move off-thread once a step shows in tick time.
+        final long step = Math.max(250, Math.round(1000 / Math.max(0.0001, speed.getAsDouble())));
+        if (stages.isEmpty() || clock.millis() - readAt < step) {
+            return;
+        }
+        read();
+        grounds.clear(overworld);
+        for (final Player player : online) {
+            final Location at = Objects.requireNonNull(player.getLocation());
+            if (at.getWorld().getName().equals(overworld)) {
+                show(player, at);
+            }
+        }
+    }
+
+    private void redraw(final Collection<? extends Player> online) {
+        read();
         pearls.clear();
         for (final String name : walls.keySet()) {
-            final World world = Bukkit.getWorld(name);
+            final World world = Bukkit.getServer() == null ? null : Bukkit.getWorld(name);
             if (world != null) {
                 pearls.addAll(world.getEntitiesByClass(EnderPearl.class));
             }
@@ -296,6 +421,7 @@ public final class BorderWall implements Listener {
     }
 
     public void tick(final Collection<? extends Player> players) {
+        spread(players);
         if (walls.isEmpty()) {
             return;
         }
@@ -513,7 +639,7 @@ public final class BorderWall implements Listener {
                 at.getX(),
                 at.getZ(),
                 eye,
-                panel -> grounds.at(at.getWorld(), panel, placement, now));
+                panel -> grounds.at(at.getWorld(), panel, placement, (int) Math.floor(eye), now));
         final Band.Change change = Band.change(viewer.seen(), seen);
         packets.remove(id, viewer.forget(change.removed()));
         change.remodelled().forEach((panel, after) -> packets.remodel(id, viewer.remodel(panel, after), after));

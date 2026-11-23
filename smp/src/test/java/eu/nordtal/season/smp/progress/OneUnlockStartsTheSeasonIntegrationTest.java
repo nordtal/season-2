@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 import javax.sql.DataSource;
 import org.bukkit.Bukkit;
@@ -128,7 +129,7 @@ class OneUnlockStartsTheSeasonIntegrationTest {
         final Milestone next = track.after(first.key()).orElseThrow();
         assertEquals(Optional.of(next.key()), rows.activeMilestoneKey());
         assertEquals(List.of(first.key()), rows.completedMilestoneKeys());
-        assertEquals(first.borderDiameter(), season.borderDiameter(), "the first unlock opens the first border");
+        assertEquals(Set.copyOf(first.borderRegions()), season.borderRegions());
         assertFalse(next.objectives().isEmpty(), "the season runs on objectives after one unlock");
     }
 

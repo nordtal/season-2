@@ -14,7 +14,7 @@ import java.util.Map;
 @ConfigSpec
 public interface BorderSpec {
 
-    /** The border of Nordtal until the first milestone that unlocks a border is unlocked. */
+    /** The vanilla border of Nordtal while no overworld region of the custom border is open. */
     @Order(5)
     @Name("Border diameter before the start")
     @Key("start-border-diameter")
@@ -30,7 +30,7 @@ public interface BorderSpec {
     @Positive
     @NoExplanationNeeded
     default int netherBorderDiameter() {
-        return 2000;
+        return 5000;
     }
 
     @Order(7)
@@ -39,7 +39,7 @@ public interface BorderSpec {
     @Positive
     @NoExplanationNeeded
     default int endBorderDiameter() {
-        return 2000;
+        return 5000;
     }
 
     @Order(8)

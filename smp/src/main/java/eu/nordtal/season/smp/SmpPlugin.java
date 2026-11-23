@@ -642,12 +642,11 @@ public final class SmpPlugin extends NordtalPlugin {
                         }));
     }
 
-    private void applyCustomLimit() {
-        if (!worlds.customBorder(Objects.requireNonNull(borderWall).active(worlds.nameOf(WorldRole.NORDTAL)))) {
-            return;
+    /** Sets the vanilla border of Nordtal again when the custom border starts or stops holding it. Main thread only. */
+    void applyCustomLimit() {
+        if (worlds.customBorder(Objects.requireNonNull(borderWall).active(worlds.nameOf(WorldRole.NORDTAL)))) {
+            worlds.applyFixedBorders();
         }
-        final int unlocked = season.borderDiameter();
-        worlds.expandNordtal(unlocked > 0 ? unlocked : borderSettings.get().startBorderDiameter(), false);
     }
 
     @Override
@@ -657,16 +656,7 @@ public final class SmpPlugin extends NordtalPlugin {
         reload(problems, "the sounds", soundSettings, () -> sounds.reload(soundSettings.get()));
         reload(problems, "the name tags", nameTagSettings, () -> nameTags.reload(nameTagSettings.get()));
         final PaperScheduler scheduler = PaperScheduler.of(this);
-        reload(
-                problems,
-                "the border",
-                borderSettings,
-                () -> scheduler.onMain(() -> {
-                    worlds.applyFixedBorders();
-                    if (season.borderDiameter() == 0) {
-                        worlds.expandNordtal(borderSettings.get().startBorderDiameter(), false);
-                    }
-                }));
+        reload(problems, "the border", borderSettings, () -> scheduler.onMain(worlds::applyFixedBorders));
         // The boards draw themselves again on the next refresh.
         reload(problems, "the boards", boardSettings, () -> scheduler.onMain(Objects.requireNonNull(boards)::stop));
         reload(
@@ -787,12 +777,12 @@ public final class SmpPlugin extends NordtalPlugin {
         season.refresh(completed, now);
 
         PaperScheduler.of(this).onMain(() -> {
-            final int unlocked = season.borderDiameter();
-            final int diameter = unlocked > 0 ? unlocked : borderSettings.get().startBorderDiameter();
-            worlds.expandNordtal(diameter, false);
+            Objects.requireNonNull(borderWall)
+                    .regions(season.borderRegions(), getServer().getOnlinePlayers());
+            applyCustomLimit();
             getLogger()
                     .info("season state loaded: completed=" + completed.size() + " unlocks=\"" + season.unlocked()
-                            + "\" border=" + diameter + (unlocked > 0 ? "" : " (start)"));
+                            + "\" regions=\"" + String.join(",", season.borderRegions()) + "\"");
         });
     }
 }

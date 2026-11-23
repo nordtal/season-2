@@ -12,6 +12,7 @@ import eu.nordtal.season.spec.Specs;
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.bukkit.entity.Entity;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -87,12 +88,70 @@ class WallTest {
                                                                 Specs.createUnsafe(
                                                                         CustomBorderSpec.Corner.class,
                                                                         Map.of("x", 0, "z", 10)))))))))));
-        final Wall wall = Walls.read(spec).get("nordtal").wall();
+        final Wall wall = Walls.read(spec, "nordtal", Set.of("Spawn"), List.of(), 0, 1)
+                .walls()
+                .get("nordtal")
+                .wall();
 
         assertFalse(wall.inside(0.25, 5));
         assertTrue(wall.inside(0.75, 5));
         assertTrue(wall.inside(10.25, 5));
         assertFalse(wall.inside(10.75, 5));
+    }
+
+    @Test
+    void overworldOpensOnlyNamedRegionsWhileOtherWorldsOpenAllTheirPolygons() {
+        final CustomBorderSpec spec = Specs.createUnsafe(
+                CustomBorderSpec.class,
+                Map.of(
+                        "worlds",
+                        List.of(
+                                Specs.createUnsafe(
+                                        CustomBorderSpec.World.class,
+                                        Map.of(
+                                                "world",
+                                                "nordtal",
+                                                "enabled",
+                                                true,
+                                                "polygons",
+                                                List.of(
+                                                        squareSpec("departure", 0, 0, 10, 10),
+                                                        squareSpec("foothold", 20, 0, 30, 10),
+                                                        squareSpec("foothold", 30, 0, 40, 10)))),
+                                Specs.createUnsafe(
+                                        CustomBorderSpec.World.class,
+                                        Map.of(
+                                                "world",
+                                                "nordtal_nether",
+                                                "enabled",
+                                                true,
+                                                "polygons",
+                                                List.of(squareSpec("Nether", -50, -50, 50, 50)))))));
+
+        final Walls.Read noneOpen = Walls.read(spec, "nordtal", Set.of(), List.of(), 0, 1);
+        assertFalse(noneOpen.walls().containsKey("nordtal"));
+        assertTrue(noneOpen.walls().get("nordtal_nether").wall().inside(0, 0));
+
+        final Walls.Read footholdOpen = Walls.read(spec, "nordtal", Set.of("foothold"), List.of(), 0, 1);
+        final Wall overworld = footholdOpen.walls().get("nordtal").wall();
+        assertFalse(overworld.inside(5, 5));
+        assertTrue(overworld.inside(25, 5));
+        assertTrue(overworld.inside(35, 5));
+    }
+
+    private static CustomBorderSpec.Polygon squareSpec(
+            final String name, final int minX, final int minZ, final int maxX, final int maxZ) {
+        return Specs.createUnsafe(
+                CustomBorderSpec.Polygon.class,
+                Map.of(
+                        "name",
+                        name,
+                        "corners",
+                        List.of(
+                                Specs.createUnsafe(CustomBorderSpec.Corner.class, Map.of("x", minX, "z", minZ)),
+                                Specs.createUnsafe(CustomBorderSpec.Corner.class, Map.of("x", maxX, "z", minZ)),
+                                Specs.createUnsafe(CustomBorderSpec.Corner.class, Map.of("x", maxX, "z", maxZ)),
+                                Specs.createUnsafe(CustomBorderSpec.Corner.class, Map.of("x", minX, "z", maxZ)))));
     }
 
     @Test

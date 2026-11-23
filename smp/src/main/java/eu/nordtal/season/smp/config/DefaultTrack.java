@@ -15,11 +15,11 @@ final class DefaultTrack {
     private static final Budget NOTHING = new Budget(0, 0);
 
     static final List<MilestonesSpec.MilestoneEntry> LIST = List.of(
-            milestone("departure", "BORDER", 43, true, NOTHING, List.of()),
+            milestone("departure", "BORDER", List.of("departure"), true, NOTHING, List.of()),
             milestone(
                     "foothold",
                     "BORDER",
-                    99,
+                    List.of("foothold"),
                     false,
                     new Budget(30, 20),
                     List.of(
@@ -48,7 +48,7 @@ final class DefaultTrack {
             milestone(
                     "settlement",
                     "BORDER",
-                    400,
+                    List.of("settlement"),
                     false,
                     new Budget(60, 20),
                     List.of(
@@ -80,7 +80,7 @@ final class DefaultTrack {
             milestone(
                     "nether",
                     "NETHER",
-                    0,
+                    List.of(),
                     false,
                     new Budget(80, 16),
                     List.of(
@@ -96,7 +96,7 @@ final class DefaultTrack {
             milestone(
                     "end",
                     "END",
-                    0,
+                    List.of(),
                     false,
                     new Budget(80, 16),
                     List.of(
@@ -109,7 +109,7 @@ final class DefaultTrack {
             milestone(
                     "expanse",
                     "BORDER",
-                    900,
+                    List.of("expanse"),
                     false,
                     new Budget(110, 12),
                     List.of(
@@ -146,7 +146,7 @@ final class DefaultTrack {
             milestone(
                     "frontier",
                     "BORDER",
-                    4000,
+                    List.of("frontier"),
                     false,
                     new Budget(170, 10),
                     List.of(
@@ -193,14 +193,14 @@ final class DefaultTrack {
     private static MilestonesSpec.MilestoneEntry milestone(
             final String key,
             final String unlocks,
-            final int borderDiameter,
+            final List<String> borderRegions,
             final boolean adminUnlocked,
             final Budget budget,
             final List<Map<String, Object>> objectives) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("key", key);
         values.put("unlocks", unlocks);
-        values.put("border-diameter", borderDiameter);
+        values.put("border-regions", borderRegions);
         values.put("admin-unlocked", adminUnlocked);
         values.put(
                 "objectives",

@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp.wall;
 
-import java.awt.geom.Path2D;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,17 +29,16 @@ final class Wall {
     private int panelCount;
 
     Wall(final List<Area> areas) {
-        for (final Area area : areas) {
-            final Path2D.Double path = new Path2D.Double(Path2D.WIND_EVEN_ODD);
-            if (area.corners().isEmpty()) {
-                continue;
-            }
-            final Area.Point first = area.corners().getFirst();
-            path.moveTo(first.x(), first.z());
-            area.corners().forEach(point -> path.lineTo(point.x(), point.z()));
-            path.closePath();
-            region.add(new java.awt.geom.Area(path));
-        }
+        this(union(areas), areas);
+    }
+
+    /**
+     * A wall around {@code region}, with panels on the edges of {@code lattice} where they lie on its outline.
+     *
+     * @param lattice polygons whose edges together cover the region's outline
+     */
+    Wall(final java.awt.geom.Area region, final List<Area> lattice) {
+        this.region.add(region);
         final var outline = region.getPathIterator(null);
         final double[] coords = new double[6];
         Area.Point start = new Area.Point(0, 0);
@@ -57,7 +55,7 @@ final class Wall {
             outline.next();
         }
         // Keep the display lattice anchored to each configured edge's first corner.
-        for (final Area area : areas) {
+        for (final Area area : lattice) {
             final List<Area.Point> corners = area.corners();
             for (int i = 0; i < corners.size(); i++) {
                 final Edge edge = new Edge(corners.get(i), corners.get((i + 1) % corners.size()));
@@ -66,6 +64,16 @@ final class Wall {
                 }
             }
         }
+    }
+
+    private static java.awt.geom.Area union(final List<Area> areas) {
+        final java.awt.geom.Area union = new java.awt.geom.Area();
+        for (final Area area : areas) {
+            if (!area.corners().isEmpty()) {
+                union.add(Front.region(area));
+            }
+        }
+        return union;
     }
 
     boolean inside(final double x, final double z) {

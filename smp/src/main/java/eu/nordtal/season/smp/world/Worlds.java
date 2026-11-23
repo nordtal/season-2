@@ -108,7 +108,10 @@ public final class Worlds {
         Bukkit.createWorld(new WorldCreator(name).environment(environment));
     }
 
-    /** Centres every border and sizes the Nether's and the End's. Main thread only. */
+    /**
+     * Sizes and centres every vanilla border. Main thread only.
+     * Nordtal's is the fixed outer limit while the custom border holds it, and the start border before that.
+     */
     public void applyFixedBorders() {
         world(WorldRole.NORDTAL).ifPresent(world -> {
             final WorldBorder border = world.getWorldBorder();
@@ -116,6 +119,7 @@ public final class Worlds {
                 return;
             }
             border.setCenter(config.borderCentre().x(), config.borderCentre().z());
+            border.setSize(config.startBorderDiameter());
         });
         centreAndSize(WorldRole.NETHER, config.netherBorderDiameter());
         centreAndSize(WorldRole.END, config.endBorderDiameter());
@@ -134,33 +138,6 @@ public final class Worlds {
             final WorldBorder border = world.getWorldBorder();
             border.setCenter(0, 0);
             border.setSize(diameter);
-        });
-    }
-
-    /**
-     * Sets the border of Nordtal and animates it when it grows.
-     *
-     * @param diameter the new diameter
-     * @param animate false when restoring the border after a restart, true on a real unlock
-     */
-    public void expandNordtal(final int diameter, final boolean animate) {
-        world(WorldRole.NORDTAL).ifPresent(world -> {
-            final WorldBorder border = world.getWorldBorder();
-            if (applyOuterLimit(border, customBorder)) {
-                return;
-            }
-            border.setCenter(config.borderCentre().x(), config.borderCentre().z());
-
-            final double current = border.getSize();
-            if (!animate || diameter <= current) {
-                border.setSize(diameter);
-                return;
-            }
-            // The travel time in seconds is half the diameter change, because the border grows on both sides.
-            final double travel = (diameter - current) / 2.0;
-            final long seconds =
-                    Math.max(1L, Math.round(travel / Math.max(0.0001, config.borderExpansionBlocksPerSecond())));
-            border.changeSize(diameter, seconds);
         });
     }
 }

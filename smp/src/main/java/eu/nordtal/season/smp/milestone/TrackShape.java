@@ -50,13 +50,12 @@ public final class TrackShape {
                                 + "smp_milestone, so two of them have no single answer to "
                                 + "'what comes next'."));
             }
-            if (milestone.unlock() == Unlock.BORDER && milestone.borderDiameter() <= 0) {
+            if (milestone.unlock() == Unlock.BORDER && milestone.borderRegions().isEmpty()) {
                 problems.add(new TrackValidation.Problem(
                         milestone.key(),
                         null,
-                        "unlocks a border but its border-diameter is " + milestone.borderDiameter()
-                                + ". Border sizes are DIAMETERS, because that is what Minecraft's "
-                                + "world border takes."));
+                        "unlocks a border but names no border region. Name the overworld areas of the custom border"
+                                + " it opens."));
             }
 
             if (index > 0

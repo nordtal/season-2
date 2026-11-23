@@ -236,7 +236,7 @@ class AdvancementCreditIntegrationTest {
                 new Milestone(
                         "foothold",
                         Unlock.BORDER,
-                        99,
+                        List.of("foothold"),
                         false,
                         List.of(
                                 new Objective(
@@ -254,7 +254,7 @@ class AdvancementCreditIntegrationTest {
                 new Milestone(
                         "settlement",
                         Unlock.BORDER,
-                        400,
+                        List.of("settlement"),
                         false,
                         List.of(gate("mine-diamond", "minecraft:story/mine_diamond")))));
     }

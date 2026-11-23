@@ -106,7 +106,8 @@ class TrackNamesTest {
     }
 
     private static MilestoneTrack track(final Objective objective) {
-        return new MilestoneTrack(List.of(new Milestone("foothold", Unlock.BORDER, 99, false, List.of(objective))));
+        return new MilestoneTrack(
+                List.of(new Milestone("foothold", Unlock.BORDER, List.of("foothold"), false, List.of(objective))));
     }
 
     private static Objective handIn(final String item) {

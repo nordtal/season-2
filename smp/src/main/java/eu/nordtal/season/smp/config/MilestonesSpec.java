@@ -6,6 +6,7 @@ import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.settings.rule.Entries;
 import eu.nordtal.season.spec.annotation.AllowedValues;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
+import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -49,12 +50,12 @@ public interface MilestonesSpec {
         }
 
         @Order(3)
-        @Name("Border diameter")
-        @Key("border-diameter")
-        @NoExplanationNeeded
+        @Name("Border regions")
+        @Key("border-regions")
+        @Explain("The names of the overworld's areas in the custom border that open with this milestone.")
         @AppliesWhen(key = "unlocks", values = "BORDER")
-        default int borderDiameter() {
-            return 0;
+        default List<String> borderRegions() {
+            return List.of();
         }
 
         @Order(4)

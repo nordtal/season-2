@@ -16,7 +16,7 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Makes each standby's {@code plugins/} and server jars copies of its service's, each plugin's scratch left out.
+ * Makes each standby's {@code plugins/} and server jars copies of its service's, except plugin scratch and bStats.
  *
  * A standby that is not mounted is skipped, and so is a jar cache its service does not have.
  */
@@ -25,6 +25,13 @@ public final class Standbys {
 
     /** The directory a plugin writes while its server runs, directly in its data folder; each server keeps its own. */
     private static final String SCRATCH = "tmp";
+
+    /**
+     * bStats' folder in {@code plugins/}, which each server keeps for itself.
+     *
+     * The entrypoint turns bStats off at each start, and the live server's copy can predate that start.
+     */
+    private static final String METRICS = "bStats";
 
     private Standbys() {}
 
@@ -121,7 +128,7 @@ public final class Standbys {
     }
 
     /**
-     * One directory, recursively, made equal to another, except for a plugin's scratch directory on either side.
+     * One directory, recursively, made equal to another, except for a plugin's scratch directory and bStats' folder.
      *
      * Files are compared by content, since timestamps collide and a changed file can keep its size.
      */
@@ -135,7 +142,7 @@ public final class Standbys {
                 }
                 final String name = entry.getFileName().toString();
                 // Applier's half-written downloads, left by a run that died mid-phase.
-                if (Applier.STAGING.equals(name) || isScratch(entry, depth)) {
+                if (Applier.STAGING.equals(name) || isScratch(entry, depth) || isMetrics(entry, depth)) {
                     continue;
                 }
                 wanted.add(name);
@@ -158,7 +165,8 @@ public final class Standbys {
             for (final Path entry : existing) {
                 if (Files.isSymbolicLink(entry)
                         || wanted.contains(entry.getFileName().toString())
-                        || isScratch(entry, depth)) {
+                        || isScratch(entry, depth)
+                        || isMetrics(entry, depth)) {
                     continue;
                 }
                 tally.removed += deleteRecursively(entry);
@@ -169,6 +177,12 @@ public final class Standbys {
     private static boolean isScratch(final Path entry, final int depth) {
         return depth == 1
                 && SCRATCH.equals(entry.getFileName().toString())
+                && Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS);
+    }
+
+    private static boolean isMetrics(final Path entry, final int depth) {
+        return depth == 0
+                && METRICS.equals(entry.getFileName().toString())
                 && Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS);
     }
 

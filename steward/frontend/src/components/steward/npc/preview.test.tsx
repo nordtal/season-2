@@ -64,15 +64,17 @@ describe("the NPC's plate and dialogue preview", () => {
     expect(well!.compareDocumentPosition(picture!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it("keeps the portrait of an NPC without an uploaded picture as it was", () => {
-    for (const shown of [npc({ skin: "00000000-0000-0000-0000-0000000000bb" }), npc({})]) {
-      expect(preview(shown).querySelector("rect[fill='url(#npc-preview-well)']")).toBeNull()
-      cleanup()
-    }
+  it("draws a skin's own bust on an empty well, outlined as the game outlines it", () => {
+    const container = preview(npc({ skin: "00000000-0000-0000-0000-0000000000bb" }))
+    const well = container.querySelector("svg[aria-label] rect[fill='url(#npc-preview-well)']")
+    const bust = container.querySelector("svg[viewBox='0 0 40 40']")
+    expect(well).not.toBeNull()
+    expect(bust).not.toBeNull()
+    expect(well!.compareDocumentPosition(bust!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(bust!.querySelector("feFlood[flood-color='#101014']"), "the bust's dark outline").not.toBeNull()
   })
 
-  it("draws the skin's face without an uploaded picture", () => {
-    const container = preview(npc({ skin: "00000000-0000-0000-0000-0000000000bb" }))
-    expect(container.querySelector("svg[viewBox='0 0 40 40']")).not.toBeNull()
+  it("keeps the pack's default portrait for an NPC in the default skin", () => {
+    expect(preview(npc({})).querySelector("rect[fill='url(#npc-preview-well)']")).toBeNull()
   })
 })

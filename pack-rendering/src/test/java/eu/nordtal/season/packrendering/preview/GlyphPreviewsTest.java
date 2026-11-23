@@ -42,7 +42,6 @@ class GlyphPreviewsTest {
                         .rowArt(Glyphs.GUI_ROW_PILL, 1, 8, null)
                         .build(TITLE)),
                 previews.get("menu"));
-        assertEquals(JsonNull.INSTANCE, previews.get("hud"));
         assertEquals(JsonNull.INSTANCE, previews.get("board"));
     }
 
@@ -61,19 +60,6 @@ class GlyphPreviewsTest {
     }
 
     @Test
-    void aBossBarGlyphStandsAloneOnTheHudLine() {
-        final JsonObject previews = GlyphPreviews.render("nordtal:bossbar", Glyphs.BOSSBAR_ICON_BORDER, 9, LAYOUT);
-
-        assertEquals(
-                json(Component.text(Glyphs.BOSSBAR_ICON_BORDER)
-                        .font(Key.key(Glyphs.FONT_BOSSBAR))
-                        .shadowColor(ShadowColor.none())),
-                previews.get("hud"));
-        assertEquals(JsonNull.INSTANCE, previews.get("menu"));
-        assertEquals(JsonNull.INSTANCE, previews.get("board"));
-    }
-
-    @Test
     void aBoardGlyphIsPartOfTheFrame() {
         assertEquals(
                 json(BoardFrame.render(180, TITLE, List.of())),
@@ -88,7 +74,6 @@ class GlyphPreviewsTest {
 
         assertEquals(json(MenuTitle.of(3, line)), previews.get("menu"));
         assertEquals(json(BoardFrame.render(180, TITLE, List.of(line))), previews.get("board"));
-        assertEquals(JsonNull.INSTANCE, previews.get("hud"));
     }
 
     @Test
@@ -96,8 +81,8 @@ class GlyphPreviewsTest {
         final Path out = directory.resolve("previews.json");
 
         GlyphPreviews.main(new String[] {
-            "--font=nordtal:bossbar",
-            "--code=FEF0C",
+            "--font=nordtal:board",
+            "--code=FE040",
             "--width=9",
             "--rows=3",
             "--row=1",
@@ -109,13 +94,9 @@ class GlyphPreviewsTest {
 
         final JsonObject written = JsonParser.parseString(Files.readString(out, StandardCharsets.UTF_8))
                 .getAsJsonObject();
-        assertEquals("nordtal:bossbar", written.get("font").getAsString());
-        assertEquals("FEF0C", written.get("code").getAsString());
-        assertEquals(
-                json(Component.text(Glyphs.BOSSBAR_ICON_BORDER)
-                        .font(Key.key(Glyphs.FONT_BOSSBAR))
-                        .shadowColor(ShadowColor.none())),
-                written.get("hud"));
+        assertEquals("nordtal:board", written.get("font").getAsString());
+        assertEquals("FE040", written.get("code").getAsString());
+        assertEquals(json(BoardFrame.render(180, TITLE, List.of())), written.get("board"));
     }
 
     @Test
@@ -125,12 +106,6 @@ class GlyphPreviewsTest {
                         .font(Key.key(Glyphs.FONT_GUI_ROWS.get(1)))
                         .shadowColor(ShadowColor.none())),
                 GlyphPreviews.render("nordtal:gui_r{row}", Glyphs.GUI_ROW_PILL, 0, LAYOUT)
-                        .get("glyph"));
-        assertEquals(
-                json(Component.text(Glyphs.BOSSBAR_ICON_BORDER)
-                        .font(Key.key(Glyphs.FONT_BOSSBAR))
-                        .shadowColor(ShadowColor.none())),
-                GlyphPreviews.render("nordtal:bossbar", Glyphs.BOSSBAR_ICON_BORDER, 9, LAYOUT)
                         .get("glyph"));
         assertEquals(
                 json(Component.text(Glyphs.BADGE_DONOR_STAR)),

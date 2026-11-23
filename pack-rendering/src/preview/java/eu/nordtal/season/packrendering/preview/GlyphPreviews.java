@@ -23,7 +23,7 @@ import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Renders a glyph alone and in the menu panel, the HUD line and the board as text-component JSON.
+ * Renders a glyph alone and in the menu panel and the board as text-component JSON.
  * It uses the plugins' own code. A place that the glyph's font never reaches is null. The README of this module
  * documents the file.
  */
@@ -48,7 +48,6 @@ public final class GlyphPreviews {
     public static JsonObject render(final String font, final String glyph, final int width, final Layout layout) {
         final Component text = Component.text(layout.text());
         @Nullable Component menu = null;
-        @Nullable Component hud = null;
         @Nullable Component board = null;
         switch (font) {
             case Glyphs.FONT_GUI -> {
@@ -63,19 +62,17 @@ public final class GlyphPreviews {
                 menu = MenuTitle.on(chestPanel(layout))
                         .rowArt(glyph, layout.row(), layout.x(), null)
                         .build(text);
-            case Glyphs.FONT_BOSSBAR -> hud = alone(font, glyph, layout.row());
             case Glyphs.FONT_BOARD -> board = BoardFrame.render(layout.boardWidth(), text, List.of());
             case FONT_DEFAULT -> {
                 final Component line = Component.text(glyph + " " + layout.text());
                 menu = MenuTitle.of(layout.rows(), line);
                 board = BoardFrame.render(layout.boardWidth(), text, List.of(line));
             }
-            default -> throw new IllegalArgumentException("no menu, HUD line or board draws the font " + font);
+            default -> throw new IllegalArgumentException("no menu or board draws the font " + font);
         }
         final JsonObject previews = new JsonObject();
         previews.add("glyph", json(alone(font, glyph, layout.row())));
         previews.add("menu", json(menu));
-        previews.add("hud", json(hud));
         previews.add("board", json(board));
         return previews;
     }

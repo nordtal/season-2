@@ -51,7 +51,7 @@ public final class FontFile {
     /**
      * Loads a font file.
      *
-     * @param id       the namespaced font id, e.g. {@code nordtal:bossbar}
+     * @param id       the namespaced font id, e.g. {@code nordtal:board}
      * @param relative the font file's path from the repository root
      */
     static FontFile load(final String id, final String relative) {

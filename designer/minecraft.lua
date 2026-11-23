@@ -76,7 +76,6 @@ function minecraft.previews(info, rendered, definition, tr)
     end
     for _, op in ipairs(raw) do add(tr("minecraft." .. op), { op=op, text=rendered.glyph }) end
     if rendered.menu then add(tr("minecraft.menu"), { op="chest", text=rendered.menu, rows=3 }) end
-    if rendered.hud then add(tr("minecraft.hud"), { op="bossbar", text=rendered.hud }) end
     if rendered.board then add(tr("minecraft.board"), { op="chat", text=rendered.board }) end
   elseif (kind == "item" and definition and info.entry.id == definition.item or kind == "definition" and definition) then
     for _, state in ipairs(definition.states or {}) do

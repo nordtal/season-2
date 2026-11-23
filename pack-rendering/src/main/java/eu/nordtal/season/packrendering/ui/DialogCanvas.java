@@ -177,6 +177,47 @@ public final class DialogCanvas {
         return place(x, y, true, line -> line.darkField(size));
     }
 
+    /** Places a 54 px high card plate at ({@code x}, {@code y}). Refuses a click callback when disabled. */
+    public DialogCanvas cardPlate(
+            final int x, final int y, final int cardWidth, final Look look, final BodyLine.Press press) {
+        BodyLine.Press.rejectDisabledClick(look, press);
+        return place(x, y, true, line -> line.button(press, part -> part.cardPlate(cardWidth, look)));
+    }
+
+    /** Places a variable-width 4 px progress bar with 1 px light bottom edge at ({@code x}, {@code y}). */
+    public DialogCanvas varBar(
+            final int x,
+            final int y,
+            final int barWidth,
+            final double progress,
+            final double preview,
+            final boolean done) {
+        return place(x, y, false, line -> line.varBar(barWidth, progress, preview, done));
+    }
+
+    /** Places the milestone rail at ({@code x}, {@code y}) across {@code railWidth} px for {@code total} milestones. */
+    public DialogCanvas rail(final int x, final int y, final int railWidth, final int total, final int current) {
+        final List<MilestoneRail.Node> nodes = MilestoneRail.nodes(total, current, railWidth);
+        for (final MilestoneRail.Segment segment : MilestoneRail.segments(nodes, total, current)) {
+            place(x + segment.startX(), y, true, line -> line.railSegment(segment));
+        }
+        for (final MilestoneRail.Node node : nodes) {
+            final int nx = x + node.x();
+            place(nx, y, true, line -> line.railNode(node));
+            if (node.state() == MilestoneRail.State.DONE) {
+                symbol(nx + 3, y + 3, Symbol.TICK, TextColor.color(0xDFDFDF));
+            } else {
+                final String label = Integer.toString(node.index() + 1);
+                final TextColor colour = node.state() == MilestoneRail.State.CURRENT
+                        ? Colours.ACCENT
+                        : (node.faded() ? TextColor.color(0x9A9A9A) : TextColor.color(0x6E6E6E));
+                final int lx = nx + (MilestoneRail.NODE - Letters.visibleWidth(label) + 1) / 2;
+                text(lx, y + 3, label, colour);
+            }
+        }
+        return this;
+    }
+
     /** Places an item picture at ({@code x}, {@code y}), with optional hover or click. */
     public DialogCanvas itemPicture(final int x, final int y, final ItemPicture picture, final BodyLine.Press press) {
         Objects.requireNonNull(picture, "picture");

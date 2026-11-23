@@ -269,6 +269,7 @@ final class SmpStart {
 
     static NpcDialogues wireNpc(final SmpPlugin plugin) {
         // A {@code HAND_IN} objective is fulfilled only through the menu an NPC's dialogue hands off to.
+        final ItemHandout handout = Objects.requireNonNull(plugin.handout, "the handout starts before the NPCs");
         final ObjectivesMenu objectives = new ObjectivesMenu(
                 plugin,
                 plugin.season,
@@ -278,7 +279,9 @@ final class SmpStart {
                 plugin.renderer(),
                 plugin.documents(),
                 plugin.dialogs(),
-                plugin.sounds);
+                plugin.sounds,
+                handout::store);
+        objectives.examples(plugin::example);
         final Wheel wheel = Objects.requireNonNull(plugin.wheel, "the wheel starts before the NPCs");
         final NpcMenus menus = new NpcMenus()
                 .register(

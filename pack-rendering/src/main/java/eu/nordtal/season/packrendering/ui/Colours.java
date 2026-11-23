@@ -23,6 +23,21 @@ public final class Colours {
     /** Accent: a favourite's star, a card's open symbol. */
     public static final TextColor ACCENT = TextColor.color(0x345AB4);
 
+    /** Preview: the lighter accent fill a hand-in offer adds to a progress bar. */
+    public static final TextColor PREVIEW = TextColor.color(0x7FA0E4);
+
+    /** Progress bar track fill. */
+    public static final TextColor BAR_TRACK = TextColor.color(0x8B8B8B);
+
+    /** Completed progress bar fill. */
+    public static final TextColor BAR_DONE = TextColor.color(0x787878);
+
+    /** Progress bar bottom light line on an open card. */
+    public static final TextColor BAR_EDGE = TextColor.color(0xF0F0F0);
+
+    /** Progress bar bottom light line on a completed card. */
+    public static final TextColor BAR_EDGE_DONE = TextColor.color(0xC6C6C6);
+
     /** On accent: a label on a primary plate. */
     public static final TextColor ON_ACCENT = TextColor.color(0xFFFFFF);
 

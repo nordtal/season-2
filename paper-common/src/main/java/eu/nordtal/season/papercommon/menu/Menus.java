@@ -53,10 +53,16 @@ public final class Menus implements Listener {
     /** Refuses a drag that would spread stacks over a slot of the window that is not free. */
     @EventHandler
     public void onDrag(final InventoryDragEvent event) {
-        if (event.getInventory().getHolder() instanceof Menu menu
-                && event.getRawSlots().stream()
-                        .anyMatch(slot -> slot < event.getInventory().getSize() && !menu.leavesFree(slot))) {
+        if (!(event.getInventory().getHolder() instanceof Menu menu)) {
+            return;
+        }
+        if (event.getRawSlots().stream()
+                .anyMatch(slot -> slot < event.getInventory().getSize() && !menu.leavesFree(slot))) {
             event.setCancelled(true);
+            return;
+        }
+        if (event.getWhoClicked() instanceof Player player) {
+            menu.dragged(player);
         }
     }
 

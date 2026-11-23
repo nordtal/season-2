@@ -44,6 +44,8 @@ public final class ChestTitle {
 
     private static final int WIDTH = 176;
     private static final int NAME_TO_MARK = 8;
+    private static final int NAME_TO_RULE = 5;
+    private static final int SHORTEST_RULE = 9;
     private static final int LABEL_PAD = 4;
     private static final int LABEL_IN_PLATE = 5;
 
@@ -83,9 +85,34 @@ public final class ChestTitle {
         return this;
     }
 
+    /** Draws the bold header line: {@code symbol}, bold {@code name} in title ink, a quiet rule and {@code marks}. */
+    public ChestTitle boldHeader(final @Nullable Symbol symbol, final String name, final List<Mark> marks) {
+        final int shift = CAPS_Y - TITLE_ROW;
+        final int nameX = symbol == null ? ANCHOR_X : NAME_X;
+        final int marksLeft = Mark.draw(pen, marks, RIGHT, shift, this::local);
+        final int end = marks.isEmpty() ? RIGHT : marksLeft - NAME_TO_MARK - 1;
+        if (symbol != null) {
+            pen.moveTo(local(ANCHOR_X)).symbol(shift, symbol, Colours.TITLE);
+        }
+        final String shown = Letters.boldCut(name, end + 1 - nameX);
+        pen.moveTo(local(nameX)).bold(Pen.textFont(shift), shown, Colours.TITLE);
+        final int rule = nameX + Letters.boldWidth(shown) + NAME_TO_RULE;
+        final int ruleWidth = end + 1 - rule >= SHORTEST_RULE ? end + 1 - rule : 0;
+        if (ruleWidth > 0) {
+            pen.moveTo(local(rule)).inkRuns(Pen.textFont(shift), Glyphs.UI_RULE, ruleWidth, Colours.FAINT);
+        }
+        return this;
+    }
+
     /** Draws vanilla's slot frame on the content cell at {@code column}, {@code row}. */
     public ChestTitle slot(final int column, final int row) {
         pen.moveTo(local(SLOT_X + STEP * column)).art(Pen.artFont(artShift(row)), Glyphs.UI_SLOT, STEP);
+        return this;
+    }
+
+    /** Draws a dark item field (even #101010 frame on #2B2B2B) on the deposit cell at {@code column}, {@code row}. */
+    public ChestTitle depositSlot(final int column, final int row) {
+        pen.moveTo(local(SLOT_X + STEP * column)).art(Pen.artFont(artShift(row)), Glyphs.UI_DEPOSIT_SLOT, STEP);
         return this;
     }
 

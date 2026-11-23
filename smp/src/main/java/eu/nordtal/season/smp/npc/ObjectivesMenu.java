@@ -3,8 +3,10 @@ package eu.nordtal.season.smp.npc;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.papercommon.chat.Previews;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -15,16 +17,21 @@ import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.port.Contributions;
 import eu.nordtal.season.smp.state.SeasonState;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
+import java.util.logging.Level;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 /**
  * The NPC's {@code objectives} menu, which its dialogue hands off to.
- * It opens the objective dialog and credits the items of a confirmed hand-in. The credit runs off the main thread,
- * and its result is applied on the main thread.
+ * It opens the objective dialog and credits the items of a confirmed hand-in. Unpaid returns for a player who went
+ * offline are stored in the pending-items store and handed out at their next join.
  */
 public final class ObjectivesMenu {
 
@@ -33,7 +40,7 @@ public final class ObjectivesMenu {
 
     private final Plugin plugin;
     private final SeasonState season;
-    private final java.util.function.Supplier<MilestoneTrack> track;
+    private final Supplier<MilestoneTrack> track;
 
     private final Contributions contributions;
     private final Identities identities;
@@ -42,17 +49,19 @@ public final class ObjectivesMenu {
     private final AppliedDocuments documents;
     private final Dialogs dialogs;
     private final SmpSounds sounds;
+    private final BiConsumer<DiscordId, ItemStack> storePending;
 
     public ObjectivesMenu(
             final Plugin plugin,
             final SeasonState season,
-            final java.util.function.Supplier<MilestoneTrack> track,
+            final Supplier<MilestoneTrack> track,
             final Contributions contributions,
             final Identities identities,
             final MessageRenderer renderer,
             final AppliedDocuments documents,
             final Dialogs dialogs,
-            final SmpSounds sounds) {
+            final SmpSounds sounds,
+            final BiConsumer<DiscordId, ItemStack> storePending) {
         this.plugin = plugin;
         this.season = season;
         this.track = track;
@@ -62,6 +71,16 @@ public final class ObjectivesMenu {
         this.documents = documents;
         this.dialogs = dialogs;
         this.sounds = sounds;
+        this.storePending = storePending;
+    }
+
+    /** Hands the draft preview read-only examples of the objectives dialog and the hand-in chest. */
+    public void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
+        example.accept(
+                ObjectiveDialog.DOCUMENT,
+                (reader, drafted) ->
+                        ObjectiveDialog.example(drafted, dialogs, identities.languageOf(reader.getUniqueId()), reader));
+        example.accept(HandInGui.DOCUMENT, (reader, drafted) -> HandInGui.example(drafted, reader));
     }
 
     /** Opens the objective dialog for {@code player}, or the dialog that says why there is nothing to hand in. */
@@ -69,30 +88,53 @@ public final class ObjectivesMenu {
         final Locale locale = identities.languageOf(player.getUniqueId());
         final SeasonState.Active active = season.active();
         final String activeKey = active.key();
+        final MilestoneTrack currentTrack = track.get();
         final Milestone milestone =
-                activeKey == null ? null : track.get().milestone(activeKey).orElse(null);
+                activeKey == null ? null : currentTrack.milestone(activeKey).orElse(null);
         final Optional<ObjectiveDialog.Empty> why =
-                ObjectiveDialog.Empty.of(track.get(), season.completedKeys(), milestone);
+                ObjectiveDialog.Empty.of(currentTrack, season.completedKeys(), milestone);
         if (why.isPresent() || milestone == null) {
             player.showDialog(
                     ObjectiveDialog.empty(renderer, documents, locale, why.orElse(ObjectiveDialog.Empty.NONE)));
             return;
         }
-        show(player, locale, milestone, active.objectives());
+        show(
+                player,
+                locale,
+                milestone,
+                currentTrack.size(),
+                currentTrack.positionOf(milestone.key()),
+                active.objectives());
     }
 
     /** Reads the player's share from the database off the main thread, then opens the dialog on the main thread. */
     private void show(
-            final Player player, final Locale locale, final Milestone milestone, final List<ObjectiveRow> rows) {
+            final Player player,
+            final Locale locale,
+            final Milestone milestone,
+            final int totalMilestones,
+            final int currentMilestone,
+            final List<ObjectiveRow> rows) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         PaperScheduler.of(plugin).execute(() -> {
-            final OwnShare.Summary share = OwnShare.of(discordId
-                    .map(id -> contributions.ownContributions(milestone.key(), id))
-                    .orElse(List.of()));
+            final OwnShare.Summary share = discordId
+                    .map(id -> OwnShare.of(contributions.ownContributions(milestone.key(), id)))
+                    .orElseGet(OwnShare::unavailable);
 
             PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
-                    new ObjectiveDialog(renderer, documents, dialogs, locale, milestone, rows, share, this::confirm)
+                    new ObjectiveDialog(
+                                    renderer,
+                                    documents,
+                                    dialogs,
+                                    locale,
+                                    milestone,
+                                    totalMilestones,
+                                    currentMilestone,
+                                    rows,
+                                    share,
+                                    this::confirm,
+                                    work -> PaperScheduler.of(plugin).onMain(work))
                             .show(player, 0);
                 }
             });
@@ -117,16 +159,17 @@ public final class ObjectivesMenu {
         }
 
         // The items are kept until the credit result is known, because the credit may be 0.
-        final java.util.List<org.bukkit.inventory.ItemStack> taken = gui.apply(result);
+        final List<ItemStack> taken = gui.apply(result);
         gui.crediting();
         final String objectiveKey = gui.objective().key();
         final long accepted = result.accepted();
+        final DiscordId contributor = discordId.get();
 
         PaperScheduler.of(plugin).execute(() -> {
             // Negative when the credit failed, which tells the window nothing about the objective.
             long credited;
             try {
-                credited = contributions.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
+                credited = contributions.credit(contributor, objectiveKey, accepted, player.getUniqueId());
             } catch (final RuntimeException failure) {
                 plugin.getLogger()
                         .severe("hand-in not credited, items returned: player=" + player.getName() + " key="
@@ -134,29 +177,55 @@ public final class ObjectivesMenu {
                 credited = -1;
             }
             final long paid = credited;
-            PaperScheduler.of(plugin).onMain(() -> applyCreditResult(player, gui, taken, objectiveKey, accepted, paid));
+            PaperScheduler.of(plugin)
+                    .onMain(() -> applyCreditResult(player, contributor, gui, taken, objectiveKey, accepted, paid));
         });
     }
 
     /**
-     * Shows the credit result in the window and puts back the taken items that were not counted. Main thread only.
-     * Less counted than taken means the objective finished while the screen was open; a negative {@code paid} means
-     * the credit failed, and the window stays as it was.
+     * Shows the credit result in the window and returns any uncredited items. Main thread only.
+     * Uncredited items for an offline player go to the pending-items store for their next join.
      */
     private void applyCreditResult(
             final Player player,
+            final DiscordId discordId,
             final HandInGui gui,
-            final java.util.List<org.bukkit.inventory.ItemStack> taken,
+            final List<ItemStack> taken,
             final String objectiveKey,
             final long accepted,
             final long paid) {
         if (!player.isOnline()) {
-            if (paid < accepted) {
-                // An offline player cannot receive the items.
+            final List<Integer> amounts =
+                    taken.stream().map(ItemStack::getAmount).toList();
+            final List<Integer> toReturn = offlineReturnAmounts(amounts, accepted, paid);
+            for (int index = 0; index < taken.size(); index++) {
+                final int back = toReturn.get(index);
+                if (back > 0) {
+                    final ItemStack copy = taken.get(index).clone();
+                    copy.setAmount(back);
+                    try {
+                        storePending.accept(discordId, copy);
+                    } catch (final RuntimeException error) {
+                        plugin.getLogger()
+                                .log(
+                                        Level.SEVERE,
+                                        "failed to store uncredited hand-in items for offline player: player="
+                                                + player.getName()
+                                                + " key="
+                                                + objectiveKey
+                                                + " item="
+                                                + copy.getType().name()
+                                                + "x"
+                                                + copy.getAmount(),
+                                        error);
+                    }
+                }
+            }
+            if (toReturn.stream().anyMatch(amount -> amount > 0)) {
                 plugin.getLogger()
-                        .severe("hand-in player offline, items not returned: player=" + player.getName() + " key="
-                                + objectiveKey + " credited=" + Math.max(0L, paid) + " accepted=" + accepted
-                                + " items=\"" + describe(taken) + "\"");
+                        .info("hand-in player offline, uncredited items queued for next join: player="
+                                + player.getName() + " key=" + objectiveKey + " credited=" + Math.max(0L, paid)
+                                + " accepted=" + accepted);
             }
             return;
         }
@@ -171,9 +240,22 @@ public final class ObjectivesMenu {
         gui.credited(player, paid, accepted);
     }
 
-    private static String describe(final java.util.List<org.bukkit.inventory.ItemStack> stacks) {
-        return stacks.stream()
-                .map(stack -> stack.getAmount() + "x " + stack.getType().name())
-                .collect(java.util.stream.Collectors.joining(", "));
+    /**
+     * Returns how many items from each taken stack must be stored for an offline player's next join.
+     * A failed credit ({@code paid < 0}) returns every taken stack; a partial credit returns the last unpaid items.
+     */
+    static List<Integer> offlineReturnAmounts(final List<Integer> takenAmounts, final long accepted, final long paid) {
+        if (paid < 0) {
+            return List.copyOf(takenAmounts);
+        }
+        final long unpaid = Math.max(0L, accepted - paid);
+        if (unpaid == 0L) {
+            final List<Integer> zeros = new ArrayList<>(takenAmounts.size());
+            for (int i = 0; i < takenAmounts.size(); i++) {
+                zeros.add(0);
+            }
+            return List.copyOf(zeros);
+        }
+        return HandInGui.unpaid(takenAmounts, unpaid);
     }
 }

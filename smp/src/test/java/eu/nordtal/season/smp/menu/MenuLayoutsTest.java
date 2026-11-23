@@ -19,11 +19,11 @@ import org.junit.jupiter.api.Test;
 class MenuLayoutsTest {
 
     @Test
-    void theHandInPlacesItsSampleInTheActionRowUnderTheSlots() {
+    void theHandInPlacesItsSampleInTheTickColumnOfItsThreeRowChest() {
         final DocumentDeclaration handIn = menu("hand-in");
 
-        assertEquals(4, handIn.rows());
-        assertEquals(List.of(27), at(handIn, "sample"));
+        assertEquals(3, handIn.rows());
+        assertEquals(List.of(0, 1), at(handIn, "sample"));
     }
 
     @Test

@@ -88,6 +88,96 @@ class DialogCanvasTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> canvas.row(0, 0, 120, null, null, "Hafen", "120 m", Look.DISABLED, click));
+        assertThrows(IllegalArgumentException.class, () -> canvas.cardPlate(0, 0, 121, Look.DISABLED, click));
+
+        // BodyLine.button itself enforces the guard even when called directly outside DialogCanvas.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> BodyLine.start().button(click, part -> part.plate(80, null, "Abgeben", Look.DISABLED)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> BodyLine.start()
+                        .button(click, part -> part.symbolPlate(Symbol.UP, Colours.FAINT, Look.DISABLED)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> BodyLine.start()
+                        .button(click, part -> part.row(120, null, null, "Hafen", "120 m", Look.DISABLED)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> BodyLine.start()
+                        .button(
+                                click,
+                                part -> part.card(120, Symbol.HANDIN, "Eisen", "Geschafft", 1.0, true, Look.DISABLED)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> BodyLine.start().button(click, part -> part.cardPlate(121, Look.DISABLED)));
+    }
+
+    @Test
+    void theMilestoneRailNeverSqueezesFocusesOnCurrentAndNextFadesPastAndFarAndAlwaysShowsLast() {
+        // 1 milestone: single current node at x 0.
+        final List<MilestoneRail.Node> one = MilestoneRail.nodes(1, 0, 223);
+        assertEquals(1, one.size());
+        assertEquals(MilestoneRail.State.CURRENT, one.getFirst().state());
+        assertFalse(one.getFirst().faded());
+
+        // 7 milestones with current 3: all 7 shown, past faded, current and future not faded.
+        final List<MilestoneRail.Node> seven = MilestoneRail.nodes(7, 3, 223);
+        assertEquals(
+                List.of(0, 1, 2, 3, 4, 5, 6),
+                seven.stream().map(MilestoneRail.Node::index).toList());
+        assertTrue(seven.get(0).faded());
+        assertTrue(seven.get(2).faded());
+        assertFalse(seven.get(3).faded());
+        assertFalse(seven.get(6).faded());
+
+        // 12 milestones, current 0: 0..4 and last (11) with a dotted gap; 3 and 4 faded, 11 never faded.
+        final List<MilestoneRail.Node> twelveFirst = MilestoneRail.nodes(12, 0, 223);
+        assertEquals(
+                List.of(0, 1, 2, 3, 4, 11),
+                twelveFirst.stream().map(MilestoneRail.Node::index).toList());
+        assertFalse(twelveFirst.get(0).faded());
+        assertFalse(twelveFirst.get(2).faded());
+        assertTrue(twelveFirst.get(3).faded());
+        assertTrue(twelveFirst.get(4).faded());
+        assertFalse(twelveFirst.get(5).faded(), "last milestone is never faded");
+        final List<MilestoneRail.Segment> firstSegs = MilestoneRail.segments(twelveFirst, 12, 0);
+        assertTrue(firstSegs.getLast().dotted());
+
+        // 12 milestones, current 5 (middle): 0, gap, 5, 6, 7, gap, 11.
+        final List<MilestoneRail.Node> twelveMid = MilestoneRail.nodes(12, 5, 223);
+        assertEquals(
+                List.of(0, 5, 6, 7, 11),
+                twelveMid.stream().map(MilestoneRail.Node::index).toList());
+        assertTrue(twelveMid.get(0).faded());
+        assertFalse(twelveMid.get(1).faded());
+        assertFalse(twelveMid.get(3).faded());
+        assertFalse(twelveMid.get(4).faded());
+        final List<MilestoneRail.Segment> midSegs = MilestoneRail.segments(twelveMid, 12, 5);
+        assertTrue(midSegs.getFirst().dotted());
+        assertTrue(midSegs.getLast().dotted());
+
+        // 12 milestones, current 11 (last): 0, gap, 7..11.
+        final List<MilestoneRail.Node> twelveLast = MilestoneRail.nodes(12, 11, 223);
+        assertEquals(
+                List.of(0, 7, 8, 9, 10, 11),
+                twelveLast.stream().map(MilestoneRail.Node::index).toList());
+        assertFalse(twelveLast.getLast().faded());
+        assertEquals(MilestoneRail.State.CURRENT, twelveLast.getLast().state());
+    }
+
+    @Test
+    void theRailCardPlateAndVariableBarComposeOnTheWidePanel() {
+        final DialogCanvas canvas = DialogCanvas.of(DialogPanel.WIDE_161)
+                .rail(0, 2, 223, 12, 5)
+                .cardPlate(0, 24, 121, Look.NORMAL, BodyLine.Press.NONE)
+                .darkField(5, 29, ItemPicture.SMALL_FIELD)
+                .varBar(32, 43, 50, 0.5, 0.25, false)
+                .cardPlate(125, 82, 121, Look.DISABLED, BodyLine.Press.NONE);
+        final DialogTitle title =
+                DialogTitle.of(DialogPanel.WIDE_161, canvas.panelTop()).header(Symbol.FLAG, "Objectives", List.of());
+        final Component framed = canvas.build(FocusRing.Ground.BEVEL_FOOT, title);
+        assertEquals(canvas.rows(), Advances.rows(framed).size());
     }
 
     @Test

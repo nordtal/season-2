@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -110,7 +111,7 @@ public final class Graves {
             final WorldEffects effects,
             final DeathsSpec config,
             final Clock clock) {
-        this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.dao = dao;
         this.identities = identities;
@@ -159,7 +160,7 @@ public final class Graves {
             final int experience) {
         final byte[] bytes = ItemStack.serializeItemsAsBytes(contents);
         final Location grave =
-                java.util.Objects.requireNonNull(at.getBlock().getLocation()).add(0.5, 0, 0.5);
+                Objects.requireNonNull(at.getBlock().getLocation()).add(0.5, 0, 0.5);
 
         PaperScheduler.of(plugin).execute(() -> {
             final GraveRow row = dao.createGrave(
@@ -514,7 +515,7 @@ public final class Graves {
                 skull.setOwningPlayer(reader);
             }
         });
-        final Location at = java.util.Objects.requireNonNull(reader.getLocation());
+        final Location at = Objects.requireNonNull(reader.getLocation());
         final GameDocument.Drawn drawn = drafted.item(
                 "owner",
                 new GraveWindow.Owner(
@@ -551,7 +552,7 @@ public final class Graves {
     /** Moves the content items into the player's inventory and drops what does not fit. */
     void takeAll(final Player player, final GraveWindow window) {
         final Inventory inventory = window.getInventory();
-        final Location dropAt = java.util.Objects.requireNonNull(player.getLocation());
+        final Location dropAt = Objects.requireNonNull(player.getLocation());
         for (int slot = 0; slot < GravePanel.contentSlots(window.contentRows()); slot++) {
             final ItemStack stack = inventory.getItem(slot);
             if (stack == null || stack.getType().isAir()) {
@@ -616,7 +617,7 @@ public final class Graves {
         final ItemStack head = inventory.getItem(headSlot);
         if (head != null && !head.getType().isAir()) {
             inventory.setItem(headSlot, null);
-            final Location dropAt = java.util.Objects.requireNonNull(player.getLocation());
+            final Location dropAt = Objects.requireNonNull(player.getLocation());
             player.getInventory()
                     .addItem(head)
                     .values()

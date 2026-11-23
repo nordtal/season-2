@@ -49,6 +49,7 @@ public final class BodyLine {
     private final Pen pen = Pen.start();
     private final int down;
     private final int textShift;
+    private boolean disabled;
 
     private BodyLine(final int down, final int textShift) {
         this.down = down;
@@ -228,6 +229,9 @@ public final class BodyLine {
     public BodyLine button(final Press press, final Consumer<BodyLine> part) {
         final BodyLine inner = new BodyLine(down, textShift);
         part.accept(inner);
+        if (inner.disabled) {
+            Press.rejectDisabledClick(Look.DISABLED, press);
+        }
         final int width = inner.pen.x();
         Component drawn = inner.pen.build();
         final ClickEvent click = press.click();
@@ -250,6 +254,9 @@ public final class BodyLine {
 
     /** Draws a button plate {@code width} wide with {@code label} centred, after {@code symbol} if one is given. */
     public BodyLine plate(final int width, final @Nullable Symbol symbol, final String label, final Look look) {
+        if (look == Look.DISABLED) {
+            disabled = true;
+        }
         final int x = pen.x();
         pen.plate(down, look, width);
         final int room = width - 2 * PAD - (symbol == null ? 0 : Symbol.BEFORE_TEXT);
@@ -263,6 +270,99 @@ public final class BodyLine {
         return this;
     }
 
+    /** Draws a 54 px high card plate {@code width} wide in normal or disabled look. */
+    public BodyLine cardPlate(final int width, final Look look) {
+        if (width < 2) {
+            throw new IllegalArgumentException("a card plate is at least 2 columns wide, not " + width);
+        }
+        if (look == Look.DISABLED) {
+            disabled = true;
+        }
+        final String font = Pen.artFont(down);
+        final var glyphs = look == Look.DISABLED ? Glyphs.UI_CARD_DISABLED : Glyphs.UI_CARD_NORMAL;
+        pen.art(font, glyphs.get(0), 1);
+        pen.runs(font, glyphs.subList(2, glyphs.size()), width - 2);
+        pen.art(font, glyphs.get(1), 1);
+        return this;
+    }
+
+    /** Draws a variable-width 4 px progress bar with optional lighter preview and 1 px light bottom edge. */
+    public BodyLine varBar(final int width, final double progress, final double preview, final boolean done) {
+        if (width <= 0) {
+            return this;
+        }
+        final int x = pen.x();
+        final String font = Pen.artFont(down);
+        pen.runs(font, Glyphs.UI_VAR_BAR, width, Colours.BAR_TRACK);
+        pen.moveTo(x).runs(font, Glyphs.UI_VAR_BAR_EDGE, width, done ? Colours.BAR_EDGE_DONE : Colours.BAR_EDGE);
+        final double clamped = Math.min(Math.max(progress, 0), 1);
+        int filled = (int) Math.round(width * clamped);
+        if (clamped > 0 && filled == 0) {
+            filled = 1;
+        }
+        if (filled > 0) {
+            pen.moveTo(x).runs(font, Glyphs.UI_VAR_BAR, filled, done ? Colours.BAR_DONE : Colours.ACCENT);
+        }
+        if (!done && preview > 0) {
+            final double total = Math.min(1.0, clamped + preview);
+            final int end = (int) Math.round(width * total);
+            final int extra = Math.max(0, end - filled);
+            if (extra > 0) {
+                pen.moveTo(x + filled).runs(font, Glyphs.UI_VAR_BAR, extra, Colours.PREVIEW);
+            }
+        }
+        pen.moveTo(x + width);
+        return this;
+    }
+
+    /** Draws a milestone rail node at the current x, 13 by 13 px. */
+    BodyLine railNode(final MilestoneRail.Node node) {
+        final String glyph = switch (node.state()) {
+            case DONE -> Glyphs.UI_RAIL_NODE_DONE;
+            case CURRENT -> Glyphs.UI_RAIL_NODE_CURRENT;
+            case FUTURE -> node.faded() ? Glyphs.UI_RAIL_NODE_FAR : Glyphs.UI_RAIL_NODE_FUTURE;
+        };
+        pen.art(Pen.artFont(down), glyph, MilestoneRail.NODE);
+        return this;
+    }
+
+    /** Draws a milestone rail connector segment (solid or dotted) of {@code width} px. */
+    BodyLine railSegment(final MilestoneRail.Segment segment) {
+        final int width = segment.endX() - segment.startX();
+        if (width <= 0) {
+            return this;
+        }
+        final int x = pen.x();
+        final String font = Pen.artFont(down);
+        final TextColor barColour = railBarColour(segment.done(), segment.faded());
+        if (segment.dotted()) {
+            for (int offset = 1; offset + 2 <= width - 1; offset += 3) {
+                pen.moveTo(x + offset).art(font, Glyphs.UI_RAIL_DOT, 2, barColour);
+            }
+            pen.moveTo(x + width);
+            return this;
+        }
+        final TextColor edgeColour = railEdgeColour(segment.done(), segment.faded());
+        pen.runs(font, Glyphs.UI_RAIL_BAR, width, barColour);
+        pen.moveTo(x).runs(font, Glyphs.UI_RAIL_BAR_EDGE, width, edgeColour);
+        pen.moveTo(x + width);
+        return this;
+    }
+
+    private static TextColor railBarColour(final boolean done, final boolean faded) {
+        if (done) {
+            return faded ? TextColor.color(0x8899BF) : Colours.ACCENT;
+        }
+        return faded ? TextColor.color(0xAEAEAE) : Colours.FAINT;
+    }
+
+    private static TextColor railEdgeColour(final boolean done, final boolean faded) {
+        if (done) {
+            return faded ? TextColor.color(0x7F8CA7) : TextColor.color(0x1F3B7D);
+        }
+        return faded ? TextColor.color(0xD3D3D3) : TextColor.color(0xE4E4E4);
+    }
+
     /** Draws a list row {@code width} wide: a symbol, {@code name} cut to its room, {@code value} at the right. */
     public BodyLine row(
             final int width,
@@ -271,6 +371,9 @@ public final class BodyLine {
             final String name,
             final @Nullable String value,
             final Look look) {
+        if (look == Look.DISABLED) {
+            disabled = true;
+        }
         final int x = pen.x();
         pen.plate(down, look, width);
         final int right = x + width - 1 - PAD;
@@ -300,6 +403,9 @@ public final class BodyLine {
 
     /** Draws a 17 x 17 plate with {@code symbol} centred on it in {@code colour}. */
     public BodyLine symbolPlate(final Symbol symbol, final TextColor colour, final Look look) {
+        if (look == Look.DISABLED) {
+            disabled = true;
+        }
         final int x = pen.x();
         pen.plate(down, look, PLATE)
                 .moveTo(x + LABEL)
@@ -357,6 +463,9 @@ public final class BodyLine {
             final double progress,
             final boolean done,
             final Look look) {
+        if (look == Look.DISABLED) {
+            disabled = true;
+        }
         final int x = pen.x();
         pen.plate(down, look, width);
         pen.moveTo(x + PAD).symbol(down + LABEL, symbol, !done && look == Look.NORMAL ? Colours.ACCENT : look.ink());

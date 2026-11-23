@@ -1371,8 +1371,8 @@
       "font": "nordtal:ui_text_{shift}",
       "shifts": [
         -11, -10, -9, -8, -7, -6, -5, -4, -2, 0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 16, 22, 25, 26, 28, 29, 30, 31,
-        33, 34, 37, 39, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 62, 65, 66, 68, 69, 70, 71,
-        73, 79, 82, 85, 88, 89, 91, 93, 97, 100, 106, 125, 129, 134, 137
+        33, 34, 35, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 62, 65, 66, 67, 68,
+        69, 70, 71, 73, 79, 82, 85, 88, 89, 91, 93, 97, 99, 100, 106, 124, 125, 129, 134, 137
       ],
       "constant": "FONT_UI_TEXT",
       "letters": true,
@@ -1591,6 +1591,16 @@
               "code": "FE328",
               "title": "Down",
               "constant": "UI_SYMBOL_DOWN"
+            },
+            {
+              "code": "FE329",
+              "title": "Return",
+              "constant": "UI_SYMBOL_RETURN"
+            },
+            {
+              "code": "FE32A",
+              "title": "People",
+              "constant": "UI_SYMBOL_PEOPLE"
             }
           ]
         },
@@ -1654,9 +1664,9 @@
     {
       "font": "nordtal:ui_art_{shift}",
       "shifts": [
-        -7, -3, -2, 0, 1, 3, 4, 5, 6, 7, 8, 11, 17, 20, 21, 23, 24, 25, 26, 28, 29, 37, 40, 41, 43, 44, 46, 47, 48, 49,
-        50, 51, 55, 57, 59, 60, 61, 63, 64, 65, 66, 67, 68, 71, 75, 77, 79, 80, 83, 84, 86, 87, 88, 91, 95, 99, 101,
-        103, 107, 111, 115, 119, 120, 124
+        -7, -3, -2, 0, 1, 3, 4, 5, 6, 7, 8, 11, 17, 20, 21, 23, 24, 25, 26, 28, 29, 34, 36, 37, 40, 41, 43, 44, 46, 47,
+        48, 49, 50, 51, 55, 57, 59, 60, 61, 63, 64, 65, 66, 67, 68, 71, 75, 77, 79, 80, 83, 84, 86, 87, 88, 91, 92, 95,
+        99, 101, 103, 106, 107, 111, 115, 119, 120, 124
       ],
       "constant": "FONT_UI_ART",
       "references": ["nordtal:ui_space"],
@@ -1962,6 +1972,14 @@
               "texture": "nordtal:ui/kit/scroll_strip_16.png",
               "height": 16,
               "ascent": 7
+            },
+            {
+              "code": "FE37D",
+              "title": "Deposit slot",
+              "constant": "UI_DEPOSIT_SLOT",
+              "texture": "nordtal:ui/kit/deposit_slot.png",
+              "height": 18,
+              "ascent": 7
             }
           ]
         },
@@ -2149,6 +2167,113 @@
               "list": "UI_RIDE_FILL"
             }
           ]
+        },
+        {
+          "range": "FE840-FE84F",
+          "title": "Card plate",
+          "about": "A 54 high card plate: its left column, its right column and body runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/card_normal.png",
+          "height": 54,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE840", "title": "Left column", "list": "UI_CARD_NORMAL" },
+            { "code": "FE841", "title": "Right column", "list": "UI_CARD_NORMAL" },
+            { "code": "FE842", "title": "Body 1 px", "list": "UI_CARD_NORMAL" },
+            { "code": "FE843", "title": "Body 2 px", "list": "UI_CARD_NORMAL" },
+            { "code": "FE844", "title": "Body 4 px", "list": "UI_CARD_NORMAL" },
+            { "code": "FE845", "title": "Body 8 px", "list": "UI_CARD_NORMAL" },
+            { "code": "FE846", "title": "Body 16 px", "list": "UI_CARD_NORMAL" },
+            { "code": "FE847", "title": "Body 32 px", "list": "UI_CARD_NORMAL" },
+            { "code": "FE848", "title": "Body 64 px", "list": "UI_CARD_NORMAL" },
+            { "code": "FE849", "title": "Body 128 px", "list": "UI_CARD_NORMAL" },
+            { "code": "FE84A", "title": "Body 256 px", "list": "UI_CARD_NORMAL" }
+          ]
+        },
+        {
+          "range": "FE850-FE85F",
+          "title": "Disabled card plate",
+          "about": "A 54 high greyed card plate for completed objectives.",
+          "texture": "nordtal:ui/kit/card_disabled.png",
+          "height": 54,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE850", "title": "Left column", "list": "UI_CARD_DISABLED" },
+            { "code": "FE851", "title": "Right column", "list": "UI_CARD_DISABLED" },
+            { "code": "FE852", "title": "Body 1 px", "list": "UI_CARD_DISABLED" },
+            { "code": "FE853", "title": "Body 2 px", "list": "UI_CARD_DISABLED" },
+            { "code": "FE854", "title": "Body 4 px", "list": "UI_CARD_DISABLED" },
+            { "code": "FE855", "title": "Body 8 px", "list": "UI_CARD_DISABLED" },
+            { "code": "FE856", "title": "Body 16 px", "list": "UI_CARD_DISABLED" },
+            { "code": "FE857", "title": "Body 32 px", "list": "UI_CARD_DISABLED" },
+            { "code": "FE858", "title": "Body 64 px", "list": "UI_CARD_DISABLED" },
+            { "code": "FE859", "title": "Body 128 px", "list": "UI_CARD_DISABLED" },
+            { "code": "FE85A", "title": "Body 256 px", "list": "UI_CARD_DISABLED" }
+          ]
+        },
+        {
+          "range": "FE860-FE86F",
+          "title": "Variable progress bar",
+          "about": "White-tinted runs of 1 to 128 columns for a 4 px bar fill and its 1 px light bottom edge.",
+          "texture": "nordtal:ui/kit/bar_var.png",
+          "height": 5,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE860", "title": "Bar 1 px", "list": "UI_VAR_BAR" },
+            { "code": "FE861", "title": "Bar 2 px", "list": "UI_VAR_BAR" },
+            { "code": "FE862", "title": "Bar 4 px", "list": "UI_VAR_BAR" },
+            { "code": "FE863", "title": "Bar 8 px", "list": "UI_VAR_BAR" },
+            { "code": "FE864", "title": "Bar 16 px", "list": "UI_VAR_BAR" },
+            { "code": "FE865", "title": "Bar 32 px", "list": "UI_VAR_BAR" },
+            { "code": "FE866", "title": "Bar 64 px", "list": "UI_VAR_BAR" },
+            { "code": "FE867", "title": "Bar 128 px", "list": "UI_VAR_BAR" },
+            { "code": "FE868", "title": "Edge 1 px", "list": "UI_VAR_BAR_EDGE" },
+            { "code": "FE869", "title": "Edge 2 px", "list": "UI_VAR_BAR_EDGE" },
+            { "code": "FE86A", "title": "Edge 4 px", "list": "UI_VAR_BAR_EDGE" },
+            { "code": "FE86B", "title": "Edge 8 px", "list": "UI_VAR_BAR_EDGE" },
+            { "code": "FE86C", "title": "Edge 16 px", "list": "UI_VAR_BAR_EDGE" },
+            { "code": "FE86D", "title": "Edge 32 px", "list": "UI_VAR_BAR_EDGE" },
+            { "code": "FE86E", "title": "Edge 64 px", "list": "UI_VAR_BAR_EDGE" },
+            { "code": "FE86F", "title": "Edge 128 px", "list": "UI_VAR_BAR_EDGE" }
+          ]
+        },
+        {
+          "range": "FE870-FE87F",
+          "title": "Milestone rail nodes",
+          "about": "The 13 x 13 milestone rail nodes and dotted gap dot.",
+          "texture": "nordtal:ui/kit/rail_nodes.png",
+          "height": 13,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE870", "title": "Done node", "constant": "UI_RAIL_NODE_DONE" },
+            { "code": "FE871", "title": "Current node", "constant": "UI_RAIL_NODE_CURRENT" },
+            { "code": "FE872", "title": "Future node", "constant": "UI_RAIL_NODE_FUTURE" },
+            { "code": "FE873", "title": "Far node", "constant": "UI_RAIL_NODE_FAR" },
+            { "code": "FE874", "title": "Gap dot", "constant": "UI_RAIL_DOT" }
+          ]
+        },
+        {
+          "range": "FE880-FE88F",
+          "title": "Milestone rail connector",
+          "about": "White-tinted runs of 1 to 64 columns for the 3 px rail connector and its 1 px edge.",
+          "texture": "nordtal:ui/kit/rail_bar.png",
+          "height": 13,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE880", "title": "Rail bar 1 px", "list": "UI_RAIL_BAR" },
+            { "code": "FE881", "title": "Rail bar 2 px", "list": "UI_RAIL_BAR" },
+            { "code": "FE882", "title": "Rail bar 4 px", "list": "UI_RAIL_BAR" },
+            { "code": "FE883", "title": "Rail bar 8 px", "list": "UI_RAIL_BAR" },
+            { "code": "FE884", "title": "Rail bar 16 px", "list": "UI_RAIL_BAR" },
+            { "code": "FE885", "title": "Rail bar 32 px", "list": "UI_RAIL_BAR" },
+            { "code": "FE886", "title": "Rail bar 64 px", "list": "UI_RAIL_BAR" },
+            { "code": "FE887", "title": "Rail edge 1 px", "list": "UI_RAIL_BAR_EDGE" },
+            { "code": "FE888", "title": "Rail edge 2 px", "list": "UI_RAIL_BAR_EDGE" },
+            { "code": "FE889", "title": "Rail edge 4 px", "list": "UI_RAIL_BAR_EDGE" },
+            { "code": "FE88A", "title": "Rail edge 8 px", "list": "UI_RAIL_BAR_EDGE" },
+            { "code": "FE88B", "title": "Rail edge 16 px", "list": "UI_RAIL_BAR_EDGE" },
+            { "code": "FE88C", "title": "Rail edge 32 px", "list": "UI_RAIL_BAR_EDGE" },
+            { "code": "FE88D", "title": "Rail edge 64 px", "list": "UI_RAIL_BAR_EDGE" }
+          ]
         }
       ],
       "lists": [
@@ -2178,6 +2303,24 @@
         },
         {
           "constant": "UI_RIDE_FILL"
+        },
+        {
+          "constant": "UI_CARD_NORMAL"
+        },
+        {
+          "constant": "UI_CARD_DISABLED"
+        },
+        {
+          "constant": "UI_VAR_BAR"
+        },
+        {
+          "constant": "UI_VAR_BAR_EDGE"
+        },
+        {
+          "constant": "UI_RAIL_BAR"
+        },
+        {
+          "constant": "UI_RAIL_BAR_EDGE"
         }
       ]
     },

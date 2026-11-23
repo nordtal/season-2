@@ -12,6 +12,7 @@ import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.Mark;
 import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.papercommon.chat.Previews;
+import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
 import java.util.ArrayList;
@@ -23,7 +24,6 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.Inventory;
@@ -110,18 +110,15 @@ public final class InventoryEditor extends Menu {
 
     /** Hands the draft preview both container editors over the reader's own containers, read-only. */
     public static void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
-        example.accept(
-                INVENTORY,
-                (reader, drafted) -> example(
-                        reader,
-                        Container.INVENTORY,
-                        PlainTextComponentSerializer.plainText().serialize(drafted.title())));
-        example.accept(
-                ENDER_CHEST,
-                (reader, drafted) -> example(
-                        reader,
-                        Container.ENDER_CHEST,
-                        PlainTextComponentSerializer.plainText().serialize(drafted.title())));
+        registerExample(example, INVENTORY, Container.INVENTORY);
+        registerExample(example, ENDER_CHEST, Container.ENDER_CHEST);
+    }
+
+    private static void registerExample(
+            final BiConsumer<DocumentSpec<?>, Previews.Example> example,
+            final DocumentSpec<DocumentSpec.None> spec,
+            final Container container) {
+        example.accept(spec, (reader, drafted) -> example(reader, container, Dialogs.plain(drafted.title())));
     }
 
     /**

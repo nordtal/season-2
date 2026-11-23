@@ -20,6 +20,7 @@ import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -209,6 +210,11 @@ public final class DuelListener implements Listener {
         if (duels.refusesAdvancements(event.getPlayer())) {
             event.setCancelled(true);
         }
+    }
+
+    @EventHandler
+    public void onJoin(final PlayerJoinEvent event) {
+        duels.joined(event.getPlayer());
     }
 
     @EventHandler

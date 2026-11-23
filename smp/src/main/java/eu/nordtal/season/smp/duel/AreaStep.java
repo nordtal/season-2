@@ -1,5 +1,7 @@
 package eu.nordtal.season.smp.duel;
 
+import org.bukkit.GameMode;
+
 /** What a move onto or off the negotiation area does to the player who made it. */
 enum AreaStep {
     /** Nothing changes for the player. */
@@ -14,6 +16,7 @@ enum AreaStep {
     JOIN;
 
     /**
+     * @param mode       the player's current game mode
      * @param wasOn      the player stood on the area before the move
      * @param on         the player stands on the area after the move
      * @param negotiates the player is one of the two on the area
@@ -23,6 +26,7 @@ enum AreaStep {
      * @param waiting    a first player waits on the area
      */
     static AreaStep of(
+            final GameMode mode,
             final boolean wasOn,
             final boolean on,
             final boolean negotiates,
@@ -30,6 +34,9 @@ enum AreaStep {
             final boolean fights,
             final boolean held,
             final boolean waiting) {
+        if (mode == GameMode.SPECTATOR) {
+            return NONE;
+        }
         if (!on) {
             return negotiates && !held ? LEAVE : NONE;
         }

@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -151,15 +152,24 @@ final class Negotiation {
         return player.equals(first) ? second : player.equals(second) ? first : null;
     }
 
+    /** Spectators passing over the area are treated as absent by move handling. */
+    static boolean ignores(final GameMode mode) {
+        return mode == GameMode.SPECTATOR;
+    }
+
     /** Handles a move that changes the block a player stands in. */
     void moved(final PlayerMoveEvent event) {
         final Player player = event.getPlayer();
+        if (ignores(player.getGameMode())) {
+            return;
+        }
         final UUID id = player.getUniqueId();
         final boolean on = isOn(event.getTo());
         if (!on) {
             left.remove(id);
         }
         switch (AreaStep.of(
+                player.getGameMode(),
                 isOn(event.getFrom()),
                 on,
                 negotiates(id),

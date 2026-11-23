@@ -1,6 +1,7 @@
 package eu.nordtal.season.packbuilder.wheel;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
@@ -224,10 +225,10 @@ public final class WheelTurn {
     }
 
     /** Variant e's own part: times and angles from the end of the shared start onto the pin. */
-    private record Motion(double[] times, double[] angles) {
+    private record Motion(List<Double> times, List<Double> angles) {
 
         double end() {
-            return times[times.length - 1];
+            return times.getLast();
         }
     }
 
@@ -273,7 +274,8 @@ public final class WheelTurn {
         for (int k = 0; k < ts.length; k++) {
             times[k] = start + warped[k];
         }
-        return new Motion(times, a);
+        return new Motion(
+                Arrays.stream(times).boxed().toList(), Arrays.stream(a).boxed().toList());
     }
 
     /** The times and distances of a wheel at {@code speed} that slows, ramping to {@code scale} times the shared. */
@@ -323,24 +325,24 @@ public final class WheelTurn {
         return ((a % m) + m) % m;
     }
 
-    private static double interpolate(final double[] xs, final double[] ys, final double x) {
-        if (x <= xs[0]) {
-            return ys[0];
+    private static double interpolate(final List<Double> xs, final List<Double> ys, final double x) {
+        if (x <= xs.getFirst()) {
+            return ys.getFirst();
         }
-        if (x >= xs[xs.length - 1]) {
-            return ys[ys.length - 1];
+        if (x >= xs.getLast()) {
+            return ys.getLast();
         }
         int lo = 0;
-        int hi = xs.length - 1;
+        int hi = xs.size() - 1;
         while (hi - lo > 1) {
             final int mid = (lo + hi) >>> 1;
-            if (xs[mid] <= x) {
+            if (xs.get(mid) <= x) {
                 lo = mid;
             } else {
                 hi = mid;
             }
         }
-        final double t = (x - xs[lo]) / (xs[hi] - xs[lo]);
-        return ys[lo] + t * (ys[hi] - ys[lo]);
+        final double t = (x - xs.get(lo)) / (xs.get(hi) - xs.get(lo));
+        return ys.get(lo) + t * (ys.get(hi) - ys.get(lo));
     }
 }

@@ -1,5 +1,7 @@
 package eu.nordtal.season.packbuilder.wheel;
 
+import java.util.List;
+
 /**
  * Where the wheel's parts sit, in GUI pixels of a 480 x 270 screen, each from its body's origin.
  * The column holds {@link #BODIES} item bodies 10 apart, and the client's empty button column 10 below them,
@@ -26,7 +28,7 @@ public final class WheelLayout {
      * The rows' heights; the text of a row of 26 has two lines, of 17 one, centred in its row.
      * Each row is taller than its text by an even number, so the centring needs no rounding.
      */
-    public static final int[] HEIGHTS = {1, 26, 17, 21, 17, 26};
+    public static final List<Integer> HEIGHTS = List.of(1, 26, 17, 21, 17, 26);
 
     /** The width of every row with a description, from its item's left to its text's right. */
     public static final int ROW_WIDTH = 254;

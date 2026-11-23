@@ -387,8 +387,10 @@ every minute from four locations and posts to a webhook in the admin channel:
 | game port        | TCP `<NETWORK_PUBLIC_ADDRESS>`                | the host, Docker or Caddy is down                           |
 | game, end to end | `https://<STEWARD_HOST>/api/health/game`, 200 | no proxy answers a status ping through Caddy's game port    |
 
-Steward answers the third check itself, from a status ping every 15 seconds, so that check also
-fails while Steward is down.
+Caddy answers the third check itself with its `game_health` module, so the check stays up while
+Steward restarts. It sends a Minecraft status ping to `127.0.0.1:25565` through Caddy's layer4 game
+port guard with a 7-second timeout and caches each answer for 2 seconds. It returns `200` with
+`{"game":true}` when a proxy answers and `503` with `{"game":false}` otherwise.
 When all three fail, the host is down. Reach it through the console of the provider, or set the stack
 up again on a new host from the backups.
 

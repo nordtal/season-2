@@ -160,6 +160,17 @@ class TopologyTest {
     }
 
     @Test
+    void caddyAnswersTheGameHealthRouteWithoutSteward() {
+        final String caddyfile = compose.configContent("caddyfile");
+        final int route = caddyfile.indexOf("handle /api/health/game {");
+        final int handler = caddyfile.indexOf("game_health", route);
+        final int reverseProxy = caddyfile.indexOf("reverse_proxy steward:8080");
+        assertTrue(
+                route > 0 && handler > route && handler < reverseProxy,
+                "Caddy must handle /api/health/game with game_health before reverse_proxy steward:8080: " + caddyfile);
+    }
+
+    @Test
     void theProxyRunsVoiceChatsProxyHalfAndItIsNotOneTheProxyRefusesToStartWithout() {
         // voicechat-velocity is a pre-release; guarding on it lets its next bad build stop the proxy from starting.
         final Topology.Service proxy = server(Topology.PROXY);

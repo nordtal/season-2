@@ -145,8 +145,6 @@ class GateTest extends WebFixture {
     void theOnlyReadsOutsideTheKeyAreTheDoorItself() {
         final Set<String> allowed = Set.of(
                 "GET /api/health",
-                // The uptime check outside the host reads whether a proxy answers.
-                "GET /api/health/game",
                 "GET /api/me",
                 // The sign-in page reads the page's words, which its script ships anyway.
                 "GET /api/texts",

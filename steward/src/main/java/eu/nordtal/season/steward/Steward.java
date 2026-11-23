@@ -221,7 +221,6 @@ public final class Steward {
                 stack,
                 agent,
                 !config.agent().token().isBlank(),
-                new GamePing(GamePing.CADDY, GamePing.CADDY_FAILOVER)::answers,
                 data,
                 configs.languages(),
                 CLOCK,

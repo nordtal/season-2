@@ -92,8 +92,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -120,15 +118,6 @@ public final class Web {
     private final Data data;
 
     private final StackApi stack;
-
-    /** Sends a status ping to the game port and says whether a proxy answered. */
-    private final BooleanSupplier game;
-
-    /** The answer of the last ping, so a call of the open route never waits for one or sends one. */
-    private final AtomicBoolean gameAnswered = new AtomicBoolean(true);
-
-    /** Whether a ping is under way, so a slow one is not queued behind by the next tick. */
-    private final AtomicBoolean gamePinging = new AtomicBoolean();
 
     private final Sessions sessions;
 
@@ -218,9 +207,6 @@ public final class Web {
     /** How often {@link AlertMonitor#poll} reads the stack. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
 
-    /** How often a status ping goes to the game port; the uptime check outside reads once a minute. */
-    private static final Duration GAME_PING = Duration.ofSeconds(15);
-
     /** How long the names of the milestones stay before they are read again, so a renamed one shows soon. */
     private static final Duration TRACK_NAMES_FRESH = Duration.ofMinutes(1);
 
@@ -256,7 +242,6 @@ public final class Web {
             final StackApi stack,
             final AgentClient agent,
             final boolean agentOffered,
-            final BooleanSupplier game,
             final Data data,
             final Languages languages,
             final Clock clock,
@@ -266,7 +251,6 @@ public final class Web {
         this.alertLane = scheduler.serial();
         this.database = databaseMessages(languages);
         this.stack = stack;
-        this.game = game;
         this.data = data;
         this.sessions = new Sessions(data.dataSource(), Duration.ofDays(config.sessionDays()));
         final Credentials localCredentials = new Credentials(data.dataSource());
@@ -457,8 +441,6 @@ public final class Web {
 
         timed.add(scheduler.every(Duration.ZERO, AuthFlow.SWEEP, authFlow::sweepSessions));
         timed.add(scheduler.every(Duration.ZERO, ALERT_POLL, () -> alertLane.execute(alertMonitor::poll)));
-        final Executor gameLane = scheduler.serial();
-        timed.add(scheduler.every(Duration.ZERO, GAME_PING, () -> pingGame(gameLane)));
         live.start();
         authFlow.whatIsMissing()
                 .ifPresent(missing -> log.warn("sign-in unavailable, setting empty: key=\"{}\"", missing));
@@ -498,8 +480,6 @@ public final class Web {
         cfg.routes.get("/api/health", this::health, Gate.ANYONE);
         // `guard` reads `ctx.routeRoles()` per HTTP method, so HEAD needs its own registration.
         cfg.routes.head("/api/health", this::health, Gate.ANYONE);
-        cfg.routes.get("/api/health/game", this::gameHealth, Gate.ANYONE);
-        cfg.routes.head("/api/health/game", this::gameHealth, Gate.ANYONE);
         // Open before sign-in, because the sign-in page reads its words from it.
         cfg.routes.get("/api/texts", texts::serve, Gate.ANYONE);
 
@@ -562,29 +542,6 @@ public final class Web {
 
     /** The body of {@code GET /api/health}, which anyone may call. It holds these two booleans only. */
     public record Health(boolean database, boolean agent) {}
-
-    /** Sends one status ping on the lane, unless one is under way; until its first answer the game counts as up. */
-    private void pingGame(final Executor lane) {
-        if (!gamePinging.compareAndSet(false, true)) {
-            return;
-        }
-        lane.execute(() -> {
-            try {
-                gameAnswered.set(game.getAsBoolean());
-            } finally {
-                gamePinging.set(false);
-            }
-        });
-    }
-
-    /** Answers 200 when a proxy answered the last status ping and 503 otherwise. Anyone may call it. */
-    private void gameHealth(final Context ctx) {
-        final GameHealth health = new GameHealth(gameAnswered.get());
-        ctx.status(health.game() ? 200 : 503).json(health);
-    }
-
-    /** The body of {@code GET /api/health/game}, which anyone may call. It holds this one boolean only. */
-    public record GameHealth(boolean game) {}
 
     /** Returns who is asking: the actor a row records, and whether the session still holds. */
     private Caller caller() {

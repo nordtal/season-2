@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -244,22 +246,61 @@ public final class Duels implements Arenas {
         }
     }
 
+    /** What {@link #joined} does when a player logs in. */
+    enum JoinRecovery {
+        /** Nothing to restore: the player fights, already awaits respawn, or has no persisted state. */
+        SKIP,
+        /** The fighter logged in dead: park the saved state until respawn and trigger respawn. */
+        PARK_PENDING,
+        /** The fighter logged in alive: restore once at {@code duels.exit} and delete the persisted file. */
+        RESTORE_NOW;
+
+        static JoinRecovery of(
+                final boolean inArena, final boolean pending, final boolean dead, final boolean hasStored) {
+            if (inArena || pending || !hasStored) {
+                return SKIP;
+            }
+            return dead ? PARK_PENDING : RESTORE_NOW;
+        }
+    }
+
     /** Restores a fighter whose duel was cut short by a crash, once, at {@code duels.exit}. */
     public void joined(final Player player) {
-        final UUID id = player.getUniqueId();
-        if (isInArena(player) || pending.containsKey(id)) {
-            return;
-        }
-        if (player.isDead()) {
-            final FighterStateStore.@Nullable StoredState stored = fighterStates.load(id);
-            if (stored != null) {
-                pending.put(id, SavedState.fromStored(stored, plugin.getLogger()));
-                player.spigot().respawn();
+        recoverOnJoin(
+                player.getUniqueId(),
+                isInArena(player),
+                player.isDead(),
+                fighterStates,
+                pending,
+                stored -> SavedState.fromStored(stored, plugin.getLogger()),
+                state -> state.restore(player, exit()),
+                () -> player.spigot().respawn());
+    }
+
+    static <T> JoinRecovery recoverOnJoin(
+            final UUID playerId,
+            final boolean inArena,
+            final boolean dead,
+            final FighterStateStore store,
+            final Map<UUID, T> pending,
+            final Function<FighterStateStore.StoredState, T> decode,
+            final Consumer<T> restoreAtExit,
+            final Runnable triggerRespawn) {
+        final boolean alreadyPending = pending.containsKey(playerId);
+        final FighterStateStore.@Nullable StoredState stored = inArena || alreadyPending ? null : store.load(playerId);
+        final JoinRecovery action = JoinRecovery.of(inArena, alreadyPending, dead, stored != null);
+        switch (action) {
+            case SKIP -> {}
+            case PARK_PENDING -> {
+                pending.put(playerId, decode.apply(Objects.requireNonNull(stored)));
+                triggerRespawn.run();
             }
-            return;
+            case RESTORE_NOW -> {
+                restoreAtExit.accept(decode.apply(Objects.requireNonNull(stored)));
+                store.delete(playerId);
+            }
         }
-        fighterStates.restoreOnce(
-                id, stored -> SavedState.fromStored(stored, plugin.getLogger()).restore(player, exit()));
+        return action;
     }
 
     /** The inventory is restored one tick later, after the respawn has written its own. */

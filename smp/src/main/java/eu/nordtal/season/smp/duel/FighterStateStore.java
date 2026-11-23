@@ -10,7 +10,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bukkit.plugin.Plugin;
@@ -58,10 +57,6 @@ final class FighterStateStore {
         }
     }
 
-    boolean has(final UUID playerId) {
-        return Files.isRegularFile(fileOf(playerId));
-    }
-
     /** Reads the fighter's persisted state, or null when none exists or the file is unreadable. */
     @Nullable
     StoredState load(final UUID playerId) {
@@ -81,21 +76,6 @@ final class FighterStateStore {
             logger.log(Level.WARNING, "duel saved state unreadable: file=" + file, e);
             return null;
         }
-    }
-
-    /**
-     * Restores a persisted state at most once, deleting the file only after {@code apply} completes.
-     *
-     * @return whether a saved state existed and was restored
-     */
-    boolean restoreOnce(final UUID playerId, final Consumer<StoredState> apply) {
-        final @Nullable StoredState stored = load(playerId);
-        if (stored == null) {
-            return false;
-        }
-        apply.accept(stored);
-        delete(playerId);
-        return true;
     }
 
     /** Removes the persisted file once the fighter's state has been restored. */

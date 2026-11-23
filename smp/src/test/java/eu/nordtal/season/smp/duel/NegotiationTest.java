@@ -3,7 +3,6 @@ package eu.nordtal.season.smp.duel;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.bukkit.GameMode;
 import org.junit.jupiter.api.Test;
 
 class NegotiationTest {
@@ -22,13 +21,5 @@ class NegotiationTest {
     @Test
     void aTimeoutEndsEvenWhenTheCountdownWasRunning() {
         assertTrue(Negotiation.timeoutExpired(true));
-    }
-
-    @Test
-    void moveHandlingIgnoresOnlySpectators() {
-        assertTrue(Negotiation.ignores(GameMode.SPECTATOR));
-        assertFalse(Negotiation.ignores(GameMode.SURVIVAL));
-        assertFalse(Negotiation.ignores(GameMode.ADVENTURE));
-        assertFalse(Negotiation.ignores(GameMode.CREATIVE));
     }
 }

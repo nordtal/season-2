@@ -34,10 +34,8 @@ enum AreaStep {
             final boolean fights,
             final boolean held,
             final boolean waiting) {
-        if (mode == GameMode.SPECTATOR) {
-            return NONE;
-        }
-        if (!on) {
+        final boolean effectivelyInside = mode != GameMode.SPECTATOR && on;
+        if (!effectivelyInside) {
             return negotiates && !held ? LEAVE : NONE;
         }
         if (negotiates || left || fights) {

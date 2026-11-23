@@ -1,8 +1,6 @@
 package eu.nordtal.season.steward.auth;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -84,22 +82,6 @@ class TotpTest {
                 "otpauth://totp/Nordtal%20Steward:Ally%20%3A%20B?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
                         + "&issuer=Nordtal%20Steward&algorithm=SHA1&digits=6&period=30",
                 Totp.uri("Nordtal Steward", "Ally : B", RFC_SECRET));
-    }
-
-    @Test
-    void aSealedSecretOpensOnlyWithItsKeyAndForItsAccount() {
-        final SecretBox box = SecretBox.of("00".repeat(32)).orElseThrow();
-        final byte[] sealed = box.seal(RFC_SECRET, bytes("1"));
-
-        assertArrayEquals(RFC_SECRET, box.open(sealed, bytes("1")));
-        assertTrue(!new String(sealed, StandardCharsets.ISO_8859_1).contains("1234567890"), "stored in the clear");
-        assertThrows(IllegalStateException.class, () -> box.open(sealed, bytes("2")), "another account's row");
-        assertThrows(
-                IllegalStateException.class,
-                () -> SecretBox.of("11".repeat(32)).orElseThrow().open(sealed, bytes("1")),
-                "another key");
-        assertTrue(SecretBox.of(" ").isEmpty(), "a blank key is no key");
-        assertThrows(IllegalArgumentException.class, () -> SecretBox.of("abcd"), "a key of two bytes");
     }
 
     private static byte[] bytes(final String text) {

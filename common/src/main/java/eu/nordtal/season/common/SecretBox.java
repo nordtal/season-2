@@ -1,4 +1,4 @@
-package eu.nordtal.season.steward.auth;
+package eu.nordtal.season.common;
 
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;

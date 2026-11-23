@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward;
 
+import eu.nordtal.season.common.SecretBox;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.common.time.Scheduler;
@@ -43,7 +44,6 @@ import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.auth.Gatekeeper;
 import eu.nordtal.season.steward.auth.Profile;
 import eu.nordtal.season.steward.auth.SecondFactor;
-import eu.nordtal.season.steward.auth.SecretBox;
 import eu.nordtal.season.steward.auth.Sessions;
 import eu.nordtal.season.steward.auth.WebAuthn;
 import eu.nordtal.season.steward.config.WebSpec;

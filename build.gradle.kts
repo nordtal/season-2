@@ -122,7 +122,32 @@ val checkPipeSafety =
         "deploy/pipe-safety-test.sh",
     ) { dir(layout.projectDirectory.dir("deploy")).withPropertyName("deploy") }
 
-tasks.named("check") { dependsOn(checkEntrypoint, checkJvmSecrets, checkSetup, checkRestore, checkFirewall, checkPipeSafety) }
+// Runs the unit tests for the standalone pre-PR check.
+val checkPrePr =
+    tasks.register<Exec>("checkPrePr") {
+        group = "verification"
+        description = "Runs scripts/pre-pr-test.py against scripts/pre-pr."
+        commandLine(
+            "python3",
+            layout.projectDirectory
+                .file("scripts/pre-pr-test.py")
+                .asFile.absolutePath,
+        )
+        inputs.file(layout.projectDirectory.file("scripts/pre-pr")).withPropertyName("script")
+        inputs.file(layout.projectDirectory.file("scripts/pre-pr-test.py")).withPropertyName("test")
+        inputs.file(layout.projectDirectory.file(".githooks/commit-msg")).withPropertyName("hook")
+        val marker = layout.buildDirectory.file("checkPrePr/passed")
+        outputs.file(marker).withPropertyName("marker")
+        doLast {
+            marker
+                .get()
+                .asFile
+                .apply { parentFile.mkdirs() }
+                .writeText("passed\n")
+        }
+    }
+
+tasks.named("check") { dependsOn(checkEntrypoint, checkJvmSecrets, checkSetup, checkRestore, checkFirewall, checkPipeSafety, checkPrePr) }
 
 // The tests of the build's own tasks, which an included build does not run on its own.
 tasks.named("check") { dependsOn(gradle.includedBuild("build-logic").task(":test")) }

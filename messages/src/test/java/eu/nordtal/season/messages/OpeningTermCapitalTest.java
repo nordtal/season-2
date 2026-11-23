@@ -81,17 +81,29 @@ class OpeningTermCapitalTest {
         assertTrue(opensWithUncapitalisedTerm("<warn>{@terms.access} expired {since}.</warn>", true));
         assertTrue(opensWithUncapitalisedTerm(
                 "{action, select, launch-now {{@terms.season} launched} other {{action}}}", true));
+        assertTrue(
+                opensWithUncapitalisedTerm("{prefix, select, named {Hello } other {}}{@terms.season} launched", true));
         assertFalse(opensWithUncapitalisedTerm("{@terms.season, capital=first} launched", true));
         assertFalse(opensWithUncapitalisedTerm("<warn>{@terms.access, capital=first} expired {since}.</warn>", true));
         assertFalse(opensWithUncapitalisedTerm("Launched the {@terms.season} now.", true));
         assertFalse(opensWithUncapitalisedTerm("Switch {@terms.game-mode}", true));
+        assertFalse(opensWithUncapitalisedTerm(
+                "{prefix, select, named {Hello } other {Hi }}{@terms.season} launched", true));
+        assertFalse(opensWithUncapitalisedTerm(
+                "{prefix, select, named {Hello } other {}}{@terms.season, capital=first} launched", true));
+    }
+
+    private enum Opening {
+        UNCAPITALISED_TERM,
+        VISIBLE_OTHER,
+        EMPTY
     }
 
     private static boolean opensWithUncapitalisedTerm(final String source, final boolean markup) {
-        return opensWithUncapitalisedTerm(MessageText.parse(source, markup).nodes());
+        return opening(MessageText.parse(source, markup).nodes()) == Opening.UNCAPITALISED_TERM;
     }
 
-    private static boolean opensWithUncapitalisedTerm(final List<Node> nodes) {
+    private static Opening opening(final List<Node> nodes) {
         for (final Node node : nodes) {
             switch (node) {
                 case Node.Tag ignored -> {
@@ -99,26 +111,35 @@ class OpeningTermCapitalTest {
                 }
                 case Node.Literal literal -> {
                     if (!literal.text().isBlank()) {
-                        return false;
+                        return Opening.VISIBLE_OTHER;
                     }
                 }
                 case Node.Block block -> {
-                    return block.key().startsWith(Messages.TERMS + ".") && !block.capital();
+                    return block.key().startsWith(Messages.TERMS + ".") && !block.capital()
+                            ? Opening.UNCAPITALISED_TERM
+                            : Opening.VISIBLE_OTHER;
                 }
                 case Node.Choice choice -> {
+                    boolean anyEmpty = false;
                     for (final List<Node> branch : choice.cases().values()) {
-                        if (opensWithUncapitalisedTerm(branch)) {
-                            return true;
+                        final Opening branchOpening = opening(branch);
+                        if (branchOpening == Opening.UNCAPITALISED_TERM) {
+                            return Opening.UNCAPITALISED_TERM;
+                        }
+                        if (branchOpening == Opening.EMPTY) {
+                            anyEmpty = true;
                         }
                     }
-                    return false;
+                    if (!anyEmpty) {
+                        return Opening.VISIBLE_OTHER;
+                    }
                 }
                 default -> {
-                    return false;
+                    return Opening.VISIBLE_OTHER;
                 }
             }
         }
-        return false;
+        return Opening.EMPTY;
     }
 
     private static List<Path> documents() {

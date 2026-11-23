@@ -23,6 +23,7 @@ import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.settings.DatabaseWaiting;
 import eu.nordtal.season.settings.Setting;
 import eu.nordtal.season.settings.SettingsException;
+import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.stewardagent.backup.LocalSnapshots;
 import eu.nordtal.season.stewardagent.backup.OffsiteCopy;
 import eu.nordtal.season.stewardagent.config.AgentSettings;
@@ -32,6 +33,7 @@ import eu.nordtal.season.stewardagent.docker.Containers;
 import eu.nordtal.season.stewardagent.docker.Docker;
 import eu.nordtal.season.stewardagent.docker.DockerSocket;
 import eu.nordtal.season.stewardagent.gamedata.GameAssets;
+import eu.nordtal.season.stewardagent.pack.MapPacks;
 import eu.nordtal.season.stewardagent.pack.PackBuilds;
 import eu.nordtal.season.stewardagent.plugin.PluginDirectory;
 import eu.nordtal.season.stewardagent.run.Bootstrap;
@@ -46,6 +48,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -404,6 +407,8 @@ public final class StewardAgent {
                     packBuilds(server, database, SettingStore.using(database.dataSource()), scheduler, clock);
             final DocumentStore documents = DocumentStore.using(database.dataSource());
             pack.ifPresent(builds -> builds.start(documents));
+            mapPacks(server, SettingStore.using(database.dataSource()), scheduler, clock)
+                    .ifPresent(MapPacks::start);
             if (runs.get().bootstrap()) {
                 Bootstrap.installMissing(
                         runs.get(), database, api.topology()::read, clock, services -> handOver(compose, services));
@@ -475,6 +480,27 @@ public final class StewardAgent {
                     clock));
         } catch (final IOException failure) {
             log.warn("pack storage unavailable, build skipped: path={} cause={}", shelf, failure.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /** Returns the nightly map builds, or empty when the shelf cannot be used. */
+    private static Optional<MapPacks> mapPacks(
+            final InternalServer server, final SettingStore settings, final Scheduler scheduler, final Clock clock) {
+        final Path shelf = Path.of(server.setting("PACK_DIR", "/pack"));
+        try {
+            final ZoneId zone = NetworkSettings.zone(
+                    DatabaseSettings.current(settings, AgentSettings.SERVICE, NetworkSettings.LANGUAGE_AND_TIME));
+            return Optional.of(MapPacks.fromTiles(
+                    Path.of(server.setting("MAP_TILES", "/map-tiles")),
+                    settings,
+                    shelf,
+                    server.setting("PACK_BASE_URL", "https://pack.nordtal.eu"),
+                    scheduler,
+                    zone,
+                    clock));
+        } catch (final IOException | SettingsException failure) {
+            log.warn("map builds unavailable, map pack kept: path={} cause={}", shelf, failure.getMessage());
             return Optional.empty();
         }
     }

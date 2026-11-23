@@ -260,4 +260,17 @@ class LiveSwapTest {
             }
         };
     }
+
+    @Test
+    void theSwapSendsTheMapPackWhenANightlyBuildMadeOne() {
+        final String language = "6f1ed002ab5595859014ebf0951522d9d0f2ee34";
+        final String map = "0123456789abcdef0123456789abcdef01234567";
+
+        assertEquals(
+                new SmpRequest.SendPack(URL, language, "https://pack.nordtal.eu/" + map + ".zip", map),
+                LiveSwap.sendPack(URL, language, new PackState("https://pack.nordtal.eu/" + map + ".zip", map)));
+        assertEquals(
+                new SmpRequest.SendPack(URL, language, null, null),
+                LiveSwap.sendPack(URL, language, new PackState(null, null)));
+    }
 }

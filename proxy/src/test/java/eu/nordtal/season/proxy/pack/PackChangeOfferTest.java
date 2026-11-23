@@ -1,6 +1,7 @@
 package eu.nordtal.season.proxy.pack;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.velocitypowered.api.event.player.PlayerResourcePackStatusEvent;
@@ -44,6 +45,8 @@ class PackChangeOfferTest {
 
     private static final String OLD = "a".repeat(40);
     private static final String NEW = "b".repeat(40);
+    private static final String MAP = "d".repeat(40);
+    private static final String NEW_MAP = "e".repeat(40);
     private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-11-14T03:29:08Z"));
@@ -148,7 +151,7 @@ class PackChangeOfferTest {
     @Test
     void aPendingOfferThatTheChangeReplacedIsRemovedOnceTheClientAppliesIt() {
         final FakePlayer alex = online("Alex", "limbo", false);
-        assertTrue(book.claimOffer(alex.uuid, OLD));
+        assertTrue(book.claimOffer(alex.uuid, PackKind.LANGUAGE, OLD));
 
         spec.set(pack(NEW, true));
         assertEquals(1, station.packChanged());
@@ -163,7 +166,7 @@ class PackChangeOfferTest {
     void everyPendingOfferThatTwoChangesReplacedIsRemovedOnceApplied() {
         final String latest = "c".repeat(40);
         final FakePlayer alex = online("Alex", "limbo", false);
-        assertTrue(book.claimOffer(alex.uuid, OLD));
+        assertTrue(book.claimOffer(alex.uuid, PackKind.LANGUAGE, OLD));
         spec.set(pack(NEW, true));
         station.packChanged();
         spec.set(pack(latest, true));
@@ -187,7 +190,7 @@ class PackChangeOfferTest {
         station.onPackStatus(status(alex, NEW, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
 
         assertEquals(List.of(PackOffer.idOf(NEW)), alex.removed, "the pending pack goes, the active one stays");
-        assertEquals(Optional.of(OLD), book.offeredSha1(alex.uuid));
+        assertEquals(Optional.of(OLD), book.offeredSha1(alex.uuid, PackKind.LANGUAGE));
     }
 
     @Test
@@ -294,9 +297,91 @@ class PackChangeOfferTest {
         assertTrue(alex.offers.isEmpty());
     }
 
+    // the map pack beside the language pack
+
+    @Test
+    void aPlayerInTheWaitingRoomIsOfferedTheLanguagePackAndTheMapPack() {
+        spec.set(pack(OLD, true, MAP));
+        final FakePlayer alex = online("Alex", "limbo", false);
+
+        assertEquals(1, station.packChanged());
+
+        assertEquals(
+                List.of(PackOffer.idOf(OLD), PackOffer.idOf(MAP)),
+                alex.offers.stream().map(ResourcePackInfo::getId).toList());
+        assertEquals(
+                "https://pack.nordtal.eu/" + MAP + ".zip", alex.offers.getLast().getUrl());
+    }
+
+    @Test
+    void aNewMapPackIsOfferedAloneAndReplacesOnlyTheOldMapPack() {
+        spec.set(pack(OLD, true, MAP));
+        final FakePlayer alex = online("Alex", "limbo", false);
+        applied(alex, OLD);
+        assertTrue(book.claimOffer(alex.uuid, PackKind.MAP, MAP));
+        book.packApplied(alex.uuid, PackKind.MAP, MAP);
+
+        spec.set(pack(OLD, true, NEW_MAP));
+        assertEquals(1, station.packChanged());
+        station.onPackStatus(status(alex, NEW_MAP, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+
+        assertEquals(
+                List.of(PackOffer.idOf(NEW_MAP)),
+                alex.offers.stream().map(ResourcePackInfo::getId).toList());
+        assertEquals(List.of(PackOffer.idOf(MAP)), alex.removed, "the language pack stays");
+    }
+
+    @Test
+    void aPlayerWaitsInTheWaitingRoomUntilTheMapPackIsAppliedToo() {
+        spec.set(pack(OLD, true, MAP));
+        final FakePlayer alex = online("Alex", "limbo", false);
+        book.entered(alex.uuid);
+        book.ready(alex.uuid);
+        station.packChanged();
+
+        station.onPackStatus(status(alex, OLD, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+        assertEquals(
+                Optional.of(WaitReason.PACK),
+                LimboProtocol.decode(alex.limbo.getLast()).map(LimboProtocol.Message::reason));
+        assertTrue(book.isWaiting(alex.uuid));
+
+        station.onPackStatus(status(alex, MAP, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+        assertNotEquals(
+                Optional.of(WaitReason.PACK),
+                LimboProtocol.decode(alex.limbo.getLast()).map(LimboProtocol.Message::reason),
+                "both packs applied, only the missing backend holds the player");
+    }
+
+    @Test
+    void aPlayerWhoDeclinesTheMapPackIsDisconnected() {
+        spec.set(pack(OLD, true, MAP));
+        final FakePlayer alex = online("Alex", "limbo", false);
+        station.packChanged();
+
+        station.onPackStatus(status(alex, MAP, PlayerResourcePackStatusEvent.Status.DECLINED));
+
+        assertEquals(1, alex.disconnects);
+    }
+
+    @Test
+    void theMapPackALiveSwapSentOnTheSmpCountsAsAppliedAndTheOldOneGoes() {
+        spec.set(pack(OLD, true, MAP));
+        final FakePlayer miner = online("Alex", "smp", false);
+        applied(miner, OLD);
+        assertTrue(book.claimOffer(miner.uuid, PackKind.MAP, MAP));
+        book.packApplied(miner.uuid, PackKind.MAP, MAP);
+        spec.set(pack(OLD, true, NEW_MAP));
+
+        station.onPackStatus(status(miner, NEW_MAP, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+
+        assertEquals(List.of(PackOffer.idOf(MAP)), miner.removed);
+        miner.server = Optional.of(connection("limbo", miner.player(), miner.limbo));
+        assertEquals(0, station.packChanged(), "the swapped map pack is not offered again");
+    }
+
     private void applied(final FakePlayer player, final String sha1) {
-        assertTrue(book.claimOffer(player.uuid, sha1));
-        book.packApplied(player.uuid, sha1);
+        assertTrue(book.claimOffer(player.uuid, PackKind.LANGUAGE, sha1));
+        book.packApplied(player.uuid, PackKind.LANGUAGE, sha1);
     }
 
     private FakePlayer online(final String name, final String server, final boolean exempt) {
@@ -336,6 +421,10 @@ class PackChangeOfferTest {
     }
 
     private static PackSpec pack(final String sha1, final boolean enabled) {
+        return pack(sha1, enabled, "");
+    }
+
+    private static PackSpec pack(final String sha1, final boolean enabled, final String mapSha1) {
         return new PackSpec() {
             @Override
             public boolean enabled() {
@@ -350,6 +439,16 @@ class PackChangeOfferTest {
             @Override
             public String sha1() {
                 return sha1;
+            }
+
+            @Override
+            public String mapUrl() {
+                return mapSha1.isEmpty() ? "" : "https://pack.nordtal.eu/" + mapSha1 + ".zip";
+            }
+
+            @Override
+            public String mapSha1() {
+                return mapSha1;
             }
         };
     }

@@ -1,6 +1,7 @@
 package eu.nordtal.season.packbuilder.wheel;
 
 import eu.nordtal.season.packbuilder.json.Json;
+import eu.nordtal.season.packbuilder.png.Png;
 import eu.nordtal.season.packbuilder.vanilla.VanillaFacts;
 import eu.nordtal.season.packbuilder.wheel.WheelSpin.DiscAt;
 import eu.nordtal.season.packbuilder.wheel.WheelSpin.OverlayAt;
@@ -453,13 +454,13 @@ public final class WheelPack {
         }
         final BufferedImage ascii = vanilla.ascii();
         final String textures = "assets/nordtal/textures/item/wheel/";
-        out.put(textures + "clear.png", WheelArt.png(WheelArt.clear()));
+        out.put(textures + "clear.png", Png.png(WheelArt.clear()));
         for (int d = 0; d <= 9; d++) {
-            out.put(textures + "digit_" + d + ".png", WheelArt.png(WheelArt.digit(ascii, d)));
+            out.put(textures + "digit_" + d + ".png", Png.png(WheelArt.digit(ascii, d)));
         }
-        out.put(textures + "unknown.png", WheelArt.png(WheelArt.unknown(ascii)));
+        out.put(textures + "unknown.png", Png.png(WheelArt.unknown(ascii)));
         labels.forEach((lang, label) ->
-                out.put(textures + "plate_off_" + lang + ".png", WheelArt.png(WheelArt.offPlate(ascii, label))));
+                out.put(textures + "plate_off_" + lang + ".png", Png.png(WheelArt.offPlate(ascii, label))));
         return out;
     }
 

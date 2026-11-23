@@ -1,12 +1,8 @@
 package eu.nordtal.season.packbuilder.wheel;
 
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.imageio.ImageIO;
 
 /** The textures the pack draws for the wheel, from vanilla's letters and the kit's colours. */
 final class WheelArt {
@@ -96,15 +92,5 @@ final class WheelArt {
             pen += glyph.advance();
         }
         return image;
-    }
-
-    static byte[] png(final BufferedImage image) {
-        final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            ImageIO.write(image, "png", out);
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return out.toByteArray();
     }
 }

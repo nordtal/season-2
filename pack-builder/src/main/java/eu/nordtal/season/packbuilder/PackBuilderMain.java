@@ -1,6 +1,7 @@
 package eu.nordtal.season.packbuilder;
 
 import eu.nordtal.season.packbuilder.json.Json;
+import eu.nordtal.season.packbuilder.map.MapPack;
 import eu.nordtal.season.packbuilder.vanilla.VanillaFacts;
 import eu.nordtal.season.packbuilder.wheel.WheelPack;
 import eu.nordtal.season.packbuilder.zip.ReproducibleZip;
@@ -18,7 +19,7 @@ import java.util.stream.Stream;
 /**
  * The pack builder's command line, one subcommand a step.
  * {@code facts <client jar> <facts>}, {@code timetable <file>}, {@code wheel <facts> <prizes> <texts> <folder>},
- * {@code zip <facts> <prizes> <texts> <zip> <root>...} and {@code sha1 <file> <sha1 file>}.
+ * {@code zip <facts> <prizes> <texts> <zip> <root>...}, {@code map <tiles> <zip>} and {@code sha1 <file> <sha1 file>}.
  */
 public final class PackBuilderMain {
 
@@ -26,7 +27,7 @@ public final class PackBuilderMain {
 
     public static void main(final String[] args) throws IOException {
         if (args.length == 0) {
-            throw new IllegalArgumentException("no subcommand: facts, timetable, wheel, zip or sha1");
+            throw new IllegalArgumentException("no subcommand: facts, timetable, wheel, zip, map or sha1");
         }
         final List<Path> paths = Arrays.stream(args).skip(1).map(Path::of).toList();
         switch (args[0]) {
@@ -34,6 +35,7 @@ public final class PackBuilderMain {
             case "timetable" -> write(paths.get(0), PackBuilder.timetable().getBytes(StandardCharsets.UTF_8));
             case "wheel" -> wheel(paths);
             case "zip" -> zip(paths);
+            case "map" -> write(paths.get(1), MapPack.build(paths.get(0)));
             case "sha1" ->
                 write(
                         paths.get(1),

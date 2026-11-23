@@ -8,7 +8,7 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** The {@code pack} group: the resource pack that the proxy offers to every player in the waiting room. */
+/** The {@code pack} group: the resource packs that the proxy offers to every player in the waiting room. */
 @ConfigSpec
 public interface PackSpec {
 
@@ -45,8 +45,24 @@ public interface PackSpec {
         return true;
     }
 
-    /** The seconds until the proxy disconnects a player who has not answered the offer. */
     @Order(5)
+    @Name("Map URL")
+    @Key("map-url")
+    @Explain("steward-agent sets it after each nightly map build. Empty, the proxy offers no map pack.")
+    default String mapUrl() {
+        return "";
+    }
+
+    @Order(6)
+    @Name("Map SHA-1")
+    @Key("map-sha1")
+    @Explain("steward-agent sets it with the map URL. The map pack is the same for every language.")
+    default String mapSha1() {
+        return "";
+    }
+
+    /** The seconds until the proxy disconnects a player who has not answered the offer. */
+    @Order(7)
     @Name("Apply timeout (seconds)")
     @Key("apply-timeout-seconds")
     @Positive

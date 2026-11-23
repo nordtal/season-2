@@ -727,7 +727,7 @@ public final class ProxyPlugin {
 
     private void logPack(final PackSpec pack, final String event) {
         if (pack.enabled()) {
-            logger.info("{}: url={} sha1={} force={}", event, pack.url(), pack.sha1(), pack.force());
+            logger.info("{}: sha1={} map_sha1={} force={}", event, pack.sha1(), pack.mapSha1(), pack.force());
         } else {
             logger.warn("resource pack disabled");
         }

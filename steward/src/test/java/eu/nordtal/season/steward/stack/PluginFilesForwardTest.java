@@ -98,7 +98,7 @@ class PluginFilesForwardTest {
                     api.register(cfg, StackServer.ALWAYS);
                     cfg.routes.afterMatched(journaling::write);
                 })
-                .start(0);
+                .start("127.0.0.1", 0);
     }
 
     @AfterEach

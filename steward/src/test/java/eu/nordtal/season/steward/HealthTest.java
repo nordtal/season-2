@@ -47,12 +47,11 @@ class HealthTest extends WebFixture {
     }
 
     private static JsonObject healthOf(final Web web) throws Exception {
-        try {
-            final int port = web.start(0).port();
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            final int port = web.start("127.0.0.1", 0).port();
             final HttpRequest request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/health"))
                     .build();
-            final HttpResponse<String> answer =
-                    HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            final HttpResponse<String> answer = client.send(request, HttpResponse.BodyHandlers.ofString());
             assertEquals(503, answer.statusCode(), answer.body());
             return GSON.fromJson(answer.body(), JsonObject.class);
         } finally {

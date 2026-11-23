@@ -96,7 +96,7 @@ class MessagesApiIntegrationTest {
                         ctx.status(204);
                     });
                 })
-                .start(0);
+                .start("127.0.0.1", 0);
         port = app.port();
         http = HttpClient.newHttpClient();
     }

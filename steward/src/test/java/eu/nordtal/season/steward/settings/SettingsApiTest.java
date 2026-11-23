@@ -142,7 +142,7 @@ class SettingsApiTest {
                     ErrorHandlers.install(cfg, WebTexts.load().messages(), Messages.load("messages/database"));
                     cfg.routes.post("/settings/{service}/{name}", ctx -> api.save(ctx, Actor.STEWARD));
                 })
-                .start(0);
+                .start("127.0.0.1", 0);
         final String body = "{\"revision\": \"" + revision + "\", \"changes\": " + changes + "}";
         return HttpClient.newHttpClient()
                 .send(

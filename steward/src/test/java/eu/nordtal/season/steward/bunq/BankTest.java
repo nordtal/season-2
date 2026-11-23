@@ -28,7 +28,7 @@ class BankTest {
     @BeforeAll
     static void startAStandIn() {
         bunq = new InternalServer(BankWire.SERVICE, Map.of("NORDTAL_STEWARD_BUNQ_TOKEN", TOKEN)::get)
-                .start(0, config -> {
+                .start("127.0.0.1", 0, config -> {
                     config.routes.post(BankWire.TABS, ctx -> ctx.status(502).json(new BankWire.Refused(400, REFUSAL)));
                     config.routes.post(BankWire.CANCEL, ctx -> ctx.status(502).result("already paid"));
                     config.routes.get(

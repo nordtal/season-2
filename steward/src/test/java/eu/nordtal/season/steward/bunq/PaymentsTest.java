@@ -81,7 +81,7 @@ class PaymentsTest {
     @BeforeAll
     static void start() {
         bunq = new InternalServer(BankWire.SERVICE, Map.of("NORDTAL_STEWARD_BUNQ_TOKEN", TOKEN)::get)
-                .start(0, config -> {
+                .start("127.0.0.1", 0, config -> {
                     config.routes.get(
                             BankWire.TAB_PAYMENTS,
                             ctx -> ctx.json(TAB_PAYMENTS.getOrDefault(Long.parseLong(ctx.pathParam("id")), List.of())));

@@ -82,7 +82,7 @@ abstract class WebFixture {
         config = buildConfig();
         startDatabase();
         web = newWeb();
-        app = web.start(0);
+        app = web.start("127.0.0.1", 0);
         webPort = app.port();
     }
 

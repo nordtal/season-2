@@ -108,7 +108,7 @@ class DocumentsApiIntegrationTest {
                             "/api/shared-parts/{name}", ctx -> documents.removeSharedPart(ctx, Actor.STEWARD));
                     config.routes.post("/api/shared-parts/{name}/changes", documents::sharedPartChanges);
                 })
-                .start(0);
+                .start("127.0.0.1", 0);
         port = app.port();
         http = HttpClient.newHttpClient();
     }

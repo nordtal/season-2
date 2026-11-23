@@ -413,31 +413,36 @@ public final class Web {
     }
 
     public Javalin start(final int port) {
-        app = Javalin.create(cfg -> {
-                    // Javalin's default refuses a body above a megabyte, and a document's image may be larger.
-                    cfg.http.maxRequestSize = DocumentsApi.IMAGE_BYTES;
-                    configureFrontend(cfg);
-                    registerOpenRoutes(cfg);
-                    AuthRoutes.register(cfg, authFlow, secondFactor, authenticatorApp, profile, adminApi);
-                    registerLiveRoute(cfg);
-                    alerts.register(cfg, push);
-                    // Registers before the update routes: /api/updates/available must precede /api/updates/{id}.
-                    stack.register(cfg, caller());
-                    deployments.register(cfg);
-                    metrics.register(cfg);
-                    updates.register(cfg);
-                    pack.register(cfg);
-                    GameRoutes.register(cfg, commands, games, inventories, announcements, gameData, consoleCommands);
-                    npcs.register(cfg);
-                    registerPreviewRoutes(cfg);
-                    guild.register(cfg);
-                    settings.register(cfg);
-                    AccessRoutes.register(cfg, roster, access, packExemptionApi);
-                    season.register(cfg);
-                    registerFallbackRoutes(cfg);
-                    ErrorHandlers.install(cfg, texts.messages(), database);
-                })
-                .start(port);
+        return start(null, port);
+    }
+
+    /** Starts the web interface on {@code host} (or every interface when {@code null}) and {@code port}. */
+    public Javalin start(final @Nullable String host, final int port) {
+        final Javalin created = Javalin.create(cfg -> {
+            // Javalin's default refuses a body above a megabyte, and a document's image may be larger.
+            cfg.http.maxRequestSize = DocumentsApi.IMAGE_BYTES;
+            configureFrontend(cfg);
+            registerOpenRoutes(cfg);
+            AuthRoutes.register(cfg, authFlow, secondFactor, authenticatorApp, profile, adminApi);
+            registerLiveRoute(cfg);
+            alerts.register(cfg, push);
+            // Registers before the update routes: /api/updates/available must precede /api/updates/{id}.
+            stack.register(cfg, caller());
+            deployments.register(cfg);
+            metrics.register(cfg);
+            updates.register(cfg);
+            pack.register(cfg);
+            GameRoutes.register(cfg, commands, games, inventories, announcements, gameData, consoleCommands);
+            npcs.register(cfg);
+            registerPreviewRoutes(cfg);
+            guild.register(cfg);
+            settings.register(cfg);
+            AccessRoutes.register(cfg, roster, access, packExemptionApi);
+            season.register(cfg);
+            registerFallbackRoutes(cfg);
+            ErrorHandlers.install(cfg, texts.messages(), database);
+        });
+        app = host == null ? created.start(port) : created.start(host, port);
 
         timed.add(scheduler.every(Duration.ZERO, AuthFlow.SWEEP, authFlow::sweepSessions));
         timed.add(scheduler.every(Duration.ZERO, ALERT_POLL, () -> alertLane.execute(alertMonitor::poll)));

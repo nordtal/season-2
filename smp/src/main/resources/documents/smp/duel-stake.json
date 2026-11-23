@@ -110,6 +110,18 @@
     },
     {
       "type": "LABEL",
+      "slot": "name",
+      "lines": [
+        {
+          "text": {
+            "en": "{player.name}",
+            "de": "{player.name}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
       "slot": "their-offer",
       "lines": [
         {

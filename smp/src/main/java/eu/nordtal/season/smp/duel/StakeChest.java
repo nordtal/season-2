@@ -46,12 +46,12 @@ final class StakeChest extends Menu {
     private boolean ready;
     private boolean locked;
 
-    StakeChest(final int side, final Seat seat, final Component title, final boolean readOnly) {
+    StakeChest(final int side, final Seat seat, final StakePanel.View view, final boolean readOnly) {
         this.side = side;
         this.seat = seat;
         this.readOnly = readOnly;
-        this.shown = title;
-        this.inventory = frame(StakePanel.ROWS, title);
+        this.shown = StakePanel.title(view);
+        this.inventory = frame(StakePanel.ROWS, shown);
     }
 
     int side() {

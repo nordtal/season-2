@@ -45,6 +45,8 @@ final class StakeTable implements StakeChest.Seat {
 
     record Seconds(@Example("3") long seconds) {}
 
+    record Fighter(PlayerContext player) {}
+
     static final DocumentSpec<DocumentSpec.None> DOCUMENT = DocumentSpec.menu(
                     "smp",
                     "duel-stake",
@@ -59,6 +61,7 @@ final class StakeTable implements StakeChest.Seat {
                     Slot.label("offer-own", Aura.class),
                     Slot.label("raise"),
                     Slot.label("lower"),
+                    Slot.label("name", Fighter.class),
                     Slot.label("their-offer", Offer.class),
                     Slot.label("their-ready", NegotiationDialog.Opponent.class),
                     Slot.label("alone"),
@@ -126,7 +129,7 @@ final class StakeTable implements StakeChest.Seat {
         players[side] = player.getUniqueId();
         names[side] = player.getName();
         accounts[side] = account;
-        final StakeChest chest = new StakeChest(side, this, Component.empty(), false);
+        final StakeChest chest = new StakeChest(side, this, viewOf(side), false);
         chests[side] = chest;
         redraw();
         chest.open(player);
@@ -337,14 +340,22 @@ final class StakeTable implements StakeChest.Seat {
             final GameDocument words = document.apply(id);
             final Side mine = side(own);
             final @Nullable Side their = players[other] == null ? null : side(other);
-            final @Nullable String refusal = refused[own] ? words.label("cursor") : null;
             chest.draw(
                     Bukkit.getPlayer(id),
-                    StakePanel.title(view(words, mine, their, state.seconds(), refusal)),
+                    StakePanel.title(viewOf(own)),
                     display(words, mine, their, state.counting()),
                     state.ready(own),
                     state.counting());
         }
+    }
+
+    /** Returns the panel view of the player seated on {@code own}. */
+    private StakePanel.View viewOf(final int own) {
+        final GameDocument words = document.apply(Objects.requireNonNull(players[own]));
+        final int other = 1 - own;
+        final @Nullable Side their = players[other] == null ? null : side(other);
+        final @Nullable String refusal = refused[own] ? words.label("cursor") : null;
+        return view(words, side(own), their, state.seconds(), refusal);
     }
 
     private Side side(final int side) {
@@ -386,7 +397,10 @@ final class StakeTable implements StakeChest.Seat {
         final Component balance = own.balance() < 0
                 ? words.labelText("aura-negative", null)
                 : words.labelText("aura-own", new Aura(own.balance()));
-        shown.put(StakePanel.OWN_HEAD, BlankItem.styled(head(own.id()), Component.text(own.name()), List.of(balance)));
+        final PlayerContext self = PlayerContext.of(PlayerId.of(own.id()), own.name());
+        shown.put(
+                StakePanel.OWN_HEAD,
+                BlankItem.styled(head(own.id()), words.labelText("name", new Fighter(self)), List.of(balance)));
         shown.put(StakePanel.LOWER, tip(words.labelText("lower", null)));
         // A + at the cap tells why it does nothing.
         shown.put(
@@ -414,7 +428,7 @@ final class StakeTable implements StakeChest.Seat {
         final Component offer = words.labelText("their-offer", new Offer(opponent, their.offer()));
         shown.put(
                 StakePanel.THEIR_HEAD,
-                BlankItem.styled(head(their.id()), Component.text(their.name()), List.of(offer)));
+                BlankItem.styled(head(their.id()), words.labelText("name", new Fighter(opponent)), List.of(offer)));
         final ItemStack theirFigure = tip(offer);
         StakePanel.THEIR_FIGURE.forEach(slot -> shown.put(slot, theirFigure));
         if (their.ready()) {
@@ -447,8 +461,7 @@ final class StakeTable implements StakeChest.Seat {
                 10,
                 true,
                 List.of(new ItemStack(Material.EMERALD, 16)));
-        final StakeChest preview =
-                new StakeChest(0, new ReadOnly(), StakePanel.title(view(drafted, own, their, 0, null)), true);
+        final StakeChest preview = new StakeChest(0, new ReadOnly(), view(drafted, own, their, 0, null), true);
         preview.draw(
                 null,
                 StakePanel.title(view(drafted, own, their, 0, null)),

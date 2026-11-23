@@ -20,6 +20,9 @@ case_begin() { current_case="$1"; case_failed=0; }
 ok()   { (( case_failed )) || printf '  ok    %s\n' "$1"; }
 bad()  { printf '  FAIL  %s: %s\n' "$current_case" "$1" >&2; failed=$(( failed + 1 )); case_failed=1; }
 
+# GNU and BSD stat take different flags, and find's exact -perm works with both.
+owner_only() { [[ -n "$(find "$1" -prune -perm 600 2>/dev/null)" ]]; }
+
 volume() {
     local dir
     dir="$WORK/$1"
@@ -392,7 +395,7 @@ expect_line "$conf" '    database="nordtal"'
 expect_line "$conf" "    schema=prism"
 expect_line "$conf" '    username="nordtal_smp"'
 expect_line "$conf" '    password="pa\"ss\\word"'
-[[ "$(stat -c %a "$conf" 2>/dev/null)" == "600" ]] || bad "storage.conf holds a password and is not 600"
+owner_only "$conf" || bad "storage.conf holds a password and is not 600"
 ok "storage.conf written"
 
 case_begin "a file Prism saved back is replaced, and a URL without a port takes 5432"
@@ -404,7 +407,7 @@ expect_status 0
 expect_line "$data/plugins/prism/storage.conf" "primary-storage-type=POSTGRES"
 expect_line "$data/plugins/prism/storage.conf" '    port="5432"'
 expect_line "$data/plugins/prism/storage.conf" '    database="season"'
-[[ "$(stat -c %a "$data/plugins/prism/storage.conf" 2>/dev/null)" == "600" ]] || bad "the saved-back file stayed readable to others"
+owner_only "$data/plugins/prism/storage.conf" || bad "the saved-back file stayed readable to others"
 ok "storage.conf replaced"
 
 case_begin "a URL that is not PostgreSQL leaves Prism on its defaults and the SMP starts"

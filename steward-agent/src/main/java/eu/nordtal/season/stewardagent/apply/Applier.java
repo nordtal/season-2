@@ -15,6 +15,7 @@ import eu.nordtal.season.stewardagent.source.RemoteFile;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -284,7 +285,15 @@ public final class Applier {
     }
 
     private static void deleteRecursively(final @Nullable Path directory) throws IOException {
-        if (directory == null || !Files.isDirectory(directory)) {
+        if (directory == null) {
+            return;
+        }
+        // The game's account owns the destination, so a link here could point the cleanup at a world or a secret.
+        if (Files.isSymbolicLink(directory)) {
+            Files.delete(directory);
+            return;
+        }
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(directory)) {

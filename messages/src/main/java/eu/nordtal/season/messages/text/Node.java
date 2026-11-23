@@ -52,9 +52,20 @@ public sealed interface Node {
         /** The choice a block takes its grammatical case from. A text that binds none takes the case {@code other}. */
         public static final String CASE = "case";
 
+        /** The binding that sets a block's capital, which every block takes and none is given as a value. */
+        public static final String CAPITAL = "capital";
+
+        /** The one value of {@link #CAPITAL}: the first cased letter of the drawn block is a capital. */
+        public static final String FIRST = "first";
+
         public Block {
             Objects.requireNonNull(key, "key");
             with = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(with));
+        }
+
+        /** Returns whether the text binds {@code capital=first}. */
+        public boolean capital() {
+            return FIRST.equals(with.get(CAPITAL));
         }
 
         /** Returns whether a binding names a constant number rather than a value. */

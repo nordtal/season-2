@@ -9,6 +9,7 @@ import eu.nordtal.season.messages.text.MessageText;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -127,7 +128,7 @@ class DocumentCheckTest {
         final Document document = Document.decode(SOUND.replace("With a donation", "With {@terms.access}"));
         assertEquals(List.of(), DocumentCheck.errors(SUMMARY.declaration(), document, MessageCheck.Mode.OVERRIDE));
         final Filling.Blocks grown = key -> key.equals("terms.access")
-                ? new Filling.Block(MessageText.parse("a".repeat(DocumentCheck.TEXT), false), Map.of())
+                ? new Filling.Block(MessageText.parse("a".repeat(DocumentCheck.TEXT), false), Map.of(), Locale.ENGLISH)
                 : null;
         assertEquals(
                 List.of(

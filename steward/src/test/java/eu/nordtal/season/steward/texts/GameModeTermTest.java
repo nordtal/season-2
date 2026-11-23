@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.MessageOverride;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.PackagedTexts;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,7 @@ class GameModeTermTest {
 
     /** Each text by its key, with the values that choose its branch about the game mode. */
     private static final List<Map.Entry<String, Map<String, String>>> TEXTS = List.of(
+            Map.entry("journal.action", Map.of("action", "switch-mode")),
             Map.entry("journal.switch-mode", Map.of()),
             Map.entry("journal.switch-mode-because", Map.of()),
             Map.entry("journal.request-run", Map.of("kind", "switch-mode", "count", "0")),
@@ -39,7 +41,11 @@ class GameModeTermTest {
             Map.entry("steward.router.start-tip", Map.of()),
             Map.entry("steward.router.stop-tip", Map.of()),
             Map.entry("steward.router.waiting-switch", Map.of()),
-            Map.entry("steward.router.done", Map.of("change", "switch")));
+            Map.entry("steward.router.done", Map.of("change", "switch")),
+            Map.entry("steward.router.game-mode", Map.of()),
+            Map.entry("steward.router.switch-mode", Map.of()),
+            Map.entry("steward.router.mode-switch", Map.of()),
+            Map.entry("steward.router.mode", Map.of()));
 
     @Test
     void aRenamedGameModeTermReachesEveryTextThatNamesTheGameMode() {
@@ -54,7 +60,9 @@ class GameModeTermTest {
 
         for (final Map.Entry<String, Map<String, String>> text : TEXTS) {
             final String shown = messages.format(Locales.DEFAULT, messages.example(text.getKey(), text.getValue()));
-            assertTrue(shown.contains(RENAMED), text.getKey() + " " + text.getValue() + ": " + shown);
+            assertTrue(
+                    shown.toLowerCase(Locale.ROOT).contains(RENAMED),
+                    text.getKey() + " " + text.getValue() + ": " + shown);
         }
     }
 }

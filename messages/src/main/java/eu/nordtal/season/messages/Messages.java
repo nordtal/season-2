@@ -228,7 +228,7 @@ public final class Messages {
     public Filling.Blocks blocks(final Locale language) {
         return key -> {
             final Declaration declaration = Blocks.DECLARED.get(key);
-            return declaration == null ? null : new Filling.Block(text(language, key), declaration.values());
+            return declaration == null ? null : new Filling.Block(text(language, key), declaration.values(), language);
         };
     }
 

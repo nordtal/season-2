@@ -135,6 +135,7 @@ class FighterStateStoreTest {
                 "UNKNOWN_MODE",
                 List.of(
                         new StoredEffect("not valid key!", 100, 0, false, true, true),
+                        new StoredEffect("minecraft:not_an_effect", 150, 0, false, true, true),
                         new StoredEffect("minecraft:speed", 200, 1, false, true, true)));
 
         final StoredState decoded = encode(decode(malformed));
@@ -332,7 +333,12 @@ class FighterStateStoreTest {
 
     private static SavedState decode(final StoredState stored) {
         return SavedState.fromStored(
-                stored, name -> NORDTAL.getName().equals(name) ? NORDTAL : null, StubItem::new, LOGGER);
+                stored,
+                name -> NORDTAL.getName().equals(name) ? NORDTAL : null,
+                StubItem::new,
+                key -> java.util.Set.of("minecraft:speed", "minecraft:night_vision", "minecraft:fire_resistance")
+                        .contains(key.asString()),
+                LOGGER);
     }
 
     private static World fakeWorld(final String name) {

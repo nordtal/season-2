@@ -5,6 +5,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 import net.kyori.adventure.key.InvalidKeyException;
 import net.kyori.adventure.key.Key;
@@ -117,15 +118,7 @@ public final class SavedState {
             final FighterStateStore.StoredState stored,
             final Function<String, @Nullable World> worldLookup,
             final Function<String, @Nullable ItemStack> decodeItem,
-            final Logger logger) {
-        return fromStored(stored, worldLookup, decodeItem, key -> true, logger);
-    }
-
-    static SavedState fromStored(
-            final FighterStateStore.StoredState stored,
-            final Function<String, @Nullable World> worldLookup,
-            final Function<String, @Nullable ItemStack> decodeItem,
-            final java.util.function.Predicate<Key> knownEffect,
+            final Predicate<Key> knownEffect,
             final Logger logger) {
         final FighterStateStore.@Nullable StoredLocation saved = stored.location();
         final @Nullable World world = saved == null ? null : worldLookup.apply(saved.world());

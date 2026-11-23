@@ -169,6 +169,20 @@ public final class Pen {
 
     /** Draws runs as {@link #runs(String, List, int)} does, tinted in {@code colour}. */
     public Pen runs(final String font, final List<String> glyphs, final int width, final TextColor colour) {
+        return drawRuns(font, glyphs, width, colour, false);
+    }
+
+    /** Draws runs on the ink layer, tinted in {@code colour}. */
+    public Pen inkRuns(final String font, final List<String> glyphs, final int width, final TextColor colour) {
+        return drawRuns(font, glyphs, width, colour, true);
+    }
+
+    private Pen drawRuns(
+            final String font,
+            final List<String> glyphs,
+            final int width,
+            final TextColor colour,
+            final boolean onInk) {
         int rest = width;
         for (final int length : RUNS) {
             final int index = Integer.numberOfTrailingZeros(length);
@@ -176,7 +190,16 @@ public final class Pen {
                 continue;
             }
             while (rest >= length) {
-                art(font, glyphs.get(index), length, colour);
+                if (onInk) {
+                    if (layer == Layer.ART) {
+                        move(length);
+                    } else {
+                        put(font, colour, glyphs.get(index), length + 1);
+                        move(-1);
+                    }
+                } else {
+                    art(font, glyphs.get(index), length, colour);
+                }
                 rest -= length;
             }
         }

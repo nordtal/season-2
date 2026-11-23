@@ -184,6 +184,7 @@ class CompositionTest {
             final boolean onInk = boxTop >= DialogTitle.MARGIN && boxTop <= DialogTitle.MARGIN + 7;
             assertEquals(onInk, drawn.contains("Fahrtziel"), panel + ", box top on panel row " + boxTop);
             assertEquals(onInk, drawn.contains(Symbol.RAIL.glyph()), panel + ", the symbol");
+            assertEquals(onInk, columns(drawn, Glyphs.UI_RULE) > 0, panel + ", the rule");
         }
     }
 
@@ -255,13 +256,24 @@ class CompositionTest {
     }
 
     @Test
-    void aFieldFrameKeepsTheTitleTwoHundredFiftyWide() {
+    void aHeaderWithItsRuleKeepsTheTitleTwoHundredFiftyWide() {
         assertEquals(
                 DialogTitle.NET_WIDTH,
-                Advances.of(DialogTitle.of(DialogPanel.STATION_104, 43)
-                        .fieldFrame(7, 61)
-                        .words("Bahnhof: Gib einen Namen ein.")
+                Advances.of(DialogTitle.of(DialogPanel.STATION_117, 45)
+                        .header(Symbol.RAIL, "Bahnhof", List.of())
+                        .text(DialogTitle.MARGIN, 147, "Gib einen Namen ein.", Colours.REFUSAL)
                         .build()));
+    }
+
+    @Test
+    void aCheckboxLabelAdvancesAsItsTextSoTheClientCentresTheBoxAsWithoutTheRing() {
+        assertEquals(
+                Letters.width("Auf der Karte zeigen"), Advances.of(BodyLine.checkboxLabel("Auf der Karte zeigen")));
+    }
+
+    @Test
+    void aButtonOverTheFieldAdvancesNothingSoTheClientCentresItsPlate() {
+        assertEquals(0, Advances.of(BodyLine.primaryButtonOverField("Speichern")));
     }
 
     private static void collectClicks(final Component component, final List<ClickEvent> clicks) {

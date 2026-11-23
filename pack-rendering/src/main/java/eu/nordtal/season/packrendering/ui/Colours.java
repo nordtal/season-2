@@ -11,10 +11,13 @@ public final class Colours {
     /** Ink: a panel's text, a header, a plate's label. */
     public static final TextColor INK = TextColor.color(0x404040);
 
+    /** Title: a header's symbol and bold name. */
+    public static final TextColor TITLE = TextColor.color(0x2B2B2B);
+
     /** Soft: a value beside a label, a mark, a count. */
     public static final TextColor SOFT = TextColor.color(0x555555);
 
-    /** Faint: a disabled plate's label. */
+    /** Faint: a disabled plate's label, a header's rule. */
     public static final TextColor FAINT = TextColor.color(0x8B8B8B);
 
     /** Accent: a favourite's star, a card's open symbol. */

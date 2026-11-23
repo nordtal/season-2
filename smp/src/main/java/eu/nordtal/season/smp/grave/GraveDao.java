@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.grave;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -62,17 +63,13 @@ public interface GraveDao {
     @SqlUpdate("UPDATE smp_grave SET contents = :contents WHERE id = :id AND looted IS NULL")
     int updateGraveContents(@Bind("id") UUID id, @Bind("contents") byte[] contents);
 
-    /**
-     * Deletes the graves that are not looted and older than {@code hours}, and returns them.
-     *
-     * @param hours the maximum age in hours, greater than 0
-     */
+    /** Deletes the graves that are not looted and were created before {@code cutoff}, and returns them. */
     @SqlQuery("""
             DELETE FROM smp_grave
             WHERE looted IS NULL
-              AND created < now() - make_interval(hours => :hours)
+              AND created < :cutoff
             RETURNING id, world, x, y, z
             """)
     @RegisterConstructorMapper(ExpiredGrave.class)
-    List<ExpiredGrave> expireGravesOlderThan(@Bind("hours") int hours);
+    List<ExpiredGrave> expireGravesCreatedBefore(@Bind("cutoff") Instant cutoff);
 }

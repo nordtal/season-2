@@ -20,6 +20,7 @@ import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +38,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
@@ -92,6 +94,10 @@ public final class Graves {
 
     private final Clock clock;
 
+    private final GraveWrites writes;
+
+    private final GraveRestore restoring = new GraveRestore();
+
     public Graves(
             final Plugin plugin,
             final GraveDao dao,
@@ -111,26 +117,26 @@ public final class Graves {
         this.sounds = sounds;
         this.effects = effects;
         this.config = config;
+        final PaperScheduler scheduler = PaperScheduler.of(plugin);
+        this.writes = new GraveWrites(dao, scheduler, scheduler::onMain);
     }
 
     /** Reads the open graves off the main thread and draws them on the main thread. */
     public void restore() {
+        restoring.begin();
         PaperScheduler.of(plugin).execute(() -> {
             final List<GraveRow> rows = dao.openGraves();
             PaperScheduler.of(plugin).onMain(() -> {
-                draw(rows);
+                // A grave created, emptied or expired while the restore read is drawn as the main thread left it.
+                restoring.end(rows).forEach(this::draw);
                 plugin.getLogger().info("graves restored: count=" + open.size());
             });
         });
     }
 
-    private void draw(final List<GraveRow> rows) {
-        for (final GraveRow row : rows) {
-            final World world = Bukkit.getWorld(row.world());
-            // A grave created while the restore reads is in both lists, and is drawn once.
-            if (world == null || open.containsKey(row.id())) {
-                continue;
-            }
+    private void draw(final GraveRow row) {
+        final World world = Bukkit.getWorld(row.world());
+        if (world != null) {
             draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
         }
     }
@@ -162,7 +168,10 @@ public final class Graves {
                     grave.getBlockZ(),
                     bytes,
                     experience);
-            PaperScheduler.of(plugin).onMain(() -> draw(List.of(row)));
+            PaperScheduler.of(plugin).onMain(() -> {
+                restoring.touched(row.id());
+                draw(row);
+            });
         });
     }
 
@@ -320,6 +329,7 @@ public final class Graves {
     }
 
     private void erase(final UUID graveId) {
+        restoring.touched(graveId);
         final List<org.bukkit.entity.Entity> entities = parts.remove(graveId);
         if (entities != null) {
             entities.forEach(entity -> {
@@ -334,8 +344,8 @@ public final class Graves {
     }
 
     /**
-     * Deletes the graves older than {@code hours} from the database and removes their displays and barriers.
-     * Call it off the main thread.
+     * Expires the graves older than {@code hours}. Main thread only.
+     * It closes their windows at once, then deletes their rows and removes their displays and barriers.
      *
      * @param hours the maximum age in hours. A value of 0 or less does nothing.
      */
@@ -343,7 +353,17 @@ public final class Graves {
         if (hours <= 0) {
             return;
         }
-        final List<ExpiredGrave> gone = dao.expireGravesOlderThan(hours);
+        final Instant cutoff = clock.instant().minus(Duration.ofHours(hours));
+        open.forEach((graveId, grave) -> {
+            if (grave.expiresBy(cutoff)) {
+                grave.expire();
+                closeWindow(graveId);
+            }
+        });
+        PaperScheduler.of(plugin).execute(() -> removeExpired(dao.expireGravesCreatedBefore(cutoff), hours));
+    }
+
+    private void removeExpired(final List<ExpiredGrave> gone, final int hours) {
         if (gone.isEmpty()) {
             return;
         }
@@ -361,10 +381,32 @@ public final class Graves {
         });
     }
 
-    /** Removes all grave displays. The database rows and the barrier blocks stay. */
-    public void clearDisplays() {
+    /** Closes the grave's window for every viewer without settling it. */
+    private void closeWindow(final UUID graveId) {
+        final GraveWindow window = shown.remove(graveId);
+        if (window != null) {
+            List.copyOf(window.getInventory().getViewers()).forEach(HumanEntity::closeInventory);
+        }
+    }
+
+    /**
+     * Settles every open window, writes every waiting change and removes all grave displays.
+     * The barrier blocks stay. Main thread only, when the plugin stops.
+     */
+    public void stop() {
+        for (final GraveWindow window : List.copyOf(shown.values())) {
+            final Player viewer = window.getInventory().getViewers().stream()
+                    .filter(Player.class::isInstance)
+                    .map(Player.class::cast)
+                    .findFirst()
+                    .orElse(window.closer());
+            closeWindow(window.graveId());
+            if (viewer != null) {
+                settleContents(window, viewer);
+            }
+        }
+        writes.flush();
         List.copyOf(parts.keySet()).forEach(this::erase);
-        shown.clear();
     }
 
     public Optional<UUID> graveOfInteraction(final UUID interactionId) {
@@ -374,7 +416,7 @@ public final class Graves {
     /** Opens the grave window for the player. Main thread only. */
     public void open(final Player player, final UUID graveId) {
         final OpenGrave grave = open.get(graveId);
-        if (grave == null) {
+        if (grave == null || grave.expired()) {
             return;
         }
         // The first opener's language and zone draw the window, which the others share while it is open.
@@ -395,7 +437,7 @@ public final class Graves {
         final ItemStack[] contents = grave.contentsForWindow()
                 .map(ItemStack::deserializeItemsFromBytes)
                 .orElseGet(() -> new ItemStack[0]);
-        final boolean awaitingLoot = grave.awaitingLoot();
+        final boolean awaitingLoot = !grave.holdsLoot();
         final int experience = awaitingLoot ? 0 : row.experience();
         final int contentRows = GravePanel.contentRows(contents.length);
         final GameDocument document = new GameDocument(
@@ -404,7 +446,7 @@ public final class Graves {
                 this,
                 row.id(),
                 contentRows,
-                awaitingLoot,
+                grave,
                 PlainTextComponentSerializer.plainText().serialize(document.title()),
                 experience > 0 ? document.label("experience-line") : null,
                 document.label("take-all-button"));
@@ -473,12 +515,17 @@ public final class Graves {
             // The last viewer to close the window settles it.
             return;
         }
-        final UUID graveId = window.graveId();
-        if (!shown.remove(graveId, window)) {
-            return;
+        if (shown.remove(window.graveId(), window)) {
+            settleContents(window, player);
         }
+    }
+
+    /** Writes what is left in the window's grave, or finishes the loot if nothing is left. */
+    private void settleContents(final GraveWindow window, final Player player) {
+        final Inventory inventory = window.getInventory();
+        final UUID graveId = window.graveId();
         final OpenGrave grave = open.get(graveId);
-        if (grave == null || grave.awaitingLoot()) {
+        if (grave == null || !grave.holdsLoot()) {
             return;
         }
 
@@ -489,7 +536,7 @@ public final class Graves {
         if (!contentGone) {
             final byte[] remaining = ItemStack.serializeItemsAsBytes(left);
             grave.settle(Optional.of(remaining));
-            PaperScheduler.of(plugin).execute(() -> dao.updateGraveContents(graveId, remaining));
+            writes.remainder(graveId, remaining);
             return;
         }
 
@@ -520,27 +567,22 @@ public final class Graves {
                 .map(DiscordId::value)
                 .orElse(null);
         final int experience = row.experience();
-        PaperScheduler.of(plugin).execute(() -> {
-            if (dao.markGraveLooted(graveId, looterId).isEmpty()) {
-                return;
+        writes.looted(graveId, looterId, () -> {
+            erase(graveId);
+
+            final World graveWorld = Bukkit.getWorld(row.world());
+            if (graveWorld != null) {
+                clearBarrier(graveWorld, row.x(), row.y(), row.z());
+                sounds.playAt(
+                        new Location(graveWorld, row.x() + 0.5, row.y() + 0.5, row.z() + 0.5), Feedback.RECLAIMED);
             }
-            PaperScheduler.of(plugin).onMain(() -> {
-                erase(graveId);
 
-                final World graveWorld = Bukkit.getWorld(row.world());
-                if (graveWorld != null) {
-                    clearBarrier(graveWorld, row.x(), row.y(), row.z());
-                    sounds.playAt(
-                            new Location(graveWorld, row.x() + 0.5, row.y() + 0.5, row.z() + 0.5), Feedback.RECLAIMED);
-                }
-
-                if (experience > 0 && player.isOnline()) {
-                    player.giveExp(experience);
-                    player.sendMessage(renderer.format(
-                            identities.languageOf(player.getUniqueId()), EXPERIENCE.with(new Experience(experience))));
-                    sounds.play(player, Feedback.SMALL_SUCCESS);
-                }
-            });
+            if (experience > 0 && player.isOnline()) {
+                player.giveExp(experience);
+                player.sendMessage(renderer.format(
+                        identities.languageOf(player.getUniqueId()), EXPERIENCE.with(new Experience(experience))));
+                sounds.play(player, Feedback.SMALL_SUCCESS);
+            }
         });
     }
 

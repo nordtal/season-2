@@ -10,7 +10,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
 import org.jspecify.annotations.Nullable;
 
 /** The window of a grave. Any viewer may take the content items. {@link Graves} handles the close of the window. */
@@ -44,23 +43,23 @@ final class GraveWindow extends Menu {
     private final Graves graves;
     private final UUID graveId;
     private final int contentRows;
-    private final boolean awaitingLoot;
-    private final Inventory inventory;
+    private final OpenGrave grave;
+    private @Nullable Player closer;
 
     /** @param experience the header's mark, null for none */
     GraveWindow(
             final Graves graves,
             final UUID graveId,
             final int contentRows,
-            final boolean awaitingLoot,
+            final OpenGrave grave,
             final String name,
             final @Nullable String experience,
             final String takeAll) {
         this.graves = graves;
         this.graveId = graveId;
         this.contentRows = contentRows;
-        this.awaitingLoot = awaitingLoot;
-        this.inventory = frame(GravePanel.rows(contentRows), GravePanel.title(name, contentRows, experience, takeAll));
+        this.grave = grave;
+        final var _ = frame(GravePanel.rows(contentRows), GravePanel.title(name, contentRows, experience, takeAll));
     }
 
     UUID graveId() {
@@ -71,11 +70,16 @@ final class GraveWindow extends Menu {
         return contentRows;
     }
 
-    /** Allows items to move in a grave that still holds loot. */
+    /** Returns the player who closed the window last, or null while no one has. */
+    @Nullable
+    Player closer() {
+        return closer;
+    }
+
+    /** Allows items to move while the grave holds loot, so none moves once it is emptied or expires. */
     @Override
     protected boolean leavesFree(final int rawSlot) {
-        return !awaitingLoot
-                && (rawSlot < 0 || rawSlot >= inventory.getSize() || GravePanel.isContent(rawSlot, contentRows));
+        return GravePanel.leavesFree(grave.holdsLoot(), rawSlot, contentRows);
     }
 
     @Override
@@ -83,7 +87,7 @@ final class GraveWindow extends Menu {
         if (!GravePanel.takeAllSlots(contentRows).contains(slot)) {
             return MenuClick.nothing();
         }
-        if (!awaitingLoot) {
+        if (grave.holdsLoot()) {
             graves.takeAll(player, this);
         }
         // Closing the window lets Graves settle the grave, also if it is empty.
@@ -92,6 +96,7 @@ final class GraveWindow extends Menu {
 
     @Override
     protected void closed(final Player player) {
+        closer = player;
         graves.onClosed(player, this);
     }
 }

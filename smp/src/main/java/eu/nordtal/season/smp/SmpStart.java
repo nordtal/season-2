@@ -174,7 +174,8 @@ final class SmpStart {
                 deaths,
                 plugin.clock());
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
-        scheduler.every(Duration.ofSeconds(1), Duration.ofMinutes(1), () -> graves.expire(deaths.graveMaxAgeHours()));
+        scheduler.onMainEvery(
+                Duration.ofSeconds(1), Duration.ofMinutes(1), () -> graves.expire(deaths.graveMaxAgeHours()));
         // Runs every second on the main thread. It writes only near expiry.
         scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), graves::tickHolograms);
         final Duels duels = new Duels(

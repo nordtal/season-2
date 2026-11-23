@@ -14,6 +14,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.BeforeAll;
@@ -159,6 +160,8 @@ abstract class WebTestSupport extends WebFixture {
         return HttpClient.newBuilder().cookieHandler(new CookieManager()).build();
     }
 
+    private static final AtomicInteger SIGN_IN_CLIENTS = new AtomicInteger();
+
     /**
      * Drives the whole sign-in the way a browser does, for an account made an admin first.
      *
@@ -169,11 +172,24 @@ abstract class WebTestSupport extends WebFixture {
             admitBelowRoot(DiscordId.of(memberId.get()));
         }
         final String state = stateFrom(get(browser, "/auth/login"));
+        final String clientIp = "198.51.100." + (SIGN_IN_CLIENTS.incrementAndGet() % 250 + 1);
 
-        final HttpResponse<String> callback = get(browser, "/auth/callback?code=the-code&state=" + state);
+        final HttpResponse<String> callback = callback(browser, "the-code", state, clientIp);
 
         assertEquals(302, callback.statusCode(), callback.body());
         assertEquals("/", callback.headers().firstValue("Location").orElseThrow());
+    }
+
+    /** Answers Discord's redirect with {@code code} from {@code clientIp}, as Caddy forwards the browser's address. */
+    static HttpResponse<String> callback(
+            final HttpClient browser, final String code, final String state, final String clientIp) throws Exception {
+        return browser.send(
+                HttpRequest.newBuilder(URI.create(
+                                "http://127.0.0.1:" + webPort + "/auth/callback?code=" + code + "&state=" + state))
+                        .header("Cf-Connecting-IP", clientIp)
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
     }
 
     static void admitBelowRoot(final DiscordId discordId) throws Exception {

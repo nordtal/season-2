@@ -461,4 +461,49 @@ class SignInAndSessionTest extends WebTestSupport {
                 .get("signedIn")
                 .getAsBoolean());
     }
+
+    @Test
+    void aFloodOfMadeUpCallbacksCannotStopAnAdminFromSigningIn() throws Exception {
+        final HttpClient flooder = browser();
+        final int before = fakeDiscord.tokenRequests.get();
+
+        HttpResponse<String> limited = null;
+        int refused = 0;
+        for (int attempt = 0; attempt < 8; attempt++) {
+            final HttpResponse<String> answer =
+                    callback(flooder, "made-up", stateFrom(get(flooder, "/auth/login")), "203.0.113.10");
+            if (answer.statusCode() == 429) {
+                limited = answer;
+                refused++;
+            } else {
+                assertEquals(403, answer.statusCode(), answer.body());
+            }
+        }
+
+        assertEquals(3, refused, "the flooder should be rate-limited after five exchanges");
+        assertEquals(
+                5,
+                fakeDiscord.tokenRequests.get() - before,
+                "rate-limited callbacks must not reach Discord's token endpoint");
+        final long wait =
+                Long.parseLong(limited.headers().firstValue("Retry-After").orElseThrow());
+        assertTrue(wait > 1 && wait <= 60, "Retry-After names the rest of the minute: " + wait);
+        assertEquals(
+                "Too many sign-in attempts. Try again in " + (wait == 60 ? "1 minute." : wait + " seconds."),
+                GSON.fromJson(limited.body(), JsonObject.class).get("error").getAsString());
+
+        final HttpClient admin = browser();
+        final HttpResponse<String> signedIn =
+                callback(admin, "the-code", stateFrom(get(admin, "/auth/login")), "203.0.113.20");
+        assertEquals(302, signedIn.statusCode(), signedIn.body());
+        assertTrue(
+                GSON.fromJson(get(admin, "/api/me").body(), JsonObject.class)
+                        .get("signedIn")
+                        .getAsBoolean(),
+                "a real admin from another client address must still sign in");
+        assertTrue(
+                signedIn.headers().allValues("Set-Cookie").stream()
+                        .anyMatch(cookie -> cookie.startsWith("steward_known=") && cookie.contains("HttpOnly")),
+                "a signed-in browser is known to the next sign-in: " + signedIn.headers());
+    }
 }

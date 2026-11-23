@@ -10,6 +10,7 @@ import eu.nordtal.season.steward.settings.SettingsRefusal;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -41,6 +42,10 @@ public final class ErrorHandlers {
             }
             if (refused.retryable()) {
                 body.put("retryable", true);
+            }
+            final Duration wait = refused.retryAfter();
+            if (wait != null) {
+                ctx.header("Retry-After", String.valueOf(wait.toSeconds()));
             }
             ctx.status(refused.status()).json(body);
         });

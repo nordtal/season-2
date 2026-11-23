@@ -704,8 +704,8 @@ configs:
     content: |
       {
       	# The Cloudflare tunnel arrives from a Docker gateway and names the browser's address and scheme. Every
-      	# container is trusted the same way; Steward reads no client address, and a forged scheme changes
-      	# only the forger's own cookie.
+      	# container is trusted the same way; Steward reads Cf-Connecting-IP from Caddy to limit sign-in exchanges,
+      	# and a forged scheme changes only the forger's own cookie.
       	servers :80 {
       		trusted_proxies static private_ranges
       		client_ip_headers Cf-Connecting-IP
@@ -777,6 +777,8 @@ configs:
       	reverse_proxy steward:8080 {
       		# Keeps quiet Server-Sent Event streams open.
       		flush_interval -1
+      		# Forwards the client address Caddy resolved from Cf-Connecting-IP.
+      		header_up Cf-Connecting-IP {client_ip}
       	}
       }
 

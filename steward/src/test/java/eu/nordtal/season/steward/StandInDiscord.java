@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
@@ -36,6 +37,8 @@ public final class StandInDiscord implements AutoCloseable {
 
     public final AtomicReference<String> secretSeen = new AtomicReference<>();
 
+    public final AtomicInteger tokenRequests = new AtomicInteger();
+
     private @Nullable Javalin server;
 
     /** Starts on {@code port}, or on any free port for {@code 0}, and returns the base URL that the interface calls. */
@@ -44,6 +47,7 @@ public final class StandInDiscord implements AutoCloseable {
                     cfg.jsonMapper(new JavalinGson(new Gson(), true));
                     cfg.startup.showJavalinBanner = false;
                     cfg.routes.post("/oauth2/token", ctx -> {
+                        tokenRequests.incrementAndGet();
                         final Map<String, String> form = form(ctx.body());
                         secretSeen.set(form.get("client_secret"));
                         if (!CODE.equals(form.get("code"))) {

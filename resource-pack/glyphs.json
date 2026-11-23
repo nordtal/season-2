@@ -1053,8 +1053,8 @@
       "font": "nordtal:ui_text_{shift}",
       "shifts": [
         -11, -10, -9, -8, -7, -6, -5, -4, 0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 16, 22, 25, 26, 28, 29, 30, 31, 33,
-        34, 37, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 55, 56, 58, 62, 65, 66, 69, 70, 71, 73, 82, 85, 88, 89,
-        91, 93, 97, 100, 106, 137
+        34, 37, 39, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 55, 56, 58, 62, 65, 66, 69, 70, 71, 73, 79, 82, 85,
+        88, 89, 91, 93, 97, 100, 106, 134, 137
       ],
       "constant": "FONT_UI_TEXT",
       "letters": true,
@@ -1109,8 +1109,27 @@
             { "code": "FE325", "title": "Arrow 315°", "constant": "UI_SYMBOL_ARROW14" },
             { "code": "FE326", "title": "Arrow 337.5°", "constant": "UI_SYMBOL_ARROW15" }
           ]
+        },
+        {
+          "range": "FE7C0-FE7CF",
+          "title": "Title rule",
+          "about": "Runs of 1 to 128 columns of the 1 px rule that follows a title's name, 3 rows under its capitals.",
+          "texture": "nordtal:ui/kit/rule.png",
+          "height": 1,
+          "ascent": 4,
+          "glyphs": [
+            { "code": "FE7C0", "title": "Rule 1 px", "list": "UI_RULE" },
+            { "code": "FE7C1", "title": "Rule 2 px", "list": "UI_RULE" },
+            { "code": "FE7C2", "title": "Rule 4 px", "list": "UI_RULE" },
+            { "code": "FE7C3", "title": "Rule 8 px", "list": "UI_RULE" },
+            { "code": "FE7C4", "title": "Rule 16 px", "list": "UI_RULE" },
+            { "code": "FE7C5", "title": "Rule 32 px", "list": "UI_RULE" },
+            { "code": "FE7C6", "title": "Rule 64 px", "list": "UI_RULE" },
+            { "code": "FE7C7", "title": "Rule 128 px", "list": "UI_RULE" }
+          ]
         }
-      ]
+      ],
+      "lists": [{ "constant": "UI_RULE" }]
     },
     {
       "font": "nordtal:ui_art_{shift}",
@@ -1197,15 +1216,6 @@
               "height": 18,
               "ascent": 7,
               "about": "Vanilla's 18 x 18 slot frame, for any content cell."
-            },
-            {
-              "code": "FE371",
-              "title": "Field frame",
-              "constant": "UI_FIELD_FRAME",
-              "texture": "nordtal:ui/kit/field_frame.png",
-              "height": 24,
-              "ascent": 9,
-              "about": "The 184 x 24 inset frame around the station's text field, 2 px above its line's text row."
             },
             {
               "code": "FE372",
@@ -1441,10 +1451,10 @@
     },
     {
       "font": "nordtal:ui_dialog_{shift}",
-      "shifts": [43, 49, 50, 52, 53, 54, 55, 56, 57],
+      "shifts": [43, 45, 49, 50, 52, 53, 54, 55, 56, 57],
       "constant": "FONT_UI_DIALOG",
       "references": ["nordtal:ui_space"],
-      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first line of plates, 50 over a first text line, 52 to 57 over a column set at the foot of its box, 43 over a frame 2 px above its line and for the wheel.",
+      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 45 over the station's native inputs, 49 over a first line of plates, 50 over a first text line, 52 to 57 over a column set at the foot of its box, 43 over a frame 2 px above its line and for the wheel.",
       "blocks": [
         {
           "range": "FE3C0-FE3FF",
@@ -1564,26 +1574,26 @@
             },
             {
               "code": "FE3CE",
-              "title": "Station, 78 high",
-              "list": "UI_DIALOG_STATION_78",
-              "texture": "nordtal:ui/kit/dialog_station_78_0.png",
-              "height": 78,
+              "title": "Station, 48 high",
+              "list": "UI_DIALOG_STATION_48",
+              "texture": "nordtal:ui/kit/dialog_station_48_0.png",
+              "height": 48,
               "ascent": 20
             },
             {
               "code": "FE3CF",
-              "title": "Station, 104 high",
-              "list": "UI_DIALOG_STATION_104",
-              "texture": "nordtal:ui/kit/dialog_station_104_0.png",
-              "height": 104,
+              "title": "Station, 57 high",
+              "list": "UI_DIALOG_STATION_57",
+              "texture": "nordtal:ui/kit/dialog_station_57_0.png",
+              "height": 57,
               "ascent": 20
             },
             {
               "code": "FE3D0",
-              "title": "Station, 122 high",
-              "list": "UI_DIALOG_STATION_122",
-              "texture": "nordtal:ui/kit/dialog_station_122_0.png",
-              "height": 122,
+              "title": "Station, 66 high",
+              "list": "UI_DIALOG_STATION_66",
+              "texture": "nordtal:ui/kit/dialog_station_66_0.png",
+              "height": 66,
               "ascent": 20
             },
             {
@@ -1705,6 +1715,22 @@
               "texture": "nordtal:ui/kit/dialog_wheel_197_1.png",
               "height": 197,
               "ascent": 20
+            },
+            {
+              "code": "FE3E0",
+              "title": "Station, 102 high",
+              "list": "UI_DIALOG_STATION_102",
+              "texture": "nordtal:ui/kit/dialog_station_102_0.png",
+              "height": 102,
+              "ascent": 20
+            },
+            {
+              "code": "FE3E1",
+              "title": "Station, 117 high",
+              "list": "UI_DIALOG_STATION_117",
+              "texture": "nordtal:ui/kit/dialog_station_117_0.png",
+              "height": 117,
+              "ascent": 20
             }
           ]
         }
@@ -1717,9 +1743,11 @@
         { "constant": "UI_DIALOG_RIDE_LIST_102" },
         { "constant": "UI_DIALOG_RIDE_LIST_122" },
         { "constant": "UI_DIALOG_RIDE_LIST_33" },
-        { "constant": "UI_DIALOG_STATION_78" },
-        { "constant": "UI_DIALOG_STATION_104" },
-        { "constant": "UI_DIALOG_STATION_122" },
+        { "constant": "UI_DIALOG_STATION_48" },
+        { "constant": "UI_DIALOG_STATION_57" },
+        { "constant": "UI_DIALOG_STATION_66" },
+        { "constant": "UI_DIALOG_STATION_102" },
+        { "constant": "UI_DIALOG_STATION_117" },
         { "constant": "UI_DIALOG_OBJECTIVES_124" },
         { "constant": "UI_DIALOG_OBJECTIVES_33" },
         { "constant": "UI_DIALOG_DUEL_124" },
@@ -2606,6 +2634,24 @@
             { "code": "FE69E", "title": "Side foot", "list": "UI_RING_134" },
             { "code": "FE69F", "title": "Bevel foot", "list": "UI_RING_134" }
           ]
+        },
+        {
+          "range": "FE7B0-FE7B7",
+          "title": "Field ring",
+          "about": "One even 1 px #373737 ring over the station's 180 x 20 text field, drawn by the Save button's label, whose text row stands 63 under the field's top, so the client's white focus border never shows.",
+          "texture": "nordtal:ui/kit/field_ring.png",
+          "height": 70,
+          "ascent": 70,
+          "glyphs": [{ "code": "FE7B0", "title": "Field ring", "constant": "UI_FIELD_RING" }]
+        },
+        {
+          "range": "FE7B8-FE7BF",
+          "title": "Box ring",
+          "about": "One even 1 px #373737 ring over a 17 x 17 checkbox, drawn by its own label, whose text row stands 4 under the box's top, so the client's white focus border never shows.",
+          "texture": "nordtal:ui/kit/box_ring.png",
+          "height": 17,
+          "ascent": 11,
+          "glyphs": [{ "code": "FE7B8", "title": "Box ring", "constant": "UI_BOX_RING" }]
         }
       ],
       "lists": [

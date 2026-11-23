@@ -22,15 +22,17 @@ public final class DialogTitle {
     public static final int MARGIN = 7;
 
     /** The panel tops the pack has a font for, as glyphs.json describes them. */
-    public static final List<Integer> TOPS = List.of(49, 50, 52, 53, 54, 55, 56, 57, 43);
+    public static final List<Integer> TOPS = List.of(43, 45, 49, 50, 52, 53, 54, 55, 56, 57);
 
     private static final int HEADER_ROW = 280;
-    private static final int FIELD_FRAME = 184;
-
-    /** The frame glyph's top stands this far above its font's text row. */
-    private static final int FRAME_ABOVE = 2;
 
     private static final int NAME_TO_MARK = 8;
+
+    /** From the name's last advance to the rule's first column. */
+    private static final int NAME_TO_RULE = 5;
+
+    /** The shortest rule drawn, so a long name stands without a stub after it. */
+    private static final int SHORTEST_RULE = 9;
 
     /** From the header's capitals to its last row of ink, a descender's. */
     private static final int HEADER_INK = 7;
@@ -42,7 +44,15 @@ public final class DialogTitle {
     private @Nullable Header header;
 
     /** What the header drew, so a body line can draw it again over its focus cover. */
-    private record Header(@Nullable Symbol symbol, String name, List<Mark> marks, int margin, int nameX, int right) {}
+    private record Header(
+            @Nullable Symbol symbol,
+            String name,
+            List<Mark> marks,
+            int margin,
+            int nameX,
+            int right,
+            int ruleStart,
+            int ruleWidth) {}
 
     private DialogTitle(final DialogPanel panel, final int top) {
         final String font = Glyphs.FONT_UI_DIALOG.get(top);
@@ -67,7 +77,10 @@ public final class DialogTitle {
         return new DialogTitle(panel, top);
     }
 
-    /** Draws the header at panel + 7: {@code symbol}, {@code name}, {@code marks} ending 8 inside the right edge. */
+    /**
+     * Draws the header at panel + 7: {@code symbol}, the bold {@code name}, a rule and {@code marks}.
+     * The rule runs out to the marks or the right margin. The marks end 8 inside the right edge.
+     */
     public DialogTitle header(final @Nullable Symbol symbol, final String name, final List<Mark> marks) {
         return header(symbol, name, marks, MARGIN);
     }
@@ -79,13 +92,18 @@ public final class DialogTitle {
         final int nameX = margin + (symbol == null ? 0 : Symbol.BEFORE_TEXT);
         final int right = panel.width() - 1 - margin;
         final int marksLeft = Mark.draw(pen, marks, right, shift, x -> left + x);
-        final int room = (marks.isEmpty() ? right + 1 : marksLeft - NAME_TO_MARK) - nameX;
+        final int end = marks.isEmpty() ? right : marksLeft - NAME_TO_MARK - 1;
         if (symbol != null) {
-            pen.moveTo(left + margin).symbol(shift, symbol, Colours.INK);
+            pen.moveTo(left + margin).symbol(shift, symbol, Colours.TITLE);
         }
-        final String shown = Letters.cut(name, room);
-        pen.moveTo(left + nameX).text(shift, shown, Colours.INK);
-        header = new Header(symbol, shown, List.copyOf(marks), margin, nameX, right);
+        final String shown = Letters.boldCut(name, end + 1 - nameX);
+        pen.moveTo(left + nameX).bold(Pen.textFont(shift), shown, Colours.TITLE);
+        final int rule = nameX + Letters.boldWidth(shown) + NAME_TO_RULE;
+        final int ruleWidth = end + 1 - rule >= SHORTEST_RULE ? end + 1 - rule : 0;
+        if (ruleWidth > 0) {
+            pen.moveTo(left + rule).inkRuns(Pen.textFont(shift), Glyphs.UI_RULE, ruleWidth, Colours.FAINT);
+        }
+        header = new Header(symbol, shown, List.copyOf(marks), margin, nameX, right, rule, ruleWidth);
         return this;
     }
 
@@ -105,13 +123,17 @@ public final class DialogTitle {
         Mark.draw(ink, header.marks(), header.right(), shift, x -> x - centre);
         final Symbol symbol = header.symbol();
         if (symbol != null) {
-            ink.moveTo(header.margin() - centre).symbol(shift, symbol, Colours.INK);
+            ink.moveTo(header.margin() - centre).symbol(shift, symbol, Colours.TITLE);
         }
-        ink.moveTo(header.nameX() - centre).text(shift, header.name(), Colours.INK);
+        ink.moveTo(header.nameX() - centre).bold(Pen.textFont(shift), header.name(), Colours.TITLE);
+        if (header.ruleWidth() > 0) {
+            ink.moveTo(header.ruleStart() - centre)
+                    .inkRuns(Pen.textFont(shift), Glyphs.UI_RULE, header.ruleWidth(), Colours.FAINT);
+        }
         return ink.build(0);
     }
 
-    /** Draws {@code text} centred on the panel, its capitals at screen y {@code y}, such as the station's refusal. */
+    /** Draws {@code text} centred on the panel, its capitals at screen y {@code y}. */
     public DialogTitle centred(final int y, final String text, final TextColor colour) {
         pen.moveTo(left + panel.width() / 2 - Letters.width(text) / 2).text(y - TITLE_ROW, text, colour);
         return this;
@@ -120,12 +142,6 @@ public final class DialogTitle {
     /** Draws {@code text} at panel + {@code x} with its capitals at screen y {@code y}. */
     public DialogTitle text(final int x, final int y, final String text, final TextColor colour) {
         pen.moveTo(left + x).text(y - TITLE_ROW, text, colour);
-        return this;
-    }
-
-    /** Draws the station field's 184 x 24 frame at panel + {@code x}, its top at screen y {@code y}. */
-    public DialogTitle fieldFrame(final int x, final int y) {
-        pen.moveTo(left + x).art(Pen.artFont(y - TITLE_ROW + FRAME_ABOVE), Glyphs.UI_FIELD_FRAME, FIELD_FRAME);
         return this;
     }
 

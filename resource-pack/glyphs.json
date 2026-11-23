@@ -1016,11 +1016,11 @@
         },
         {
           "title": "The five-pixel sheet",
-          "about": "A to Z, 0 to 9, punctuation, the German letters, a dot, and two blocks for a text bar, all capitals: MenuFont folds lower case onto them.",
+          "about": "A to Z, 0 to 9, punctuation, the German letters, a dot, two blocks for a text bar and a small m for the metre, all capitals: MenuFont folds lower case onto them. A cell is seven rows high, so the umlauts' dots stand two rows above the five body rows, which keep the baseline of a five-row cell.",
           "texture": "nordtal:ui/gui/row_text.png",
-          "height": 5,
-          "ascent": -10,
-          "chars": ["ABCDEFGH", "IJKLMNOP", "QRSTUVWX", "YZ012345", "6789.,:/", "-+%()!?'", "\"ÄÖÜß∙█░"]
+          "height": 7,
+          "ascent": -8,
+          "chars": ["ABCDEFGH", "IJKLMNOP", "QRSTUVWX", "YZ012345", "6789.,:/", "-+%()!?'", "\"ÄÖÜß∙█░", "ᵐ\u0000\u0000\u0000\u0000\u0000\u0000\u0000"]
         }
       ]
     },

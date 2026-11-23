@@ -95,10 +95,52 @@ class MenuFontTest {
         for (final int pixels : new int[] {8, 12, 20, 40, 120}) {
             final String fitted = MenuFont.fit("Baeckerei am Fluss", pixels);
             assertTrue(
-                    MenuFont.width(fitted) <= pixels,
-                    "fit(..., " + pixels + ") came back " + MenuFont.width(fitted) + " wide as '"
+                    MenuFont.visible(fitted) <= pixels,
+                    "fit(..., " + pixels + ") came back " + MenuFont.visible(fitted) + " wide as '"
                             + fitted + "' - a label wider than its pill runs over the number"
                             + " right-aligned beside it, and neither is readable then");
+        }
+    }
+
+    @Test
+    void rightAlignedTextIsMeasuredByWhatItDrawsNotByItsAdvance() {
+        assertEquals(0, MenuFont.visible(""));
+        // A is four columns, then the clear column every glyph advances past.
+        assertEquals(4, MenuFont.visible("A"));
+        assertEquals(5, MenuFont.width("A"));
+        assertEquals(MenuFont.width("1.240") - 1, MenuFont.visible("1.240"));
+        assertEquals("1.240", MenuFont.fit("1.240", MenuFont.visible("1.240")));
+    }
+
+    @Test
+    void anEllipsisFoldsToTheSheetsTwoDots() {
+        assertEquals("AB..", MenuFont.fold("ab\u2026"));
+    }
+
+    @Test
+    void theMetreIsTheSheetsOneSmallLetter() {
+        assertTrue(MenuFont.covers(MenuFont.METRE));
+        assertEquals("120" + MenuFont.METRE, MenuFont.fold("120" + MenuFont.METRE));
+    }
+
+    @Test
+    void anUmlautKeepsItsWholeLetterAndCarriesItsDotsTwoRowsAboveIt() {
+        final Map<Character, boolean[]> sheet = sheetPixels();
+        final int width = sheet.get('A').length / MenuFont.CELL;
+        for (final String pair : new String[] {"AÄ", "OÖ", "UÜ"}) {
+            final boolean[] plain = sheet.get(pair.charAt(0));
+            final boolean[] umlaut = sheet.get(pair.charAt(1));
+            int dots = 0;
+            for (int index = 0; index < plain.length; index++) {
+                final boolean body = index / width >= MenuFont.CELL - MenuFont.HEIGHT;
+                if (body) {
+                    assertEquals(plain[index], umlaut[index], pair + " differ in the body rows");
+                } else {
+                    assertTrue(!plain[index], pair.charAt(0) + " draws above its body");
+                    dots += umlaut[index] ? 1 : 0;
+                }
+            }
+            assertEquals(2, dots, pair.charAt(1) + " has no two dots above its body");
         }
     }
 
@@ -123,8 +165,9 @@ class MenuFontTest {
                     cell + INSET + (FURNITURE_HEIGHT - 8) / 2,
                     top(providers.get(Glyphs.GUI_ROW_ICON_POI.codePointAt(0))),
                     "row " + row + "'s icons are not centred in its pill");
+            // The cell's two rows above the body hold only the umlauts' dots.
             assertEquals(
-                    cell + INSET + (FURNITURE_HEIGHT - MenuFont.HEIGHT) / 2,
+                    cell + INSET + (FURNITURE_HEIGHT - MenuFont.HEIGHT) / 2 - (MenuFont.CELL - MenuFont.HEIGHT),
                     top(providers.get((int) 'A')),
                     "row " + row + "'s text is not centred in its pill - five rows centred in"
                             + " fourteen lands at +4 and not +3, and one pixel high on every line"
@@ -191,6 +234,9 @@ class MenuFontTest {
         for (int row = 0; row < rows.size(); row++) {
             final String line = rows.get(row).getAsString();
             for (int column = 0; column < line.length(); column++) {
+                if (line.charAt(column) == 0) {
+                    continue;
+                }
                 final boolean[] cell = new boolean[cellWidth * cellHeight];
                 for (int y = 0; y < cellHeight; y++) {
                     for (int x = 0; x < cellWidth; x++) {

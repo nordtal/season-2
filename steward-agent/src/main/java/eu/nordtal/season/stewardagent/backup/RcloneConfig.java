@@ -63,14 +63,16 @@ final class RcloneConfig {
 
     /**
      * Returns the config of the remote {@link OffsiteCopy#REMOTE}, rooted at the backup folder.
-     * Its empty access token is expired, so rclone trades the refresh token for a fresh one at the first call.
+     * Its placeholder access token has expired, so rclone trades the refresh token for a fresh one at the first call.
      */
     static String text(final BackupDestinationWire.Credentials credentials) {
         final JsonObject token = new JsonObject();
-        token.addProperty("access_token", "");
+        // rclone 1.60 reads a token without an access token in an old format that drops the refresh token.
+        token.addProperty("access_token", "expired");
         token.addProperty("token_type", "Bearer");
         token.addProperty("refresh_token", credentials.refreshToken());
-        token.addProperty("expiry", "0001-01-01T00:00:00Z");
+        // Go's oauth2 package takes a zero expiry for one that never expires and would send the placeholder.
+        token.addProperty("expiry", "2000-01-01T00:00:00Z");
         final List<String> lines = List.of(
                 "[" + OffsiteCopy.REMOTE + "]",
                 "type = drive",
@@ -78,6 +80,8 @@ final class RcloneConfig {
                 "client_id = " + value(credentials.clientId()),
                 "client_secret = " + value(credentials.clientSecret()),
                 "root_folder_id = " + value(credentials.folderId()),
+                // Pruned packs would otherwise count against the account's quota for 30 days in the Drive trash.
+                "use_trash = false",
                 "token = " + value(token.toString()));
         return String.join("\n", lines) + "\n";
     }

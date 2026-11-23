@@ -1,12 +1,20 @@
 package eu.nordtal.season.packrendering.ui;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.object.ObjectContents;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -21,13 +29,23 @@ public final class DialogCanvas {
     private static final int BOX = 8;
     private static final int FOOT = 7;
 
+    /**
+     * Where a sprite's top stands under the box's top on the first text row.
+     * The client draws an object 8 px high with ascent 8 in its own font, one row above a letter's top, and never in
+     * a lowered font, so a sprite moves down only by whole text rows.
+     */
+    private static final int SPRITE_TOP = TEXT_ROW - 1;
+
     private record Piece(int x, int y, boolean plate, Consumer<BodyLine> draw) {}
+
+    private record Sprite(int x, int row, Component drawn) {}
 
     private final int width;
     private final int height;
     private final int rows;
     private final int top;
     private final List<Piece> pieces = new ArrayList<>();
+    private final List<Sprite> sprites = new ArrayList<>();
 
     private DialogCanvas(final int width, final int height, final int rows, final int top) {
         if (width <= 0 || height <= 0) {
@@ -218,10 +236,55 @@ public final class DialogCanvas {
         return this;
     }
 
-    /** Places an item picture at ({@code x}, {@code y}), with optional hover or click. */
+    /**
+     * Places an item picture at ({@code x}, {@code y}), with optional hover or click.
+     * A sprite's top stands at {@link #spriteY(int)}, a fallback symbol's at {@code y}.
+     */
     public DialogCanvas itemPicture(final int x, final int y, final ItemPicture picture, final BodyLine.Press press) {
         Objects.requireNonNull(picture, "picture");
+        if (picture.hasSprite()) {
+            return sprite(x, y, picture.spriteComponent(), press);
+        }
         return place(x, y, false, line -> line.button(press, part -> part.itemPicture(picture)));
+    }
+
+    /** Places {@code player}'s 8 px face with its hat layer, its top at {@link #spriteY(int)}. */
+    public DialogCanvas face(final int x, final int y, final UUID player) {
+        final Component face = Component.object(ObjectContents.playerHead(player))
+                .color(NamedTextColor.WHITE)
+                .decoration(TextDecoration.ITALIC, false)
+                .shadowColor(ShadowColor.none());
+        return sprite(x, y, face, BodyLine.Press.NONE);
+    }
+
+    /**
+     * Returns the content y where a sprite placed at {@code y} draws its top: the nearest y a text row allows.
+     * Refuses a y whose nearest row lies outside the box.
+     */
+    public int spriteY(final int y) {
+        return spriteRow(y) * ROW + SPRITE_TOP - top;
+    }
+
+    private int spriteRow(final int y) {
+        final int row = Math.floorDiv(top + y - SPRITE_TOP + ROW / 2, ROW);
+        if (row < 0 || row >= rows) {
+            throw new IllegalArgumentException("a sprite at content y " + y + " falls outside the " + rows + " rows");
+        }
+        return row;
+    }
+
+    private DialogCanvas sprite(final int x, final int y, final Component sprite, final BodyLine.Press press) {
+        Component drawn = sprite;
+        final ClickEvent click = press.click();
+        if (click != null) {
+            drawn = drawn.clickEvent(click);
+        }
+        final Component tooltip = press.tooltip();
+        if (tooltip != null) {
+            drawn = drawn.hoverEvent(HoverEvent.showText(tooltip));
+        }
+        sprites.add(new Sprite(x, spriteRow(y), drawn));
+        return this;
     }
 
     /**
@@ -314,6 +377,13 @@ public final class DialogCanvas {
             piece.draw().accept(line);
             pen.moveTo(piece.x()).append(line.build(), line.width());
         }
-        return FocusRing.frame(pen.build(width), width, rows, ground, over);
+        final Map<Integer, Pen> below = new HashMap<>();
+        for (final Sprite sprite : sprites) {
+            final Pen row = sprite.row() == 0 ? pen : below.computeIfAbsent(sprite.row(), key -> Pen.start());
+            row.moveTo(sprite.x()).append(sprite.drawn(), ItemPicture.SPRITE_ADVANCE);
+        }
+        final Map<Integer, Component> lower = new HashMap<>();
+        below.forEach((row, rowPen) -> lower.put(row, rowPen.build(0)));
+        return FocusRing.frame(pen.build(width), width, rows, ground, over, lower);
     }
 }

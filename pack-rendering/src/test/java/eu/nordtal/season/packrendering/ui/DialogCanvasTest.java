@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import org.junit.jupiter.api.Test;
@@ -73,7 +74,42 @@ class DialogCanvasTest {
 
         final ItemPicture diamond = ItemPicture.of("minecraft:diamond", Symbol.PICKAXE, Colours.ACCENT);
         assertTrue(diamond.hasSprite());
-        assertEquals(ItemPicture.SPRITE_ADVANCE, diamond.advance());
+        assertEquals(Advances.OBJECT, diamond.advance());
+    }
+
+    @Test
+    void aSpriteStandsOnTheTextRowNearestItsYAndKeepsItsX() {
+        final DialogCanvas canvas = DialogCanvas.of(DialogPanel.COMPACT_116);
+        final ItemPicture diamond = ItemPicture.of("minecraft:diamond", Symbol.PICKAXE, Colours.ACCENT);
+        // A sprite's top stands 1 px above its row's letters, 3 px under the box's top on the first row.
+        assertEquals(3, canvas.top() + canvas.spriteY(-6));
+        assertEquals(3, canvas.spriteY(3));
+        assertEquals(3, canvas.spriteY(7));
+        assertEquals(12, canvas.spriteY(8));
+        assertEquals(21, canvas.spriteY(21));
+        assertThrows(IllegalArgumentException.class, () -> canvas.spriteY(-12));
+        assertThrows(IllegalArgumentException.class, () -> canvas.spriteY(canvas.height() + 9));
+
+        final List<int[]> placed = List.of(new int[] {40, -6}, new int[] {10, 3}, new int[] {60, 21});
+        canvas.itemPicture(40, -6, diamond, BodyLine.Press.NONE)
+                .face(10, 3, new UUID(0, 1))
+                .itemPicture(60, 21, diamond, BodyLine.Press.NONE)
+                .text(0, 0, "Kit", Colours.INK);
+        final Component framed = canvas.build(FocusRing.Ground.BEVEL_FOOT);
+
+        final List<Integer> rows = Advances.rows(framed);
+        assertEquals(canvas.rows(), rows.size());
+        final List<Advances.Spot> spots = Advances.objects(framed);
+        assertEquals(placed.size(), spots.size());
+        final int box = FocusRing.box(canvas.width());
+        for (int index = 0; index < placed.size(); index++) {
+            final int x = placed.get(index)[0];
+            final int y = placed.get(index)[1];
+            final Advances.Spot spot = spots.get(index);
+            assertEquals(canvas.top() + y, 3 + 9 * spot.row(), "sprite at y " + y);
+            // The client starts a centred row half its advance left of the box's middle.
+            assertEquals(-(box / 2) + 5 + x, -(rows.get(spot.row()) / 2) + spot.x(), "sprite at x " + x);
+        }
     }
 
     @Test

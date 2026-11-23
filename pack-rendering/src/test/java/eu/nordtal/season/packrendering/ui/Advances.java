@@ -9,24 +9,42 @@ import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ObjectComponent;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.TextDecoration;
 
 /** Measures a composed component against the assembled pack's fonts, as the client advances through it. */
 final class Advances {
 
+    /** How far the client advances an object such as a sprite or a face. */
+    static final int OBJECT = 8;
+
     private static final Map<String, Map<Integer, Integer>> TABLES = new HashMap<>();
 
     private Advances() {}
 
+    /** An object's text row, counted from 0, and the cursor's advance from the row's start where it begins. */
+    record Spot(int row, int x) {}
+
     /** Returns how far each text row of {@code component} moves the cursor, a row ending at each line break. */
     static List<Integer> rows(final Component component) {
         final List<Integer> rows = new ArrayList<>(List.of(0));
-        walk(component, rows);
+        walk(component, rows, new ArrayList<>());
         return rows;
     }
 
-    private static void walk(final Component component, final List<Integer> rows) {
+    /** Returns where each object of {@code component} begins, in the order the client draws them. */
+    static List<Spot> objects(final Component component) {
+        final List<Spot> spots = new ArrayList<>();
+        walk(component, new ArrayList<>(List.of(0)), spots);
+        return spots;
+    }
+
+    private static void walk(final Component component, final List<Integer> rows, final List<Spot> spots) {
+        if (component instanceof ObjectComponent) {
+            spots.add(new Spot(rows.size() - 1, rows.getLast()));
+            rows.set(rows.size() - 1, rows.getLast() + OBJECT);
+        }
         if (component instanceof final TextComponent text) {
             final Key font = component.style().font();
             final String id = font == null ? "minecraft:default" : font.asString();
@@ -39,13 +57,13 @@ final class Advances {
             }
         }
         for (final Component child : component.children()) {
-            walk(child, rows);
+            walk(child, rows, spots);
         }
     }
 
     /** Returns how far {@code component} moves the cursor. */
     static int of(final Component component) {
-        int total = 0;
+        int total = component instanceof ObjectComponent ? OBJECT : 0;
         if (component instanceof final TextComponent text) {
             final Key font = component.style().font();
             final String id = font == null ? "minecraft:default" : font.asString();

@@ -65,15 +65,22 @@ final class NegotiationDialog {
 
     private static final DialogPanel PANEL = DialogPanel.COMPACT_116;
     private static final int TILE = ItemPicture.LARGE_FIELD;
-    private static final int TILE_Y = 6;
+    /**
+     * The tile's top, 1 px above the sheet.
+     * The client draws a sprite only where a text row puts it, and this top centres the kit's sprite and both faces in
+     * their field and frames.
+     */
+    static final int TILE_Y = 5;
+
     private static final int TIGHT_GAP = 6;
     private static final int WIDE_GAP = 14;
     private static final int NAME_GAP = 4;
     private static final int FACE = 8;
+    static final int MIDDLE = (TILE - FACE) / 2;
     private static final int RING = (BodyLine.ACCENT_FRAME - TILE) / 2;
     private static final int FACE_OUT = 2;
-    private static final int FACE_UP = 4;
-    private static final int FACE_IN = (BodyLine.FACE_FRAME - FACE) / 2;
+    static final int FACE_UP = 4;
+    static final int FACE_IN = (BodyLine.FACE_FRAME - FACE) / 2;
     private static final int STATUS_Y = 66;
     private static final int BAR_Y = 80;
     private static final int BAR = 140;
@@ -162,9 +169,8 @@ final class NegotiationDialog {
             canvas.place(x - RING, TILE_Y - RING, true, BodyLine::accentFrame);
         }
         canvas.place(x, TILE_Y, true, line -> line.button(press, part -> part.darkField(TILE)));
-        final int middle = (TILE - FACE) / 2;
         canvas.itemPicture(
-                x + middle, TILE_Y + middle, ItemPicture.of(shown.icon(), Symbol.SWORDS, Colours.FAINT), press);
+                x + MIDDLE, TILE_Y + MIDDLE, ItemPicture.of(shown.icon(), Symbol.SWORDS, Colours.FAINT), press);
         if (mine) {
             face(canvas, x - FACE_OUT, view.self());
         }
@@ -184,7 +190,7 @@ final class NegotiationDialog {
     /** Draws {@code player}'s face on its plate, whose corner lies at {@code x}, {@link #FACE_UP} above the tile. */
     private static void face(final DialogCanvas canvas, final int x, final UUID player) {
         canvas.place(x, TILE_Y - FACE_UP, true, BodyLine::faceFrame);
-        canvas.place(x + FACE_IN, TILE_Y - FACE_UP + FACE_IN, false, line -> line.face(player));
+        canvas.face(x + FACE_IN, TILE_Y - FACE_UP + FACE_IN, player);
     }
 
     /**

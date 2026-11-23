@@ -1,17 +1,12 @@
 package eu.nordtal.season.packrendering.ui;
 
 import eu.nordtal.season.packrendering.Glyphs;
-import java.util.UUID;
 import java.util.function.Consumer;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.format.TextColor;
-import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.object.ObjectContents;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -196,7 +191,7 @@ public final class BodyLine {
         return this;
     }
 
-    /** Draws the {@link #FACE_FRAME} px plate that carries a {@link #face(UUID)} 2 px in from its corner. */
+    /** Draws the {@link #FACE_FRAME} px plate that carries a {@link DialogCanvas#face} 2 px in from its corner. */
     public BodyLine faceFrame() {
         pen.art(Pen.artFont(down), Glyphs.UI_FACE_FRAME_12, FACE_FRAME);
         return this;
@@ -226,24 +221,15 @@ public final class BodyLine {
         return this;
     }
 
-    /** Draws {@code picture} on the line's label row: its atlas sprite or its fallback symbol. */
+    /**
+     * Draws {@code picture}'s fallback symbol on the line's label row.
+     * Refuses a picture with a sprite, which only {@link DialogCanvas#itemPicture} can lower to its row.
+     */
     public BodyLine itemPicture(final ItemPicture picture) {
         if (picture.hasSprite()) {
-            pen.append(picture.spriteComponent(), ItemPicture.SPRITE_ADVANCE);
-        } else {
-            pen.symbol(textShift, picture.fallback(), picture.fallbackColour());
+            throw new IllegalArgumentException("a sprite ignores the line's shift; place it on a dialog canvas");
         }
-        return this;
-    }
-
-    /** Draws {@code player}'s 8 px face with its hat layer on the line's label row, as the client knows the skin. */
-    public BodyLine face(final UUID player) {
-        pen.append(
-                Component.object(ObjectContents.playerHead(player))
-                        .color(NamedTextColor.WHITE)
-                        .decoration(TextDecoration.ITALIC, false)
-                        .shadowColor(ShadowColor.none()),
-                ItemPicture.SPRITE_ADVANCE);
+        pen.symbol(textShift, picture.fallback(), picture.fallbackColour());
         return this;
     }
 

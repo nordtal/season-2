@@ -5,13 +5,21 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.internalapi.agent.Topology;
+import eu.nordtal.season.stewardagent.plan.Installation;
 import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -136,6 +144,138 @@ class StandbysTest {
         assertFalse(Files.exists(volumes.resolve("proxy-standby/plugins/secrets"), LinkOption.NOFOLLOW_LINKS));
         assertEquals("world", read("outside/world/level.dat"));
         assertFalse(Files.exists(volumes.resolve("outside/world/limbo-0.9.3.jar"), LinkOption.NOFOLLOW_LINKS));
+    }
+
+    @Test
+    void aServiceDirectoryThatIsALinkToAnythingButADirectoryFailsItsRow() throws IOException {
+        write("outside/secret", "secret");
+        Files.createDirectories(volumes.resolve("limbo"));
+        Files.createDirectories(volumes.resolve("proxy"));
+        mounted(DeclaredTopology.topology().standbyOf(Topology.LIMBO).orElseThrow());
+        mounted(DeclaredTopology.topology().standbyOf(Topology.PROXY).orElseThrow());
+        write("limbo/plugins/limbo-0.9.3.jar", "new");
+        Files.createSymbolicLink(volumes.resolve("limbo/.server"), volumes.resolve("outside/secret"));
+        Files.createSymbolicLink(volumes.resolve("proxy/plugins"), volumes.resolve("outside/secret"));
+
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.LIMBO, Topology.PROXY), DeclaredTopology.topology());
+
+        assertEquals(
+                Set.of(
+                        "limbo-standby " + Installation.PLUGINS + " DONE",
+                        "limbo-standby " + Installation.SERVER_CACHE + " FAILED",
+                        "proxy-standby " + Installation.PLUGINS + " FAILED"),
+                outcomes.stream()
+                        .map(outcome -> outcome.service() + " " + outcome.artifact() + " " + outcome.status())
+                        .collect(Collectors.toSet()),
+                "a linked .server is skipped as if the service had no cache: " + detail(outcomes));
+        assertTrue(
+                outcomes.stream()
+                        .filter(outcome -> outcome.status() == ApplyResult.Status.FAILED)
+                        .allMatch(outcome -> String.valueOf(outcome.detail()).contains("symbolic link")),
+                "a failed row does not name the link: " + detail(outcomes));
+    }
+
+    @Test
+    void aSourceDirectorySwappedForALinkAtTheOpenIsNotCopiedFrom() throws IOException {
+        write("proxy/plugins/proxy-0.9.3.jar", "new");
+        write("proxy/plugins/proxy/config.json", "{}");
+        write("outside/secret", "secret");
+        mounted(DeclaredTopology.topology().standbyOf(Topology.PROXY).orElseThrow());
+
+        final List<ApplyResult.Outcome> outcomes = Standbys.fill(
+                volumes,
+                List.of(Topology.PROXY),
+                DeclaredTopology.topology(),
+                swapAtOpen("proxy/plugins/proxy", "outside"));
+
+        assertFalse(
+                Files.exists(volumes.resolve("proxy-standby/plugins/proxy/secret"), LinkOption.NOFOLLOW_LINKS),
+                "the agent followed the link and copied a file from outside the service's plugins/");
+        assertEquals("secret", read("outside/secret"));
+        assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
+    }
+
+    @Test
+    void aStandbyDirectorySwappedForALinkAtTheOpenIsNeitherWrittenNorEmptied() throws IOException {
+        write("proxy/plugins/proxy/config.json", "{}");
+        write("proxy-standby/plugins/proxy/stale.json", "stale");
+        write("outside/keep", "keep");
+
+        final List<ApplyResult.Outcome> outcomes = Standbys.fill(
+                volumes,
+                List.of(Topology.PROXY),
+                DeclaredTopology.topology(),
+                swapAtOpen("proxy-standby/plugins/proxy", "outside"));
+
+        assertEquals(
+                "keep", read("outside/keep"), "the agent followed the link and deleted a file outside the standby");
+        assertFalse(
+                Files.exists(volumes.resolve("outside/config.json"), LinkOption.NOFOLLOW_LINKS),
+                "the agent followed the link and wrote a file outside the standby");
+        assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
+    }
+
+    @Test
+    void aDirectorySwappedForALinkWhileItIsDeletedKeepsTheLinkTargetsFiles() throws IOException {
+        write("proxy/plugins/proxy-0.9.3.jar", "new");
+        write("proxy-standby/plugins/superseded/config.json", "old");
+        write("outside/keep", "keep");
+
+        final List<ApplyResult.Outcome> outcomes = Standbys.fill(
+                volumes,
+                List.of(Topology.PROXY),
+                DeclaredTopology.topology(),
+                swapAtOpen("proxy-standby/plugins/superseded", "outside"));
+
+        assertEquals(
+                "keep", read("outside/keep"), "the agent followed the link and deleted a file outside the standby");
+        assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
+    }
+
+    @Test
+    void aNewDirectoryIsMadeInTheRootOfTheTreeItLandsIn() throws IOException {
+        // plugins/ is a mount of its own beside the volume, and a rename from one mount into the other fails.
+        write("limbo/plugins/limbo/config.json", "{}");
+        write("limbo/.server/libraries/paper.jar", "26.3");
+        mounted(DeclaredTopology.topology().standbyOf(Topology.LIMBO).orElseThrow());
+        final List<Path> made = new ArrayList<>();
+
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.LIMBO), DeclaredTopology.topology(), opening -> {
+                    if (opening.getFileName().toString().startsWith(Applier.STAGING)) {
+                        made.add(opening.getParent());
+                    }
+                });
+
+        assertTrue(
+                outcomes.stream().allMatch(outcome -> outcome.status() == ApplyResult.Status.DONE), detail(outcomes));
+        assertEquals(
+                List.of(volumes.resolve("limbo-standby/plugins"), volumes.resolve("limbo-standby")),
+                made,
+                "a new directory is made outside the mount it is moved into");
+        assertEquals("{}", read("limbo-standby/plugins/limbo/config.json"));
+        assertEquals("26.3", read("limbo-standby/.server/libraries/paper.jar"));
+    }
+
+    @Test
+    void aNewDirectorySwappedForALinkBeforeItIsOpenedFailsTheRowAndTouchesNothingOutside() throws IOException {
+        write("proxy/plugins/proxy/config.json", "{}");
+        write("outside/keep", "keep");
+        mounted(DeclaredTopology.topology().standbyOf(Topology.PROXY).orElseThrow());
+
+        final List<ApplyResult.Outcome> outcomes = Standbys.fill(
+                volumes,
+                List.of(Topology.PROXY),
+                DeclaredTopology.topology(),
+                swapAt(opening -> opening.getFileName().toString().startsWith(Applier.STAGING), "outside"));
+
+        assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
+        assertEquals(
+                "keep", read("outside/keep"), "the agent followed the link and deleted a file outside the standby");
+        assertFalse(
+                Files.exists(volumes.resolve("outside/config.json"), LinkOption.NOFOLLOW_LINKS),
+                "the agent followed the link and wrote a file outside the standby");
     }
 
     @Test
@@ -280,6 +420,31 @@ class StandbysTest {
     /** A standby whose volume is mounted here and whose plugins/ is still empty. */
     private void mounted(final String standby) throws IOException {
         Files.createDirectories(volumes.resolve(standby));
+    }
+
+    /**
+     * Renames a directory away and puts a symbolic link to another in its place, the first time the agent opens it.
+     *
+     * This is what code in a service's container can do between the agent's checks and its open.
+     */
+    private Consumer<Path> swapAtOpen(final String directory, final String linkTarget) {
+        return swapAt(volumes.resolve(directory)::equals, linkTarget);
+    }
+
+    /** Swaps the first directory the agent opens that matches, as {@link #swapAtOpen} does. */
+    private Consumer<Path> swapAt(final Predicate<Path> directory, final String linkTarget) {
+        final AtomicBoolean done = new AtomicBoolean();
+        return opening -> {
+            if (!directory.test(opening) || done.getAndSet(true)) {
+                return;
+            }
+            try {
+                Files.move(opening, opening.resolveSibling(opening.getFileName() + ".moved"));
+                Files.createSymbolicLink(opening, volumes.resolve(linkTarget));
+            } catch (final IOException failed) {
+                throw new UncheckedIOException(failed);
+            }
+        };
     }
 
     private String read(final String relative) throws IOException {

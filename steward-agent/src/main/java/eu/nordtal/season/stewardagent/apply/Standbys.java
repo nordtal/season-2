@@ -2,18 +2,31 @@ package eu.nordtal.season.stewardagent.apply;
 
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.stewardagent.plan.Installation;
+import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.channels.Channels;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.SecureDirectoryStream;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Makes each standby's {@code plugins/} and server jars copies of its service's, except plugin scratch and bStats.
@@ -45,6 +58,14 @@ public final class Standbys {
      */
     public static List<ApplyResult.Outcome> fill(
             final Path volumesRoot, final Collection<String> services, final AgentWire.Topology topology) {
+        return fill(volumesRoot, services, topology, directory -> {});
+    }
+
+    static List<ApplyResult.Outcome> fill(
+            final Path volumesRoot,
+            final Collection<String> services,
+            final AgentWire.Topology topology,
+            final Consumer<Path> opening) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
         for (final AgentWire.Service each : topology.services()) {
             final String service = each.standbyOf();
@@ -52,13 +73,14 @@ public final class Standbys {
                 continue;
             }
             final String standby = each.name();
-            final Path target = volumesRoot.resolve(standby).resolve(Installation.PLUGINS);
-            if (!Files.isDirectory(volumesRoot.resolve(standby))) {
+            final Path standbyVolume = volumesRoot.resolve(standby);
+            if (!Files.isDirectory(standbyVolume)) {
                 log.info("standby copy skipped, volume not mounted: service={}", standby);
                 continue;
             }
-            final Path source = volumesRoot.resolve(service).resolve(Installation.PLUGINS);
-            if (!Files.isDirectory(source)) {
+            final Path serviceVolume = volumesRoot.resolve(service);
+            final Path source = serviceVolume.resolve(Installation.PLUGINS);
+            if (!Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(source)) {
                 outcomes.add(new ApplyResult.Outcome(
                         standby,
                         Installation.PLUGINS,
@@ -68,22 +90,25 @@ public final class Standbys {
                                 + " start."));
                 continue;
             }
-            outcomes.add(mirror(source, target, standby, Installation.PLUGINS));
+            outcomes.add(mirror(serviceVolume, standbyVolume, standby, Installation.PLUGINS, opening));
             // The entrypoint runs the newest jar cached, so a stale cache is an older Minecraft than the service's.
-            final Path jars = volumesRoot.resolve(service).resolve(Installation.SERVER_CACHE);
-            if (Files.isDirectory(jars)) {
-                outcomes.add(mirror(
-                        jars,
-                        volumesRoot.resolve(standby).resolve(Installation.SERVER_CACHE),
-                        standby,
-                        Installation.SERVER_CACHE));
+            final Path cache = serviceVolume.resolve(Installation.SERVER_CACHE);
+            // A link is mirrored, so that its row fails instead of the cache being silently left stale.
+            if (Files.isDirectory(cache, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(cache)) {
+                outcomes.add(mirror(serviceVolume, standbyVolume, standby, Installation.SERVER_CACHE, opening));
             }
         }
         return List.copyOf(outcomes);
     }
 
     private static ApplyResult.Outcome mirror(
-            final Path source, final Path target, final String standby, final String directory) {
+            final Path serviceVolume,
+            final Path standbyVolume,
+            final String standby,
+            final String directory,
+            final Consumer<Path> opening) {
+        final Path source = serviceVolume.resolve(directory);
+        final Path target = standbyVolume.resolve(directory);
         // Either side belongs to the game's account, which could point it at the agent's secrets or a world.
         final Path link = Files.isSymbolicLink(source) ? source : target;
         if (Files.isSymbolicLink(link)) {
@@ -96,9 +121,18 @@ public final class Standbys {
                             + " service would come up on whatever is still lying in it.");
         }
         final Tally tally = new Tally();
-        try {
-            Files.createDirectories(target);
-            copyInto(source, target, 0, tally);
+        // A volume root is a mount point, which no service can swap, so only it is opened by path.
+        try (Folder sourceRoot = Folder.open(serviceVolume);
+                Folder standbyRoot = Folder.open(standbyVolume)) {
+            if (standbyRoot.find(directory) == null) {
+                Files.createDirectory(target);
+            }
+            try (Folder from = sourceRoot.child(directory, opening);
+                    Folder into = standbyRoot.child(directory, opening)) {
+                // plugins/ is its own bind mount on the volume's file system, and a rename out of it fails EXDEV.
+                final Folder workbench = Installation.PLUGINS.equals(directory) ? into : standbyRoot;
+                new Copy(workbench, opening, tally).into(from, into, 0);
+            }
         } catch (final IOException failed) {
             log.error(
                     "standby file copy failed: service={} dir={} from={} cause={}",
@@ -127,82 +161,231 @@ public final class Standbys {
                         + ", " + tally.same + " already the same");
     }
 
+    private static boolean isScratch(final String name, final PosixFileAttributes attributes, final int depth) {
+        return depth == 1 && SCRATCH.equals(name) && attributes.isDirectory();
+    }
+
+    private static boolean isMetrics(final String name, final PosixFileAttributes attributes, final int depth) {
+        return depth == 0 && METRICS.equals(name) && attributes.isDirectory();
+    }
+
+    /** A name no entry has yet, for a file or directory made under it and then moved into place. */
+    private static String unused() {
+        return Applier.STAGING + "-" + UUID.randomUUID();
+    }
+
     /**
-     * One directory, recursively, made equal to another, except for a plugin's scratch directory and bStats' folder.
+     * A directory the agent holds open, so its entries are found relative to it and never through a path.
      *
-     * Files are compared by content, since timestamps collide and a changed file can keep its size.
+     * @param path the directory's path, for messages and the test that swaps it
      */
-    private static void copyInto(final Path source, final Path target, final int depth, final Tally tally)
-            throws IOException {
-        final Set<String> wanted = new LinkedHashSet<>();
-        try (DirectoryStream<Path> entries = Files.newDirectoryStream(source)) {
-            for (final Path entry : entries) {
-                if (Files.isSymbolicLink(entry)) {
+    private record Folder(SecureDirectoryStream<Path> entries, Path path) implements Closeable {
+
+        /** Opens a directory by path, which only a path no service can change is safe for. */
+        static Folder open(final Path path) throws IOException {
+            // Through the provider, as Error Prone wants Files.newDirectoryStream closed where it opens.
+            final DirectoryStream<Path> entries =
+                    path.getFileSystem().provider().newDirectoryStream(path, entry -> true);
+            if (!(entries instanceof SecureDirectoryStream<Path>)) {
+                entries.close();
+                throw new IOException("this file system cannot open a directory relative to another, so " + path
+                        + " cannot be copied without following a link someone puts in its place");
+            }
+            return new Folder((SecureDirectoryStream<Path>) entries, path);
+        }
+
+        /** Opens an entry as a directory and refuses it if it is a symbolic link by then. */
+        Folder child(final String name, final Consumer<Path> opening) throws IOException {
+            final Path path = this.path.resolve(name);
+            opening.accept(path);
+            return new Folder(entries.newDirectoryStream(Path.of(name), LinkOption.NOFOLLOW_LINKS), path);
+        }
+
+        /** The entry itself, a link not followed, or {@code null} if there is none. */
+        @Nullable
+        PosixFileAttributes find(final String name) throws IOException {
+            try {
+                return entries.getFileAttributeView(
+                                Path.of(name), PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS)
+                        .readAttributes();
+            } catch (final NoSuchFileException gone) {
+                return null;
+            }
+        }
+
+        InputStream read(final String name) throws IOException {
+            return Channels.newInputStream(
+                    entries.newByteChannel(Path.of(name), Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)));
+        }
+
+        void move(final String name, final Folder into, final String as) throws IOException {
+            entries.move(Path.of(name), into.entries, Path.of(as));
+        }
+
+        @Override
+        public void close() throws IOException {
+            entries.close();
+        }
+    }
+
+    /**
+     * One mirror run: a directory made equal to another, recursively, except plugin scratch and bStats' folder.
+     *
+     * @param workbench where new directories are made, a mount point holding the whole target tree
+     */
+    private record Copy(Folder workbench, Consumer<Path> opening, Tally tally) {
+
+        void into(final Folder source, final Folder target, final int depth) throws IOException {
+            final Set<String> wanted = new LinkedHashSet<>();
+            for (final Path entry : source.entries()) {
+                final String name = entry.getFileName().toString();
+                final PosixFileAttributes attributes = source.find(name);
+                // A link, and anything else that is neither a file nor a directory, is skipped.
+                if (attributes == null || !(attributes.isDirectory() || attributes.isRegularFile())) {
                     continue;
                 }
-                final String name = entry.getFileName().toString();
                 // Applier's half-written downloads, left by a run that died mid-phase.
-                if (Applier.STAGING.equals(name) || isScratch(entry, depth) || isMetrics(entry, depth)) {
+                if (Applier.STAGING.equals(name)
+                        || isScratch(name, attributes, depth)
+                        || isMetrics(name, attributes, depth)) {
                     continue;
                 }
                 wanted.add(name);
-                final Path destination = target.resolve(name);
-                if (Files.isSymbolicLink(destination)) {
+                final PosixFileAttributes existing = target.find(name);
+                if (existing != null && existing.isSymbolicLink()) {
                     continue;
                 }
-                if (Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)) {
-                    Files.createDirectories(destination);
-                    copyInto(entry, destination, depth + 1, tally);
-                } else if (isDifferent(entry, destination)) {
-                    Files.copy(entry, destination, StandardCopyOption.REPLACE_EXISTING, LinkOption.NOFOLLOW_LINKS);
+                if (attributes.isDirectory()) {
+                    try (Folder from = source.child(name, opening);
+                            Folder to = existing == null ? makeDirectory(target, name) : target.child(name, opening)) {
+                        into(from, to, depth + 1);
+                    }
+                } else if (isDifferent(source, target, name, existing)) {
+                    copy(source, target, name, attributes);
                     tally.copied++;
                 } else {
                     tally.same++;
                 }
             }
-        }
-        try (DirectoryStream<Path> existing = Files.newDirectoryStream(target)) {
-            for (final Path entry : existing) {
-                if (Files.isSymbolicLink(entry)
-                        || wanted.contains(entry.getFileName().toString())
-                        || isScratch(entry, depth)
-                        || isMetrics(entry, depth)) {
+            for (final Path entry : target.entries()) {
+                final String name = entry.getFileName().toString();
+                final PosixFileAttributes attributes = target.find(name);
+                if (attributes == null
+                        || attributes.isSymbolicLink()
+                        || wanted.contains(name)
+                        || isScratch(name, attributes, depth)
+                        || isMetrics(name, attributes, depth)) {
                     continue;
                 }
-                tally.removed += deleteRecursively(entry);
+                tally.removed += delete(target, name, attributes);
             }
         }
-    }
 
-    private static boolean isScratch(final Path entry, final int depth) {
-        return depth == 1
-                && SCRATCH.equals(entry.getFileName().toString())
-                && Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS);
-    }
+        /**
+         * Makes a directory on the workbench, opens it and moves it into place, as no open directory can make one.
+         *
+         * @return the new directory, held open so a link swapped in after the move is never followed
+         */
+        private Folder makeDirectory(final Folder parent, final String name) throws IOException {
+            final String made = unused();
+            // A fresh name under a mount point: createDirectory refuses an existing entry and follows no link there.
+            Files.createDirectory(workbench.path().resolve(made));
+            try {
+                final Folder opened = workbench.child(made, opening);
+                try {
+                    workbench.move(made, parent, name);
+                } catch (final IOException failed) {
+                    opened.close();
+                    throw failed;
+                }
+                return new Folder(opened.entries(), parent.path().resolve(name));
+            } finally {
+                deleteIfLeft(workbench, made, true);
+            }
+        }
 
-    private static boolean isMetrics(final Path entry, final int depth) {
-        return depth == 0
-                && METRICS.equals(entry.getFileName().toString())
-                && Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS);
-    }
+        /** Writes the file beside its destination and moves it over, so a running server never reads half a jar. */
+        private static void copy(
+                final Folder source, final Folder target, final String name, final PosixFileAttributes attributes)
+                throws IOException {
+            final String made = unused();
+            try {
+                try (InputStream in = source.read(name);
+                        OutputStream out = Channels.newOutputStream(target.entries()
+                                .newByteChannel(
+                                        Path.of(made),
+                                        Set.of(
+                                                StandardOpenOption.WRITE,
+                                                StandardOpenOption.CREATE_NEW,
+                                                LinkOption.NOFOLLOW_LINKS),
+                                        PosixFilePermissions.asFileAttribute(attributes.permissions())))) {
+                    in.transferTo(out);
+                }
+                target.move(made, target, name);
+            } finally {
+                deleteIfLeft(target, made, false);
+            }
+        }
 
-    private static boolean isDifferent(final Path source, final Path destination) throws IOException {
-        return !Files.isRegularFile(destination) || Files.mismatch(source, destination) != -1L;
-    }
-
-    private static int deleteRecursively(final Path entry) throws IOException {
-        int removed = 0;
-        if (Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS)) {
-            try (DirectoryStream<Path> children = Files.newDirectoryStream(entry)) {
-                for (final Path child : children) {
-                    removed += deleteRecursively(child);
+        private static boolean isDifferent(
+                final Folder source,
+                final Folder target,
+                final String name,
+                final @Nullable PosixFileAttributes existing)
+                throws IOException {
+            if (existing == null || !existing.isRegularFile()) {
+                return true;
+            }
+            // By content, as timestamps collide and a changed file can keep its size.
+            try (InputStream left = source.read(name);
+                    InputStream right = target.read(name)) {
+                final byte[] one = new byte[8192];
+                final byte[] other = new byte[8192];
+                while (true) {
+                    final int read = left.readNBytes(one, 0, one.length);
+                    if (read != right.readNBytes(other, 0, other.length)
+                            || !Arrays.equals(one, 0, read, other, 0, read)) {
+                        return true;
+                    }
+                    if (read < one.length) {
+                        return false;
+                    }
                 }
             }
-            Files.delete(entry);
+        }
+
+        private int delete(final Folder parent, final String name, final PosixFileAttributes attributes)
+                throws IOException {
+            if (!attributes.isDirectory()) {
+                parent.entries().deleteFile(Path.of(name));
+                return 1;
+            }
+            int removed = 0;
+            try (Folder folder = parent.child(name, opening)) {
+                for (final Path entry : folder.entries()) {
+                    final String child = entry.getFileName().toString();
+                    final PosixFileAttributes inside = folder.find(child);
+                    if (inside != null) {
+                        removed += delete(folder, child, inside);
+                    }
+                }
+            }
+            parent.entries().deleteDirectory(Path.of(name));
             return removed;
         }
-        Files.delete(entry);
-        return removed + 1;
+
+        private static void deleteIfLeft(final Folder parent, final String name, final boolean directory)
+                throws IOException {
+            try {
+                if (directory) {
+                    parent.entries().deleteDirectory(Path.of(name));
+                } else {
+                    parent.entries().deleteFile(Path.of(name));
+                }
+            } catch (final NoSuchFileException moved) {
+                // Moved into place, which is the usual end.
+            }
+        }
     }
 
     private static final class Tally {

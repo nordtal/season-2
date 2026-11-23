@@ -10,6 +10,7 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.milestone.Objective.ItemReward;
+import eu.nordtal.season.smp.pending.PendingItems;
 import eu.nordtal.season.smp.port.ItemRewards;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import java.util.Base64;

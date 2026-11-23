@@ -1,4 +1,4 @@
-package eu.nordtal.season.smp.wheel;
+package eu.nordtal.season.smp.pending;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.smp.milestone.Objective.ItemReward;

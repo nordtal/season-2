@@ -10,7 +10,7 @@ import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.wheel.PendingItems;
+import eu.nordtal.season.smp.pending.PendingItems;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;

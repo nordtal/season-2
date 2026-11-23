@@ -3,7 +3,7 @@ package eu.nordtal.season.smp.duel;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.wheel.PendingItems;
+import eu.nordtal.season.smp.pending.PendingItems;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;

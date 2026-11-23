@@ -61,6 +61,43 @@ final class Advances {
         }
     }
 
+    /** Returns where the first text component whose content equals {@code target} begins on row 0. */
+    static int firstTextX(final Component component, final String target) {
+        final int[] found = {Integer.MIN_VALUE};
+        findText(component, target, new int[] {0}, found);
+        if (found[0] == Integer.MIN_VALUE) {
+            throw new AssertionError("no text component equals '" + target + "'");
+        }
+        return found[0];
+    }
+
+    private static void findText(
+            final Component component, final String target, final int[] cursor, final int[] found) {
+        if (found[0] != Integer.MIN_VALUE) {
+            return;
+        }
+        if (component instanceof ObjectComponent) {
+            cursor[0] += OBJECT;
+        }
+        if (component instanceof final TextComponent text) {
+            if (target.equals(text.content())) {
+                found[0] = cursor[0];
+                return;
+            }
+            final Key font = component.style().font();
+            final String id = font == null ? "minecraft:default" : font.asString();
+            for (final int codePoint : text.content().codePoints().toArray()) {
+                if (codePoint == '\n') {
+                    return;
+                }
+                cursor[0] += advance(id, codePoint) + bold(component);
+            }
+        }
+        for (final Component child : component.children()) {
+            findText(child, target, cursor, found);
+        }
+    }
+
     /** Returns how far {@code component} moves the cursor. */
     static int of(final Component component) {
         int total = component instanceof ObjectComponent ? OBJECT : 0;

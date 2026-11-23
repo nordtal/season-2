@@ -658,7 +658,7 @@ services:
       # Caddy with the layer 4 app built in.
       context: ./deploy/caddy
     # Named by the hash of deploy/caddy, not the release: a release that leaves it alone keeps Caddy running.
-    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:7e370fb70099
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:7850d1ff63e3
     restart: unless-stopped
     # Root, as its volumes are root's. The binary carries cap_net_bind_service, without which it does not start.
     cap_drop: [ALL]

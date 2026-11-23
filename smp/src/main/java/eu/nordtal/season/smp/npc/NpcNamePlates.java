@@ -18,7 +18,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Draws each figure's only label through the name tags: its plate, with its name in each viewer's language.
- * The plate takes the style, colour and icon chosen in Steward. A mannequin's own name is one text for every viewer,
+ * The plate takes the colour and icon chosen in Steward. A mannequin's own name is one text for every viewer,
  * so the figure carries none.
  */
 public final class NpcNamePlates implements NamePlates {

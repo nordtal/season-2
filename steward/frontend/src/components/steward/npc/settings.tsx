@@ -9,7 +9,6 @@ import {
   type NpcPlace,
   type NpcSkinUploaded,
   type PlateColour,
-  type PlateStyle,
   type Pose,
   type Slot,
 } from "@/lib/api"
@@ -353,16 +352,14 @@ function Skin({ npc, published, edit }: { npc: Npc; published: Npc | undefined; 
   )
 }
 
-const STYLES: readonly PlateStyle[] = ["PILL", "DARK", "RIBBON", "BADGE"]
 const PLATE_COLOURS: readonly PlateColour[] = ["BLUE", "RED", "AMBER", "GREEN", "TEAL", "VIOLET", "ROSE", "SLATE"]
 const NO_ICON = "none"
 
-/** The NPC's name plate: its style, its colour and the symbol before its name. */
 /** How far each arrow key moves the chosen colour. */
 const ARROW_STEPS: Partial<Record<string, number>> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
 
+/** The NPC's name plate: its colour and the symbol before its name. */
 function Plate({ npc, edit }: { npc: Npc; edit: Edit }) {
-  const style = useId()
   const icon = useId()
   const colour = useId()
   const swatches = useRef(new Map<PlateColour, HTMLButtonElement>())
@@ -374,23 +371,6 @@ function Plate({ npc, edit }: { npc: Npc; edit: Edit }) {
         <PlateSketch npc={npc} />
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field id={style} label={t("steward.npcs.plate-style")}>
-          <Select
-            value={npc.plate.style}
-            onValueChange={(value) => plate({ style: STYLES.find((each) => each === value) ?? npc.plate.style })}
-          >
-            <SelectTrigger id={style} className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STYLES.map((each) => (
-                <SelectItem key={each} value={each}>
-                  {t("steward.npcs.plate-style-of", { style: choice(each) })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
         <Field id={icon} label={t("steward.npcs.plate-icon")}>
           <Select
             value={npc.plate.icon ?? NO_ICON}

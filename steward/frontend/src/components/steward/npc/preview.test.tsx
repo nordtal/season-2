@@ -28,22 +28,17 @@ describe("the NPC's plate and dialogue preview", () => {
   afterEach(cleanup)
 
   it("puts the chosen symbol on the plate, from the pack's sheet", () => {
-    const { container } = render(<PlateSketch npc={npc({ plate: { style: "PILL", colour: "RED", icon: "SHIELD" } })} />)
+    const { container } = render(<PlateSketch npc={npc({ plate: { colour: "RED", icon: "SHIELD" } })} />)
     expect(symbols(container)).toEqual(["49"])
   })
 
-  it("draws a badge without a symbol with the star", () => {
-    const { container } = render(<PlateSketch npc={npc({ plate: { style: "BADGE", colour: "TEAL" } })} />)
-    expect(symbols(container)).toEqual(["0"])
-  })
-
-  it("draws a plate without a symbol in any other style without one", () => {
-    const { container } = render(<PlateSketch npc={npc({ plate: { style: "DARK", colour: "TEAL" } })} />)
+  it("draws a plate without a symbol without one", () => {
+    const { container } = render(<PlateSketch npc={npc({ plate: { colour: "TEAL" } })} />)
     expect(symbols(container)).toEqual([])
   })
 
   it("draws the tab in the plate's colour and symbol", () => {
-    const container = preview(npc({ plate: { style: "PILL", colour: "RED", icon: "HEART" } }))
+    const container = preview(npc({ plate: { colour: "RED", icon: "HEART" } }))
     expect(container.querySelector("rect[fill='#A83232']")).not.toBeNull()
     expect(symbols(container)).toEqual(["91"])
   })

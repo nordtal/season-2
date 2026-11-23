@@ -3949,35 +3949,22 @@
       "font": "nordtal:npc_plate",
       "constant": "FONT_NPC_PLATE",
       "references": ["nordtal:ui_space"],
-      "about": "An NPC's name plate in the world, in the style chosen in Steward: a glyph's top on the text row, as the pill's, its name and icon in the ui text font 4 rows down.",
+      "about": "An NPC's name plate in the world, a pill: its top 2 rows below the text row, its name and icon in the ui text font 3 rows below its top.",
       "lists": [
         {
           "constant": "NPC_PLATE_PILL",
-          "about": "The pill style, white for the NPC's colour to tint: its left end, its right end and middles of 1 to 128 columns."
+          "about": "The pill, white for the NPC's colour to tint: its left end, its right end and middles of 1 to 128 columns."
         },
-        { "constant": "NPC_PLATE_DARK", "about": "The dark style in its own colours, in the same order." },
-        {
-          "constant": "NPC_PLATE_RIBBON",
-          "about": "The ribbon style, white and grey for the NPC's colour to tint, in the same order."
-        },
-        {
-          "constant": "NPC_PLATE_BADGE",
-          "about": "The badge style's box in its own colours, from the circle's left edge: its left part, its right end and middles."
-        },
-        { "constant": "NPC_PLATE_LIGHT", "about": "The light row under a pill's top, runs of 1 to 128 columns." },
-        {
-          "constant": "NPC_PLATE_LIGHT_LOW",
-          "about": "The light row under a ribbon's top, one row lower, runs of 1 to 128 columns."
-        }
+        { "constant": "NPC_PLATE_LIGHT", "about": "The light row under a pill's top, runs of 1 to 128 columns." }
       ],
       "blocks": [
         {
           "range": "FE740-FE74F",
           "title": "NPC pill plate",
-          "about": "A 15 high round box, white with an outline at 20 %, which the text colour tints.",
+          "about": "A 13 high round box, white with an outline at 20 %, which the text colour tints.",
           "texture": "nordtal:npc/plate_pill.png",
-          "height": 15,
-          "ascent": 7,
+          "height": 13,
+          "ascent": 5,
           "status": "final candidate",
           "glyphs": [
             { "code": "FE740", "title": "Left end", "list": "NPC_PLATE_PILL", "about": "3 columns, the corners cut." },
@@ -3993,80 +3980,12 @@
           ]
         },
         {
-          "range": "FE750-FE75F",
-          "title": "NPC dark plate",
-          "about": "The same box in the dark fill, its outline and light row drawn.",
-          "texture": "nordtal:npc/plate_dark.png",
-          "height": 15,
-          "ascent": 7,
-          "status": "final candidate",
-          "glyphs": [
-            { "code": "FE750", "title": "Left end", "list": "NPC_PLATE_DARK", "about": "3 columns, the corners cut." },
-            { "code": "FE751", "title": "Right end", "list": "NPC_PLATE_DARK", "about": "3 columns." },
-            { "code": "FE752", "title": "Middle 1 px", "list": "NPC_PLATE_DARK" },
-            { "code": "FE753", "title": "Middle 2 px", "list": "NPC_PLATE_DARK" },
-            { "code": "FE754", "title": "Middle 4 px", "list": "NPC_PLATE_DARK" },
-            { "code": "FE755", "title": "Middle 8 px", "list": "NPC_PLATE_DARK" },
-            { "code": "FE756", "title": "Middle 16 px", "list": "NPC_PLATE_DARK" },
-            { "code": "FE757", "title": "Middle 32 px", "list": "NPC_PLATE_DARK" },
-            { "code": "FE758", "title": "Middle 64 px", "list": "NPC_PLATE_DARK" },
-            { "code": "FE759", "title": "Middle 128 px", "list": "NPC_PLATE_DARK" }
-          ]
-        },
-        {
-          "range": "FE760-FE76F",
-          "title": "NPC ribbon plate",
-          "about": "A 13 high banner from row 2, its ends notched, white with an edge at 45 %, which the text colour tints.",
-          "texture": "nordtal:npc/plate_ribbon.png",
-          "height": 15,
-          "ascent": 7,
-          "status": "final candidate",
-          "glyphs": [
-            { "code": "FE760", "title": "Left end", "list": "NPC_PLATE_RIBBON", "about": "5 columns, notched." },
-            { "code": "FE761", "title": "Right end", "list": "NPC_PLATE_RIBBON", "about": "5 columns, notched." },
-            { "code": "FE762", "title": "Middle 1 px", "list": "NPC_PLATE_RIBBON" },
-            { "code": "FE763", "title": "Middle 2 px", "list": "NPC_PLATE_RIBBON" },
-            { "code": "FE764", "title": "Middle 4 px", "list": "NPC_PLATE_RIBBON" },
-            { "code": "FE765", "title": "Middle 8 px", "list": "NPC_PLATE_RIBBON" },
-            { "code": "FE766", "title": "Middle 16 px", "list": "NPC_PLATE_RIBBON" },
-            { "code": "FE767", "title": "Middle 32 px", "list": "NPC_PLATE_RIBBON" },
-            { "code": "FE768", "title": "Middle 64 px", "list": "NPC_PLATE_RIBBON" },
-            { "code": "FE769", "title": "Middle 128 px", "list": "NPC_PLATE_RIBBON" }
-          ]
-        },
-        {
-          "range": "FE770-FE77F",
-          "title": "NPC badge plate",
-          "about": "The dark box from row 2 to 14 and column 11, where the badge's circle leaves it, in its own colours.",
-          "texture": "nordtal:npc/plate_badge.png",
-          "height": 15,
-          "ascent": 7,
-          "status": "final candidate",
-          "glyphs": [
-            {
-              "code": "FE770",
-              "title": "Left part",
-              "list": "NPC_PLATE_BADGE",
-              "about": "16 columns, the box's start beside the circle."
-            },
-            { "code": "FE771", "title": "Right end", "list": "NPC_PLATE_BADGE", "about": "3 columns." },
-            { "code": "FE772", "title": "Middle 1 px", "list": "NPC_PLATE_BADGE" },
-            { "code": "FE773", "title": "Middle 2 px", "list": "NPC_PLATE_BADGE" },
-            { "code": "FE774", "title": "Middle 4 px", "list": "NPC_PLATE_BADGE" },
-            { "code": "FE775", "title": "Middle 8 px", "list": "NPC_PLATE_BADGE" },
-            { "code": "FE776", "title": "Middle 16 px", "list": "NPC_PLATE_BADGE" },
-            { "code": "FE777", "title": "Middle 32 px", "list": "NPC_PLATE_BADGE" },
-            { "code": "FE778", "title": "Middle 64 px", "list": "NPC_PLATE_BADGE" },
-            { "code": "FE779", "title": "Middle 128 px", "list": "NPC_PLATE_BADGE" }
-          ]
-        },
-        {
           "range": "FE780-FE78F",
           "title": "NPC plate light row",
           "about": "White runs on one row, tinted by the component.",
           "texture": "nordtal:npc/plate_light.png",
-          "height": 15,
-          "ascent": 7,
+          "height": 13,
+          "ascent": 5,
           "status": "final candidate",
           "glyphs": [
             { "code": "FE780", "title": "NPC plate light row, 1 px", "list": "NPC_PLATE_LIGHT" },
@@ -4080,60 +3999,20 @@
           ]
         },
         {
-          "range": "FE790-FE79F",
-          "title": "NPC ribbon light row",
-          "about": "White runs on one row, tinted by the component.",
-          "texture": "nordtal:npc/plate_light_low.png",
-          "height": 15,
-          "ascent": 7,
-          "status": "final candidate",
-          "glyphs": [
-            { "code": "FE790", "title": "NPC ribbon light row, 1 px", "list": "NPC_PLATE_LIGHT_LOW" },
-            { "code": "FE791", "title": "NPC ribbon light row, 2 px", "list": "NPC_PLATE_LIGHT_LOW" },
-            { "code": "FE792", "title": "NPC ribbon light row, 4 px", "list": "NPC_PLATE_LIGHT_LOW" },
-            { "code": "FE793", "title": "NPC ribbon light row, 8 px", "list": "NPC_PLATE_LIGHT_LOW" },
-            { "code": "FE794", "title": "NPC ribbon light row, 16 px", "list": "NPC_PLATE_LIGHT_LOW" },
-            { "code": "FE795", "title": "NPC ribbon light row, 32 px", "list": "NPC_PLATE_LIGHT_LOW" },
-            { "code": "FE796", "title": "NPC ribbon light row, 64 px", "list": "NPC_PLATE_LIGHT_LOW" },
-            { "code": "FE797", "title": "NPC ribbon light row, 128 px", "list": "NPC_PLATE_LIGHT_LOW" }
-          ]
-        },
-        {
           "range": "FE7A0-FE7AF",
           "title": "NPC plate marks",
-          "about": "The badge's circle, the dark plate's stripe and the speech bubble over a plate while a player is near.",
-          "height": 15,
-          "ascent": 7,
+          "about": "The speech bubble over a plate while a player is near.",
+          "height": 18,
+          "ascent": 16,
           "status": "final candidate",
           "glyphs": [
-            {
-              "code": "FE7A0",
-              "title": "Badge circle",
-              "constant": "NPC_PLATE_CIRCLE",
-              "texture": "nordtal:npc/plate_badge_circle.png",
-              "about": "A 15 x 15 circle, white with an outline at 20 %, which the text colour tints."
-            },
-            {
-              "code": "FE7A1",
-              "title": "Badge circle light",
-              "constant": "NPC_PLATE_CAP",
-              "texture": "nordtal:npc/plate_badge_cap.png",
-              "about": "The circle's top four rows inside its outline, white, tinted to the light colour."
-            },
-            {
-              "code": "FE7A2",
-              "title": "Dark plate stripe",
-              "constant": "NPC_PLATE_STRIPE",
-              "texture": "nordtal:npc/plate_stripe.png",
-              "about": "3 columns on rows 3 to 13, white, tinted to the NPC's colour."
-            },
             {
               "code": "FE7A3",
               "title": "Speech bubble",
               "constant": "NPC_SPEECH_BUBBLE",
               "texture": "nordtal:npc/speech_bubble.png",
               "height": 18,
-              "ascent": 18,
+              "ascent": 16,
               "about": "A 13 x 9 bubble, outlined, whose tail ends 2 rows over the plate's top."
             },
             {
@@ -4142,7 +4021,7 @@
               "constant": "NPC_SPEECH_DOTS",
               "texture": "nordtal:npc/speech_dots.png",
               "height": 18,
-              "ascent": 18,
+              "ascent": 16,
               "about": "The bubble's three dots on its fourth row, white, tinted to the NPC's colour."
             }
           ]

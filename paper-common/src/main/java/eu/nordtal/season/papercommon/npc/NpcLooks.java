@@ -19,11 +19,11 @@ public final class NpcLooks {
 
     private NpcLooks() {}
 
-    /** Returns the plate above the NPC's head in its style, colour and icon. */
+    /** Returns the plate above the NPC's head in its colour and with its icon. */
     public static NpcPlate.Look plate(final Npc npc) {
         final Npc.Plate plate = npc.plate();
         final Npc.PlateIcon icon = plate.icon();
-        return new NpcPlate.Look(style(plate.style()), colour(plate), icon == null ? null : symbol(icon));
+        return new NpcPlate.Look(colour(plate), icon == null ? null : symbol(icon));
     }
 
     /** Returns the NPC's portrait font: its own with an uploaded skin or picture, the pack's default otherwise. */
@@ -48,15 +48,6 @@ public final class NpcLooks {
 
     private static TextColor colour(final Npc.Plate plate) {
         return TextColor.color(plate.colour().rgb());
-    }
-
-    private static NpcPlate.Style style(final Npc.PlateStyle style) {
-        return switch (style) {
-            case PILL -> NpcPlate.Style.PILL;
-            case DARK -> NpcPlate.Style.DARK;
-            case RIBBON -> NpcPlate.Style.RIBBON;
-            case BADGE -> NpcPlate.Style.BADGE;
-        };
     }
 
     private static Symbol symbol(final Npc.PlateIcon icon) {

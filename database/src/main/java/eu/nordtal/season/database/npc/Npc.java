@@ -74,32 +74,18 @@ public record Npc(
         return new Npc(id, name, place, pose, pitch, equipment, dialogue, skin, skinModel, plate, artwork);
     }
 
-    /** The name plate above its head, which also colours the name tab of its dialogue. */
-    public record Plate(
-            PlateStyle style, PlateColour colour, @Nullable PlateIcon icon) {
+    /** The name plate above its head, a pill in its colour, which also colours the name tab of its dialogue. */
+    public record Plate(PlateColour colour, @Nullable PlateIcon icon) {
 
         /** A blue pill without a symbol, as every NPC had before plates could be chosen. */
-        public static final Plate DEFAULT = new Plate(PlateStyle.PILL, PlateColour.BLUE, null);
+        public static final Plate DEFAULT = new Plate(PlateColour.BLUE, null);
 
         public Plate {
-            style = style == null ? PlateStyle.PILL : style;
             colour = colour == null ? PlateColour.BLUE : colour;
         }
     }
 
-    /** How a name plate is drawn. */
-    public enum PlateStyle {
-        /** A rounded box in the colour. */
-        PILL,
-        /** A dark box with a stripe of the colour at its left end. */
-        DARK,
-        /** A banner in the colour with notched ends. */
-        RIBBON,
-        /** A round badge in the colour that holds the symbol, before a dark box. */
-        BADGE
-    }
-
-    /** The colours of name plates and tabs, each dark enough to carry white bold text. */
+    /** The colours of name plates and tabs, each dark enough to carry white text. */
     public enum PlateColour {
         BLUE(0x345AB4),
         RED(0xA83232),

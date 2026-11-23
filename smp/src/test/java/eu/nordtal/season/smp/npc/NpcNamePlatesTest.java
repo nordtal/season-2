@@ -10,7 +10,6 @@ import eu.nordtal.season.database.npc.Dialogue.Words;
 import eu.nordtal.season.database.npc.Npc;
 import eu.nordtal.season.database.npc.Npc.PlateColour;
 import eu.nordtal.season.database.npc.Npc.PlateIcon;
-import eu.nordtal.season.database.npc.Npc.PlateStyle;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.packrendering.npc.NpcPlate;
@@ -50,13 +49,12 @@ class NpcNamePlatesTest {
     }
 
     @Test
-    void thePlateTakesTheStyleColourAndIconChosenForTheNpc() {
-        final Npc smith = smith().withLook(new Npc.Plate(PlateStyle.BADGE, PlateColour.RED, PlateIcon.PICKAXE), null);
+    void thePlateTakesTheColourAndIconChosenForTheNpc() {
+        final Npc smith = smith().withLook(new Npc.Plate(PlateColour.RED, PlateIcon.PICKAXE), null);
         final PillHologram.Layers layers =
                 NpcNamePlates.plate(smith, LANGUAGES::get, viewer -> false).apply(ENGLISH);
 
-        final NpcPlate.Look look =
-                new NpcPlate.Look(NpcPlate.Style.BADGE, TextColor.color(PlateColour.RED.rgb()), Symbol.PICKAXE);
+        final NpcPlate.Look look = new NpcPlate.Look(TextColor.color(PlateColour.RED.rgb()), Symbol.PICKAXE);
         assertEquals(NpcPlate.panel(look, "Smith", false), layers.panel());
         assertEquals(NpcPlate.ink(look, "Smith", false), layers.ink());
     }

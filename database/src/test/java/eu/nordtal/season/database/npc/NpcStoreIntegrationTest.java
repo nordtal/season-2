@@ -154,7 +154,7 @@ class NpcStoreIntegrationTest {
         final NpcStore store = NpcStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
         final NpcArtwork artwork = new NpcArtwork(UUID.fromString("00000000-0000-0000-0000-0000000000cc"), "cG5n");
         store.upload(artwork, ADMIN);
-        final Npc.Plate plate = new Npc.Plate(Npc.PlateStyle.RIBBON, Npc.PlateColour.TEAL, Npc.PlateIcon.HAND_IN);
+        final Npc.Plate plate = new Npc.Plate(Npc.PlateColour.TEAL, Npc.PlateIcon.HAND_IN);
         store.save(smith("Hi").withLook(plate, artwork.id()), ADMIN);
 
         final Npc read = NpcStore.using(database.dataSourceAs(DatabaseRole.SMP))
@@ -168,8 +168,18 @@ class NpcStoreIntegrationTest {
     }
 
     @Test
+    void aVersionSavedWithAPlateStyleReadsAsThePillInItsColour() {
+        final String now = Json.encode(smith("Hi").withLook(new Npc.Plate(Npc.PlateColour.TEAL, null), null));
+        final String styled = now.replace("\"plate\":{", "\"plate\":{\"style\":\"RIBBON\",");
+        assertTrue(styled.contains("RIBBON"), styled);
+        assertEquals(
+                new Npc.Plate(Npc.PlateColour.TEAL, null),
+                Json.decode(styled, Npc.class).plate());
+    }
+
+    @Test
     void anNpcSavedBeforePlatesHasTheBluePillWithoutArtwork() {
-        final String plate = ",\"plate\":{\"style\":\"PILL\",\"colour\":\"BLUE\"}";
+        final String plate = ",\"plate\":{\"colour\":\"BLUE\"}";
         final String now = Json.encode(smith("Hi"));
         assertTrue(now.contains(plate), now);
         final Npc old = Json.decode(now.replace(plate, ""), Npc.class);

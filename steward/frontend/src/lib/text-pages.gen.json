@@ -641,8 +641,6 @@
     "steward.npcs.plate-icon": ["services"],
     "steward.npcs.plate-icon-of": ["services"],
     "steward.npcs.plate-note": ["services"],
-    "steward.npcs.plate-style": ["services"],
-    "steward.npcs.plate-style-of": ["services"],
     "steward.npcs.play": ["services"],
     "steward.npcs.portrait": ["services"],
     "steward.npcs.portrait-not-saved": ["services"],

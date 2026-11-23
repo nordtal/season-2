@@ -576,64 +576,21 @@ export function PlateSymbol({
   )
 }
 
-/** The outline and the dark fill of every plate, as the pack draws them. */
+/** The outline of the plate, as the pack draws it. */
 const OUTLINE = "#0D0F15"
-const DARK = "#1B1F2B"
 
-/** A sketch of the plate over the NPC's head: its style and colour around the symbol and the name. */
+/** A sketch of the plate over the NPC's head: a pill in its colour around the symbol and the name. */
 export function PlateSketch({ npc }: { npc: Npc }) {
-  const colour = PLATE_RGB[npc.plate.colour]
-  const name = npc.name.en.trim() || t("steward.npcs.unnamed")
   const icon = npc.plate.icon
-  /** The symbol before the name, tinted as the game tints it on this style. */
-  const symbol = (tint: string) =>
-    icon === undefined ? null : <PlateSymbol icon={icon} colour={tint} size={SKETCH_SYMBOL} />
-  const text = <span className="truncate px-2 text-sm font-semibold text-white">{name}</span>
-  const outline = { boxShadow: `0 0 0 2px ${OUTLINE}` }
-  switch (npc.plate.style) {
-    case "DARK":
-      return (
-        <div className="flex h-7 max-w-full items-center rounded-sm" style={{ ...outline, background: DARK }}>
-          <span className="mr-1.5 ml-1 h-4 w-1 shrink-0" style={{ background: colour }} />
-          {symbol(shade(colour, 0.55, true))}
-          {text}
-        </div>
-      )
-    case "RIBBON":
-      return (
-        <div
-          className="flex h-6 max-w-full items-center px-4"
-          style={{ background: colour, clipPath: "polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%)" }}
-        >
-          {symbol("#ffffff")}
-          {text}
-        </div>
-      )
-    case "BADGE":
-      return (
-        <div className="flex max-w-full items-center">
-          <span
-            className="z-10 flex size-7 shrink-0 items-center justify-center rounded-full"
-            style={{ ...outline, background: colour }}
-          >
-            <PlateSymbol icon={icon ?? "STAR"} colour="#ffffff" size={SKETCH_SYMBOL} />
-          </span>
-          <div className="-ml-2 flex h-6 min-w-0 items-center rounded-sm pl-2" style={{ ...outline, background: DARK }}>
-            {text}
-          </div>
-        </div>
-      )
-    default:
-      return (
-        <div
-          className="flex h-7 max-w-full items-center rounded-full px-1 pl-2.5"
-          style={{ ...outline, background: colour }}
-        >
-          {symbol("#ffffff")}
-          {text}
-        </div>
-      )
-  }
+  return (
+    <div
+      className="flex h-6.5 max-w-full items-center rounded-full px-1 pl-2.5"
+      style={{ boxShadow: `0 0 0 2px ${OUTLINE}`, background: PLATE_RGB[npc.plate.colour] }}
+    >
+      {icon === undefined ? null : <PlateSymbol icon={icon} colour="#ffffff" size={SKETCH_SYMBOL} />}
+      <span className="truncate px-2 text-sm text-white">{npc.name.en.trim() || t("steward.npcs.unnamed")}</span>
+    </div>
+  )
 }
 
 /** The sketch's symbols, twice the game's 7 pixels. */

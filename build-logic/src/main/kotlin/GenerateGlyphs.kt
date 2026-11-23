@@ -123,7 +123,14 @@ abstract class GenerateGlyphs : DefaultTask() {
                         }
                     } else {
                         block.glyphs.forEach {
-                            providers += bitmap(it.texture, it.ascent - lower, it.height, listOf(Character.toString(it.codePoint)))
+                            val chars = listOf(Character.toString(it.codePoint))
+                            val ascent = it.ascent - lower
+                            if (ascent > it.height) {
+                                val source = GlyphAdvances.texture(assets.get().asFile, it.texture)
+                                providers += bitmap(raise(root, it.texture, source, 1, it.height, ascent), ascent, ascent, chars)
+                            } else {
+                                providers += bitmap(it.texture, ascent, it.height, chars)
+                            }
                         }
                     }
                 }

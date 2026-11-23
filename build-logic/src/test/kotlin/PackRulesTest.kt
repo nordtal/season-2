@@ -64,5 +64,22 @@ class PackRulesTest {
         )
     }
 
+    @Test
+    fun aBitmapProviderWhoseAscentExceedsItsHeightIsRefused() {
+        val image = BufferedImage(1, 4, BufferedImage.TYPE_INT_ARGB).apply { setRGB(0, 0, 0xFFFFFFFF.toInt()) }
+        ImageIO.write(image, "png", file("pack/assets/nordtal/textures/ui/kit/strip.png"))
+        file("pack/assets/nordtal/font/ui_art_0.json").writeText(
+            """{"providers":[{"type":"bitmap","file":"nordtal:ui/kit/strip.png","ascent":7,"height":4,"chars":["a"]}]}""",
+        )
+
+        assertEquals(
+            listOf(
+                "nordtal/font/ui_art_0.json gives nordtal:ui/kit/strip.png ascent 7 above its height 4, " +
+                    "which the client refuses.",
+            ),
+            PackRules.findings(root.resolve("pack/assets")),
+        )
+    }
+
     private fun file(path: String): File = root.resolve(path).apply { parentFile.mkdirs() }
 }

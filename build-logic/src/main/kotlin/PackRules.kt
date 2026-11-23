@@ -147,6 +147,13 @@ object PackRules {
         if (id == null || chars.isNullOrEmpty() || chars.any { it !is String || it.isEmpty() }) {
             return listOf("${name(assets, font)} has a bitmap provider without a texture or without glyphs. Ask a developer.")
         }
+        val ascent = (provider["ascent"] as? Number)?.toInt()
+        val providerHeight = (provider["height"] as? Number)?.toInt() ?: 8
+        if (ascent != null && ascent > providerHeight) {
+            return listOf(
+                "${name(assets, font)} gives $id ascent $ascent above its height $providerHeight, which the client refuses.",
+            )
+        }
         val file = texture(assets, id)
         val texture = name(assets, file)
         // Vanilla's letter sheets, which the ui text fonts draw, are the client's own.

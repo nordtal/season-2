@@ -5,11 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
+import eu.nordtal.season.smp.config.WheelSpec;
+import eu.nordtal.season.spec.Specs;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class WheelPlanTest {
@@ -120,5 +123,17 @@ class WheelPlanTest {
             }
         }
         assertTrue(diamonds > 1900, "the weight of 1000 against 1 and 1 wins most draws: " + diamonds);
+    }
+
+    @Test
+    void theBuiltInWheelPrizesOpenAndTurnWithoutStoredSettings() {
+        final List<WheelPrizeSpec> pool = Specs.createDefault(WheelSpec.class).wheelPrizes();
+        final WheelFaces faces = new WheelFaces(new Random(7));
+        final UUID player = UUID.randomUUID();
+        final WheelPlan.Face first = faces.next(player, pool).face();
+        final WheelPlan.Face second = faces.next(player, pool).face();
+        assertEquals(first, second);
+        final int variant = first.draw(pool, List.of(0, 4, 8), new Random(1));
+        assertTrue(List.of(0, 4, 8).contains(variant));
     }
 }

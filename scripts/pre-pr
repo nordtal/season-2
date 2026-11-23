@@ -1,0 +1,386 @@
+#!/usr/bin/env python3
+"""Fast local pre-PR check for season-2.
+
+Runs commit/PR-title/PR-body validation, Flyway migration immutability checks,
+changed-module Spotless and Checkstyle, Steward API type freshness, and
+frontend oxfmt/oxlint checks without external workspace dependencies.
+"""
+
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+MIGRATION_DIR = "database/src/main/resources/db/migration"
+MIGRATION_PATTERN = re.compile(r"^V([0-9]+)__[a-z0-9_]+\.sql$")
+INCLUDE_PATTERN = re.compile(r'^\s*include\(\s*"([^"]+)"\s*\)', re.MULTILINE)
+JAVA_PLUGIN_PATTERN = re.compile(
+    r'id\("nordtal\.(java-base|jvm-app|paper-plugin|velocity-plugin|conventions|paper-library)"\)'
+)
+API_GEN_TRIGGERS = ("steward/src/", "messages/src/", "common/src/", "database/src/")
+OXFMT_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx", ".css", ".json", ".yml", ".yaml", ".md")
+
+
+def run_cmd(cmd, cwd, env=None):
+    return subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
+
+
+def git_root(path):
+    res = run_cmd(["git", "rev-parse", "--show-toplevel"], cwd=path)
+    if res.returncode != 0:
+        raise RuntimeError(res.stderr.strip() or f"not a git repository: {path}")
+    return res.stdout.strip()
+
+
+def resolve_base(repo, explicit_base):
+    if explicit_base:
+        res = run_cmd(["git", "rev-parse", "--verify", "--quiet", explicit_base], cwd=repo)
+        if res.returncode != 0:
+            raise RuntimeError(f"base ref does not resolve: {explicit_base}")
+        return explicit_base
+    for candidate in ("origin/main", "main", "origin/master", "master"):
+        res = run_cmd(["git", "rev-parse", "--verify", "--quiet", candidate], cwd=repo)
+        if res.returncode == 0:
+            return candidate
+    raise RuntimeError("could not resolve default base ref; pass --base")
+
+
+def resolve_merge_base(repo, base):
+    res = run_cmd(["git", "merge-base", base, "HEAD"], cwd=repo)
+    if res.returncode == 0 and res.stdout.strip():
+        return res.stdout.strip()
+    return base
+
+
+def changed_files(repo, diff_base):
+    diff = run_cmd(["git", "diff", "--name-only", diff_base], cwd=repo)
+    if diff.returncode != 0:
+        raise RuntimeError(diff.stderr.strip() or "git diff failed")
+    untracked = run_cmd(["git", "ls-files", "--others", "--exclude-standard"], cwd=repo)
+    if untracked.returncode != 0:
+        raise RuntimeError(untracked.stderr.strip() or "git ls-files failed")
+    paths = [p for p in diff.stdout.splitlines() if p]
+    paths.extend(p for p in untracked.stdout.splitlines() if p)
+    return sorted(set(paths))
+
+
+def run_commit_hook(repo, hook, text, names_only=False):
+    with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as tmp:
+        tmp.write(text)
+        if not text.endswith("\n"):
+            tmp.write("\n")
+        tmp_path = tmp.name
+    try:
+        cmd = ["sh", hook, tmp_path]
+        if names_only:
+            cmd.append("--names-only")
+        return run_cmd(cmd, cwd=repo)
+    finally:
+        os.unlink(tmp_path)
+
+
+def check_commits_and_pr(repo, base, title, body_path):
+    hook = os.path.join(repo, ".githooks", "commit-msg")
+    if not os.path.isfile(hook):
+        return ("SKIP", "commit-msg", "no .githooks/commit-msg in repository")
+
+    failures = []
+    commits = run_cmd(["git", "rev-list", "--first-parent", "--no-merges", f"{base}..HEAD"], cwd=repo)
+    if commits.returncode != 0:
+        return ("FAIL", "commit-msg", commits.stderr.strip() or "git rev-list failed")
+
+    checked = 0
+    for sha in [s for s in commits.stdout.splitlines() if s]:
+        msg = run_cmd(["git", "log", "-1", "--format=%B", sha], cwd=repo)
+        if msg.returncode != 0:
+            failures.append(f"{sha[:8]}: could not read commit message")
+            continue
+        res = run_commit_hook(repo, hook, msg.stdout)
+        checked += 1
+        if res.returncode != 0:
+            err = (res.stderr or res.stdout).strip()
+            failures.append(f"commit {sha[:8]}: {err}")
+
+    if title is not None:
+        res = run_commit_hook(repo, hook, title)
+        if res.returncode != 0:
+            failures.append(f"pr-title: {(res.stderr or res.stdout).strip()}")
+
+    if body_path is not None:
+        if body_path == "-":
+            body_text = sys.stdin.read()
+        else:
+            with open(body_path, encoding="utf-8") as f:
+                body_text = f.read()
+        res = run_commit_hook(repo, hook, body_text, names_only=True)
+        if res.returncode != 0:
+            failures.append(f"pr-body: {(res.stderr or res.stdout).strip()}")
+
+    if failures:
+        return ("FAIL", "commit-msg", "\n".join(failures))
+    parts = [f"{checked} commit(s)"]
+    if title is not None:
+        parts.append("title")
+    if body_path is not None:
+        parts.append("body")
+    return ("PASS", "commit-msg", "validated " + ", ".join(parts))
+
+
+def check_migrations(repo, diff_base):
+    mig_root = os.path.join(repo, MIGRATION_DIR)
+    if not os.path.isdir(mig_root):
+        return ("SKIP", "migrations", "no Flyway migration directory")
+
+    res = run_cmd(["git", "diff", "--name-status", diff_base, "--", MIGRATION_DIR], cwd=repo)
+    if res.returncode != 0:
+        return ("FAIL", "migrations", res.stderr.strip() or "git diff failed")
+
+    untracked = run_cmd(
+        ["git", "ls-files", "--others", "--exclude-standard", "--", MIGRATION_DIR],
+        cwd=repo,
+    )
+    if untracked.returncode != 0:
+        return ("FAIL", "migrations", untracked.stderr.strip() or "git ls-files failed")
+
+    failures = []
+    added = []
+    for line in res.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split("\t")
+        status = parts[0]
+        if status.startswith("A"):
+            added.append(parts[1])
+        else:
+            target = parts[-1]
+            failures.append(
+                f"existing migration changed ({status}): {target}; Flyway forbids checksum edits"
+            )
+
+    added.extend(p for p in untracked.stdout.splitlines() if p)
+
+    for path in sorted(set(added)):
+        name = os.path.basename(path)
+        if not MIGRATION_PATTERN.match(name):
+            failures.append(f"invalid migration filename: {path} (expected V<num>__<snake_case>.sql)")
+
+    seen_versions = {}
+    for entry in sorted(os.listdir(mig_root)):
+        m = MIGRATION_PATTERN.match(entry)
+        if not m:
+            continue
+        ver = int(m.group(1))
+        if ver in seen_versions:
+            failures.append(
+                f"duplicate migration version V{ver}: {seen_versions[ver]} and {entry}"
+            )
+        else:
+            seen_versions[ver] = entry
+
+    if failures:
+        return ("FAIL", "migrations", "\n".join(failures))
+    if not added:
+        return ("PASS", "migrations", "no existing migrations modified")
+    return ("PASS", "migrations", f"{len(set(added))} new migration(s) valid, existing untouched")
+
+
+def discover_gradle_modules(repo):
+    settings = os.path.join(repo, "settings.gradle.kts")
+    if not os.path.isfile(settings):
+        return []
+    with open(settings, encoding="utf-8") as f:
+        return INCLUDE_PATTERN.findall(f.read())
+
+
+def module_has_java_conventions(repo, module):
+    build_file = os.path.join(repo, module, "build.gradle.kts")
+    if not os.path.isfile(build_file):
+        return False
+    with open(build_file, encoding="utf-8") as f:
+        return bool(JAVA_PLUGIN_PATTERN.search(f.read()))
+
+
+def plan_gradle_tasks(repo, files, fix=False):
+    modules = discover_gradle_modules(repo)
+    if not modules:
+        return []
+
+    module_set = set(modules)
+    touched_modules = set()
+    root_build_changed = False
+    checkstyle_config_changed = False
+    api_types_triggered = False
+
+    for path in files:
+        if (
+            path.startswith("build-logic/")
+            or path.endswith(".gradle.kts")
+            or path in ("gradle/libs.versions.toml", "gradle.properties")
+        ):
+            root_build_changed = True
+        if path.startswith("config/checkstyle/"):
+            checkstyle_config_changed = True
+        top = path.split("/", 1)[0]
+        if top in module_set:
+            touched_modules.add(top)
+        if any(path.startswith(prefix) for prefix in API_GEN_TRIGGERS):
+            api_types_triggered = True
+
+    tasks = []
+    spotless_task = "spotlessApply" if fix else "spotlessCheck"
+    if root_build_changed:
+        tasks.append(f":{spotless_task}")
+
+    java_modules = sorted(touched_modules)
+    if checkstyle_config_changed:
+        java_modules = sorted(module_set)
+
+    for mod in java_modules:
+        if not module_has_java_conventions(repo, mod):
+            continue
+        if mod in touched_modules:
+            tasks.append(f":{mod}:{spotless_task}")
+        if os.path.isdir(os.path.join(repo, mod, "src", "main", "java")):
+            tasks.append(f":{mod}:checkstyleMain")
+        if os.path.isdir(os.path.join(repo, mod, "src", "test", "java")):
+            tasks.append(f":{mod}:checkstyleTest")
+
+    if api_types_triggered and "steward" in module_set:
+        if fix:
+            tasks.append(":steward:generateApiTypes")
+        else:
+            tasks.extend(
+                [
+                    ":steward:test",
+                    "--tests",
+                    "*ApiTypesTest",
+                    "--tests",
+                    "*BrandCssTest",
+                    "--tests",
+                    "*TextTypesTest",
+                    "--tests",
+                    "*TextPagesTest",
+                ]
+            )
+
+    return tasks
+
+
+def check_gradle(repo, files, fix=False, gradle_args=None):
+    gradlew = os.path.join(repo, "gradlew")
+    if not os.path.isfile(gradlew):
+        return ("SKIP", "gradle", "no gradlew in repository")
+
+    tasks = plan_gradle_tasks(repo, files, fix=fix)
+    if not tasks:
+        return ("SKIP", "gradle", "no Java or build-script changes")
+
+    cmd = ["sh", "gradlew", "--console=plain", *(gradle_args or []), *tasks]
+    res = run_cmd(cmd, cwd=repo)
+    if res.returncode != 0:
+        tail = "\n".join((res.stderr or res.stdout).splitlines()[-25:])
+        return ("FAIL", "gradle", f"command failed: {' '.join(cmd)}\n{tail}")
+    return ("PASS", "gradle", " ".join(tasks))
+
+
+def find_frontend_tool(frontend_dir, name):
+    local_bin = os.path.join(frontend_dir, "node_modules", ".bin", name)
+    if os.path.isfile(local_bin) and os.access(local_bin, os.X_OK):
+        return local_bin
+    return shutil.which(name)
+
+
+def check_frontend(repo, files, fix=False):
+    frontend_dir = os.path.join(repo, "steward", "frontend")
+    if not os.path.isfile(os.path.join(frontend_dir, "package.json")):
+        return ("SKIP", "frontend", "no steward/frontend in repository")
+
+    fe_files = [
+        p
+        for p in files
+        if p.startswith("steward/frontend/") and os.path.isfile(os.path.join(repo, p))
+    ]
+    oxfmt_targets = [
+        p for p in files if p.endswith(OXFMT_EXTENSIONS) and os.path.isfile(os.path.join(repo, p))
+    ]
+    if not fe_files and not oxfmt_targets:
+        return ("SKIP", "frontend", "no frontend or oxfmt-covered files changed")
+
+    failures = []
+    ran = []
+
+    if oxfmt_targets:
+        oxfmt = find_frontend_tool(frontend_dir, "oxfmt")
+        if oxfmt:
+            cmd = [oxfmt, "--no-error-on-unmatched-pattern"] + ([] if fix else ["--check"]) + oxfmt_targets
+            res = run_cmd(cmd, cwd=repo)
+            ran.append("oxfmt")
+            if res.returncode != 0:
+                failures.append(f"oxfmt: {(res.stderr or res.stdout).strip()}")
+
+    if fe_files:
+        oxlint = find_frontend_tool(frontend_dir, "oxlint")
+        if oxlint:
+            res = run_cmd([oxlint, "--type-aware", "--deny-warnings"], cwd=frontend_dir)
+            ran.append("oxlint")
+            if res.returncode != 0:
+                failures.append(f"oxlint: {(res.stderr or res.stdout).strip()}")
+
+    if failures:
+        return ("FAIL", "frontend", "\n".join(failures))
+    if not ran:
+        return ("SKIP", "frontend", "oxfmt/oxlint binaries not installed locally")
+    return ("PASS", "frontend", ", ".join(ran))
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(description="Fast local pre-PR checks for season-2.")
+    parser.add_argument("--repo", default=".", help="Path inside target git repository")
+    parser.add_argument("--base", default=None, help="Base git ref (default: origin/main or main)")
+    parser.add_argument("--title", default=None, help="PR title to validate with commit-msg hook")
+    parser.add_argument("--body", default=None, help="PR body file path (or '-' for stdin)")
+    parser.add_argument("--fix", action="store_true", help="Apply formatting and regenerate API types")
+    parser.add_argument("--skip-gradle", action="store_true", help="Skip Gradle checks")
+    parser.add_argument(
+        "--gradle-arg",
+        action="append",
+        default=[],
+        help="Extra argument forwarded to gradlew (repeatable)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    try:
+        repo = git_root(args.repo)
+        base = resolve_base(repo, args.base)
+        diff_base = resolve_merge_base(repo, base)
+        files = changed_files(repo, diff_base)
+    except RuntimeError as exc:
+        print(f"pre-pr: {exc}", file=sys.stderr)
+        return 2
+
+    results = [
+        check_commits_and_pr(repo, base, args.title, args.body),
+        check_migrations(repo, diff_base),
+    ]
+    if args.skip_gradle:
+        results.append(("SKIP", "gradle", "skipped by --skip-gradle"))
+    else:
+        results.append(check_gradle(repo, files, fix=args.fix, gradle_args=args.gradle_arg))
+    results.append(check_frontend(repo, files, fix=args.fix))
+
+    failed = False
+    for status, name, detail in results:
+        print(f"[{status}] {name}: {detail}")
+        if status == "FAIL":
+            failed = True
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

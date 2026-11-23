@@ -355,7 +355,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.OpenInventory open -> openEditor(open.admin(), open.player(), open.container());
             case SmpRequest.TakeInItem take -> takeIn.open(request.id(), take.player(), take.purpose());
             case SmpRequest.TakePosition take -> positions.take(request.id(), take.player(), take.block());
-            case SmpRequest.SendPack send -> packSwap.send(request.id(), send.url(), send.sha1());
+            case SmpRequest.SendPack send -> packSwap.send(request.id(), send);
             case SmpRequest.EditAreas edit -> editor.open(edit);
             case SmpRequest.AreaDraft step -> editor.step(request.id(), step);
             case SmpRequest.RemoveStack remove ->

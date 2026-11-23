@@ -33,4 +33,10 @@ final class PackHash {
     static boolean settled(final boolean exempt, final @Nullable String applied, final @Nullable String offered) {
         return exempt || (applied != null && (offered == null || Objects.equals(applied, offered)));
     }
+
+    /** Returns whether the pack of {@code kind} lets the player leave; a map pack never offered does. */
+    static boolean settled(
+            final PackKind kind, final boolean exempt, final @Nullable String applied, final @Nullable String offered) {
+        return (kind == PackKind.MAP && offered == null) || settled(exempt, applied, offered);
+    }
 }

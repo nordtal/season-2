@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A live swap: counts down to the players on the SMP, then has smp send them the pack the proxy offers.
+ * A live swap: counts down to the players on the SMP, then has smp send them the packs the proxy offers.
  * No service stops. Its one step after the countdown is smp's install of the pack.
  */
 @Slf4j
@@ -38,7 +38,8 @@ final class LiveSwap {
     static Kinds.Planned carryOut(
             final Runner runner, final UpdateRequest request, final Consumer<RunStage> progress, final Steps record) {
         final String smp = SeasonMode.SMP.server();
-        final PackState pack = PackState.read(SettingStore.using(runner.database.dataSource()));
+        final SettingStore settings = SettingStore.using(runner.database.dataSource());
+        final PackState pack = PackState.read(settings);
         if (!pack.present()) {
             // No build ever made a pack, so there is nothing to send.
             record.ended(RunStep.Kind.SCOPE, smp, RunStep.Outcome.SKIPPED, RunStep.Reason.UNKNOWN);
@@ -60,9 +61,10 @@ final class LiveSwap {
         progress.accept(RunStage.INSTALLING);
         final String url = Objects.requireNonNull(pack.url());
         final String sha1 = Objects.requireNonNull(pack.sha1());
+        final SmpRequest.SendPack swap = sendPack(url, sha1, PackState.readMap(settings));
         final Steps.Step install = record.begin(RunStep.Kind.INSTALL, smp).change(ARTEFACT, null, sha1, null);
         final Optional<Request<SmpRequest>> answer = Inbox.over(runner.database.dataSource(), SmpRequest.TABLE)
-                .ask(new SmpRequest.SendPack(url, sha1), Actor.STEWARD, PATIENCE, runner.waiting);
+                .ask(swap, Actor.STEWARD, PATIENCE, runner.waiting);
         if (answer.isEmpty()) {
             log.warn("live swap unanswered by smp: request={} sha1={}", request.id(), sha1);
             install.failed(RunStep.Reason.NOT_HEALTHY);
@@ -79,5 +81,12 @@ final class LiveSwap {
         install.done();
         log.info("live swap completed: request={} sha1={}", request.id(), sha1);
         return Kinds.Planned.outcome(Outcome.at(RunStage.DONE));
+    }
+
+    /** Returns the swap of the language pack at {@code url}, with the map pack when a nightly build made one. */
+    static SmpRequest.SendPack sendPack(final String url, final String sha1, final PackState map) {
+        return map.url() != null && map.sha1() != null
+                ? new SmpRequest.SendPack(url, sha1, map.url(), map.sha1())
+                : new SmpRequest.SendPack(url, sha1, null, null);
     }
 }

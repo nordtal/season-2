@@ -28,6 +28,8 @@ bunq-config.conf
 /deploy/servers/
 # The packs steward-agent builds for the local stack.
 /deploy/pack/
+# BlueMap's tiles the local steward-agent draws the map pack from.
+/deploy/map-tiles/
 # Local secrets: database password, Steward tokens, Discord credentials.
 /deploy/dev.env
 # The local NORDTAL_DIR: worlds, jars, configs, database.

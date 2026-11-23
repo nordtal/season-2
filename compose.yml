@@ -566,6 +566,8 @@ services:
     volumes:
       # The packs the agent builds, as <sha1>.zip; Caddy serves them read-only.
       - ${PACK_DIR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/pack}:/pack
+      # BlueMap's tiles of the play world; each night the agent draws the map pack from them.
+      - ${MAP_TILES:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/map-tiles}:/map-tiles:ro
       # `:ro` cannot restrict the API behind the socket.
       - /var/run/docker.sock:/var/run/docker.sock
       # A directory, not the file: a file bind would keep the pre-rotation inode.

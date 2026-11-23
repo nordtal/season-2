@@ -14,10 +14,10 @@ import java.util.concurrent.TimeUnit;
  *
  * The child runs from this process's own classpath, which holds the pack builder.
  */
-final class ChildZipper implements PackZipper {
+final class ChildZipper implements PackZipper, MapZipper {
 
     private static final String MAIN = "eu.nordtal.season.packbuilder.PackBuilderMain";
-    /** The pack is under a megabyte, so the child needs little heap. */
+    /** The pack is under a megabyte, and the map draws one tile at a time, so the child needs little heap. */
     private static final String HEAP = "-Xmx512m";
     /** The end of the output kept for the reason of a failed build. */
     private static final int TAIL = 2000;
@@ -31,6 +31,19 @@ final class ChildZipper implements PackZipper {
     @Override
     public void zip(final Path facts, final Path prizes, final Path texts, final Path zip, final List<Path> roots)
             throws IOException {
+        final List<String> arguments =
+                new ArrayList<>(List.of("zip", facts.toString(), prizes.toString(), texts.toString(), zip.toString()));
+        roots.forEach(root -> arguments.add(root.toString()));
+        run(arguments, zip);
+    }
+
+    @Override
+    public void map(final Path tiles, final Path zip) throws IOException {
+        run(List.of("map", tiles.toString(), zip.toString()), zip);
+    }
+
+    /** Runs the pack builder with {@code arguments}, which write {@code zip}. */
+    private void run(final List<String> arguments, final Path zip) throws IOException {
         final List<String> command = new ArrayList<>(List.of(
                 "nice",
                 "-n",
@@ -39,13 +52,8 @@ final class ChildZipper implements PackZipper {
                 HEAP,
                 "-cp",
                 System.getProperty("java.class.path"),
-                MAIN,
-                "zip",
-                facts.toString(),
-                prizes.toString(),
-                texts.toString(),
-                zip.toString()));
-        roots.forEach(root -> command.add(root.toString()));
+                MAIN));
+        command.addAll(arguments);
         final Path log = zip.resolveSibling(zip.getFileName() + ".log");
         try {
             final Process child = new ProcessBuilder(command)

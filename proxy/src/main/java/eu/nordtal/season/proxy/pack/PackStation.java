@@ -20,6 +20,7 @@ import eu.nordtal.season.proxy.routing.SeasonRouting;
 import eu.nordtal.season.proxy.season.SeasonWatch;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -34,7 +35,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Keeps each player in {@code limbo} until the pack is applied and the server of the active mode accepts them.
+ * Keeps each player in {@code limbo} until both packs are applied and the server of the active mode accepts them.
  * A changed pack is offered to every player there at once. Each handler records a fact and asks {@link WaitingBook}.
  */
 public final class PackStation {
@@ -55,8 +56,8 @@ public final class PackStation {
     private final WaitingBook book;
     private final BackendHealth health;
 
-    /** The offer of the pack the settings name, made again when they change. */
-    private volatile @Nullable PackOffer offer;
+    /** The offer of each pack the settings name, made again when they change. */
+    private final Map<PackKind, PackOffer> offers = new ConcurrentHashMap<>();
 
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from(LimboProtocol.CHANNEL);
 
@@ -166,9 +167,10 @@ public final class PackStation {
         for (final Player player : proxy.getAllPlayers()) {
             if (onLimbo(player) && sendOfferIfNeeded(player)) {
                 logger.info(
-                        "changed resource pack offered: player={} sha1={}",
+                        "changed resource pack offered: player={} sha1={} map_sha1={}",
                         player.getUsername(),
-                        config.get().sha1());
+                        config.get().sha1(),
+                        config.get().mapSha1());
                 evaluate(player);
                 offered++;
             }
@@ -176,7 +178,11 @@ public final class PackStation {
         return offered;
     }
 
-    /** Offers the pack unless the player is exempt, has it or waits for its answer, and returns whether it did. */
+    /**
+     * Offers the language pack and the map pack, each unless the player is exempt, has it or waits for its answer.
+     *
+     * @return whether it offered one of them
+     */
     private boolean sendOfferIfNeeded(final Player player) {
         final PackSpec spec = config.get();
         if (!spec.enabled()) {
@@ -188,8 +194,18 @@ public final class PackStation {
             }
             return false;
         }
-        final PackOffer current = offerOf(spec);
-        if (!book.claimOffer(player.getUniqueId(), current.sha1())) {
+        boolean sent = false;
+        for (final PackKind kind : PackKind.values()) {
+            if (kind.named(spec)) {
+                sent |= sendOfferIfNeeded(player, kind, spec);
+            }
+        }
+        return sent;
+    }
+
+    private boolean sendOfferIfNeeded(final Player player, final PackKind kind, final PackSpec spec) {
+        final PackOffer current = offerOf(kind, spec);
+        if (!book.claimOffer(player.getUniqueId(), kind, current.sha1())) {
             return false;
         }
         final ResourcePackInfo offer = current.forLocale(localeOf(player));
@@ -197,7 +213,7 @@ public final class PackStation {
                 .anyMatch(pack -> Arrays.equals(pack.getHash(), offer.getHash()))) {
             // Velocity refuses an offer of a pack it already counts as applied, so the book takes it as applied.
             logger.info("resource pack already applied: player={} sha1={}", player.getUsername(), current.sha1());
-            replace(player, current.sha1());
+            replace(player, kind, current.sha1());
             return false;
         }
         player.sendResourcePackOffer(offer);
@@ -205,15 +221,12 @@ public final class PackStation {
         return true;
     }
 
-    /** Returns the offer of the pack {@code spec} names, keeping the last one while the settings stay. */
-    private PackOffer offerOf(final PackSpec spec) {
-        final PackOffer last = offer;
-        if (last != null && last.offers(spec)) {
-            return last;
-        }
-        final PackOffer made = new PackOffer(proxy, spec, messages);
-        offer = made;
-        return made;
+    /** Returns the offer of the pack of {@code kind} that {@code spec} names, kept while the settings stay. */
+    private PackOffer offerOf(final PackKind kind, final PackSpec spec) {
+        return offers.compute(
+                kind,
+                (ignored, last) ->
+                        last != null && last.offers(spec) ? last : new PackOffer(proxy, kind, spec, messages));
     }
 
     /** Records the applied pack and removes the one it replaced from the client. */
@@ -242,9 +255,9 @@ public final class PackStation {
         }
     }
 
-    /** Records {@code sha1} as applied and removes the pack it replaced from the client. */
-    private void replace(final Player player, final String sha1) {
-        book.packApplied(player.getUniqueId(), sha1).ifPresent(before -> {
+    /** Records {@code sha1} of {@code kind} as applied and removes the pack it replaced from the client. */
+    private void replace(final Player player, final PackKind kind, final String sha1) {
+        book.packApplied(player.getUniqueId(), kind, sha1).ifPresent(before -> {
             player.removeResourcePacks(PackOffer.idOf(before));
             logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), sha1);
         });
@@ -259,11 +272,10 @@ public final class PackStation {
         final Locale locale = localeOf(player);
 
         final PackSpec spec = config.get();
-        if (spec.enabled()
-                && PackOffer.idOf(spec.sha1()).equals(event.getPackId())
-                && !book.answersNewestOffer(uuid, event.getPackId())) {
+        final Optional<PackKind> swapped = swappedKind(spec, uuid, event.getPackId());
+        if (swapped.isPresent()) {
             // smp sent the active pack in a live swap, under the id the proxy gives it.
-            swapAnswered(player, spec.sha1(), event.getStatus(), locale);
+            swapAnswered(player, swapped.get(), swapped.get().sha1(spec), event.getStatus(), locale);
             return;
         }
         // An answer about a pack a newer offer replaced keeps the player, as SUCCESSFUL and DISCARDED do.
@@ -282,7 +294,7 @@ public final class PackStation {
             case ACCEPTED, DOWNLOADED -> {}
             case DECLINED, FAILED_DOWNLOAD, FAILED_RELOAD, INVALID_URL -> refused(player, event.getStatus(), locale);
             case DISCARDED -> {
-                if (book.offeredSha1(uuid).map(PackOffer::idOf).equals(Optional.ofNullable(event.getPackId()))) {
+                if (event.getPackId() != null && book.answersNewestOffer(uuid, event.getPackId())) {
                     logger.warn("resource pack discarded: player={}", player.getUsername());
                 } else {
                     logger.debug("replaced resource pack discarded: player={}", player.getUsername());
@@ -291,16 +303,28 @@ public final class PackStation {
         }
     }
 
+    /** Returns the kind of the active pack that {@code packId} names when no offer of the proxy is behind it. */
+    private Optional<PackKind> swappedKind(final PackSpec spec, final UUID uuid, final @Nullable UUID packId) {
+        if (!spec.enabled() || packId == null || book.answersNewestOffer(uuid, packId)) {
+            return Optional.empty();
+        }
+        return Arrays.stream(PackKind.values())
+                .filter(kind ->
+                        kind.named(spec) && PackOffer.idOf(kind.sha1(spec)).equals(packId))
+                .findFirst();
+    }
+
     /** Records the pack a live swap applied, or disconnects the player who refused it, as at join. */
     private void swapAnswered(
             final Player player,
+            final PackKind kind,
             final String sha1,
             final PlayerResourcePackStatusEvent.Status status,
             final Locale locale) {
         switch (status) {
             case SUCCESSFUL -> {
                 logger.info("resource pack applied in a live swap: player={} sha1={}", player.getUsername(), sha1);
-                replace(player, sha1);
+                replace(player, kind, sha1);
             }
             case DECLINED, FAILED_DOWNLOAD, FAILED_RELOAD, INVALID_URL -> refused(player, status, locale);
             case ACCEPTED, DOWNLOADED, DISCARDED -> {}

@@ -111,6 +111,7 @@ DATA_DIRS=(
     "mc-hunger-games-plugins"
     "mc-smp-plugins"
     "pack"
+    "map-tiles"
 )
 
 # Pure decisions. deploy/nordtal-test.sh runs them without Docker and without a network.

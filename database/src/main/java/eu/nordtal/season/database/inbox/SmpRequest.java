@@ -293,15 +293,30 @@ public sealed interface SmpRequest
     }
 
     /**
-     * Sends the resource pack at {@code url} in place of the pack each player holds, to every player not exempt.
-     * Each player stands still and takes no damage while it loads, and it settles once nobody is left loading.
+     * Sends the resource pack at {@code url} and the map pack to every player not exempt, in place of their packs.
+     * Each player stands still and takes no damage while they load, and it settles once nobody loads.
      *
      * @param sha1 the SHA-1 of the zip in lower-case hex, from which the pack's id derives as at the proxy
+     * @param mapUrl the map pack's URL, or {@code null} with {@code mapSha1} when no map pack was built
      */
-    record SendPack(String url, String sha1) implements SmpRequest {
+    record SendPack(
+            String url,
+            String sha1,
+            @Nullable String mapUrl,
+            @Nullable String mapSha1) implements SmpRequest {
 
         public SendPack {
             Objects.requireNonNull(url, "url");
+            requireSha1(sha1);
+            if ((mapUrl == null) != (mapSha1 == null)) {
+                throw new IllegalArgumentException("a map pack has both a URL and a SHA-1, or neither");
+            }
+            if (mapSha1 != null) {
+                requireSha1(mapSha1);
+            }
+        }
+
+        private static void requireSha1(final @Nullable String sha1) {
             if (sha1 == null || !sha1.matches("[0-9a-f]{40}")) {
                 throw new IllegalArgumentException("a pack's SHA-1 is 40 lower-case hex characters, not " + sha1);
             }

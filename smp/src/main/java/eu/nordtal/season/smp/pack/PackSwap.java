@@ -9,6 +9,7 @@ import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import net.kyori.adventure.resource.ResourcePackInfo;
 import net.kyori.adventure.resource.ResourcePackRequest;
@@ -30,8 +32,8 @@ import org.bukkit.event.player.PlayerResourcePackStatusEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Sends the current resource pack to the players here in place of theirs, for a live swap.
- * Each player stands still and takes no damage until their client is done with the pack or {@link #HOLD} ran out.
+ * Sends the current resource pack and map pack to the players here in place of theirs, for a live swap.
+ * Each player stands still and takes no damage until their client is done with both or {@link #HOLD} ran out.
  * A declined or failed pack only ends the hold: the proxy sees the same answer and disconnects them as at join.
  */
 public final class PackSwap implements Listener {
@@ -58,15 +60,23 @@ public final class PackSwap implements Listener {
     }
 
     /**
-     * Sends the pack at {@code url} to every player here who is not exempt.
-     * It leaves {@code request} running until each of them is done with it. Runs on the hub's thread.
+     * Sends the packs of {@code swap} to every player here who is not exempt.
+     * It leaves {@code request} running until each of them is done with them. Runs on the hub's thread.
      */
-    public Answer send(final long request, final String url, final String sha1) {
+    public Answer send(final long request, final SmpRequest.SendPack swap) {
         final List<UUID> here = onMainList();
         final Set<UUID> exempt = exemptions.exemptAmong(here);
-        final UUID id = PackId.of(sha1);
+        final List<ResourcePackInfo> packs = new ArrayList<>();
+        packs.add(ResourcePackInfo.resourcePackInfo(PackId.of(swap.sha1()), URI.create(swap.url()), swap.sha1()));
+        final String mapUrl = swap.mapUrl();
+        final String mapSha1 = swap.mapSha1();
+        if (mapUrl != null && mapSha1 != null) {
+            packs.add(ResourcePackInfo.resourcePackInfo(PackId.of(mapSha1), URI.create(mapUrl), mapSha1));
+        }
+        final Set<UUID> ids = packs.stream().map(ResourcePackInfo::id).collect(Collectors.toSet());
+        // Replacing drops every pack the client holds, so the map pack goes with the language pack.
         final ResourcePackRequest pack = ResourcePackRequest.resourcePackRequest()
-                .packs(ResourcePackInfo.resourcePackInfo(id, URI.create(url), sha1))
+                .packs(packs)
                 .replace(true)
                 .required(true)
                 .build();
@@ -77,12 +87,12 @@ public final class PackSwap implements Listener {
                 if (player == null || exempt.contains(uuid)) {
                     continue;
                 }
-                holds.hold(uuid, request, id, System.nanoTime()).ifPresent(this::settle);
+                holds.hold(uuid, request, ids, System.nanoTime()).ifPresent(this::settle);
                 player.sendResourcePacks(pack);
                 sent++;
             }
             log.info("pack swap sent: request=" + request + " players=" + sent + " exempt=" + exempt.size() + " sha1="
-                    + sha1);
+                    + swap.sha1() + " map_sha1=" + swap.mapSha1());
             if (sent == 0) {
                 settle(request);
                 return;

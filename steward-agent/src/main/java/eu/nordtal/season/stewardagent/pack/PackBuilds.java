@@ -106,7 +106,7 @@ public final class PackBuilds {
     static final Duration QUIET = Duration.ofSeconds(30);
     /** The time a build may take before it counts as failed. */
     static final Duration TIMEOUT = Duration.ofMinutes(5);
-    /** How many of the newest packs stay on the shelf besides the active one. */
+    /** How many of the newest packs stay on the shelf besides the two the proxy offers. */
     static final int KEEP = 5;
     /** The service whose texts the pack draws. */
     private static final String NAMESPACE = "smp";
@@ -244,7 +244,7 @@ public final class PackBuilds {
 
     /** Returns the address the proxy sends for the pack {@code sha1}. */
     String url(final String sha1) {
-        return baseUrl + "/" + sha1 + ".zip";
+        return PackShelf.url(baseUrl, sha1);
     }
 
     /**
@@ -369,7 +369,7 @@ public final class PackBuilds {
             markImage();
             log.info("pack built: id={} sha1={} bytes={}", id, sha1, bytes.length);
             succeed(id, sha1, bytes.length);
-            prune(sha1);
+            shelf.prune(settings, sha1);
             return Optional.of(sha1);
         } catch (final IOException | RuntimeException failure) {
             log.warn("pack build failed, active pack kept: id={} cause={}", id, failure.getMessage());
@@ -381,7 +381,7 @@ public final class PackBuilds {
             return active();
         } finally {
             if (work != null) {
-                delete(work);
+                PackShelf.deleteQuietly(work);
             }
         }
     }
@@ -480,25 +480,6 @@ public final class PackBuilds {
         } catch (final RuntimeException unreadable) {
             log.warn("active pack unreadable: cause={}", unreadable.getMessage());
             return Optional.empty();
-        }
-    }
-
-    private void prune(final String active) {
-        try {
-            final List<String> gone = shelf.prune(active);
-            if (!gone.isEmpty()) {
-                log.info("old packs removed: files={}", gone);
-            }
-        } catch (final IOException | RuntimeException failure) {
-            log.warn("old packs not removed: cause={}", failure.getMessage());
-        }
-    }
-
-    private static void delete(final Path work) {
-        try {
-            PackShelf.delete(work);
-        } catch (final IOException failure) {
-            log.warn("build folder not removed: path={} cause={}", work, failure.getMessage());
         }
     }
 }

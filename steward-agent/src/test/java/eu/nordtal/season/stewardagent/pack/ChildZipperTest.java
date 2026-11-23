@@ -30,4 +30,14 @@ class ChildZipperTest {
             assertEquals(List.of(), left.toList());
         }
     }
+
+    @Test
+    void theChildDrawsTheMapPackFromATilesFolder(@TempDir final Path work) throws IOException {
+        final Path tiles = Files.createDirectories(work.resolve("tiles/1"));
+        final Path zip = work.resolve("map.zip");
+
+        new ChildZipper(Duration.ofMinutes(1)).map(tiles.getParent(), zip);
+
+        assertTrue(Files.size(zip) > 0);
+    }
 }

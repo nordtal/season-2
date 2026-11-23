@@ -5,7 +5,10 @@ import eu.nordtal.season.proxy.ProxyRole;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -21,17 +24,8 @@ import org.jspecify.annotations.Nullable;
  */
 public final class WaitingBook {
 
-    /** The state of a player from login to disconnect. */
-    private static final class Session {
-
-        /** Whether the player is in the waiting room. */
-        private boolean waiting;
-        /** The end of the window after {@link #releaseFailed}. */
-        private @Nullable Instant backendDownUntil;
-        /** The backend of that window. */
-        private @Nullable String backendDown;
-        /** Whether {@link #entered} was called. */
-        private boolean visited;
+    /** The offers and the applied pack of one {@link PackKind}. */
+    private static final class Slot {
 
         /** The time of the newest offer, for its timeout. */
         private @Nullable Instant offeredAt;
@@ -44,6 +38,28 @@ public final class WaitingBook {
 
         /** The SHA-1 of the pack the client last reported as applied. */
         private @Nullable String appliedSha1;
+
+        /** Returns whether {@code packId} names the newest offer; no pack id names the newest language pack. */
+        private boolean newest(final PackKind kind, final @Nullable UUID packId) {
+            return offeredSha1 != null
+                    && (packId == null ? kind == PackKind.LANGUAGE : packId.equals(PackOffer.idOf(offeredSha1)));
+        }
+    }
+
+    /** The state of a player from login to disconnect. */
+    private static final class Session {
+
+        /** Whether the player is in the waiting room. */
+        private boolean waiting;
+        /** The end of the window after {@link #releaseFailed}. */
+        private @Nullable Instant backendDownUntil;
+        /** The backend of that window. */
+        private @Nullable String backendDown;
+        /** Whether {@link #entered} was called. */
+        private boolean visited;
+
+        /** The packs, one slot for each kind. */
+        private final Map<PackKind, Slot> slots = new EnumMap<>(PackKind.class);
 
         /** Whether an admin exempted the player from the pack. */
         private boolean exempt;
@@ -59,6 +75,16 @@ public final class WaitingBook {
 
         /** The percentage sent with {@link #shown}, {@code -1} for none. */
         private int percent = -1;
+
+        Session() {
+            for (final PackKind kind : PackKind.values()) {
+                slots.put(kind, new Slot());
+            }
+        }
+
+        private Slot slot(final PackKind kind) {
+            return Objects.requireNonNull(slots.get(kind), "every kind has a slot");
+        }
     }
 
     private final BooleanSupplier packOffered;
@@ -132,48 +158,49 @@ public final class WaitingBook {
     }
 
     /**
-     * Returns {@code true} when the player is to be offered the pack {@code sha1}, and the caller sends it.
+     * Returns {@code true} when the player is owed the pack {@code sha1} of {@code kind}, which the caller sends.
      *
      * That is when the player is not exempt and the pack is neither applied nor already waiting for an answer.
      */
-    public boolean claimOffer(final UUID uuid, final String sha1) {
+    public boolean claimOffer(final UUID uuid, final PackKind kind, final String sha1) {
         final Session session = session(uuid);
         synchronized (session) {
+            final Slot slot = session.slot(kind);
             if (!session.exempt
-                    && sha1.equals(session.appliedSha1)
-                    && session.offeredSha1 != null
-                    && !sha1.equals(session.offeredSha1)) {
+                    && sha1.equals(slot.appliedSha1)
+                    && slot.offeredSha1 != null
+                    && !sha1.equals(slot.offeredSha1)) {
                 // The pack went back to the applied one while another waited: that one is replaced, nothing is sent.
-                session.replacedSha1s.add(session.offeredSha1);
-                session.offeredSha1 = sha1;
+                slot.replacedSha1s.add(slot.offeredSha1);
+                slot.offeredSha1 = sha1;
                 return false;
             }
-            if (!PackHash.owed(session.exempt, session.appliedSha1, session.offeredSha1, sha1)) {
+            if (!PackHash.owed(session.exempt, slot.appliedSha1, slot.offeredSha1, sha1)) {
                 return false;
             }
-            if (session.offeredSha1 != null && !session.offeredSha1.equals(session.appliedSha1)) {
-                session.replacedSha1s.add(session.offeredSha1);
+            if (slot.offeredSha1 != null && !slot.offeredSha1.equals(slot.appliedSha1)) {
+                slot.replacedSha1s.add(slot.offeredSha1);
             }
-            session.offeredSha1 = sha1;
-            session.offeredAt = clock.instant();
+            slot.offeredSha1 = sha1;
+            slot.offeredAt = clock.instant();
             return true;
         }
     }
 
-    /** Returns the SHA-1 of the newest pack offered to the player, if any. */
-    public Optional<String> offeredSha1(final UUID uuid) {
+    /** Returns the SHA-1 of the newest pack of {@code kind} offered to the player, if any. */
+    public Optional<String> offeredSha1(final UUID uuid, final PackKind kind) {
         final Session session = sessions.get(uuid);
         if (session == null) {
             return Optional.empty();
         }
         synchronized (session) {
-            return Optional.ofNullable(session.offeredSha1);
+            return Optional.ofNullable(session.slot(kind).offeredSha1);
         }
     }
 
     /**
-     * Returns whether the client's answer about {@code packId} is about the newest pack offered to the player.
-     * A client that names no pack answers about the newest.
+     * Returns whether the client's answer about {@code packId} is about the newest offer of one kind.
+     * A client that names no pack answers about the newest language pack.
      */
     public boolean answersNewestOffer(final UUID uuid, final @Nullable UUID packId) {
         return newestAnswered(uuid, packId).isPresent();
@@ -186,10 +213,7 @@ public final class WaitingBook {
             return Optional.empty();
         }
         synchronized (session) {
-            final String offered = session.offeredSha1;
-            return offered != null && (packId == null || packId.equals(PackOffer.idOf(offered)))
-                    ? Optional.of(offered)
-                    : Optional.empty();
+            return newestSlot(session, packId).map(slot -> slot.offeredSha1);
         }
     }
 
@@ -210,12 +234,14 @@ public final class WaitingBook {
             return Optional.empty();
         }
         synchronized (session) {
-            final String offered = session.offeredSha1;
-            if (offered == null || (packId != null && !packId.equals(PackOffer.idOf(offered)))) {
+            final Optional<Slot> newest = newestSlot(session, packId);
+            if (newest.isEmpty()) {
                 return Optional.empty();
             }
-            final String before = session.appliedSha1;
-            session.appliedSha1 = offered;
+            final Slot slot = newest.get();
+            final String offered = Objects.requireNonNull(slot.offeredSha1, "a newest slot has an offer");
+            final String before = slot.appliedSha1;
+            slot.appliedSha1 = offered;
             return Optional.of(new Applied(offered, before == null || before.equals(offered) ? null : before));
         }
     }
@@ -230,11 +256,16 @@ public final class WaitingBook {
             return Optional.empty();
         }
         synchronized (session) {
-            final Optional<String> replaced = session.replacedSha1s.stream()
-                    .filter(sha1 -> packId.equals(PackOffer.idOf(sha1)))
-                    .findFirst();
-            replaced.ifPresent(session.replacedSha1s::remove);
-            return replaced;
+            for (final Slot slot : session.slots.values()) {
+                final Optional<String> replaced = slot.replacedSha1s.stream()
+                        .filter(sha1 -> packId.equals(PackOffer.idOf(sha1)))
+                        .findFirst();
+                if (replaced.isPresent()) {
+                    slot.replacedSha1s.remove(replaced.get());
+                    return replaced;
+                }
+            }
+            return Optional.empty();
         }
     }
 
@@ -253,15 +284,16 @@ public final class WaitingBook {
     }
 
     /**
-     * Records that the client applied the pack {@code sha1}.
+     * Records that the client applied the pack {@code sha1} of {@code kind}.
      *
      * @return the pack applied before, if it was another one, so the caller removes it from the client
      */
-    public Optional<String> packApplied(final UUID uuid, final String sha1) {
+    public Optional<String> packApplied(final UUID uuid, final PackKind kind, final String sha1) {
         final Session session = session(uuid);
         synchronized (session) {
-            final String before = session.appliedSha1;
-            session.appliedSha1 = sha1;
+            final Slot slot = session.slot(kind);
+            final String before = slot.appliedSha1;
+            slot.appliedSha1 = sha1;
             return before == null || before.equals(sha1) ? Optional.empty() : Optional.of(before);
         }
     }
@@ -394,8 +426,8 @@ public final class WaitingBook {
                 return WaitingDecision.idle();
             }
 
-            final boolean packSettled = !packOffered.getAsBoolean()
-                    || PackHash.settled(session.exempt, session.appliedSha1, session.offeredSha1);
+            final boolean packSettled =
+                    !packOffered.getAsBoolean() || unsettled(session).isEmpty();
             if (!packSettled && timedOut(session)) {
                 session.waiting = false;
                 return WaitingDecision.timedOut();
@@ -450,9 +482,29 @@ public final class WaitingBook {
         return WaitingDecision.release(ready);
     }
 
+    /** Returns whether an offer the player has not applied waited longer than the apply timeout. */
     private boolean timedOut(final Session session) {
-        return session.offeredAt != null
-                && Duration.between(session.offeredAt, clock.instant()).compareTo(applyTimeout.get()) >= 0;
+        return unsettled(session).stream()
+                .map(slot -> slot.offeredAt)
+                .filter(Objects::nonNull)
+                .anyMatch(at -> Duration.between(at, clock.instant()).compareTo(applyTimeout.get()) >= 0);
+    }
+
+    /** Returns the slots that keep the player in the waiting room. */
+    private static List<Slot> unsettled(final Session session) {
+        return session.slots.entrySet().stream()
+                .filter(entry -> !PackHash.settled(
+                        entry.getKey(), session.exempt, entry.getValue().appliedSha1, entry.getValue().offeredSha1))
+                .map(Map.Entry::getValue)
+                .toList();
+    }
+
+    /** Returns the slot whose newest offer {@code packId} names. */
+    private static Optional<Slot> newestSlot(final Session session, final @Nullable UUID packId) {
+        return session.slots.entrySet().stream()
+                .filter(entry -> entry.getValue().newest(entry.getKey(), packId))
+                .map(Map.Entry::getValue)
+                .findFirst();
     }
 
     private Session session(final UUID uuid) {

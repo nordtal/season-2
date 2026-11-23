@@ -58,4 +58,18 @@ class PackWriterTest {
                         .orElseThrow()
                         .value());
     }
+
+    @Test
+    void theMapPackIsWrittenBesideTheLanguagePackAndOnlyOnce() {
+        final String map = "0123456789abcdef0123456789abcdef01234567";
+        final String mapUrl = "https://pack.nordtal.eu/" + map + ".zip";
+        PackWriter.write(store, URL, SHA1);
+
+        assertTrue(PackWriter.writeMap(store, mapUrl, map));
+        assertFalse(PackWriter.writeMap(store, mapUrl, map));
+
+        assertEquals(new PackState(mapUrl, map), PackState.readMap(store));
+        assertEquals(new PackState(URL, SHA1), PackState.read(store));
+        assertEquals(Actor.STEWARD, store.actorAt("proxy", "pack", "map-sha1"));
+    }
 }

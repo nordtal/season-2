@@ -11,10 +11,14 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** The resource pack offer with one {@link ResourcePackInfo} for each language. The pack id derives from the SHA-1. */
+/**
+ * The offer of one {@link PackKind} with one {@link ResourcePackInfo} for each language.
+ * The pack id derives from the SHA-1.
+ */
 public final class PackOffer {
 
     private final ProxyServer proxy;
+    private final PackKind kind;
     private final PackSpec config;
     private final PackMessages messages;
     private final byte[] hash;
@@ -22,12 +26,13 @@ public final class PackOffer {
 
     private final Map<String, ResourcePackInfo> byLanguage = new ConcurrentHashMap<>();
 
-    public PackOffer(final ProxyServer proxy, final PackSpec config, final PackMessages messages) {
+    public PackOffer(final ProxyServer proxy, final PackKind kind, final PackSpec config, final PackMessages messages) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
+        this.kind = Objects.requireNonNull(kind, "kind");
         this.config = Objects.requireNonNull(config, "config");
         this.messages = Objects.requireNonNull(messages, "messages");
-        this.hash = decodeHex(config.sha1());
-        this.packId = idOf(config.sha1());
+        this.hash = decodeHex(kind.sha1(config));
+        this.packId = idOf(kind.sha1(config));
     }
 
     /** Returns the pack id of the pack with the SHA-1 {@code sha1}, the same for every offer of that pack. */
@@ -37,12 +42,14 @@ public final class PackOffer {
 
     /** Returns whether this offer is the one {@code spec} describes, so a changed setting makes a new one. */
     public boolean offers(final PackSpec spec) {
-        return config.url().equals(spec.url()) && config.sha1().equals(spec.sha1()) && config.force() == spec.force();
+        return kind.url(config).equals(kind.url(spec))
+                && kind.sha1(config).equals(kind.sha1(spec))
+                && config.force() == spec.force();
     }
 
     /** Returns the SHA-1 of the offered pack. */
     public String sha1() {
-        return config.sha1();
+        return kind.sha1(config);
     }
 
     /** Returns the offer for the language. */
@@ -51,7 +58,7 @@ public final class PackOffer {
                 locale == null ? Locales.DEFAULT_TAG : locale.getLanguage().toLowerCase(Locale.ROOT);
         return byLanguage.computeIfAbsent(
                 language,
-                ignored -> proxy.createResourcePackBuilder(config.url())
+                ignored -> proxy.createResourcePackBuilder(kind.url(config))
                         .setId(packId)
                         .setHash(hash)
                         .setShouldForce(config.force())

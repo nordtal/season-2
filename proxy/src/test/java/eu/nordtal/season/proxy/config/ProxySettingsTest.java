@@ -233,6 +233,25 @@ class ProxySettingsTest {
         assertTrue(error.getMessage().contains("apply-timeout-seconds"), error.getMessage());
     }
 
+    @Test
+    void aMapPackNeedsBothItsUrlAndItsHashOrNeither() throws Exception {
+        writePack("https://example.invalid/pack.zip", REAL_LOOKING_SHA1, true, true, 180);
+        values.put("map-url", "https://example.invalid/map.zip");
+        values.put("map-sha1", "");
+
+        final SettingsException error = assertThrows(
+                SettingsException.class,
+                () -> store.checked(
+                        "proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values));
+        assertTrue(error.getMessage().contains("map-sha1"), error.getMessage());
+
+        values.put("map-sha1", REAL_LOOKING_SHA1);
+        assertEquals(
+                REAL_LOOKING_SHA1,
+                store.checked("proxy", Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack), values)
+                        .mapSha1());
+    }
+
     private void writePack(
             final String url, final String sha1, final boolean enabled, final boolean force, final int timeout) {
         values.put("enabled", enabled);

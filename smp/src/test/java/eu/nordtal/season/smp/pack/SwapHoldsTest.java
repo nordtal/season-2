@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.UUID;
 import org.bukkit.event.player.PlayerResourcePackStatusEvent.Status;
 import org.junit.jupiter.api.Test;
@@ -15,12 +16,13 @@ class SwapHoldsTest {
     private static final UUID ANNA = new UUID(0, 1);
     private static final UUID BEN = new UUID(0, 2);
     private static final UUID PACK = new UUID(9, 9);
+    private static final UUID MAP = new UUID(7, 7);
 
     private final SwapHolds holds = new SwapHolds();
 
     @Test
     void aPlayerIsHeldUntilTheirPackHasLoaded() {
-        holds.hold(ANNA, 1, PACK, 0);
+        holds.hold(ANNA, 1, Set.of(PACK), 0);
 
         assertTrue(holds.answer(ANNA, PACK, Status.ACCEPTED, 1).isEmpty());
         assertTrue(holds.answer(ANNA, PACK, Status.DOWNLOADED, 2).isEmpty());
@@ -34,8 +36,8 @@ class SwapHoldsTest {
 
     @Test
     void theSwapIsDoneOnlyWhenItsLastPlayerAnswers() {
-        holds.hold(ANNA, 1, PACK, 0);
-        holds.hold(BEN, 1, PACK, 0);
+        holds.hold(ANNA, 1, Set.of(PACK), 0);
+        holds.hold(BEN, 1, Set.of(PACK), 0);
 
         assertFalse(holds.answer(ANNA, PACK, Status.DECLINED, 1).orElseThrow().last());
         assertTrue(
@@ -44,7 +46,7 @@ class SwapHoldsTest {
 
     @Test
     void anAnswerForAnotherPackKeepsThePlayerHeld() {
-        holds.hold(ANNA, 1, PACK, 0);
+        holds.hold(ANNA, 1, Set.of(PACK), 0);
 
         assertTrue(holds.answer(ANNA, new UUID(8, 8), Status.SUCCESSFULLY_LOADED, 1)
                 .isEmpty());
@@ -52,9 +54,21 @@ class SwapHoldsTest {
     }
 
     @Test
+    void aPlayerSentBothPacksIsHeldUntilBothHaveLoaded() {
+        holds.hold(ANNA, 1, Set.of(PACK, MAP), 0);
+
+        assertTrue(holds.answer(ANNA, PACK, Status.SUCCESSFULLY_LOADED, 1).isEmpty());
+        assertTrue(holds.holds(ANNA), "the map pack still loads");
+        assertTrue(holds.answer(ANNA, MAP, Status.SUCCESSFULLY_LOADED, 2)
+                .orElseThrow()
+                .last());
+        assertFalse(holds.holds(ANNA));
+    }
+
+    @Test
     void theLastPlayerLeavingEndsTheSwap() {
-        holds.hold(ANNA, 1, PACK, 0);
-        holds.hold(BEN, 1, PACK, 0);
+        holds.hold(ANNA, 1, Set.of(PACK), 0);
+        holds.hold(BEN, 1, Set.of(PACK), 0);
 
         assertEquals(OptionalLong.empty(), holds.leave(ANNA));
         assertEquals(OptionalLong.of(1), holds.leave(BEN));
@@ -63,8 +77,8 @@ class SwapHoldsTest {
 
     @Test
     void theHoldRunningOutLetsGoOfThatSwapsPlayersOnly() {
-        holds.hold(ANNA, 1, PACK, 0);
-        holds.hold(BEN, 2, PACK, 0);
+        holds.hold(ANNA, 1, Set.of(PACK), 0);
+        holds.hold(BEN, 2, Set.of(PACK), 0);
 
         assertEquals(1, holds.release(1));
         assertFalse(holds.holds(ANNA));
@@ -74,9 +88,9 @@ class SwapHoldsTest {
 
     @Test
     void aNewerSwapForTheSamePlayerEndsTheOlderOneWhenItWasTheirsAlone() {
-        holds.hold(ANNA, 1, PACK, 0);
+        holds.hold(ANNA, 1, Set.of(PACK), 0);
 
-        assertEquals(OptionalLong.of(1), holds.hold(ANNA, 2, PACK, 5));
+        assertEquals(OptionalLong.of(1), holds.hold(ANNA, 2, Set.of(PACK), 5));
         assertEquals(OptionalLong.of(2), holds.leave(ANNA));
     }
 }

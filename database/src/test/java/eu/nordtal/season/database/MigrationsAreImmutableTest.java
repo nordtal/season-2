@@ -417,6 +417,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V144__spawn_and_duel_areas_are_stored_as_polygons.sql",
                 "7e05c2707a32f9ed81cb11d094a679fbf0eeb03ea3532769faea0bbfe3c99ba4");
+        FROZEN.put(
+                "V145__a_live_swap_sends_the_map_pack_beside_the_language_pack.sql",
+                "071b4cbda86e54c83c8f33015bced6ab12f7ee2e3021939153d8dfd26ad94d8b");
     }
 
     @Test

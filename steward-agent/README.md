@@ -123,6 +123,11 @@ seconds after the last change of the wheel. A build writes `<sha1>.zip` into `PA
 serves under `PACK_BASE_URL`, and then the proxy's `pack` settings. A failed build changes neither,
 and `pack_build` records every build for Steward.
 
+The agent also builds the map pack each night at 05:15 in the network's zone, from BlueMap's tiles in
+`MAP_TILES`, and at its start when the proxy offers no map pack the shelf holds. The map pack is the
+same for every language and lands on the same shelf. A build sets the proxy's `map-url` and
+`map-sha1` only when the images changed. Players get a new map pack when they next join.
+
 ## Guarantees
 
 - `serve` acts only on rows of its inbox and never migrates.

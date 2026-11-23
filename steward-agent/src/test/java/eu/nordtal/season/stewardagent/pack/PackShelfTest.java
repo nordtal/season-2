@@ -12,6 +12,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -45,7 +46,7 @@ class PackShelfTest {
             shelve(n);
         }
 
-        final List<String> deleted = new PackShelf(dir, 5, Clock.systemUTC()).prune(sha1(7));
+        final List<String> deleted = new PackShelf(dir, 5, Clock.systemUTC()).prune(Set.of(sha1(7)));
 
         assertEquals(
                 List.of(sha1(1) + ".zip", sha1(2) + ".zip"),
@@ -59,7 +60,7 @@ class PackShelfTest {
             shelve(n);
         }
 
-        new PackShelf(dir, 5, Clock.systemUTC()).prune(sha1(1));
+        new PackShelf(dir, 5, Clock.systemUTC()).prune(Set.of(sha1(1)));
 
         assertEquals(Stream.of(1, 3, 4, 5, 6, 7).map(n -> sha1(n) + ".zip").toList(), left());
     }
@@ -73,7 +74,7 @@ class PackShelfTest {
         final Path old = Files.writeString(dir.resolve("build-123.zip.tmp"), "half");
         Files.setLastModifiedTime(old, FileTime.from(Instant.parse("2020-01-01T00:00:00Z")));
 
-        new PackShelf(dir, 5, Clock.systemUTC()).prune(sha1(7));
+        new PackShelf(dir, 5, Clock.systemUTC()).prune(Set.of(sha1(7)));
 
         assertTrue(Files.exists(dir.resolve("README")));
         assertTrue(Files.exists(old));
@@ -89,7 +90,7 @@ class PackShelfTest {
         final PackShelf shelf = new PackShelf(dir, 5, Clock.systemUTC());
 
         shelf.put(built, sha1(9));
-        shelf.prune(sha1(9));
+        shelf.prune(Set.of(sha1(9)));
 
         assertTrue(shelf.has(sha1(9)));
         assertFalse(Files.exists(built));
@@ -108,8 +109,19 @@ class PackShelfTest {
         final PackShelf shelf = new PackShelf(dir, 5, Clock.systemUTC());
 
         shelf.put(built, sha1(1));
-        shelf.prune(sha1(1));
+        shelf.prune(Set.of(sha1(1)));
 
         assertEquals(Stream.of(1, 3, 4, 5, 6).map(n -> sha1(n) + ".zip").toList(), left());
+    }
+
+    @Test
+    void bothPacksTheProxyOffersStay() throws IOException {
+        for (int n = 1; n <= 7; n++) {
+            shelve(n);
+        }
+
+        new PackShelf(dir, 5, Clock.systemUTC()).prune(Set.of(sha1(1), sha1(2)));
+
+        assertEquals(Stream.of(1, 2, 3, 4, 5, 6, 7).map(n -> sha1(n) + ".zip").toList(), left());
     }
 }

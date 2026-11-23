@@ -61,4 +61,26 @@ class PackStateTest {
 
         assertFalse(PackState.read(store).present());
     }
+
+    @Test
+    void theMapPackAndTheLanguagePackAreReadApart() {
+        store.set("proxy", "pack", "url", URL)
+                .set("proxy", "pack", "sha1", "6f1ed002ab5595859014ebf0951522d9d0f2ee34")
+                .set("proxy", "pack", "map-url", "https://pack.nordtal.eu/map.zip")
+                .set("proxy", "pack", "map-sha1", "0123456789abcdef0123456789abcdef01234567");
+
+        assertEquals(
+                new PackState("https://pack.nordtal.eu/map.zip", "0123456789abcdef0123456789abcdef01234567"),
+                PackState.readMap(store));
+        assertEquals(
+                "6f1ed002ab5595859014ebf0951522d9d0f2ee34",
+                PackState.read(store).sha1());
+    }
+
+    @Test
+    void noMapBuildIsAnAbsentMapPack() {
+        store.set("proxy", "pack", "sha1", "6f1ed002ab5595859014ebf0951522d9d0f2ee34");
+
+        assertFalse(PackState.readMap(store).present());
+    }
 }

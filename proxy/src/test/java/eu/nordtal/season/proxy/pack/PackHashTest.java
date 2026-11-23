@@ -27,4 +27,12 @@ class PackHashTest {
         assertFalse(PackHash.settled(false, null, NEW));
         assertTrue(PackHash.settled(true, null, NEW));
     }
+
+    @Test
+    void aMapPackNeverOfferedLetsThePlayerLeaveButALanguagePackNeverOfferedDoesNot() {
+        assertTrue(PackHash.settled(PackKind.MAP, false, null, null));
+        assertFalse(PackHash.settled(PackKind.LANGUAGE, false, null, null));
+        assertFalse(PackHash.settled(PackKind.MAP, false, null, NEW));
+        assertTrue(PackHash.settled(PackKind.MAP, false, NEW, NEW));
+    }
 }

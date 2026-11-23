@@ -660,7 +660,7 @@ services:
       # Caddy with the layer 4 app built in.
       context: ./deploy/caddy
     # Named by the hash of deploy/caddy, not the release: a release that leaves it alone keeps Caddy running.
-    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:490add809f98
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:7e370fb70099
     restart: unless-stopped
     # Root, as its volumes are root's. The binary carries cap_net_bind_service, without which it does not start.
     cap_drop: [ALL]
@@ -773,12 +773,19 @@ configs:
       		Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-GnzYpFx83cmlxryecnwMPf97aSdL9d7002QB+mqc/tY=' 'unsafe-hashes' 'sha256-4TpZ3Tx5SLybDXPQaSHGuP1RU4D+pzck+02JLVY61BY='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
       	}
 
+      	# Pings Caddy's own layer4 game port so the check stays up while Steward restarts.
+      	handle /api/health/game {
+      		game_health
+      	}
+
       	# Only steward is exposed here; the internal APIs must never get a route.
-      	reverse_proxy steward:8080 {
-      		# Keeps quiet Server-Sent Event streams open.
-      		flush_interval -1
-      		# Forwards the client address Caddy resolved from Cf-Connecting-IP.
-      		header_up Cf-Connecting-IP {client_ip}
+      	handle {
+      		reverse_proxy steward:8080 {
+      			# Keeps quiet Server-Sent Event streams open.
+      			flush_interval -1
+      			# Forwards the client address Caddy resolved from Cf-Connecting-IP.
+      			header_up Cf-Connecting-IP {client_ip}
+      		}
       	}
       }
 

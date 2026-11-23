@@ -78,6 +78,7 @@ jobs:
             docker build -f deploy/jvm/Dockerfile --build-arg "MODULE=$module" -t "nordtal/$module:ci" .
           done
           docker build -t nordtal/minecraft:ci deploy/minecraft
+          docker build -t nordtal/caddy:ci deploy/caddy
 
   # Steward's vitest suite in two halves, each on a runner of its own, beside the build job.
   frontend:

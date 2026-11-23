@@ -548,12 +548,12 @@ class TopologyDeploymentTest {
 
     @Test
     void caddyBuildsFromPinnedInputsSoItsTagNamesOneImage() {
-        final String dockerfile = RepositoryRoot.read("deploy/caddy/Dockerfile");
-        assertAll(dockerfile
+        assertAll(RepositoryRoot.read("deploy/caddy/Dockerfile")
                 .lines()
                 .filter(line -> line.startsWith("FROM ") || line.contains("xcaddy build"))
                 .map(line -> () -> assertTrue(
-                        line.contains("@sha256:") || line.matches(".*--with \\S+@v[0-9.]+.*"),
+                        line.contains("@sha256:")
+                                || line.matches(".*xcaddy build(\\s+--with\\s+\\S+(@v[0-9.]+|=/\\S+))+\\s*"),
                         "deploy/caddy/Dockerfile builds from a moving input: " + line)));
     }
 

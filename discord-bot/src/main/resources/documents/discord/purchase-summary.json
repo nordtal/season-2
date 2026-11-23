@@ -54,7 +54,7 @@
               "slot": "change",
               "label": {
                 "en": "Change {@terms.period, n=1}",
-                "de": "{@terms.period, n=1} ändern"
+                "de": "{@terms.period, n=1, capital=first} ändern"
               }
             },
             {

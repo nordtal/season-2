@@ -56,7 +56,7 @@
               "slot": "access",
               "label": {
                 "en": "Buy {@terms.access}",
-                "de": "{@terms.access} kaufen"
+                "de": "{@terms.access, capital=first} kaufen"
               }
             }
           ]

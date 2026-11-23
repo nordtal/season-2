@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "Open {@terms.objective, n=2}",
-            "de": "{@terms.objective, n=2} öffnen"
+            "de": "{@terms.objective, n=2, capital=first} öffnen"
           }
         }
       ]

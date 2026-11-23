@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "<good>Access is valid until {until}.</good>",
-            "de": "<good>{@terms.access} gilt bis {until}.</good>"
+            "de": "<good>{@terms.access, capital=first} gilt bis {until}.</good>"
           }
         }
       ]

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>{@terms.access} expired {since}.</warn>",
-            "de": "<warn>{@terms.access} am {since} abgelaufen.</warn>"
+            "en": "<warn>{@terms.access, capital=first} expired {since}.</warn>",
+            "de": "<warn>{@terms.access, capital=first} am {since} abgelaufen.</warn>"
           }
         }
       ]

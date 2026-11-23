@@ -5,7 +5,7 @@
       "lines": [
         {
           "text": {
-            "en": "<brand><bold>{@terms.hunger-games} rules</bold></brand>",
+            "en": "<brand><bold>{@terms.hunger-games, capital=first} rules</bold></brand>",
             "de": "<brand><bold>Regeln der {@terms.hunger-games}</bold></brand>"
           }
         },

@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "<good>Station</good> <emphasis>“{name}”</emphasis> <good>saved</good>",
-            "de": "<good>{@terms.station, n=1}</good> <emphasis>„{name}“</emphasis> <good>gespeichert</good>"
+            "de": "<good>{@terms.station, n=1, capital=first}</good> <emphasis>„{name}“</emphasis> <good>gespeichert</good>"
           }
         }
       ]

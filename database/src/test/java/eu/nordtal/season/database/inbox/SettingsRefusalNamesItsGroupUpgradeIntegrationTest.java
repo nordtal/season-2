@@ -21,6 +21,7 @@ class SettingsRefusalNamesItsGroupUpgradeIntegrationTest {
     void aRefusalInWordsNamesTheGroupOfItsRequestWithTheRuleValid() {
         final TestDatabase upgraded = TestDatabase.empty();
         upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "110");
+        upgraded.addInboxColumnsOfThisRelease();
         final Inbox<SmpRequest> smp = Inbox.over(upgraded.dataSource(), SmpRequest.TABLE);
         final long inWords = smp.submit(
                         new SmpRequest.CheckSettings(new SettingsChange("border", Map.of(), List.of())),

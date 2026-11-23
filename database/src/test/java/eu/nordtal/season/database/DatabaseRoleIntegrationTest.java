@@ -335,6 +335,7 @@ class DatabaseRoleIntegrationTest {
                 // Steward withdraws its own take-in, so it moves an smp row's status and nothing else.
                 may(DatabaseRole.STEWARD, "UPDATE smp_inbox SET status = 'CANCELLED', finished = now() WHERE false"),
                 mayNot(DatabaseRole.STEWARD, "UPDATE smp_inbox SET kind = 'SET_AURA' WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE smp_inbox SET outcome = '{}' WHERE false"),
                 // It withdraws a question it asked hunger-games the same way, such as a timed-out settings trial.
                 may(
                         DatabaseRole.STEWARD,

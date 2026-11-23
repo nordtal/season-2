@@ -1,7 +1,9 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.database.inbox.AreaShape;
 import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.settings.SettingRefused;
+import eu.nordtal.season.smp.area.Polygons;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -55,19 +57,33 @@ public final class SmpSettings {
         }
     }
 
-    /** Throws {@link SettingRefused} for an area with fewer than three corners, which encloses nothing. */
-    public static void checkCustomBorder(final CustomBorderSpec config) {
+    /**
+     * Throws {@link SettingRefused} for an area that cannot hold a player.
+     * That is fewer than three corners, crossing edges, or a corner off the map in {@code overworld}.
+     */
+    public static void checkCustomBorder(final CustomBorderSpec config, final String overworld) {
         for (final CustomBorderSpec.World world : config.worlds()) {
             for (final CustomBorderSpec.Polygon polygon : world.polygons()) {
-                if (polygon.corners().size() < 3) {
+                final Polygons.Problem problem =
+                        Polygons.problem(shapeOf(polygon), false, world.world().equals(overworld));
+                if (problem != null) {
                     throw new SettingRefused(
-                            "worlds.polygons.corners",
+                            "worlds.polygons." + problem.field(),
                             SettingRule.VALID,
-                            "the area \"" + polygon.name() + "\" in " + world.world()
-                                    + " needs at least 3 corners, has "
-                                    + polygon.corners().size());
+                            problem.sentence() + " in " + world.world());
                 }
             }
         }
+    }
+
+    /** Returns a border region as the area editor and its checks hold it, flat and without heights. */
+    public static AreaShape shapeOf(final CustomBorderSpec.Polygon polygon) {
+        return new AreaShape(
+                polygon.name(),
+                polygon.corners().stream()
+                        .map(corner -> new AreaShape.Corner(corner.x(), corner.z()))
+                        .toList(),
+                0,
+                0);
     }
 }

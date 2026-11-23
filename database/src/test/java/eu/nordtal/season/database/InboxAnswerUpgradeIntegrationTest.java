@@ -68,6 +68,7 @@ class InboxAnswerUpgradeIntegrationTest {
         jdbi.useHandle(handle -> handle.execute(SETTLED));
 
         upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "82");
+        upgraded.addInboxColumnsOfThisRelease();
 
         final Inbox<BotRequest> bot = Inbox.over(upgraded.dataSource(), BotRequest.TABLE);
         final Inbox<SmpRequest> smp = Inbox.over(upgraded.dataSource(), SmpRequest.TABLE);

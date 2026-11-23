@@ -95,6 +95,8 @@ public final class StewardWire {
             CommandApi.TakeIn.class,
             CommandApi.TakePosition.class,
             CommandApi.PositionTaker.class,
+            CommandApi.EditAreas.class,
+            CommandApi.AreaDraft.class,
             NpcApi.NpcView.class,
             NpcApi.NpcPublication.class,
             NpcApi.NpcVersion.class,

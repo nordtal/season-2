@@ -27,9 +27,12 @@ public sealed interface SmpRequest
                 SmpRequest.OpenInventory,
                 SmpRequest.TakeInItem,
                 SmpRequest.TakePosition,
+                SmpRequest.EditAreas,
+                SmpRequest.AreaDraft,
                 SmpRequest.SendPack {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
+            .withOutcome()
             .withRows(
                     CompleteObjective.class,
                     UnlockMilestone.class,
@@ -238,6 +241,55 @@ public sealed interface SmpRequest
          * @param pitch the look up or down, from -90 to 90 degrees, where 0 faces ahead
          */
         public record Answer(String world, double x, double y, double z, float yaw, float pitch) {}
+    }
+
+    /**
+     * Gives the admin's player the area editor with a private draft of {@code shapes} in {@code world}.
+     * A draft the player held before is dropped. Refused while the player is not on the server.
+     *
+     * @param heights whether each shape has a bottom and a top, which the editor shows as handles of their own
+     */
+    record EditAreas(PlayerId player, String world, boolean heights, List<AreaShape> shapes) implements SmpRequest {
+
+        public EditAreas {
+            Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(world, "world");
+            shapes = List.copyOf(shapes);
+        }
+    }
+
+    /**
+     * Acts on the draft of the admin's player's area editor and answers with the draft as it is after the step.
+     * Refused while the player is not on the server or holds no draft.
+     *
+     * @param name the name of the shape that {@link Step#ADD} adds, blank for every other step
+     */
+    record AreaDraft(PlayerId player, Step step, String name) implements SmpRequest {
+
+        public AreaDraft {
+            Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(step, "step");
+            Objects.requireNonNull(name, "name");
+        }
+
+        /** What a draft step does. */
+        public enum Step {
+            /** Adds a shape around the player. */
+            ADD,
+            /** Changes nothing. */
+            READ,
+            /** Takes the editor away and drops the draft. */
+            CLOSE
+        }
+
+        /** The draft's world and shapes. */
+        public record Answer(String world, List<AreaShape> shapes) {
+
+            public Answer {
+                Objects.requireNonNull(world, "world");
+                shapes = List.copyOf(shapes);
+            }
+        }
     }
 
     /**

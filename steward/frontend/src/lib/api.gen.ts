@@ -184,6 +184,17 @@ export type PositionTaker = {
   taker: Taker
 }
 
+export type EditAreas = {
+  world: string
+  heights: boolean
+  shapes: AreaShape[]
+}
+
+export type AreaDraft = {
+  step: Step
+  name?: string
+}
+
 export type NpcView = {
   npc: Npc
   version: number
@@ -827,6 +838,15 @@ export type TakeInPurpose = "WHEEL_PRIZE" | "DUEL_KIT" | "NPC_ITEM"
 
 export type Taker = "READY" | "UNLINKED" | "ELSEWHERE"
 
+export type AreaShape = {
+  name: string
+  corners: Corner[]
+  bottom: number
+  top: number
+}
+
+export type Step = "ADD" | "READ" | "CLOSE"
+
 export type Npc = {
   id: string
   name: Words
@@ -1362,6 +1382,11 @@ export type InventoryStack = {
   slot: number
   item: string
   amount: number
+}
+
+export type Corner = {
+  x: number
+  z: number
 }
 
 export type NpcPlace = {

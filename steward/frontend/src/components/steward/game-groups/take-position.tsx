@@ -55,7 +55,7 @@ export function takenValues(
 }
 
 /** Why the admin's player cannot take a position now, or null when it can, or while Steward has not said. */
-function blockedBy(taker: PositionTaker | undefined): string | null {
+export function blockedBy(taker: PositionTaker | undefined): string | null {
   if (taker === undefined || taker.taker === "READY") return null
   return taker.taker === "UNLINKED" ? t("steward.answer.preview-unlinked") : t("steward.answer.take-in-offline")
 }

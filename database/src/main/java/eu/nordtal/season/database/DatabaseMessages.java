@@ -134,5 +134,17 @@ public interface DatabaseMessages {
         @Name("No block in sight")
         @Shown(Display.STEWARD)
         MessageRef noBlockInSight();
+
+        @Name("No area draft")
+        @Shown(Display.STEWARD)
+        MessageRef noAreaDraft();
+
+        @Name("Hotbar full")
+        @Shown(Display.STEWARD)
+        MessageRef hotbarFull();
+
+        @Name("Wrong world")
+        @Shown(Display.STEWARD)
+        MessageRef wrongWorld();
     }
 }

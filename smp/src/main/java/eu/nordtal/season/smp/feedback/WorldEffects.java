@@ -39,6 +39,13 @@ public final class WorldEffects implements Listener {
     private static final Particle.DustOptions SWITCH_DUST =
             new Particle.DustOptions(Color.fromRGB(140, 140, 140), 0.5f);
 
+    /** Cyan while an edited area is valid, red while it cannot be saved. */
+    private static final Particle.DustOptions AREA_EDGE_VALID =
+            new Particle.DustOptions(Color.fromRGB(0x4F, 0xD8, 0xF0), 1.0f);
+
+    private static final Particle.DustOptions AREA_EDGE_INVALID =
+            new Particle.DustOptions(Color.fromRGB(0xF0, 0x4F, 0x4F), 1.0f);
+
     private final NamespacedKey celebration;
 
     public WorldEffects(final Plugin plugin) {
@@ -66,6 +73,11 @@ public final class WorldEffects implements Listener {
     public void junctionSwitched(final Location centre) {
         centre.getWorld()
                 .spawnParticle(Particle.DUST, centre.clone().add(0, -0.3, 0), 6, 0.2, 0.05, 0.2, 0, SWITCH_DUST);
+    }
+
+    /** One dust speck on an area editor's edge for {@code admin} alone, red while the shape cannot be saved. */
+    public void areaEdgePoint(final Player admin, final double x, final double y, final double z, final boolean valid) {
+        admin.spawnParticle(Particle.DUST, x, y, z, 1, 0, 0, 0, 0, valid ? AREA_EDGE_VALID : AREA_EDGE_INVALID);
     }
 
     /**

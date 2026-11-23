@@ -33,6 +33,16 @@ public final class GameRoutes {
                 ctx -> GameActions.answer(ctx, commands.takePosition(ctx)),
                 Gate.KEY_HELD,
                 Unjournaled.SHOWN_ONCE_SAVED);
+        cfg.routes.post(
+                "/api/smp/area-editor",
+                ctx -> GameActions.answer(ctx, commands.editAreas(ctx)),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_ONCE_SAVED);
+        cfg.routes.post(
+                "/api/smp/area-draft",
+                ctx -> GameActions.answer(ctx, commands.areaDraft(ctx)),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_ONCE_SAVED);
 
         // These routes read the same rows by their target instead of by command name.
         cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);

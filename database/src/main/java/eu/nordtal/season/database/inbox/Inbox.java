@@ -375,8 +375,13 @@ public final class Inbox<P> {
             final InboxStatus from,
             final InboxStatus to,
             final @Nullable Object json) {
-        return withOutcome(handle.createQuery(MOVE), ", outcome = coalesce(cast(:outcome AS jsonb), outcome)", json)
-                .define("table", table.name())
+        final Query query = handle.createQuery(MOVE);
+        if (json == null) {
+            query.define("outcome", "");
+        } else {
+            withOutcome(query, ", outcome = cast(:outcome AS jsonb)", json);
+        }
+        return query.define("table", table.name())
                 .bind("id", id)
                 .bind("from", from.name())
                 .bind("to", to.name())

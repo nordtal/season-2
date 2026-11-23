@@ -1122,9 +1122,17 @@ export type TextArgs = {
   "steward.game.advancement": Record<string, never>
   "steward.game.all-milestones": Record<string, never>
   "steward.game.area": Record<string, never>
+  "steward.game.area-draft-failed": Record<string, never>
+  "steward.game.area-near-edge": {
+    name: Arg["text"]
+    distance: Arg["number"]
+    margin: Arg["number"]
+  }
   "steward.game.area-numbered": {
     index: Arg["number"]
   }
+  "steward.game.area-world": Record<string, never>
+  "steward.game.areas-saved": Record<string, never>
   "steward.game.attribute": {
     amount: Arg["text"]
     attribute: Arg["text"]
@@ -1175,12 +1183,15 @@ export type TextArgs = {
   "steward.game.damaged": {
     damage: Arg["number"]
   }
+  "steward.game.discard-areas": Record<string, never>
   "steward.game.done-at": {
     at: Arg["text"]
   }
   "steward.game.dyed": {
     colour: Arg["text"]
   }
+  "steward.game.edit-areas": Record<string, never>
+  "steward.game.editing-areas": Record<string, never>
   "steward.game.enchantment": {
     name: Arg["text"]
     level: Arg["text"]
@@ -1217,6 +1228,7 @@ export type TextArgs = {
   "steward.game.move-up": {
     name: Arg["text"]
   }
+  "steward.game.new-polygon": Record<string, never>
   "steward.game.no-areas": Record<string, never>
   "steward.game.no-awards": Record<string, never>
   "steward.game.no-blocks": Record<string, never>
@@ -1253,6 +1265,7 @@ export type TextArgs = {
   "steward.game.point-numbered": {
     index: Arg["number"]
   }
+  "steward.game.polygon-name": Record<string, never>
   "steward.game.prize": Record<string, never>
   "steward.game.prizes": {
     count: Arg["number"]
@@ -1276,6 +1289,7 @@ export type TextArgs = {
   "steward.game.reset-track": Record<string, never>
   "steward.game.round": Record<string, never>
   "steward.game.running": Record<string, never>
+  "steward.game.save-areas": Record<string, never>
   "steward.game.season-sum": Record<string, never>
   "steward.game.span": {
     from: Arg["text"]

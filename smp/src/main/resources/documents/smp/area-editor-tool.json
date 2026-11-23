@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent>Area editor</accent>",
+            "de": "<accent>Gebietseditor</accent>"
+          }
+        }
+      ]
+    }
+  ]
+}

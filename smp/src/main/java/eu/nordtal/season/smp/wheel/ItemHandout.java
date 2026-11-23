@@ -199,6 +199,11 @@ public final class ItemHandout implements Listener, ItemRewards {
         }
     }
 
+    @Override
+    public void handOutTo(final UUID player) {
+        identities.discordIdOf(player).ifPresent(this::handOutIfOnline);
+    }
+
     /**
      * Claims the rows a {@link Delivery#WAIT} put back once {@code player} is free.
      * The respawn or the duel's restore that frees them may have looked at the store before the rows were back.

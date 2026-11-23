@@ -125,9 +125,9 @@ public final class Escrow {
         });
     }
 
-    /** Hands the pending items of {@code owner} out, if they are online. */
-    void handOutIfOnline(final DiscordId owner) {
-        handout.handOutIfOnline(owner);
+    /** Hands the pending items of {@code player} out, if they are online. */
+    void handOutTo(final UUID player) {
+        handout.handOutTo(player);
     }
 
     /** Waits for the writes still running; smp calls it while it stops, before the item work closes. */

@@ -166,6 +166,9 @@ class ObjectivePayoutIntegrationTest {
 
             @Override
             public void handOutIfOnline(final DiscordId recipient) {}
+
+            @Override
+            public void handOutTo(final UUID player) {}
         };
     }
 

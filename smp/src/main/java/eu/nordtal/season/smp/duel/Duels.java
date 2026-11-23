@@ -696,7 +696,7 @@ public final class Duels implements Arenas {
 
     /** Hands out the items the hand-out held back while the duel wrote the inventory. */
     private void restored(final UUID player) {
-        identities.discordIdOf(player).ifPresent(escrow::handOutIfOnline);
+        escrow.handOutTo(player);
     }
 
     private static void removeProjectiles(final ActiveDuel duel) {

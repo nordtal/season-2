@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests that nordtal.nft admits by interface only loopback, Docker's bridges and the tailnet, and the
-# tailnet only on SSH, HTTPS and T3 Code. It reads the file and loads nothing.
+# tailnet only on SSH, HTTPS, T3 Code and ntfy. It reads the file and loads nothing.
 # The rules are nft text, where $name is a define of the table, so they stay in single quotes.
 # shellcheck disable=SC2016
 set -Eeuo pipefail
@@ -23,14 +23,14 @@ mapfile -t defines < <(sed -n 's/^define //p' "$TABLE")
 expected_input=(
     'iif lo accept'
     'iifname $docker accept'
-    'iifname $tailscale tcp dport { $ssh, $https, $t3 } accept'
+    'iifname $tailscale tcp dport { $ssh, $https, $t3, $ntfy } accept'
 )
 admitted=()
 for rule in "${input[@]}"; do
     if [[ "$rule" =~ (^|[[:space:]])(meta[[:space:]]+)?iif(name)?[[:space:]] ]]; then admitted+=("$rule"); fi
 done
 if [[ "$(printf '%s\n' "${admitted[@]}")" == "$(printf '%s\n' "${expected_input[@]}")" ]]; then
-    ok "input admits by interface only loopback, Docker's bridges and the tailnet on SSH, HTTPS and T3 Code"
+    ok "input interface admission checked: interfaces=loopback,docker,tailscale services=ssh,https,t3,ntfy"
 else
     bad "input admits by interface: $(printf '[%s] ' "${admitted[@]}")"
 fi
@@ -45,7 +45,7 @@ else
     bad "forward admits by interface: $(printf '[%s] ' "${admitted[@]}")"
 fi
 
-for define in 'tailscale = "tailscale0"' 'https = 443' 't3 = 3773'; do
+for define in 'tailscale = "tailscale0"' 'https = 443' 't3 = 3773' 'ntfy = 8443'; do
     found=0
     for line in "${defines[@]}"; do
         if [[ "$line" == "$define" ]]; then found=1; fi

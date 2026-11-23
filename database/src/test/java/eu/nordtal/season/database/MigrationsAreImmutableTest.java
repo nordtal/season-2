@@ -420,6 +420,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V145__a_live_swap_sends_the_map_pack_beside_the_language_pack.sql",
                 "071b4cbda86e54c83c8f33015bced6ab12f7ee2e3021939153d8dfd26ad94d8b");
+        FROZEN.put(
+                "V146__a_server_refuses_to_preview_a_menu_it_cannot_open.sql",
+                "2f5b8fa4c6163ea97483e8512b01eaaeef9f37c3519ab17db8aa86b041f231cc");
     }
 
     @Test

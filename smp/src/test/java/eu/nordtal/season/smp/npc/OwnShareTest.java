@@ -24,6 +24,22 @@ class OwnShareTest {
         assertEquals(
                 List.of(3, 0, 0, 0),
                 summary.lines().stream().map(OwnShare.Line::spins).toList());
+        assertEquals(
+                List.of(30L, 0L, 0L, 0L),
+                summary.lines().stream().map(OwnShare.Line::mine).toList());
+        assertTrue(summary.available());
+    }
+
+    @Test
+    void unlinkedUnavailableShareIsToldApartFromEarnedZero() {
+        final OwnShare.Summary unlinked = OwnShare.unavailable();
+        assertFalse(unlinked.available());
+        assertTrue(unlinked.empty());
+
+        final OwnShare.Summary earnedZero = OwnShare.of(List.of(new OwnContributionRow("a", 0, 100, 0, 20)));
+        assertTrue(earnedZero.available());
+        assertEquals(0, earnedZero.spins());
+        assertEquals(0L, earnedZero.line("a").orElseThrow().mine());
     }
 
     @Test

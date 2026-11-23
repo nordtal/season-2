@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
+import eu.nordtal.season.packrendering.ui.DialogCanvas;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
 import eu.nordtal.season.packrendering.ui.FocusRing;
@@ -54,10 +55,18 @@ final class RideDialog {
 
     static final int EACH = 5;
 
-    /** A row holds any 32-character name and a four-digit distance. */
-    static final int ROW = 242;
+    /** A row holds any 32-character name and a five-digit distance on the 280 px panel. */
+    static final int ROW = 246;
 
     static final int WIDTH = ROW + BodyLine.SIDE_GAP + BodyLine.PLATE;
+
+    /** Ten text rows (98 px box) hold the 97 px five-row block with 1 px top slack so the pager sits 7 px below. */
+    private static final int PAGED_ROWS = 10;
+
+    private static final int PAGED_TOP = 1;
+
+    /** The pager art sits 7 px under row 5, which is 3 px above its 17 px single-row box (-7 from its text row). */
+    private static final int PAGER_DOWN = -7;
 
     private static final int TEXT_TOP = 50;
 
@@ -66,12 +75,12 @@ final class RideDialog {
 
     private RideDialog() {}
 
-    /** The panel for {@code count} stations: as many rows as a page holds, and a pager line under 5 when paged. */
+    /** The panel for {@code count} stations: as many rows as a page holds, and a pager 7 px under 5 when paged. */
     static DialogPanel panel(final int count) {
         if (count == 0) {
             return DialogPanel.RIDE_LIST_33;
         }
-        return Paging.of(count, EACH).paged() ? DialogPanel.RIDE_LIST_153 : DialogPanel.RIDE_LIST_ROWS.get(count - 1);
+        return Paging.of(count, EACH).paged() ? DialogPanel.RIDE_LIST_146 : DialogPanel.RIDE_LIST_ROWS.get(count - 1);
     }
 
     static Dialog of(
@@ -85,24 +94,28 @@ final class RideDialog {
         final DialogTitle title;
         if (stops.isEmpty()) {
             title = title(document, stops, TEXT_TOP);
-        } else {
+        } else if (paging.paged()) {
             final List<RideList.Stop> shown = paging.slice(stops, page);
-            final BodyColumn column = BodyColumn.of(WIDTH, paging.paged())
-                    .rows(
-                            shown.size(),
-                            paging.paged() ? EACH : 0,
-                            index -> line -> row(line, document, shown.get(index), page, send, answers));
-            title = title(document, stops, column.panelTop());
-            body.add(
-                    Dialogs.line(column, paging.paged() ? FocusRing.Ground.BEVEL : FocusRing.Ground.BEVEL_FOOT, title));
-        }
-        if (paging.paged()) {
+            final DialogCanvas canvas = DialogCanvas.exact(
+                    WIDTH, EACH * BodyLine.PLATE + (EACH - 1) * BodyLine.SIDE_GAP, PAGED_ROWS, PAGED_TOP);
+            for (int index = 0; index < shown.size(); index++) {
+                final RideList.Stop stop = shown.get(index);
+                canvas.place(0, index * BodyColumn.STEP, true, line -> row(line, document, stop, page, send, answers));
+            }
+            title = title(document, stops, canvas.panelTop());
+            body.add(Dialogs.line(canvas, FocusRing.Ground.BEVEL, title));
             final String words = document.label("pager", paging.page(page));
-            body.add(Dialogs.line(
-                    send.pager(BodyColumn.next(), paging, page, words, answers::page)
+            body.add(Dialogs.singleLine(
+                    send.pager(BodyLine.start(PAGER_DOWN), paging, page, words, answers::page)
                             .build(),
                     Dialogs.pagerWidth(paging, page),
-                    FocusRing.Ground.PANEL_FOOT));
+                    FocusRing.Ground.PANEL));
+        } else {
+            final List<RideList.Stop> shown = paging.slice(stops, page);
+            final BodyColumn column = BodyColumn.of(WIDTH, false)
+                    .rows(shown.size(), 0, index -> line -> row(line, document, shown.get(index), page, send, answers));
+            title = title(document, stops, column.panelTop());
+            body.add(Dialogs.line(column, FocusRing.Ground.BEVEL_FOOT, title));
         }
         if (stops.isEmpty()) {
             title.centred(EMPTY_TEXT, document.label("none"), Colours.SOFT);

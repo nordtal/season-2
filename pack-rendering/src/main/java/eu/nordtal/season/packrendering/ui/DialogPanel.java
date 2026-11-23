@@ -5,13 +5,15 @@ import java.util.List;
 
 /** The dialog panels of the design system's Panels table, each in tiles of at most 256 columns. */
 public enum DialogPanel {
-    RIDE_LIST_153(276, 153, Glyphs.UI_DIALOG_RIDE_LIST_153),
-    RIDE_LIST_42(276, 42, Glyphs.UI_DIALOG_RIDE_LIST_42),
-    RIDE_LIST_62(276, 62, Glyphs.UI_DIALOG_RIDE_LIST_62),
-    RIDE_LIST_82(276, 82, Glyphs.UI_DIALOG_RIDE_LIST_82),
-    RIDE_LIST_102(276, 102, Glyphs.UI_DIALOG_RIDE_LIST_102),
-    RIDE_LIST_122(276, 122, Glyphs.UI_DIALOG_RIDE_LIST_122),
-    RIDE_LIST_33(276, 33, Glyphs.UI_DIALOG_RIDE_LIST_33),
+    RIDE_LIST_146(280, 146, Glyphs.UI_DIALOG_RIDE_LIST_146),
+    RIDE_LIST_42(280, 42, Glyphs.UI_DIALOG_RIDE_LIST_42),
+    RIDE_LIST_62(280, 62, Glyphs.UI_DIALOG_RIDE_LIST_62),
+    RIDE_LIST_82(280, 82, Glyphs.UI_DIALOG_RIDE_LIST_82),
+    RIDE_LIST_102(280, 102, Glyphs.UI_DIALOG_RIDE_LIST_102),
+    RIDE_LIST_122(280, 122, Glyphs.UI_DIALOG_RIDE_LIST_122),
+    RIDE_LIST_33(280, 33, Glyphs.UI_DIALOG_RIDE_LIST_33),
+    WIDE_161(280, 161, Glyphs.UI_DIALOG_WIDE_161),
+    COMPACT_116(200, 116, Glyphs.UI_DIALOG_COMPACT_116),
     STATION_48(200, 48, Glyphs.UI_DIALOG_STATION_48),
     STATION_57(200, 57, Glyphs.UI_DIALOG_STATION_57),
     STATION_66(200, 66, Glyphs.UI_DIALOG_STATION_66),
@@ -20,10 +22,6 @@ public enum DialogPanel {
     OBJECTIVES_124(262, 124, Glyphs.UI_DIALOG_OBJECTIVES_124),
     OBJECTIVES_33(262, 33, Glyphs.UI_DIALOG_OBJECTIVES_33),
     DUEL_124(206, 124, Glyphs.UI_DIALOG_DUEL_124),
-    DRAFT_PREVIEW_113(278, 113, Glyphs.UI_DIALOG_DRAFT_PREVIEW_113),
-    DRAFT_PREVIEW_42(278, 42, Glyphs.UI_DIALOG_DRAFT_PREVIEW_42),
-    DRAFT_PREVIEW_62(278, 62, Glyphs.UI_DIALOG_DRAFT_PREVIEW_62),
-    DRAFT_PREVIEW_82(278, 82, Glyphs.UI_DIALOG_DRAFT_PREVIEW_82),
     WHEEL_197(262, 197, Glyphs.UI_DIALOG_WHEEL_197);
 
     /** The widest tile the pack draws. */
@@ -35,10 +33,6 @@ public enum DialogPanel {
 
     /** The station visitor's panels for 1 to 3 rows of its hint. */
     public static final List<DialogPanel> STATION_VISITOR_ROWS = List.of(STATION_48, STATION_57, STATION_66);
-
-    /** The draft preview's panels for 1 to 3 rows on one page. */
-    public static final List<DialogPanel> DRAFT_PREVIEW_ROWS =
-            List.of(DRAFT_PREVIEW_42, DRAFT_PREVIEW_62, DRAFT_PREVIEW_82);
 
     private final int width;
     private final int height;
@@ -58,6 +52,16 @@ public enum DialogPanel {
 
     public int height() {
         return height;
+    }
+
+    /** The width inside the panel's margins, 7 px in from each edge. */
+    public int contentWidth() {
+        return width - 2 * DialogTitle.MARGIN;
+    }
+
+    /** The height inside the panel's header and foot margin, from panel + 18 to 7 px above the foot. */
+    public int contentHeight() {
+        return height - BodyColumn.PANEL_TO_CONTENT - DialogTitle.MARGIN;
     }
 
     List<String> tiles() {

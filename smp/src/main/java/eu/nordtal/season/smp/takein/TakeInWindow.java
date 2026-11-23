@@ -90,12 +90,12 @@ final class TakeInWindow extends Menu {
         SlotGeometry.rows(0, ROWS).forEach(slot -> inventory.setItem(slot, plate));
     }
 
-    /** Draws the header and the one plate over the row, both saying {@code name}. */
+    /** Draws the bold header and the one plate over the row, both saying {@code name} with the chest symbol. */
     static Component title(final String name) {
         return ChestTitle.of(ROWS)
-                .header(Symbol.BOX, name, List.of())
+                .boldHeader(Symbol.CHEST, name, List.of())
                 .plate(0, 0, SlotGeometry.COLUMNS, Look.NORMAL)
-                .label(0, 0, SlotGeometry.COLUMNS, Symbol.BOX, name, Look.NORMAL)
+                .label(0, 0, SlotGeometry.COLUMNS, Symbol.CHEST, name, Look.NORMAL)
                 .build(BodyLine.silent(name));
     }
 

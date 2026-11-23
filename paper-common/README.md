@@ -66,8 +66,9 @@ warning.
   reads all held identities again in one query, and `whenChanged` receives each one that differs.
 - `Previews` shows a title, subtitle or action bar if the key is one, and a chat line otherwise. It
   reads a key of a bundle that the plugin does not load as MiniMessage. A drafted game document is
-  shown whole, every value at its example: a menu opens as a read-only dialog
-  (`PreviewDialog`, a row for each line of its items and labels in the document's order), a tab list half replaces the half the player sees, a boss bar stays ten
+  shown whole, every value at its example. A menu opens itself at the example state that its plugin
+  hands `example()`, and none of its clicks changes the world. A server with no example for the menu
+  refuses with `NO_EXAMPLE`. A tab list half replaces the half the player sees, a boss bar stays ten
   seconds as the first line of the plugin's `Hud`, a title shows its subtitle, and a chat text, kick
   screen, server list or hologram arrives as chat lines.
 - `renderer()` draws names as the plugin passes them to `composeNames` in `enable()`. A text writes

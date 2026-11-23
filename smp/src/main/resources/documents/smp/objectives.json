@@ -6,32 +6,8 @@
         {
           "style": "TITLE",
           "text": {
-            "en": "Milestone",
-            "de": "{@terms.milestone, n=1}"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "summary",
-      "lines": [
-        {
-          "text": {
-            "en": "{done} of {total} {@terms.objective, n=total} finished",
-            "de": "{done} von {total} {@terms.objective, n=total, case=dative} geschafft"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "count",
-      "lines": [
-        {
-          "text": {
-            "en": "{amount}/{target}",
-            "de": "{amount}/{target}"
+            "en": "Objectives",
+            "de": "{@terms.objective, n=2}"
           }
         }
       ]
@@ -50,132 +26,108 @@
     },
     {
       "type": "LABEL",
-      "slot": "counts",
+      "slot": "progress-hand-in",
       "lines": [
         {
           "text": {
-            "en": "Counts: {items}",
-            "de": "Zählt: {items}"
+            "en": "{amount} of {target} handed in",
+            "de": "{amount} von {target} abgegeben"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "part",
+      "slot": "progress-counted",
       "lines": [
         {
           "text": {
-            "en": "Your contribution: {percent}%",
-            "de": "Dein Beitrag: {percent} %"
+            "en": "{amount} of {target}",
+            "de": "{amount} von {target}"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "hand-in-hint",
+      "slot": "own-amount",
       "lines": [
         {
           "text": {
-            "en": "Hand in items",
-            "de": "Gegenstände abgeben"
+            "en": "{amount} of them from you",
+            "de": "Davon {amount} von dir"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "counted",
+      "slot": "own-done",
       "lines": [
         {
           "text": {
-            "en": "Counted automatically",
-            "de": "Wird automatisch gezählt"
+            "en": "Completed by you",
+            "de": "Von dir geschafft"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "hand-in-words",
+      "slot": "hand-in-button",
       "lines": [
         {
           "text": {
-            "en": "Hand-in, counts: {items}",
-            "de": "Abgabe, zählt: {items}"
+            "en": "Hand in",
+            "de": "Abgeben"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "hand-in-words-shared",
+      "slot": "share-expected",
       "lines": [
         {
           "text": {
-            "en": "Hand-in, counts: {items}. Your contribution: {percent}%",
-            "de": "Abgabe, zählt: {items}. Dein Beitrag: {percent} %"
+            "en": "Expected {spins} of {budget} {@terms.extra-spin, n=budget}",
+            "de": "Voraussichtlich {spins} von {budget} {@terms.extra-spin, n=budget}"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "counted-words",
+      "slot": "share-unlinked",
       "lines": [
         {
           "text": {
-            "en": "counted automatically",
-            "de": "wird automatisch gezählt"
+            "en": "Link your account to earn {@terms.extra-spin, n=2}",
+            "de": "Verknüpfe dein Konto für {@terms.extra-spin, n=2}"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "share",
+      "slot": "scroll-up",
       "lines": [
         {
           "text": {
-            "en": "Your share: {spins} of {budget} {@terms.extra-spin, n=budget}",
-            "de": "Dein Anteil: {spins} von {budget} {@terms.extra-spin, n=budget}"
+            "en": "Scroll up",
+            "de": "Nach oben"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "share-none",
+      "slot": "scroll-down",
       "lines": [
         {
           "text": {
-            "en": "No contribution yet",
-            "de": "Noch nichts beigetragen"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "share-title",
-      "lines": [
-        {
-          "text": {
-            "en": "Your contribution",
-            "de": "Dein Beitrag"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "share-row",
-      "lines": [
-        {
-          "text": {
-            "en": "{objective} {percent}%",
-            "de": "{objective} {percent} %"
+            "en": "Scroll down",
+            "de": "Nach unten"
           }
         }
       ]
@@ -212,18 +164,6 @@
           "text": {
             "en": "All milestones completed.",
             "de": "Alle {@terms.milestone, n=2} sind geschafft."
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "pager",
-      "lines": [
-        {
-          "text": {
-            "en": "Next page, previous page, page {page} of {pages}",
-            "de": "Nächste Seite, vorherige Seite, Seite {page} von {pages}"
           }
         }
       ]

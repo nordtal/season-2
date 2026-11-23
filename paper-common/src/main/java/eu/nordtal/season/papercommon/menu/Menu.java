@@ -131,6 +131,9 @@ public abstract class Menu implements InventoryHolder {
         return MenuClick.nothing();
     }
 
+    /** Runs after an allowed drag over free slots of this window. */
+    protected void dragged(final Player player) {}
+
     /** Runs when {@code player} closed this window, after its close sound. */
     protected void closed(final Player player) {}
 

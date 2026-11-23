@@ -18,7 +18,6 @@ import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.packrendering.ui.Pill;
 import eu.nordtal.season.papercommon.command.Answer;
-import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.tab.TabList;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
@@ -89,10 +88,7 @@ class PreviewsTest {
             uuid -> uuid.equals(ALEX.value()) ? alex : null,
             RENDERER,
             service -> service.equals("proxy") ? PROXY : ToneColours.DEFAULTS,
-            main,
-            spec -> Objects.requireNonNull(Documents.packaged(PreviewsTest.class.getClassLoader(), "paper-common")
-                    .get(spec.declaration().name())),
-            new Dialogs(Runnable::run, (player, feedback) -> {}));
+            main);
 
     private static Documents.Packaged drafted(final DocumentSpec.Shape shape, final String name, final String parts) {
         return new Documents.Packaged(
@@ -203,15 +199,34 @@ class PreviewsTest {
         assertEquals("Drafted\nand below", plain(calls.getFirst()[1]));
     }
 
-    @Test
-    void aDraftedMenuOpensOnTheMainThread() {
-        final DocumentSpec<DocumentSpec.None> menu = DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class, 1)
-                .titled("M");
-        previews.show(ALEX, "en", new Documents.Packaged(menu.declaration(), Document.decode("""
-                                {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}""")));
+    private static final DocumentSpec<DocumentSpec.None> MENU =
+            DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class, 1).titled("M");
 
+    private static Documents.Packaged draftedMenu() {
+        return new Documents.Packaged(MENU.declaration(), Document.decode("""
+                {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}"""));
+    }
+
+    @Test
+    void aDraftedMenuOpensItsExampleInTheDraftsWordsOnTheMainThread() {
+        final List<String> opened = new ArrayList<>();
+        previews.example(MENU, (reader, drafted) -> opened.add(plain(drafted.title())));
+
+        previews.show(ALEX, "en", draftedMenu());
+
+        assertTrue(opened.isEmpty());
+        onMain.forEach(Runnable::run);
+        assertEquals(List.of("Menu"), opened);
         assertTrue(calls.isEmpty());
-        assertEquals(1, onMain.size());
+    }
+
+    @Test
+    void aDraftedMenuWithoutAnExampleHereIsRefused() {
+        final Answer answer = previews.show(ALEX, "en", draftedMenu());
+
+        assertEquals(
+                ServerRefusal.NO_EXAMPLE, ((Answer.Refused) answer).refusal().reason());
+        assertTrue(onMain.isEmpty());
     }
 
     @Test

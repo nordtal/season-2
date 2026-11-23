@@ -33,12 +33,72 @@
     },
     {
       "type": "LABEL",
-      "slot": "still-needed",
+      "slot": "accepted-title",
       "lines": [
         {
           "text": {
-            "en": "{amount} to go",
-            "de": "Noch {amount}"
+            "en": "Counts: {amount}",
+            "de": "Zählt: {amount}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "return-title",
+      "lines": [
+        {
+          "text": {
+            "en": "Goes back: {amount}",
+            "de": "Geht zurück: {amount}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "return-not-counted",
+      "lines": [
+        {
+          "text": {
+            "en": "Doesn't count: {amount}",
+            "de": "Zählt nicht: {amount}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "return-surplus",
+      "lines": [
+        {
+          "text": {
+            "en": "Exceeds target: {amount}",
+            "de": "Über dem Ziel: {amount}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "progress",
+      "lines": [
+        {
+          "text": {
+            "en": "{amount}/{target}",
+            "de": "{amount}/{target}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "progress-offer",
+      "lines": [
+        {
+          "text": {
+            "en": "{amount}/{target} (+{offer})",
+            "de": "{amount}/{target} (+{offer})"
           }
         }
       ]
@@ -73,8 +133,8 @@
       "lines": [
         {
           "text": {
-            "en": "Hand in items",
-            "de": "Gegenstände abgeben"
+            "en": "Hand in",
+            "de": "Abgeben"
           }
         }
       ]

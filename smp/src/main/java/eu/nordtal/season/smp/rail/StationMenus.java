@@ -9,6 +9,7 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.papercommon.chat.Previews;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -19,6 +20,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.IntSupplier;
 import java.util.stream.Stream;
 import org.bukkit.Bukkit;
@@ -45,6 +47,16 @@ import org.jspecify.annotations.Nullable;
  * It also tells a placer when a merge of two networks renamed their station.
  */
 public final class StationMenus implements Listener {
+
+    /** Seven stations, two of them favourites, so the draft preview's ride list has a second page. */
+    private static final List<RideList.Stop> EXAMPLE_STOPS = List.of(
+            new RideList.Stop(new UUID(0, 1), "Harbour", 8925, true),
+            new RideList.Stop(new UUID(0, 2), "Lighthouse", 12400, true),
+            new RideList.Stop(new UUID(0, 3), "Old Mill", 47, false),
+            new RideList.Stop(new UUID(0, 4), "Market", 340, false),
+            new RideList.Stop(new UUID(0, 5), "North Gate", 860, false),
+            new RideList.Stop(new UUID(0, 6), "Birch Hill", 2400, false),
+            new RideList.Stop(new UUID(0, 7), "Quarry", 5120, false));
 
     record Named(@Example("Spawn") String name) {}
 
@@ -128,6 +140,35 @@ public final class StationMenus implements Listener {
                 .distinct()
                 .toList());
         rides.whenStranded(this::stranded);
+    }
+
+    /**
+     * Hands the draft preview the ride list and the station's placer at example states.
+     * The ride list turns its pages; every other click leaves the world as it is.
+     */
+    public void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
+        example.accept(RideDialog.DOCUMENT, (reader, drafted) -> showRideExample(reader, drafted, 0));
+        example.accept(
+                StationDialog.DOCUMENT,
+                (reader, drafted) -> reader.showDialog(StationDialog.placer(
+                        drafted, EXAMPLE_STOPS.get(0).name(), true, null, dialogs.send(), (saver, name, show) -> {})));
+    }
+
+    private void showRideExample(final Player reader, final GameDocument drafted, final int page) {
+        reader.showDialog(RideDialog.of(drafted, EXAMPLE_STOPS, page, dialogs.send(), new RideDialog.Answers() {
+            @Override
+            public void ride(final Player player, final RideList.Stop stop, final int at) {}
+
+            @Override
+            public void star(final Player player, final RideList.Stop stop, final int at) {
+                showRideExample(player, drafted, at);
+            }
+
+            @Override
+            public void page(final Player player, final int at) {
+                showRideExample(player, drafted, at);
+            }
+        }));
     }
 
     private Locale locale(final Player player) {

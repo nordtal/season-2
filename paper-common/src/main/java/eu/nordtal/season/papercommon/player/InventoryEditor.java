@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Stack;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.packrendering.ui.BodyLine;
@@ -11,6 +12,7 @@ import eu.nordtal.season.packrendering.ui.ChestTitle;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.Mark;
 import eu.nordtal.season.packrendering.ui.Symbol;
+import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
 import java.util.ArrayList;
@@ -19,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
@@ -96,13 +99,51 @@ public final class InventoryEditor extends Menu {
      */
     public static Component title(final Container container, final String player, final String word) {
         final ChestTitle title =
-                ChestTitle.of(rows(container)).header(Symbol.CHEST, player, List.of(Mark.text(word, Colours.SOFT)));
+                ChestTitle.of(rows(container)).boldHeader(Symbol.CHEST, player, List.of(Mark.text(word, Colours.SOFT)));
         for (int view = 0; view < rows(container) * SlotGeometry.COLUMNS; view++) {
             if (slotOf(container, view) >= 0) {
                 title.slot(view % SlotGeometry.COLUMNS, view / SlotGeometry.COLUMNS);
             }
         }
         return title.build(BodyLine.silent(player + " " + word));
+    }
+
+    /** Hands the draft preview both container editors over the reader's own containers, read-only. */
+    public static void examples(final BiConsumer<DocumentSpec<?>, BiConsumer<Player, GameDocument>> example) {
+        registerExample(example, INVENTORY, Container.INVENTORY);
+        registerExample(example, ENDER_CHEST, Container.ENDER_CHEST);
+    }
+
+    private static void registerExample(
+            final BiConsumer<DocumentSpec<?>, BiConsumer<Player, GameDocument>> example,
+            final DocumentSpec<DocumentSpec.None> spec,
+            final Container container) {
+        example.accept(spec, (reader, drafted) -> example(reader, container, Dialogs.plain(drafted.title())));
+    }
+
+    /**
+     * Opens a read-only editor window over {@code reader}'s own {@code container} in a draft's words.
+     * Every click is refused, so nothing in it moves.
+     */
+    public static void example(final Player reader, final Container container, final String word) {
+        new Example(reader, container, word).open(reader);
+    }
+
+    private static final class Example extends Menu {
+
+        Example(final Player reader, final Container container, final String word) {
+            final Inventory window = frame(rows(container), title(container, reader.getName(), word));
+            final @Nullable ItemStack[] held = container == Container.INVENTORY
+                    ? reader.getInventory().getContents()
+                    : reader.getEnderChest().getContents();
+            for (int view = 0; view < window.getSize(); view++) {
+                final int slot = slotOf(container, view);
+                final ItemStack stack = slot < 0 || slot >= held.length ? null : held[slot];
+                if (stack != null) {
+                    window.setItem(view, stack.clone());
+                }
+            }
+        }
     }
 
     /** Returns the rows of the window over {@code container}. */

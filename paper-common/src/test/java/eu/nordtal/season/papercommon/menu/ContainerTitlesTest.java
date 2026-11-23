@@ -34,12 +34,32 @@ class ContainerTitlesTest {
 
     @Test
     void aLongNameIsCutWithAnEllipsisAndATranslatedOneIsLeftToTheClient() {
-        final String longName = "Die große Truhe für alles, was im Keller keinen Platz mehr fand";
+        final String longName = "Vorratskammer der Nordhafen-Gilde";
         final Component title = ContainerTitles.title(3, Component.text(longName), List.of());
         final String shown = ((TextComponent) title.children().getLast()).content();
         assertEquals("…", shown.substring(shown.length() - 1));
         assertEquals(longName.substring(0, shown.length() - 1), shown.substring(0, shown.length() - 1));
         assertEquals(
+                "Eichenholzboot mit Truhe",
+                ((TextComponent) ContainerTitles.title(3, Component.text("Eichenholzboot mit Truhe"), List.of())
+                                .children()
+                                .getLast())
+                        .content());
+        assertEquals(
                 DOUBLE, ContainerTitles.title(6, DOUBLE, List.of()).children().getLast());
+        // Boundary: 160 px (32 * 'l' at 3 px + 16 * 'a' at 6 px? Use 'a' (6 px) * 26 + 'i' (2 px) * 2 = 160 px).
+        final String exact160 = "a".repeat(26) + "ii";
+        assertEquals(
+                exact160,
+                ((TextComponent) ContainerTitles.title(3, Component.text(exact160), List.of())
+                                .children()
+                                .getLast())
+                        .content());
+        final String over161 = exact160 + ".";
+        final String cut = ((TextComponent) ContainerTitles.title(3, Component.text(over161), List.of())
+                        .children()
+                        .getLast())
+                .content();
+        assertEquals("…", cut.substring(cut.length() - 1));
     }
 }

@@ -84,8 +84,8 @@ public final class GravePanel {
             throw new IllegalArgumentException(
                     "a grave holds 1 to " + MAX_CONTENT_ROWS + " rows of items, not " + contentRows);
         }
-        final List<Mark> marks = experience == null ? List.of() : List.of(Mark.text(experience, Colours.SOFT));
-        final ChestTitle title = ChestTitle.of(rows(contentRows)).header(Symbol.GRAVE, name, marks);
+        final List<Mark> marks = experience == null ? List.of() : List.of(Mark.small(experience, Colours.SOFT));
+        final ChestTitle title = ChestTitle.of(rows(contentRows)).boldHeader(Symbol.GRAVE, name, marks);
         for (int row = 0; row < contentRows; row++) {
             for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
                 title.slot(column, row);

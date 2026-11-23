@@ -202,6 +202,13 @@ public final class GameDocument {
         return lines.isEmpty() ? "" : plain(lines.getFirst().text(), own);
     }
 
+    /** Draws the label as a styled component through the renderer, or empty when its condition hides it. */
+    public Component labelText(final String slot, final @Nullable Record entry) {
+        final Map<String, Object> own = entry == null ? Map.of() : Value.read(entry);
+        final List<Line> lines = shown(part(slot, Part.Type.LABEL), own);
+        return lines.isEmpty() ? Component.empty() : markup(lines.getFirst().text(), own);
+    }
+
     private String plain(final Text text, final Map<String, Object> own) {
         final Messages.Prepared prepared =
                 renderer.raw().prepare(viewer, pick(text), all(own), kinds, TextFormat.PLAIN, source());

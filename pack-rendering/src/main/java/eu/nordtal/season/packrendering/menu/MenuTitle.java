@@ -165,10 +165,10 @@ public final class MenuTitle {
             return place(x, MenuFont.width(folded), folded, rowFont(row), colour);
         }
 
-        /** Draws the text with its right edge at {@code xRight}. */
+        /** Draws the text with its last drawn column just left of {@code xRight}. */
         public Canvas rowTextRight(final String text, final int row, final int xRight, final TextColor colour) {
             final String folded = MenuFont.fold(text);
-            return rowText(folded, row, xRight - MenuFont.width(folded), colour);
+            return rowText(folded, row, xRight - MenuFont.visible(folded), colour);
         }
 
         /**
@@ -186,7 +186,7 @@ public final class MenuTitle {
                 final TextColor colour) {
             rowArt(plate, row, x, null);
             final String fitted = MenuFont.fit(label, width - 6);
-            return rowText(fitted, row, x + (width - MenuFont.width(fitted)) / 2, colour);
+            return rowText(fitted, row, x + (width - MenuFont.visible(fitted)) / 2, colour);
         }
 
         private static String rowFont(final int row) {

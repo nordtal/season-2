@@ -14,6 +14,7 @@ import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.papercommon.chat.Previews;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -28,6 +29,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.bukkit.entity.Player;
@@ -56,6 +58,15 @@ public final class ItemTakeIn {
     private final Map<UUID, TakeInWindow> last = new HashMap<>();
 
     private record Shown(UUID player, TakeInWindow window) {}
+
+    /** Hands the draft preview each take-in window, whose answer goes nowhere, so a put-in item only shows its copy. */
+    public static void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
+        for (final TakeInPurpose purpose : TakeInPurpose.values()) {
+            example.accept(
+                    TakeInWindow.document(purpose),
+                    (reader, drafted) -> new TakeInWindow(purpose, drafted, stack -> {}).open(reader));
+        }
+    }
 
     public ItemTakeIn(
             final Plugin plugin,

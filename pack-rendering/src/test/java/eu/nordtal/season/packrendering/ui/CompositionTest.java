@@ -48,9 +48,22 @@ class CompositionTest {
     }
 
     @Test
+    void aBoldChestTitleWithAFivePixelMarkReturnsToTheAnchor() {
+        for (int rows = 1; rows <= ChestTitle.MAX_ROWS; rows++) {
+            final Component title = ChestTitle.of(rows)
+                    .boldHeader(Symbol.GRAVE, "Grave", List.of(Mark.small("+1,395 XP", Colours.SOFT)))
+                    .plate(4, rows - 1, 5, Look.PRIMARY)
+                    .label(4, rows - 1, 5, null, "Take all", Look.PRIMARY)
+                    .build();
+            assertEquals(0, Advances.of(title), rows + " rows");
+        }
+    }
+
+    @Test
     void aContainerTitleDrawsItsPanelAndKeepsTheNameAtTheAnchor() {
         final Component title = ChestTitle.container(3, Component.text("Lager"));
 
+        assertEquals(160, ChestTitle.CONTAINER_ROOM);
         assertEquals(Letters.width("Lager"), Advances.of(title));
     }
 
@@ -171,8 +184,7 @@ class CompositionTest {
 
     @Test
     void theFirstColumnDrawsTheHeaderAgainWhereItsCoverLiesOnIt() {
-        final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
-        panels.addAll(DialogPanel.DRAFT_PREVIEW_ROWS);
+        final List<DialogPanel> panels = DialogPanel.RIDE_LIST_ROWS;
         for (final DialogPanel panel : panels) {
             final int count = (panel.height() - 22) / BodyColumn.STEP;
             final BodyColumn column = BodyColumn.of(panel.width() - 16, false)
@@ -190,8 +202,7 @@ class CompositionTest {
 
     @Test
     void aLastColumnEndsItsBoxOnThePanelsBlackBorder() {
-        final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
-        panels.addAll(DialogPanel.DRAFT_PREVIEW_ROWS);
+        final List<DialogPanel> panels = DialogPanel.RIDE_LIST_ROWS;
         for (final DialogPanel panel : panels) {
             final int count = (panel.height() - 22) / BodyColumn.STEP;
             final BodyColumn column = BodyColumn.of(panel.width() - 16, false)

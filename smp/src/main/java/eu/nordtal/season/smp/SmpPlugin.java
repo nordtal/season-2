@@ -304,6 +304,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
         final SmpStart.Activities activities = SmpStart.wireActivities(this, wired.effects());
         graves = activities.graves();
+        graves.examples(this::example);
         duels = activities.duels();
         handout = activities.handout();
         wheel = activities.wheel();
@@ -331,6 +332,7 @@ public final class SmpPlugin extends NordtalPlugin {
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
         final ItemTakeIn takeIn = new ItemTakeIn(this, pool(), renderer(), documents(), identities());
         takeIn.watch(hub());
+        ItemTakeIn.examples(this::example);
         final PackSwap packSwap = new PackSwap(this, pool());
         getServer().getPluginManager().registerEvents(packSwap, this);
         answerRequests(takeIn, new PositionTake(this, pool()), packSwap, editor);

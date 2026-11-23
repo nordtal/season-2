@@ -16,8 +16,14 @@ public final class MenuFont {
     /** The character drawn for one that the sheet lacks. */
     public static final char UNKNOWN = '?';
 
-    /** The height of a row glyph: five pixels, no descenders. */
+    /** The height of a row glyph's body: five pixels on the baseline, no descenders. */
     public static final int HEIGHT = 5;
+
+    /** The height of a sheet cell: the body and two rows above it for the umlauts' dots. */
+    public static final int CELL = 7;
+
+    /** The metre's small m, the sheet's one lower-case letter. */
+    public static final char METRE = '\u1D50';
 
     private static final String RESOURCE = "/nordtal/menu/gui-row-advances.properties";
 
@@ -44,11 +50,16 @@ public final class MenuFont {
         return covers(upper) ? upper : UNKNOWN;
     }
 
-    /** Folds a string. */
+    /** Folds a string. The sheet has no ellipsis, so "…" becomes two dots. */
     public static String fold(final String text) {
         final StringBuilder out = new StringBuilder(text.length());
         for (int index = 0; index < text.length(); index++) {
-            out.append(fold(text.charAt(index)));
+            final char character = text.charAt(index);
+            if (character == '\u2026') {
+                out.append("..");
+            } else {
+                out.append(fold(character));
+            }
         }
         return out.toString();
     }
@@ -58,14 +69,22 @@ public final class MenuFont {
         return text.codePoints().map(MenuFont::advance).sum();
     }
 
-    /** Shortens {@code text} to fit {@code pixels} GUI pixels and ends it in two dots if it does not fit. */
+    /**
+     * Returns the drawn width of {@code text}, which must be folded.
+     * This is its advance without the clear column after its last glyph.
+     */
+    public static int visible(final String text) {
+        return Math.max(0, width(text) - 1);
+    }
+
+    /** Shortens {@code text} to draw at most {@code pixels} GUI pixels wide, ending in two dots if cut. */
     public static String fit(final String text, final int pixels) {
         final String folded = fold(text);
-        if (width(folded) <= pixels) {
+        if (visible(folded) <= pixels) {
             return folded;
         }
         String shorter = folded;
-        while (!shorter.isEmpty() && width(shorter + "..") > pixels) {
+        while (!shorter.isEmpty() && visible(shorter + "..") > pixels) {
             shorter = shorter.substring(0, shorter.length() - 1);
         }
         return shorter.stripTrailing() + "..";

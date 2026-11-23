@@ -42,7 +42,9 @@ public enum Symbol {
     ARROW12(Glyphs.UI_SYMBOL_ARROW12),
     ARROW13(Glyphs.UI_SYMBOL_ARROW13),
     ARROW14(Glyphs.UI_SYMBOL_ARROW14),
-    ARROW15(Glyphs.UI_SYMBOL_ARROW15);
+    ARROW15(Glyphs.UI_SYMBOL_ARROW15),
+    UP(Glyphs.UI_SYMBOL_UP),
+    DOWN(Glyphs.UI_SYMBOL_DOWN);
 
     /** The cursor advance of every symbol. */
     public static final int ADVANCE = 8;

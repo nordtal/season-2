@@ -11,6 +11,7 @@ import eu.nordtal.season.packrendering.ui.ChestTitle;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.Mark;
 import eu.nordtal.season.packrendering.ui.Symbol;
+import eu.nordtal.season.papercommon.chat.Previews;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
 import java.util.ArrayList;
@@ -19,8 +20,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.Inventory;
@@ -103,6 +106,47 @@ public final class InventoryEditor extends Menu {
             }
         }
         return title.build(BodyLine.silent(player + " " + word));
+    }
+
+    /** Hands the draft preview both container editors over the reader's own containers, read-only. */
+    public static void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
+        example.accept(
+                INVENTORY,
+                (reader, drafted) -> example(
+                        reader,
+                        Container.INVENTORY,
+                        PlainTextComponentSerializer.plainText().serialize(drafted.title())));
+        example.accept(
+                ENDER_CHEST,
+                (reader, drafted) -> example(
+                        reader,
+                        Container.ENDER_CHEST,
+                        PlainTextComponentSerializer.plainText().serialize(drafted.title())));
+    }
+
+    /**
+     * Opens a read-only editor window over {@code reader}'s own {@code container} in a draft's words.
+     * Every click is refused, so nothing in it moves.
+     */
+    public static void example(final Player reader, final Container container, final String word) {
+        new Example(reader, container, word).open(reader);
+    }
+
+    private static final class Example extends Menu {
+
+        Example(final Player reader, final Container container, final String word) {
+            final Inventory window = frame(rows(container), title(container, reader.getName(), word));
+            final @Nullable ItemStack[] held = container == Container.INVENTORY
+                    ? reader.getInventory().getContents()
+                    : reader.getEnderChest().getContents();
+            for (int view = 0; view < window.getSize(); view++) {
+                final int slot = slotOf(container, view);
+                final ItemStack stack = slot < 0 || slot >= held.length ? null : held[slot];
+                if (stack != null) {
+                    window.setItem(view, stack.clone());
+                }
+            }
+        }
     }
 
     /** Returns the rows of the window over {@code container}. */

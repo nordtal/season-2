@@ -70,14 +70,14 @@ public final class MenuFont {
     }
 
     /**
-     * Returns the drawn width of {@code text}, which must be folded: its advance without the clear column after its
-     * last glyph.
+     * Returns the drawn width of {@code text}, which must be folded.
+     * This is its advance without the clear column after its last glyph.
      */
     public static int visible(final String text) {
         return Math.max(0, width(text) - 1);
     }
 
-    /** Shortens {@code text} to draw at most {@code pixels} GUI pixels wide and ends it in two dots if it does not fit. */
+    /** Shortens {@code text} to draw at most {@code pixels} GUI pixels wide, ending in two dots if cut. */
     public static String fit(final String text, final int pixels) {
         final String folded = fold(text);
         if (visible(folded) <= pixels) {

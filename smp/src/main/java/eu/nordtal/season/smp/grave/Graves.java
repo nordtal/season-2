@@ -11,6 +11,7 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.packrendering.ui.Symbol;
+import eu.nordtal.season.papercommon.chat.Previews;
 import eu.nordtal.season.papercommon.hud.PillHologram;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -29,6 +30,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
@@ -476,6 +478,57 @@ public final class Graves {
         GravePanel.takeAllSlots(contentRows).forEach(slot -> window.setItem(slot, takeAll));
 
         return menu;
+    }
+
+    /** Hands the draft preview a grave of the reader's at the drafted words. */
+    public void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
+        example.accept(GraveWindow.DOCUMENT, this::example);
+    }
+
+    /**
+     * Opens a grave of {@code reader}'s at the drafted words, with a few stacks in it, for the draft preview.
+     * The window counts as awaiting its loot, so no stack moves and Take all only closes it.
+     */
+    private void example(final Player reader, final GameDocument drafted) {
+        final GraveWindow menu = new GraveWindow(
+                this,
+                UUID.randomUUID(),
+                GraveWindow.EXAMPLE_ROWS,
+                true,
+                PlainTextComponentSerializer.plainText().serialize(drafted.title()),
+                drafted.label("experience-line"),
+                drafted.label("take-all-button"));
+        final Inventory window = menu.getInventory();
+        final List<ItemStack> contents = List.of(
+                new ItemStack(Material.IRON_SWORD),
+                new ItemStack(Material.BREAD, 12),
+                new ItemStack(Material.OAK_LOG, 32),
+                new ItemStack(Material.TORCH, 48),
+                new ItemStack(Material.IRON_PICKAXE));
+        for (int slot = 0; slot < contents.size(); slot++) {
+            window.setItem(slot, contents.get(slot));
+        }
+        final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        head.editMeta(meta -> {
+            if (meta instanceof SkullMeta skull) {
+                skull.setOwningPlayer(reader);
+            }
+        });
+        final Location at = java.util.Objects.requireNonNull(reader.getLocation());
+        final GameDocument.Drawn drawn = drafted.item(
+                "owner",
+                new GraveWindow.Owner(
+                        true,
+                        PlayerContext.of(PlayerId.of(reader.getUniqueId()), reader.getName()),
+                        clock.instant(),
+                        at.getBlockX(),
+                        at.getBlockY(),
+                        at.getBlockZ()));
+        window.setItem(
+                GravePanel.headSlot(GraveWindow.EXAMPLE_ROWS), BlankItem.styled(head, drawn.name(), drawn.lore()));
+        final ItemStack takeAll = BlankItem.silent();
+        GravePanel.takeAllSlots(GraveWindow.EXAMPLE_ROWS).forEach(slot -> window.setItem(slot, takeAll));
+        menu.open(reader);
     }
 
     /** Returns the head of the dead player in Nordtal's tooltip. Its lore holds the time and the place of death. */

@@ -427,6 +427,7 @@ final class SmpStart {
                 plugin.dialogs(),
                 () -> plugin.railSettings.get().stationWidth());
         plugin.getServer().getPluginManager().registerEvents(menus, plugin);
+        menus.examples(plugin::example);
         final RideFeedback feedback = new RideFeedback(
                 plugin.renderer(),
                 plugin.identities(),

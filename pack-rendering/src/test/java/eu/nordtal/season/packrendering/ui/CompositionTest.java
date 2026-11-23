@@ -171,8 +171,7 @@ class CompositionTest {
 
     @Test
     void theFirstColumnDrawsTheHeaderAgainWhereItsCoverLiesOnIt() {
-        final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
-        panels.addAll(DialogPanel.DRAFT_PREVIEW_ROWS);
+        final List<DialogPanel> panels = DialogPanel.RIDE_LIST_ROWS;
         for (final DialogPanel panel : panels) {
             final int count = (panel.height() - 22) / BodyColumn.STEP;
             final BodyColumn column = BodyColumn.of(panel.width() - 16, false)
@@ -190,8 +189,7 @@ class CompositionTest {
 
     @Test
     void aLastColumnEndsItsBoxOnThePanelsBlackBorder() {
-        final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
-        panels.addAll(DialogPanel.DRAFT_PREVIEW_ROWS);
+        final List<DialogPanel> panels = DialogPanel.RIDE_LIST_ROWS;
         for (final DialogPanel panel : panels) {
             final int count = (panel.height() - 22) / BodyColumn.STEP;
             final BodyColumn column = BodyColumn.of(panel.width() - 16, false)

@@ -16,7 +16,6 @@ import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.packrendering.ui.Pill;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.Replies;
-import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.hud.Hud;
 import eu.nordtal.season.papercommon.tab.TabList;
 import java.time.Duration;
@@ -34,10 +33,20 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Shows an admin's player a key's text or a drafted game document, as this server renders it.
- * A key's title, subtitle or action bar is shown there, its other places as a chat line. A document is shown whole: a
- * menu opened read-only, the tab list, a boss bar for a while, a title, an action bar, and as chat lines the rest.
+ * A menu opens read-only at its example state; tab lists, boss bars, titles, action bars and chat lines draw in place.
  */
 public final class Previews {
+
+    /**
+     * Opens a menu at its example state in a drafted document's words, read-only.
+     * No click changes anything but the page the menu shows.
+     */
+    @FunctionalInterface
+    public interface Example {
+
+        /** Opens the menu for {@code reader} on the main thread, its words from {@code drafted}. */
+        void open(Player reader, GameDocument drafted);
+    }
 
     /** How long a drafted boss bar stays over the player's own. */
     static final Duration BOSS_BAR = Duration.ofSeconds(10);
@@ -46,29 +55,33 @@ public final class Previews {
     private final MessageRenderer renderer;
     private final Function<String, Palette> colours;
     private final Scheduler main;
-    private final Documents.Source documents;
-    private final Dialogs dialogs;
 
     private final Map<UUID, List<Pill.Content>> bars = new ConcurrentHashMap<>();
+    private final Map<String, Example> examples = new ConcurrentHashMap<>();
 
     /**
      * @param colours the palette of a service by name, as its settings name the colours
      * @param main runs on the server's main thread, where a window opens and a drafted boss bar ends
-     * @param documents the preview's own words, such as its draft mark
      */
     public Previews(
             final Function<UUID, @Nullable Player> online,
             final MessageRenderer renderer,
             final Function<String, Palette> colours,
-            final Scheduler main,
-            final Documents.Source documents,
-            final Dialogs dialogs) {
+            final Scheduler main) {
         this.online = Objects.requireNonNull(online, "online");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.colours = Objects.requireNonNull(colours, "colours");
         this.main = Objects.requireNonNull(main, "main");
-        this.documents = Objects.requireNonNull(documents, "documents");
-        this.dialogs = Objects.requireNonNull(dialogs, "dialogs");
+    }
+
+    /** Opens {@code menu}'s drafts with {@code example}. A drafted menu without one is refused on this server. */
+    public void example(final DocumentSpec<?> menu, final Example example) {
+        if (menu.declaration().shape() != DocumentSpec.Shape.MENU) {
+            throw new IllegalArgumentException(menu.declaration().id() + " is no menu");
+        }
+        if (examples.putIfAbsent(menu.declaration().id(), Objects.requireNonNull(example, "example")) != null) {
+            throw new IllegalStateException(menu.declaration().id() + " has an example already");
+        }
     }
 
     /** Shows a key's text with the values an admin gave, the rest filled from the key's schema here. */
@@ -99,22 +112,23 @@ public final class Previews {
         if (reader == null) {
             return Answer.refused(ServerRefusal.NOT_HERE.with());
         }
-        final Viewer viewer = Viewer.of(Locales.parse(language));
-        show(reader, GameDocument.example(renderer, drafted, viewer), drafted, viewer);
+        final Example example = examples.get(drafted.declaration().id());
+        if (drafted.declaration().shape() == DocumentSpec.Shape.MENU && example == null) {
+            return Answer.refused(ServerRefusal.NO_EXAMPLE.with());
+        }
+        final GameDocument drawn = GameDocument.example(renderer, drafted, Viewer.of(Locales.parse(language)));
+        if (example != null) {
+            main.execute(() -> example.open(reader, drawn));
+        } else {
+            show(reader, drawn, drafted);
+        }
         return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
     }
 
-    /** Shows the document where its shape is, every value at its example. Steward sends a Discord one to the bot. */
-    private void show(
-            final Player reader, final GameDocument drawn, final Documents.Packaged document, final Viewer viewer) {
+    /** Shows a text document where its shape is, every value at its example. Steward sends a Discord one to the bot. */
+    private void show(final Player reader, final GameDocument drawn, final Documents.Packaged document) {
         switch (document.declaration().shape()) {
-            case MENU -> {
-                final GameDocument words = new GameDocument(
-                        renderer, documents.applied(PreviewDialog.DOCUMENT), viewer, new DocumentSpec.None());
-                final PreviewDialog dialog =
-                        new PreviewDialog(dialogs, drawn, document.document().parts(), words);
-                main.execute(() -> dialog.show(reader, 0));
-            }
+            case MENU -> throw new IllegalStateException(document.declaration().id() + " opens through its example");
             case TAB_LIST -> {
                 // The drafted half stands beside the half the player sees now.
                 if (document.declaration()

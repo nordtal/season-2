@@ -3,6 +3,7 @@ package eu.nordtal.season.papercommon.dialog;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
+import eu.nordtal.season.packrendering.ui.DialogCanvas;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
 import eu.nordtal.season.packrendering.ui.FocusRing;
 import io.papermc.paper.dialog.DialogResponseView;
@@ -11,6 +12,7 @@ import io.papermc.paper.registry.data.dialog.ActionButton;
 import io.papermc.paper.registry.data.dialog.DialogBase;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
+import io.papermc.paper.registry.data.dialog.body.PlainMessageDialogBody;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
 import io.papermc.paper.registry.set.RegistrySet;
 import java.util.Objects;
@@ -25,6 +27,8 @@ import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The clicks of Nordtal's dialogs: each send of a dialog carries one token, and its first click spends it.
@@ -100,6 +104,39 @@ public final class Dialogs {
         return DialogBody.plainMessage(column.build(ground, title), FocusRing.box(column.width()));
     }
 
+    /** A body line of one text row (17 px box), framed on {@code ground}, for tight multi-band dialogs. */
+    public static DialogBody singleLine(final Component line, final int art, final FocusRing.Ground ground) {
+        return DialogBody.plainMessage(FocusRing.frame(line, art, FocusRing.SINGLE_ROW, ground), FocusRing.box(art));
+    }
+
+    /** A body line of {@code canvas}, framed on {@code ground}. */
+    public static DialogBody line(final DialogCanvas canvas, final FocusRing.Ground ground) {
+        return DialogBody.plainMessage(canvas.build(ground), FocusRing.box(canvas.width()));
+    }
+
+    /** A body line of {@code canvas}, framed on {@code ground} and open over {@code title}'s ink above it. */
+    public static DialogBody line(final DialogCanvas canvas, final FocusRing.Ground ground, final DialogTitle title) {
+        return DialogBody.plainMessage(canvas.build(ground, title), FocusRing.box(canvas.width()));
+    }
+
+    /** A dialog body showing {@code stack} at {@code width} by {@code height}, without item decorations. */
+    public static DialogBody item(
+            final ItemStack stack,
+            final int width,
+            final int height,
+            final boolean showTooltip,
+            final @Nullable PlainMessageDialogBody description) {
+        final var builder = DialogBody.item(stack)
+                .showDecorations(false)
+                .showTooltip(showTooltip)
+                .width(width)
+                .height(height);
+        if (description != null) {
+            builder.description(description);
+        }
+        return builder.build();
+    }
+
     /** Returns {@code text} as the plain words a drawn header or row takes. */
     public static String plain(final Component text) {
         return Objects.requireNonNull(PlainTextComponentSerializer.plainText().serialize(text));
@@ -120,6 +157,15 @@ public final class Dialogs {
         /** The click of a drawn button, which answers {@code answer} with the player who clicked. */
         public ClickEvent click(final Consumer<Player> answer) {
             return ClickEvent.callback(audience -> answer(audience, true, player -> answer.accept(player)), ONCE);
+        }
+
+        /**
+         * Returns a press with a click callback when {@code enabled} holds, or a disabled press with no callback.
+         * Disabled controls never register a click callback.
+         */
+        public BodyLine.Press pressIf(
+                final boolean enabled, final Consumer<Player> answer, final @Nullable Component tooltip) {
+            return enabled ? new BodyLine.Press(click(answer), tooltip) : BodyLine.Press.disabled(tooltip);
         }
 
         /**

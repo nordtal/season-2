@@ -220,14 +220,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     private void start() {
         takeSettings();
-
         worldDistances = new WorldDistances(wantedDistances(), logger());
         worldDistances.apply(getServer().getWorlds());
         listen(worldDistances);
-
         messages = loadMessages();
         documents = new AppliedDocuments(getClass().getClassLoader(), namespaces());
-
         jdbi = Jdbis.over(pool);
         access = AccessReader.using(pool, clock);
         identities = new Identities(access::identities);
@@ -472,13 +469,18 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** A preview is painted in the colours of the key's own service, as its settings name them. */
     private Previews newPreviews() {
         final SettingStore store = SettingStore.using(pool);
-        return new Previews(
+        final Previews built = new Previews(
                 getServer()::getPlayer,
                 renderer,
                 service -> ToneColours.parse(Colours.current(store, service), unreadable -> {}),
-                PaperScheduler.of(this).mainThread(),
-                documents,
-                dialogs);
+                PaperScheduler.of(this).mainThread());
+        InventoryEditor.examples(built::example);
+        return built;
+    }
+
+    /** Opens drafts of {@code menu} from Steward's draft preview at {@code example}'s state, read-only. */
+    public final void example(final DocumentSpec<?> menu, final Previews.Example example) {
+        previews.example(menu, example);
     }
 
     protected final Answer preview(final PlayerId player, final DocumentPreview preview) {

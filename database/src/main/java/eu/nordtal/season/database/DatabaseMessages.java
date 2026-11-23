@@ -146,5 +146,9 @@ public interface DatabaseMessages {
         @Name("Wrong world")
         @Shown(Display.STEWARD)
         MessageRef wrongWorld();
+
+        @Name("No menu preview here")
+        @Shown(Display.STEWARD)
+        MessageRef noExample();
     }
 }

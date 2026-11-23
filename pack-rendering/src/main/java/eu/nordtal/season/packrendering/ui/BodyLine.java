@@ -57,7 +57,23 @@ public final class BodyLine {
 
     /** A drawn part's click and the tooltip the mouse shows over it, each if it has one. */
     public record Press(
-            @Nullable ClickEvent click, @Nullable Component tooltip) {}
+            @Nullable ClickEvent click, @Nullable Component tooltip) {
+
+        /** No click and no tooltip, for static art or a disabled control without hover text. */
+        public static final Press NONE = new Press(null, null);
+
+        /** A disabled control's press: carries no click callback, only its optional {@code tooltip}. */
+        public static Press disabled(final @Nullable Component tooltip) {
+            return new Press(null, tooltip);
+        }
+
+        /** Refuses a click callback on a disabled look, so disabled controls never carry one. */
+        public static void rejectDisabledClick(final Look look, final Press press) {
+            if (look == Look.DISABLED && press.click() != null) {
+                throw new IllegalArgumentException("a disabled control carries no click callback");
+            }
+        }
+    }
 
     /** Starts an empty plate line. */
     public static BodyLine start() {
@@ -148,6 +164,51 @@ public final class BodyLine {
     /** Draws {@code text} on the line's label row. */
     public BodyLine text(final String text, final TextColor colour) {
         pen.text(textShift, text, colour);
+        return this;
+    }
+
+    /** Draws {@code text} in bold on the line's label row. */
+    public BodyLine bold(final String text, final TextColor colour) {
+        pen.bold(Pen.textFont(textShift), text, colour);
+        return this;
+    }
+
+    /** Draws a dark item field ({@link ItemPicture#SMALL_FIELD} or {@link ItemPicture#LARGE_FIELD}). */
+    public BodyLine darkField(final int size) {
+        final String glyph = switch (size) {
+            case ItemPicture.SMALL_FIELD -> Glyphs.UI_DARK_FIELD_22;
+            case ItemPicture.LARGE_FIELD -> Glyphs.UI_DARK_FIELD_40;
+            default -> throw new IllegalArgumentException("unsupported dark field size " + size);
+        };
+        pen.art(Pen.artFont(down), glyph, size);
+        return this;
+    }
+
+    /** Draws the 17 by 72 sunken scroll track. */
+    public BodyLine scrollTrack() {
+        pen.art(Pen.artFont(down), Glyphs.UI_SCROLL_TRACK_72, ScrollState.COLUMN_WIDTH);
+        return this;
+    }
+
+    /** Draws a flat scroll position strip slice of height 4, 8 or 16 px. */
+    public BodyLine scrollStrip(final int height) {
+        final String glyph = switch (height) {
+            case 4 -> Glyphs.UI_SCROLL_STRIP_4;
+            case 8 -> Glyphs.UI_SCROLL_STRIP_8;
+            case 16 -> Glyphs.UI_SCROLL_STRIP_16;
+            default -> throw new IllegalArgumentException("unsupported scroll strip height " + height);
+        };
+        pen.art(Pen.artFont(down), glyph, ScrollState.STRIP_WIDTH);
+        return this;
+    }
+
+    /** Draws {@code picture} on the line's label row: its atlas sprite or its fallback symbol. */
+    public BodyLine itemPicture(final ItemPicture picture) {
+        if (picture.hasSprite()) {
+            pen.append(picture.spriteComponent(), ItemPicture.SPRITE_ADVANCE);
+        } else {
+            pen.symbol(textShift, picture.fallback(), picture.fallbackColour());
+        }
         return this;
     }
 

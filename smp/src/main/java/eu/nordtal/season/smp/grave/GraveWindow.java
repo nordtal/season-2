@@ -27,7 +27,7 @@ final class GraveWindow extends Menu {
             @Example("355") int z) {}
 
     /** The content rows of the grave the declaration lays out as its example. */
-    private static final int EXAMPLE_ROWS = 2;
+    static final int EXAMPLE_ROWS = 2;
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
                     "smp",

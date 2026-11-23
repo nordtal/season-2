@@ -52,6 +52,7 @@ public final class FocusRing {
     private static final int BEVEL_FOOT = 31;
 
     private static final Map<Integer, List<String>> RINGS = Map.ofEntries(
+            Map.entry(17, Glyphs.UI_RING_17),
             Map.entry(26, Glyphs.UI_RING_26),
             Map.entry(35, Glyphs.UI_RING_35),
             Map.entry(44, Glyphs.UI_RING_44),
@@ -64,10 +65,15 @@ public final class FocusRing {
             Map.entry(107, Glyphs.UI_RING_107),
             Map.entry(116, Glyphs.UI_RING_116),
             Map.entry(125, Glyphs.UI_RING_125),
-            Map.entry(134, Glyphs.UI_RING_134));
+            Map.entry(134, Glyphs.UI_RING_134),
+            Map.entry(143, Glyphs.UI_RING_143),
+            Map.entry(152, Glyphs.UI_RING_152));
 
-    /** The fewest text rows a framed line has: its art and the row that keeps the box wide. */
+    /** The fewest text rows a multi-row framed line has: its art and the row that keeps the box wide. */
     public static final int MIN_ROWS = 2;
+
+    /** One text row, whose own advance sets the box width so the box is 17 px high. */
+    public static final int SINGLE_ROW = 1;
 
     private FocusRing() {}
 
@@ -90,8 +96,8 @@ public final class FocusRing {
      */
     public static Component frame(
             final Component line, final int art, final int rows, final Ground ground, final Component over) {
-        if (rows < MIN_ROWS) {
-            throw new IllegalArgumentException("a framed line has at least " + MIN_ROWS + " rows, not " + rows);
+        if (rows < SINGLE_ROW) {
+            throw new IllegalArgumentException("a framed line has at least " + SINGLE_ROW + " row, not " + rows);
         }
         final int width = box(art);
         final int height = ROW * rows + BOX;
@@ -99,7 +105,8 @@ public final class FocusRing {
         if (ring == null) {
             throw new IllegalArgumentException("the pack has no focus ring " + height + " px high");
         }
-        final int left = -(width / 2);
+        final boolean single = rows == SINGLE_ROW;
+        final int left = single ? -(PADDING / 2) : -(width / 2);
         final String font = Glyphs.FONT_UI_RING;
         final Pen pen = Pen.start();
         // The bevel's white column needs a cover only at the rounded foot; a side over a foot keeps its shade.
@@ -117,7 +124,10 @@ public final class FocusRing {
         final int bottom = ground.foot ? FOOT_RUNS : BOTTOM_RUNS;
         pen.moveTo(from).runs(font, ring.subList(bottom, bottom + RUN_COUNT), to - from);
         pen.moveTo(left + (width - art) / 2).append(line, art);
-        pen.moveTo(0).append(over, 0);
+        pen.moveTo(left + width / 2).append(over, 0);
+        if (single) {
+            return pen.build(width - PADDING);
+        }
         Component framed = pen.build(0)
                 .append(Component.newline())
                 .append(Pen.start().move(width - PADDING).build());

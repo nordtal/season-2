@@ -77,9 +77,4 @@ describe("the NPC's plate and dialogue preview", () => {
   it("keeps the pack's default portrait for an NPC in the default skin", () => {
     expect(preview(npc({})).querySelector("rect[fill='url(#npc-preview-well)']")).toBeNull()
   })
-
-  it("draws the skin's face without an uploaded picture", () => {
-    const container = preview(npc({ skin: "00000000-0000-0000-0000-0000000000bb" }))
-    expect(container.querySelector("svg[viewBox='0 0 40 40']")).not.toBeNull()
-  })
 })

@@ -14,6 +14,13 @@ final class FakeGraveDao implements GraveDao {
 
     private final Map<UUID, GraveRow> open = new LinkedHashMap<>();
 
+    /** Runs before each contents update, outside the lock, so a test can hold a write in flight. */
+    private volatile Runnable beforeUpdate = () -> {};
+
+    void beforeUpdate(final Runnable hook) {
+        beforeUpdate = hook;
+    }
+
     UUID add(final byte[] contents) {
         final UUID id = UUID.randomUUID();
         open.put(id, row(id, contents, Instant.EPOCH));
@@ -50,7 +57,12 @@ final class FakeGraveDao implements GraveDao {
     }
 
     @Override
-    public synchronized int updateGraveContents(final UUID id, final byte[] contents) {
+    public int updateGraveContents(final UUID id, final byte[] contents) {
+        beforeUpdate.run();
+        return update(id, contents);
+    }
+
+    private synchronized int update(final UUID id, final byte[] contents) {
         final GraveRow row = open.get(id);
         if (row == null) {
             return 0;

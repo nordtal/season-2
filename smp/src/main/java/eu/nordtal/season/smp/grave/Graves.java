@@ -136,7 +136,8 @@ public final class Graves {
 
     private void draw(final GraveRow row) {
         final World world = Bukkit.getWorld(row.world());
-        if (world != null) {
+        // A grave created while the restore reads reaches this from the restore and from create, and is drawn once.
+        if (world != null && !open.containsKey(row.id())) {
             draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
         }
     }
@@ -337,8 +338,11 @@ public final class Graves {
                 entity.remove();
             });
         }
-        open.remove(graveId);
-        shown.remove(graveId);
+        final OpenGrave grave = open.remove(graveId);
+        if (grave != null) {
+            grave.expire();
+        }
+        closeWindow(graveId);
         holograms.remove(graveId);
         nextHologramUpdate.remove(graveId);
     }
@@ -528,6 +532,7 @@ public final class Graves {
         if (grave == null || !grave.holdsLoot()) {
             return;
         }
+        restoring.touched(graveId);
 
         final ItemStack[] left = contentOf(inventory);
         final boolean contentGone = java.util.Arrays.stream(left)

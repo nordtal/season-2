@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.grave;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -57,15 +56,23 @@ final class GraveWrites {
     }
 
     /**
-     * Writes every waiting change on the calling thread and runs the follow-ups there.
+     * Waits for the write in flight, then writes every waiting change on the calling thread.
+     * The follow-ups of these writes run on the calling thread too.
      * Call it on the main thread when the plugin stops, since the server then drops its queued tasks.
      */
     void flush() {
-        final List<UUID> graves;
-        synchronized (pending) {
-            graves = List.copyOf(pending.keySet());
+        synchronized (writing) {
+            while (true) {
+                final UUID graveId;
+                synchronized (pending) {
+                    if (pending.isEmpty()) {
+                        return;
+                    }
+                    graveId = pending.keySet().iterator().next();
+                }
+                write(graveId, Runnable::run);
+            }
         }
-        graves.forEach(graveId -> write(graveId, Runnable::run));
     }
 
     private void submit(final UUID graveId, final Write write) {

@@ -114,13 +114,19 @@ public final class ObjectiveDialog {
     /** Width of the milestone rail left of the spins plate (7 px gap between them). */
     private static final int RAIL_WIDTH = WIDTH - SPINS_WIDTH - 7;
 
-    /** Top of the two-column card grid and scroll column in content coordinates. */
-    private static final int GRID_TOP = 24;
+    /** Top of the two-column card grid in content coordinates, aligned so both rows centre sprites on the 9 px grid. */
+    static final int GRID_TOP = 19;
 
-    /** Card height and vertical gap so two rows fill the 112 px grid area (54 + 4 + 54 = 112). */
-    private static final int CARD_HEIGHT = 54;
+    /** Card height and vertical gap (63 px pitch, a multiple of the 9 px text-row grid: 54 + 9 + 54 = 117). */
+    static final int CARD_HEIGHT = 54;
 
-    private static final int CARD_ROW_GAP = 4;
+    static final int CARD_ROW_GAP = 9;
+
+    /** Vertical offset of the 22 by 22 dark item field inside a card (19 + 4 + 7 = 30 and 82 + 4 + 7 = 93). */
+    static final int FIELD_OFFSET = 4;
+
+    /** Top of the 112 px scroll column, flush with the second card row's foot. */
+    private static final int SCROLL_TOP = 24;
 
     /** Width of the hand-in button plate on an open hand-in objective card. */
     private static final int HAND_IN_PLATE_WIDTH = 62;
@@ -396,7 +402,7 @@ public final class ObjectiveDialog {
                     scroll.canScrollDown() ? send.click(player -> show(player, scroll.pageDown())) : null;
             canvas.scrollColumn(
                     grid.scrollColumnX(),
-                    GRID_TOP,
+                    SCROLL_TOP,
                     scroll,
                     up,
                     down,
@@ -451,8 +457,13 @@ public final class ObjectiveDialog {
         canvas.cardPlate(cx, cy, cw, done ? Look.DISABLED : Look.NORMAL, new BodyLine.Press(null, hover));
 
         // Dark 22 x 22 item field and derived objective icon.
-        canvas.darkField(cx + 5, cy + 5, ItemPicture.SMALL_FIELD);
-        canvas.itemPicture(cx + 12, cy + 12, icon(objective, done, advancementIcon), BodyLine.Press.NONE);
+        canvas.darkField(cx + 5, cy + FIELD_OFFSET, ItemPicture.SMALL_FIELD);
+        final int spriteInset = (ItemPicture.SMALL_FIELD - ItemPicture.SPRITE_ADVANCE) / 2;
+        canvas.itemPicture(
+                cx + 5 + spriteInset,
+                cy + FIELD_OFFSET + spriteInset,
+                icon(objective, done, advancementIcon),
+                BodyLine.Press.NONE);
 
         // Objective name cut to its room.
         canvas.text(cx + 32, cy + 6, Letters.cut(name, cw - 37), ink);

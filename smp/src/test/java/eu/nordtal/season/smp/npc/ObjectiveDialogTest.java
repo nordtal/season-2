@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.packrendering.ui.CardGrid;
+import eu.nordtal.season.packrendering.ui.DialogCanvas;
+import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.ItemPicture;
 import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.smp.milestone.Objective;
@@ -76,5 +79,28 @@ class ObjectiveDialogTest {
         final ItemPicture advFallback = ObjectiveDialog.icon(adv, true, key -> null);
         assertFalse(advFallback.hasSprite());
         assertEquals(Symbol.FLAG, advFallback.fallback());
+    }
+
+    @Test
+    void bothCardRowsCentreTheirItemSpritesInTheirDarkFieldsOnTheNinePixelGrid() {
+        final DialogCanvas canvas = DialogCanvas.of(DialogPanel.WIDE_161);
+        final CardGrid grid = CardGrid.of(
+                0,
+                ObjectiveDialog.GRID_TOP,
+                ObjectiveDialog.WIDTH,
+                ObjectiveDialog.CARD_HEIGHT,
+                ObjectiveDialog.CARD_ROW_GAP,
+                true);
+        final List<CardGrid.Slot> slots = grid.visible(4, 0, ObjectiveDialog.VISIBLE_ROWS);
+        final int spriteInset = (ItemPicture.SMALL_FIELD - ItemPicture.SPRITE_ADVANCE) / 2;
+
+        for (final CardGrid.Slot slot : slots) {
+            final int fieldY = slot.y() + ObjectiveDialog.FIELD_OFFSET;
+            final int expectedCenterY = fieldY + spriteInset;
+            assertEquals(
+                    expectedCenterY,
+                    canvas.spriteY(expectedCenterY),
+                    "row " + slot.row() + " sprite must sit centred in its 22 px dark field");
+        }
     }
 }

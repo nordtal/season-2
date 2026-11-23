@@ -214,6 +214,39 @@ class DialogCanvasTest {
                 DialogTitle.of(DialogPanel.WIDE_161, canvas.panelTop()).header(Symbol.FLAG, "Objectives", List.of());
         final Component framed = canvas.build(FocusRing.Ground.BEVEL_FOOT, title);
         assertEquals(canvas.rows(), Advances.rows(framed).size());
+        assertEquals(0, Advances.rows(framed).getFirst(), "row 0 must advance 0 so the header stays centred");
+    }
+
+    @Test
+    void aWideObjectivesCanvasRedrawsTheBoldHeaderOnTheExactColumnsOfTheTitle() {
+        final DialogCanvas canvas = DialogCanvas.of(DialogPanel.WIDE_161);
+        final ItemPicture iron = ItemPicture.of("minecraft:iron_ingot", Symbol.HANDIN, Colours.ACCENT);
+        final ItemPicture wood = ItemPicture.of("minecraft:oak_log", Symbol.HANDIN, Colours.FAINT);
+        final ScrollState scroll = ScrollState.of(3, 2, 0);
+        canvas.rail(0, 2, 223, 7, 3)
+                .plate(230, 0, 36, Symbol.WHEEL, "2", Look.NORMAL, BodyLine.Press.NONE)
+                .cardPlate(0, 19, 121, Look.NORMAL, BodyLine.Press.NONE)
+                .darkField(5, 23, ItemPicture.SMALL_FIELD)
+                .itemPicture(12, 30, iron, BodyLine.Press.NONE)
+                .varBar(32, 38, 50, 0.5, 0.0, false)
+                .plate(54, 51, 62, Symbol.HANDIN, "Hand in", Look.PRIMARY, BodyLine.Press.NONE)
+                .cardPlate(125, 82, 121, Look.DISABLED, BodyLine.Press.NONE)
+                .darkField(130, 86, ItemPicture.SMALL_FIELD)
+                .itemPicture(137, 93, wood, BodyLine.Press.NONE)
+                .itemPicture(12, 93, ItemPicture.symbol(Symbol.SWORDS, Colours.ACCENT), BodyLine.Press.NONE)
+                .scrollColumn(249, 24, scroll, UP, DOWN, PAGE_UP, PAGE_DOWN, "Up", "Down");
+        final DialogTitle title =
+                DialogTitle.of(DialogPanel.WIDE_161, canvas.panelTop()).header(Symbol.FLAG, "Objectives", List.of());
+        final Component framed = canvas.build(FocusRing.Ground.BEVEL_FOOT, title);
+        final Component builtTitle = title.build();
+
+        assertEquals(DialogTitle.NET_WIDTH, Advances.of(builtTitle));
+        assertEquals(0, Advances.rows(framed).getFirst());
+        // The title starts 140 px left of screen centre, while framed row 0 starts on screen centre.
+        assertEquals(
+                Advances.firstTextX(builtTitle, "Objectives") - 140,
+                Advances.firstTextX(framed, "Objectives"),
+                "redrawn bold header must land on the exact column of the title's bold header");
     }
 
     @Test

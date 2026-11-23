@@ -227,25 +227,99 @@ export function skinAddress(npc: Npc): string | undefined {
   return npc.skin === undefined ? undefined : `/api/npc-skins/${npc.skin}`
 }
 
+/** An SVG filter that multiplies every colour channel by `factor` and keeps alpha. */
+function Shade({ id, factor }: { id: string; factor: number }) {
+  return (
+    <filter id={id} colorInterpolationFilters="sRGB">
+      <feColorMatrix type="matrix" values={`${factor} 0 0 0 0 0 ${factor} 0 0 0 0 0 ${factor} 0 0 0 0 0 1 0`} />
+    </filter>
+  )
+}
+
 /**
  * The NPC's bust in the portrait's well, as steward-agent draws it from the skin: the head three times as large, the
- * upper body and arms twice.
+ * upper body and arms twice, the arms and body shaded, the head's top row lit and its bottom row shaded, and a dark
+ * outline on every clear pixel beside the figure.
  */
 function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y: number }) {
   const arm = slim ? 3 : 4
+  const id = `npc-bust-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  const figure = `${id}-figure`
   return (
     <svg x={x} y={y} width={40} height={40} viewBox="0 0 40 40" overflow="hidden">
-      <Limb skin={skin} base={[44, 20, arm, 6]} over={[44, 36, arm, 6]} x={12 - 2 * arm} y={30} scale={2} />
-      <Limb skin={skin} base={[36, 52, arm, 6]} over={[52, 52, arm, 6]} x={28} y={30} scale={2} />
-      <Limb skin={skin} base={[20, 20, 8, 6]} over={[20, 36, 8, 6]} x={12} y={29} scale={2} />
-      <Limb skin={skin} base={[8, 8, 8, 8]} over={[40, 8, 8, 8]} x={8} y={6} scale={3} />
+      <defs>
+        <Shade id={`${id}-right`} factor={0.78} />
+        <Shade id={`${id}-left`} factor={0.7} />
+        <Shade id={`${id}-torso`} factor={0.88} />
+        <Shade id={`${id}-lit`} factor={1.12} />
+        <Shade id={`${id}-dim`} factor={0.8} />
+        {/* The four offsets of the figure's stepped alpha mark its four-way neighbours, as NpcPack.touchesInk does. */}
+        <filter
+          id={`${id}-outline`}
+          filterUnits="userSpaceOnUse"
+          x={0}
+          y={0}
+          width={40}
+          height={40}
+          colorInterpolationFilters="sRGB"
+        >
+          <feComponentTransfer in="SourceAlpha" result="ink">
+            <feFuncA type="linear" slope={255} />
+          </feComponentTransfer>
+          <feOffset in="ink" dx={1} result="east" />
+          <feOffset in="ink" dx={-1} result="west" />
+          <feOffset in="ink" dy={1} result="south" />
+          <feOffset in="ink" dy={-1} result="north" />
+          <feMerge result="near">
+            <feMergeNode in="east" />
+            <feMergeNode in="west" />
+            <feMergeNode in="south" />
+            <feMergeNode in="north" />
+          </feMerge>
+          <feComposite in="near" in2="ink" operator="out" result="ring" />
+          <feFlood floodColor="#101014" />
+          <feComposite in2="ring" operator="in" result="outline" />
+          <feMerge>
+            <feMergeNode in="outline" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <clipPath id={`${id}-rest`}>
+          <rect width={40} height={6} />
+          <rect y={7} width={40} height={22} />
+          <rect y={30} width={40} height={10} />
+        </clipPath>
+        <clipPath id={`${id}-top`}>
+          <rect y={6} width={40} height={1} />
+        </clipPath>
+        <clipPath id={`${id}-bottom`}>
+          <rect y={29} width={40} height={1} />
+        </clipPath>
+        <g id={figure}>
+          <g filter={`url(#${id}-right)`}>
+            <Limb skin={skin} base={[44, 20, arm, 6]} over={[44, 36, arm, 6]} x={12 - 2 * arm} y={30} scale={2} />
+          </g>
+          <g filter={`url(#${id}-left)`}>
+            <Limb skin={skin} base={[36, 52, arm, 6]} over={[52, 52, arm, 6]} x={28} y={30} scale={2} />
+          </g>
+          <g filter={`url(#${id}-torso)`}>
+            <Limb skin={skin} base={[20, 20, 8, 6]} over={[20, 36, 8, 6]} x={12} y={29} scale={2} />
+          </g>
+          <Limb skin={skin} base={[8, 8, 8, 8]} over={[40, 8, 8, 8]} x={8} y={6} scale={3} />
+        </g>
+      </defs>
+      <g filter={`url(#${id}-outline)`}>
+        <use href={`#${figure}`} clipPath={`url(#${id}-rest)`} />
+        <use href={`#${figure}`} clipPath={`url(#${id}-top)`} filter={`url(#${id}-lit)`} />
+        <use href={`#${figure}`} clipPath={`url(#${id}-bottom)`} filter={`url(#${id}-dim)`} />
+      </g>
     </svg>
   )
 }
 
 /**
- * The portrait's empty well at 40 by 40, as steward-agent draws it under an uploaded picture: grey from light to dark,
- * sunk by a dark line at its top and left edge. It hides the default bust of the pack's portrait.
+ * The portrait's empty well at 40 by 40, as steward-agent draws it under an uploaded picture or a skin's bust: grey
+ * from light to dark, sunk by a dark line at its top and left edge. It hides the default bust of the pack's portrait.
  */
 function Well({ x, y }: { x: number; y: number }) {
   return (
@@ -345,7 +419,10 @@ export function DialoguePreview({
           <Artwork id={npc.artwork} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
         </>
       ) : skin === undefined ? null : (
-        <Bust skin={skin} slim={npc.skinModel === "SLIM"} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+        <>
+          <Well x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+          <Bust skin={skin} slim={npc.skinModel === "SLIM"} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+        </>
       )}
       <g>
         <rect

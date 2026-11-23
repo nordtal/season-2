@@ -405,6 +405,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V140__the_settings_and_roles_the_country_onboarding_replaced_are_deleted.sql",
                 "a7882fe435d62fdc26b91cb7ac4056b2a04b8b67035dde9730c5e8d779456572");
+        FROZEN.put(
+                "V141__every_npc_name_plate_is_a_pill.sql",
+                "f4f4c37758a16e35e156074ad667fa1c7187f38c850e9344cf995e68f4f6fc9f");
     }
 
     @Test

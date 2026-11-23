@@ -269,12 +269,6 @@ public interface NpcsPage {
     @Name("Name plate")
     MessageRef plate();
 
-    @Name("Plate style")
-    MessageRef plateStyle();
-
-    @Name("A plate style")
-    MessageRef plateStyleOf(@Arg("style") Npc.PlateStyle style);
-
     @Name("Plate colour")
     MessageRef plateColour();
 

@@ -10,7 +10,6 @@ import eu.nordtal.season.database.npc.Npc.Place;
 import eu.nordtal.season.database.npc.Npc.Plate;
 import eu.nordtal.season.database.npc.Npc.PlateColour;
 import eu.nordtal.season.database.npc.Npc.PlateIcon;
-import eu.nordtal.season.database.npc.Npc.PlateStyle;
 import eu.nordtal.season.database.npc.Npc.Pose;
 import eu.nordtal.season.database.npc.Npc.Slot;
 import java.sql.ResultSet;
@@ -33,8 +32,8 @@ final class JdbiNpcStore implements NpcStore {
 
     private static final String COLUMNS =
             "npc.id, npc.name_en, npc.name_de, npc.world, npc.x, npc.y, npc.z, npc.yaw, npc.pose, npc.pitch, "
-                    + "npc.dialogue::text AS dialogue, npc.skin, npc_skin.model AS skin_model, npc.plate_style, "
-                    + "npc.plate_colour, npc.plate_icon, npc.artwork";
+                    + "npc.dialogue::text AS dialogue, npc.skin, npc_skin.model AS skin_model, npc.plate_colour, "
+                    + "npc.plate_icon, npc.artwork";
     private static final String FROM = " FROM npc LEFT JOIN npc_skin ON npc_skin.id = npc.skin";
 
     private final Jdbi jdbi;
@@ -103,7 +102,6 @@ final class JdbiNpcStore implements NpcStore {
                                 ? NpcSkin.SkinModel.CLASSIC.name()
                                 : rows.getString("skin_model")),
                 new Plate(
-                        PlateStyle.valueOf(rows.getString("plate_style")),
                         PlateColour.valueOf(rows.getString("plate_colour")),
                         rows.getString("plate_icon") == null ? null : PlateIcon.valueOf(rows.getString("plate_icon"))),
                 rows.getObject("artwork", UUID.class));
@@ -184,14 +182,13 @@ final class JdbiNpcStore implements NpcStore {
         final String snapshot = Json.encode(npc);
         handle.createUpdate("""
                         INSERT INTO npc (id, name_en, name_de, world, x, y, z, yaw, pose, pitch, dialogue, skin,
-                            plate_style, plate_colour, plate_icon, artwork, actor_kind, actor_id, changed)
+                            plate_colour, plate_icon, artwork, actor_kind, actor_id, changed)
                         VALUES (:id, :nameEn, :nameDe, :world, :x, :y, :z, :yaw, :pose, :pitch,
-                            CAST(:dialogue AS jsonb), :skin, :plateStyle, :plateColour, :plateIcon, :artwork, :kind,
-                            :actor, now())
+                            CAST(:dialogue AS jsonb), :skin, :plateColour, :plateIcon, :artwork, :kind, :actor, now())
                         ON CONFLICT (id) DO UPDATE SET name_en = excluded.name_en, name_de = excluded.name_de,
                             world = excluded.world, x = excluded.x, y = excluded.y, z = excluded.z,
                             yaw = excluded.yaw, pose = excluded.pose, pitch = excluded.pitch,
-                            dialogue = excluded.dialogue, skin = excluded.skin, plate_style = excluded.plate_style,
+                            dialogue = excluded.dialogue, skin = excluded.skin,
                             plate_colour = excluded.plate_colour, plate_icon = excluded.plate_icon,
                             artwork = excluded.artwork, actor_kind = excluded.actor_kind,
                             actor_id = excluded.actor_id, changed = excluded.changed""")
@@ -207,7 +204,6 @@ final class JdbiNpcStore implements NpcStore {
                 .bind("pitch", npc.pitch())
                 .bind("dialogue", dialogue)
                 .bind("skin", npc.skin())
-                .bind("plateStyle", npc.plate().style().name())
                 .bind("plateColour", npc.plate().colour().name())
                 .bind(
                         "plateIcon",

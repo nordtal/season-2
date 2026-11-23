@@ -159,7 +159,7 @@ class NpcApiTest extends WebTestSupport {
         assertEquals(404, get("/api/npc-artworks/" + UUID.randomUUID()).statusCode());
 
         final UUID id = UUID.randomUUID();
-        final String plated = "\"plate\":{\"style\":\"BADGE\",\"colour\":\"ROSE\",\"icon\":\"HEART\"},\"pose\"";
+        final String plated = "\"plate\":{\"colour\":\"ROSE\",\"icon\":\"HEART\"},\"pose\"";
         final HttpResponse<String> worn = put(
                 npcs(id),
                 publication(id, "Hi.", 0)

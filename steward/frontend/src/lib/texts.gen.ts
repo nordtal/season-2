@@ -1713,10 +1713,6 @@ export type TextArgs = {
     icon: Arg["choice"]
   }
   "steward.npcs.plate-note": Record<string, never>
-  "steward.npcs.plate-style": Record<string, never>
-  "steward.npcs.plate-style-of": {
-    style: Arg["choice"]
-  }
   "steward.npcs.play": Record<string, never>
   "steward.npcs.portrait": Record<string, never>
   "steward.npcs.portrait-not-saved": Record<string, never>

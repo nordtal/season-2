@@ -1382,7 +1382,6 @@ export type Equipment = {
 }
 
 export type Plate = {
-  style: PlateStyle
   colour: PlateColour
   icon?: PlateIcon
 }
@@ -1591,8 +1590,6 @@ export type Gauge =
 export type ChangeImage = "PULLED" | "KEPT"
 
 export type PruneRule = "RETENTION" | "OVER_BUDGET"
-
-export type PlateStyle = "PILL" | "DARK" | "RIBBON" | "BADGE"
 
 export type PlateColour = "BLUE" | "RED" | "AMBER" | "GREEN" | "TEAL" | "VIOLET" | "ROSE" | "SLATE"
 

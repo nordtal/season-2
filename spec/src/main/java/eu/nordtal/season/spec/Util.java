@@ -52,10 +52,10 @@ final class Util {
             case Class<?> clazz -> clazz;
             case ParameterizedType parameterizedType -> {
                 final Type rawType = parameterizedType.getRawType();
-                if (!(rawType instanceof Class)) {
+                if (!(rawType instanceof Class<?> rawClass)) {
                     throw new IllegalStateException("Expected a Class, found a " + rawType);
                 }
-                yield (Class<?>) rawType;
+                yield rawClass;
             }
             case GenericArrayType genericArrayType -> {
                 final Type componentType = genericArrayType.getGenericComponentType();

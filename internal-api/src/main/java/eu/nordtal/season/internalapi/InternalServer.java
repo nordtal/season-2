@@ -62,6 +62,17 @@ public final class InternalServer {
         return server;
     }
 
+    /**
+     * Starts serving {@code routes} on {@code host} and the port in {@code PORT}, or on {@code defaultPort}.
+     * Throws {@link IllegalStateException} without a {@code TOKEN}.
+     */
+    public Javalin start(final String host, final int defaultPort, final Consumer<JavalinConfig> routes) {
+        final int port = Integer.parseInt(setting("PORT", String.valueOf(defaultPort)));
+        final Javalin server = create(setting("TOKEN", ""), routes).start(host, port);
+        log.info("internal server listening: service={} host={} port={}", service, host, server.port());
+        return server;
+    }
+
     /** Starts as {@link #start} does, then keeps the readiness marker fresh. The container's health check reads it. */
     public Javalin serve(
             final int defaultPort, final Clock clock, final Scheduler scheduler, final Consumer<JavalinConfig> routes) {

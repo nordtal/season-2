@@ -65,7 +65,7 @@ public final class StandInDiscord implements AutoCloseable {
                         ctx.json(Map.of("nick", memberNick.get(), "roles", List.of("9999")));
                     });
                 })
-                .start(port);
+                .start("127.0.0.1", port);
         server = started;
         return "http://127.0.0.1:" + started.port();
     }

@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.javalin.Javalin;
+import io.javalin.util.JavalinBindException;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -94,6 +98,18 @@ class InternalServerTest {
             final InternalClient.Failure failure =
                     assertThrows(InternalClient.Failure.class, () -> steward.post("/api/thing", refused));
             assertEquals(400, failure.status(), refused + " is the caller's mistake: " + failure.getMessage());
+        }
+    }
+
+    @Test
+    void aLoopbackStartRefusesAPortAlreadyHeldOnLoopback() throws IOException {
+        try (ServerSocket occupant = new ServerSocket(0, 50, InetAddress.getLoopbackAddress())) {
+            final int occupied = occupant.getLocalPort();
+            final InternalServer server =
+                    new InternalServer("steward-bunq", Map.of("NORDTAL_STEWARD_BUNQ_TOKEN", "the-secret")::get);
+            assertThrows(JavalinBindException.class, () -> {
+                running = server.start("127.0.0.1", occupied, config -> {});
+            });
         }
     }
 }

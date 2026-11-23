@@ -221,7 +221,7 @@ abstract class WebTestSupport extends WebFixture {
     static void restartTheInterface() throws Exception {
         web.stop();
         web = newWeb();
-        webPort = web.start(0).port();
+        webPort = web.start("127.0.0.1", 0).port();
     }
 
     static HttpResponse<String> logout(final HttpClient browser) throws Exception {

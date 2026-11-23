@@ -117,12 +117,19 @@ public final class AgentStandIn implements AutoCloseable {
                 host);
         api.start();
         final String prefix = "NORDTAL_STEWARD_AGENT_";
-        this.server = new InternalServer(
-                        AgentWire.SERVICE, Map.of(prefix + "TOKEN", TOKEN, prefix + "PORT", String.valueOf(port))::get)
-                .start(AgentWire.PORT, config -> {
-                    api.register(config);
-                    more.accept(config);
-                });
+        try {
+            this.server = new InternalServer(
+                            AgentWire.SERVICE,
+                            Map.of(prefix + "TOKEN", TOKEN, prefix + "PORT", String.valueOf(port))::get)
+                    .start("127.0.0.1", AgentWire.PORT, config -> {
+                        api.register(config);
+                        more.accept(config);
+                    });
+        } catch (final RuntimeException failed) {
+            api.close();
+            daemon.close();
+            throw failed;
+        }
     }
 
     public String base() {

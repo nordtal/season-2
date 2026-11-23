@@ -92,6 +92,6 @@ public final class StackServer {
                     ErrorHandlers.install(cfg, WebTexts.load().messages(), Messages.load("messages/database"));
                     api.register(cfg, ALWAYS);
                 })
-                .start(port);
+                .start("127.0.0.1", port);
     }
 }

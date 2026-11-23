@@ -7,7 +7,7 @@
           "style": "TITLE",
           "text": {
             "en": "Objectives",
-            "de": "{@terms.objective, n=2}"
+            "de": "{@terms.objective, n=2, capital=first}"
           }
         }
       ]

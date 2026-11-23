@@ -19,7 +19,7 @@
         {
           "text": {
             "en": "Unnamed {@terms.station, n=1}",
-            "de": "{@terms.station, n=1} ohne Namen"
+            "de": "{@terms.station, n=1, capital=first} ohne Namen"
           }
         }
       ]

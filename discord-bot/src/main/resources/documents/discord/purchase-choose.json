@@ -21,7 +21,7 @@
               "slot": "days",
               "placeholder": {
                 "en": "Choose a {@terms.period, n=1}",
-                "de": "{@terms.period, n=1} wählen"
+                "de": "{@terms.period, n=1, capital=first} wählen"
               },
               "option": {
                 "en": "{@values.duration.days, n=days} for {price}",

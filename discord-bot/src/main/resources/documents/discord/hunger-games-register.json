@@ -12,8 +12,8 @@
           "lines": [
             {
               "text": {
-                "en": "{@terms.hunger-games}",
-                "de": "{@terms.hunger-games}"
+                "en": "{@terms.hunger-games, capital=first}",
+                "de": "{@terms.hunger-games, capital=first}"
               },
               "style": "TITLE"
             }
@@ -43,7 +43,7 @@
               "slot": "register",
               "label": {
                 "en": "Register a {@terms.team, n=1}",
-                "de": "{@terms.team, n=1} anmelden"
+                "de": "{@terms.team, n=1, capital=first} anmelden"
               }
             }
           ]

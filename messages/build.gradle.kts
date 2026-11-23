@@ -10,12 +10,17 @@ messageSpec {
     specClasses.add("eu.nordtal.season.messages.CheckMessages")
 }
 
-// Every message bundle, which the bundle tests read off the file.
+// Every message bundle and packaged document, which the bundle tests read off the file.
 repositoryRootTestInputs {
     readsTree("database/src/main/resources/messages")
+    readsTree("discord-bot/src/main/resources/documents")
     readsTree("discord-bot/src/main/resources/messages")
+    readsTree("hunger-games/src/main/resources/documents")
+    readsTree("limbo/src/main/resources/documents")
     readsTree("paper-common/src/main/resources/documents")
+    readsTree("proxy/src/main/resources/documents")
     readsTree("proxy/src/main/resources/messages")
+    readsTree("smp/src/main/resources/documents")
     readsTree("smp/src/main/resources/messages")
     readsTree("steward/src/main/resources/messages")
 }

@@ -13,7 +13,7 @@
             {
               "text": {
                 "en": "Access",
-                "de": "{@terms.access}"
+                "de": "{@terms.access, capital=first}"
               },
               "style": "TITLE"
             }
@@ -44,7 +44,7 @@
               "slot": "buy",
               "label": {
                 "en": "Buy {@terms.access}",
-                "de": "{@terms.access} kaufen"
+                "de": "{@terms.access, capital=first} kaufen"
               }
             }
           ]

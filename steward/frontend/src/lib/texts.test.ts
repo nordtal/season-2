@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import { dateTime, money, relative } from "@/lib/format"
 import { parseText } from "@/lib/message-tree"
 import {
+  blockText,
   choice,
   message,
   packagedTexts,
@@ -108,6 +109,11 @@ describe("the web target", () => {
       vector: [["for ", { b: "values.duration.days", with: { n: "days" } }]],
     })
     expect(message({ key: "vector", args })).toBe("for 3 days")
+  })
+
+  it("writes a capital in the preview's language, also for a block inside a block", () => {
+    const texts = { outer: [[{ b: "inner", with: { capital: "first" } }]], inner: [["istanbul"]] }
+    expect(blockText({ b: "outer" }, {}, { locale: "tr", texts })).toBe("\u0130stanbul")
   })
 
   it("chooses on an enum constant as Java names it", () => {

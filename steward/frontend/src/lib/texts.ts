@@ -177,6 +177,7 @@ function fill(
   out: Run[],
   texts: Texts,
   open: Set<string>,
+  locale: string = LOCALE,
 ): void {
   for (const node of nodes) {
     if (typeof node === "string") {
@@ -186,9 +187,9 @@ function fill(
     } else if ("pound" in node) {
       out.push(filled(node.pound, "number", undefined, args, declared))
     } else if ("c" in node) {
-      fill(chosen(node, args[node.c]), args, declared, out, texts, open)
+      fill(chosen(node, args[node.c]), args, declared, out, texts, open, locale)
     } else if ("b" in node) {
-      block(node, args, declared, out, texts, open)
+      block(node, args, declared, out, texts, open, locale)
     } else if (LINE_BREAKS.has(node.tag)) {
       out.push({ text: "\n" })
     }
@@ -235,7 +236,7 @@ function block(
     }
   }
   const start = out.length
-  fill(variants[0], inner, kinds, out, texts, new Set([...open, node.b]))
+  fill(variants[0], inner, kinds, out, texts, new Set([...open, node.b]), locale)
   if (node.with?.[CAPITAL] === "first") capital(out, start, locale)
 }
 

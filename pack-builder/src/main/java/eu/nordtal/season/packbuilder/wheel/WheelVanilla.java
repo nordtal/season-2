@@ -253,11 +253,7 @@ final class WheelVanilla {
     }
 
     private static Object required(final Map<?, ?> map, final String key) {
-        final Object value = map.get(key);
-        if (value == null) {
-            throw new IllegalArgumentException("a vanilla definition without " + key);
-        }
-        return value;
+        return WheelMath.required(map, key, "a vanilla definition");
     }
 
     private static Map<String, Object> copy(final Map<?, ?> node) {

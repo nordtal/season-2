@@ -2,23 +2,47 @@ package eu.nordtal.season.displaytags.nametag;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.lang.reflect.Proxy;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
-/** The scheduler draws every tick, and each metadata update is a packet to every viewer. */
+/** Tests that {@link PlayerNameTagImpl} skips metadata resends while keeping passengers mounted. */
 class PlayerNameTagImplTest {
 
     @Test
-    void anUnchangedTextSendsNoMetadata() {
-        final Component previous = Component.text("Waiting");
-        final AtomicInteger resends = new AtomicInteger();
+    void unchangedTextSkipsMetadataResendsAndKeepsRemounting() {
+        final Player owner = (Player) Proxy.newProxyInstance(
+                Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> null);
+        final AtomicInteger metadataUpdates = new AtomicInteger();
+        final AtomicInteger remounts = new AtomicInteger();
+        final PlayerNameTagImpl tag = new PlayerNameTagImpl(owner, null, null) {
+            @Override
+            public void updateFor(final UUID viewerId) {
+                metadataUpdates.incrementAndGet();
+            }
 
-        PlayerNameTagImpl.updateIfChanged(previous, Component.text("Waiting"), resends::incrementAndGet);
-        PlayerNameTagImpl.updateIfChanged(previous, Component.text("Waiting"), resends::incrementAndGet);
-        assertEquals(0, resends.get(), "a tick that renders the same text sends nothing");
+            @Override
+            void mountFor(final UUID viewerId) {
+                remounts.incrementAndGet();
+            }
+        };
 
-        PlayerNameTagImpl.updateIfChanged(previous, Component.text("Open"), resends::incrementAndGet);
-        assertEquals(1, resends.get(), "a changed text is sent");
+        final UUID viewerId = UUID.randomUUID();
+        tag.viewers.add(viewerId);
+
+        tag.syncViewer(viewerId, true, tag.refreshText(Component.text("Waiting")));
+        assertEquals(1, metadataUpdates.get(), "initial changed text sends metadata");
+        assertEquals(0, remounts.get(), "full update already mounts the display");
+
+        tag.syncViewer(viewerId, true, tag.refreshText(Component.text("Waiting")));
+        tag.syncViewer(viewerId, true, tag.refreshText(Component.text("Waiting")));
+        assertEquals(1, metadataUpdates.get(), "unchanged text sends no metadata");
+        assertEquals(2, remounts.get(), "unchanged ticks still re-mount the display");
+
+        tag.syncViewer(viewerId, true, tag.refreshText(Component.text("Open")));
+        assertEquals(2, metadataUpdates.get(), "changed text sends metadata again");
     }
 }

@@ -588,11 +588,7 @@ public final class WheelPack {
     }
 
     private static Object required(final Map<?, ?> map, final String key) {
-        final Object value = map.get(key);
-        if (value == null) {
-            throw new IllegalArgumentException("a wheel entry without " + key);
-        }
-        return value;
+        return WheelMath.required(map, key, "a wheel entry");
     }
 
     private static String sortKey(final String lang) {

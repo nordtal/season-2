@@ -214,11 +214,15 @@ final class WheelMath {
         return out;
     }
 
-    private static Object required(final Map<?, ?> map, final String key) {
+    static Object required(final Map<?, ?> map, final String key, final String owner) {
         final Object value = map.get(key);
         if (value == null) {
-            throw new IllegalArgumentException("a transformation without " + key);
+            throw new IllegalArgumentException(owner + " without " + key);
         }
         return value;
+    }
+
+    private static Object required(final Map<?, ?> map, final String key) {
+        return required(map, key, "a transformation");
     }
 }

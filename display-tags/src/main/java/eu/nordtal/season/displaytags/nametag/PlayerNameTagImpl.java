@@ -71,6 +71,13 @@ public class PlayerNameTagImpl extends PlayerNameTag {
         this.cachedText = this.getText();
     }
 
+    PlayerNameTagImpl(final Player player, final TextDisplayWrapper display, final TextDisplayWrapper ghost) {
+        super(player);
+        this.display = display;
+        this.ghost = ghost;
+        this.cachedText = Component.empty();
+    }
+
     @Override
     public void spawnFor(final UUID viewerId) {
         this.hideVanillaNameTagFor(viewerId);
@@ -120,17 +127,22 @@ public class PlayerNameTagImpl extends PlayerNameTag {
             this.ghost.despawnFor(viewerId);
         }
 
-        // A SetPassengers packet is absolute, so both displays go out together.
-        if (ghost) {
-            EntityWrapper.mountAllFor(
-                    viewerId, this.player.getEntityId(), this.display.getEntityId(), this.ghost.getEntityId());
-        } else {
-            this.display.mountFor(viewerId, this.player.getEntityId());
-        }
+        this.mountFor(viewerId);
 
         this.display.updateFor(viewerId);
         if (ghost) {
             this.ghost.updateFor(viewerId);
+        }
+    }
+
+    /** Re-sends the passenger binding for one viewer so a re-tracked player keeps the display attached. */
+    void mountFor(final UUID viewerId) {
+        // A SetPassengers packet is absolute, so both displays go out together.
+        if (this.shouldDrawGhost()) {
+            EntityWrapper.mountAllFor(
+                    viewerId, this.player.getEntityId(), this.display.getEntityId(), this.ghost.getEntityId());
+        } else {
+            this.display.mountFor(viewerId, this.player.getEntityId());
         }
     }
 
@@ -193,9 +205,7 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
     @Override
     public void tick() {
-        final Component previousText = this.cachedText;
-        final Component renderedText = this.getText();
-        this.cachedText = renderedText;
+        final boolean textChanged = this.refreshText(this.getText());
         final Location location = Objects.requireNonNull(this.player.getLocation(), "an online player has a location");
         this.display.setLocation(location.setRotation(0, 0));
         this.ghost.setLocation(this.display.getLocation());
@@ -208,23 +218,28 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
         for (final Player viewer : Bukkit.getOnlinePlayers()) {
             this.hideVanillaNameTagFor(viewer.getUniqueId());
-
-            final boolean visible = this.viewers.contains(viewer.getUniqueId());
-            final boolean shouldBeVisible = this.shouldBeVisibleTo(viewer);
-
-            if (shouldBeVisible && !visible) {
-                this.spawnFor(viewer);
-            } else if (!shouldBeVisible && visible) {
-                this.despawnFor(viewer);
-            } else if (shouldBeVisible) {
-                updateIfChanged(previousText, renderedText, () -> this.updateFor(viewer));
-            }
+            this.syncViewer(viewer.getUniqueId(), this.shouldBeVisibleTo(viewer), textChanged);
         }
     }
 
-    static void updateIfChanged(final Component previous, final Component rendered, final Runnable update) {
-        if (!rendered.equals(previous)) {
-            update.run();
+    boolean refreshText(final Component rendered) {
+        final boolean changed = !rendered.equals(this.cachedText);
+        this.cachedText = rendered;
+        return changed;
+    }
+
+    void syncViewer(final UUID viewerId, final boolean shouldBeVisible, final boolean textChanged) {
+        final boolean visible = this.viewers.contains(viewerId);
+        if (shouldBeVisible && !visible) {
+            this.spawnFor(viewerId);
+        } else if (!shouldBeVisible && visible) {
+            this.despawnFor(viewerId);
+        } else if (shouldBeVisible) {
+            if (textChanged) {
+                this.updateFor(viewerId);
+            } else {
+                this.mountFor(viewerId);
+            }
         }
     }
 

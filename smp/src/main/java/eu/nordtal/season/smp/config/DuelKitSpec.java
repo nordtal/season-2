@@ -4,6 +4,7 @@ import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.settings.rule.Longest;
 import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
+import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -14,9 +15,9 @@ import java.util.List;
 @ConfigSpec
 public interface DuelKitSpec {
 
-    /** The aura history stores the kit by name, in a column of 64 characters. */
+    /** The aura history stores the kit by its English name, in a column of 64 characters. */
     @Order(1)
-    @Name("Name")
+    @Name("Name (English)")
     @Key("name")
     @Required
     @Longest(64)
@@ -26,6 +27,15 @@ public interface DuelKitSpec {
     }
 
     @Order(2)
+    @Name("Name (German)")
+    @Key("name-de")
+    @Longest(64)
+    @Explain("Leave it empty to show the English name to German players too.")
+    default String nameDe() {
+        return "";
+    }
+
+    @Order(3)
     @Name("Icon")
     @Key("icon")
     @Refers(Refers.To.ITEM)
@@ -34,7 +44,7 @@ public interface DuelKitSpec {
         return "minecraft:iron_sword";
     }
 
-    @Order(3)
+    @Order(4)
     @Name("Loadout")
     @Key("loadout")
     @NoExplanationNeeded

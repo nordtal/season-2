@@ -410,7 +410,6 @@ class SmpSettingsTest {
                         DUELS,
                         Map.of("duel-kits", List.of(Map.of("name", " "))),
                         "duel-kits[0].name must not be empty"),
-                () -> assertRefused(DUELS, Map.of("duel-stake", -1), "duel-stake must not be negative"),
                 () -> assertRefused(
                         DUELS, Map.of("arena", List.of(Map.of("world", ""))), "arena[0].world must not be empty"),
                 () -> assertRefused(DUELS, Map.of("exit.world", ""), "exit.world must not be empty"),

@@ -489,15 +489,16 @@ public final class SmpPlugin extends NordtalPlugin {
         if (turning != null) {
             quietly("wheel.stop", turning::stop);
         }
+        // The duels refund through the hand-out, so they stop before it and before the item work closes.
+        final Duels running = duels;
+        if (running != null) {
+            quietly("duels.stop", running::stop);
+        }
         final ItemHandout handing = handout;
         if (handing != null) {
             quietly("handout.stop", handing::stop);
         }
         quietly("itemWork.close", itemWork::close);
-        final Duels running = duels;
-        if (running != null) {
-            quietly("duels.stop", running::stop);
-        }
         if (graves != null) {
             quietly("graves.stop", graves::stop);
         }

@@ -32,6 +32,7 @@ public interface AuraDao {
                     recordDeath(event, death.damageType());
                 }
             }
+            case AuraCause.Stake stake -> {}
             case AuraCause.Advancement advancement -> recordAdvancement(event, advancement.key());
             case AuraCause.Contribution contribution -> recordContribution(event, contribution.objectiveId());
             case AuraCause.Admin admin ->

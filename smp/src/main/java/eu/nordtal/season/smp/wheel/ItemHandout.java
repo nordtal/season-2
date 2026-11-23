@@ -36,6 +36,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
@@ -53,6 +54,10 @@ public final class ItemHandout implements Listener, ItemRewards {
     static final DocumentSpec<Won> REWARD = DocumentSpec.game(
                     "smp", "objective-item-reward", "Objectives", DocumentSpec.Shape.CHAT, Won.class)
             .titled("Objective item received");
+
+    static final DocumentSpec<Won> STAKE_RETURNED = DocumentSpec.game(
+                    "smp", "duel-stake-returned", "Duels", DocumentSpec.Shape.CHAT, Won.class)
+            .titled("Duel stake returned");
 
     /** Rows taken from the store and not given yet. */
     private static final class Claim {
@@ -109,7 +114,8 @@ public final class ItemHandout implements Listener, ItemRewards {
         final String data = Base64.getEncoder().encodeToString(item.asOne().serializeAsBytes());
         put(
                 discordId,
-                List.of(new PendingItems.Item(item.getType().getKey().asString(), item.getAmount(), data, "", false)));
+                List.of(new PendingItems.Item(
+                        item.getType().getKey().asString(), item.getAmount(), data, "", false, false)));
     }
 
     @Override
@@ -118,7 +124,7 @@ public final class ItemHandout implements Listener, ItemRewards {
     }
 
     void storeMap(final DiscordId discordId, final String item, final int amount, final String structure) {
-        put(discordId, List.of(new PendingItems.Item(item, amount, "", structure, false)));
+        put(discordId, List.of(new PendingItems.Item(item, amount, "", structure, false, false)));
     }
 
     private void put(final DiscordId discordId, final List<PendingItems.Item> items) {
@@ -128,7 +134,13 @@ public final class ItemHandout implements Listener, ItemRewards {
     private void put(final DiscordId discordId, final List<PendingItems.Item> items, final boolean notify) {
         final Runnable write = () -> {
             items.forEach(each -> pending.store(
-                    discordId, each.item(), each.amount(), each.data(), each.structure(), each.objectiveReward()));
+                    discordId,
+                    each.item(),
+                    each.amount(),
+                    each.data(),
+                    each.structure(),
+                    each.objectiveReward(),
+                    each.returnedStake()));
             if (notify && plugin.isEnabled()) {
                 handOutIfOnline(discordId);
             }
@@ -166,6 +178,13 @@ public final class ItemHandout implements Listener, ItemRewards {
         identities.discordIdOf(player).ifPresent(discordId -> claimFor(player, discordId));
     }
 
+    /** A claim that met a dead player went back to the store; the respawn claims it again. */
+    @EventHandler
+    public void onRespawn(final PlayerRespawnEvent event) {
+        final UUID player = event.getPlayer().getUniqueId();
+        identities.discordIdOf(player).ifPresent(discordId -> claimFor(player, discordId));
+    }
+
     /** Claims the rows off the main thread and gives them on it; a claim smp cannot give goes back to the store. */
     private void claimFor(final UUID player, final DiscordId discordId) {
         inBackground(() -> {
@@ -195,6 +214,11 @@ public final class ItemHandout implements Listener, ItemRewards {
             put(claim.discordId, claim.items);
             return;
         }
+        if (player.isDead()) {
+            // A dead player's inventory is gone with the death screen; the respawn claims the rows again.
+            put(claim.discordId, claim.items, false);
+            return;
+        }
         final Locale locale = identities.languageOf(player.getUniqueId());
         for (final PendingItems.Item item : claim.items) {
             try {
@@ -222,7 +246,7 @@ public final class ItemHandout implements Listener, ItemRewards {
                 return;
             }
         }
-        give(player, stack, locale, item.objectiveReward() ? REWARD : WON);
+        give(player, stack, locale, item.returnedStake() ? STAKE_RETURNED : item.objectiveReward() ? REWARD : WON);
     }
 
     private @Nullable ItemStack makeMap(final Player player, final DiscordId recipient, final PendingItems.Item item) {

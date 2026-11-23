@@ -16,6 +16,20 @@
             "en": "<warn>The duel arena is not ready.</warn>",
             "de": "<warn>Die Duell-Arena ist noch nicht bereit.</warn>"
           }
+        },
+        {
+          "when": "reason=not-linked",
+          "text": {
+            "en": "<warn>Duels need a Minecraft account linked to Discord.</warn> <muted>Link it in Discord first.</muted>",
+            "de": "<warn>Für Duelle muss dein Minecraft-Konto mit Discord verknüpft sein.</warn> <muted>Verknüpfe es zuerst in Discord.</muted>"
+          }
+        },
+        {
+          "when": "reason=stake-short",
+          "text": {
+            "en": "<warn>An aura balance no longer covers its offer, so the stakes went back.</warn>",
+            "de": "<warn>Ein Aura-Stand deckt sein Angebot nicht mehr, also ging der Einsatz zurück.</warn>"
+          }
         }
       ]
     }

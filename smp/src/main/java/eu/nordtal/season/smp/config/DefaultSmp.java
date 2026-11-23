@@ -1,9 +1,11 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.spec.Specs;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /** The default lists of the smp groups. Every spec built here sets every key. */
 final class DefaultSmp {
@@ -115,27 +117,19 @@ final class DefaultSmp {
             item("minecraft:vex_armor_trim_smithing_template", 1, 3),
             item("minecraft:buried_mineshaft_map", 1, 60, "minecraft:on_mineshaft_maps"));
 
-    private static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_SWORD = List.of(
-            loadoutItem("minecraft:iron_sword", 1),
-            loadoutItem("minecraft:shield", 1),
+    /** Every default kit wears the same armour and food, so only the weapon decides. */
+    private static final List<DuelLoadoutItemSpec> DUEL_ARMOUR = List.of(
             loadoutItem("minecraft:iron_helmet", 1),
             loadoutItem("minecraft:iron_chestplate", 1),
             loadoutItem("minecraft:iron_leggings", 1),
             loadoutItem("minecraft:iron_boots", 1),
             loadoutItem("minecraft:cooked_beef", 8));
 
-    private static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_BOW = List.of(
-            loadoutItem("minecraft:bow", 1),
-            loadoutItem("minecraft:arrow", 64),
-            loadoutItem("minecraft:iron_sword", 1),
-            loadoutItem("minecraft:leather_helmet", 1),
-            loadoutItem("minecraft:chainmail_chestplate", 1),
-            loadoutItem("minecraft:leather_leggings", 1),
-            loadoutItem("minecraft:leather_boots", 1),
-            loadoutItem("minecraft:cooked_beef", 8));
-
     static final List<DuelKitSpec> DUEL_KITS = List.of(
-            kit("Sword", "minecraft:iron_sword", DUEL_LOADOUT_SWORD), kit("Bow", "minecraft:bow", DUEL_LOADOUT_BOW));
+            kit("Sword", "Schwert", "minecraft:iron_sword", "minecraft:shield", 1),
+            kit("Bow", "Bogen", "minecraft:bow", "minecraft:arrow", 64),
+            kit("Axe", "Axt", "minecraft:iron_axe", "minecraft:shield", 1),
+            kit("Trident", "Dreizack", "minecraft:trident", null, 0));
 
     private DefaultSmp() {}
 
@@ -202,11 +196,23 @@ final class DefaultSmp {
         return Specs.createUnsafe(WheelBlockSpec.class, values);
     }
 
-    private static DuelKitSpec kit(final String name, final String icon, final List<DuelLoadoutItemSpec> loadout) {
+    private static DuelKitSpec kit(
+            final String name,
+            final String nameDe,
+            final String weapon,
+            final @Nullable String companion,
+            final int companionAmount) {
+        final List<DuelLoadoutItemSpec> loadout = new ArrayList<>();
+        loadout.add(loadoutItem(weapon, 1));
+        if (companion != null) {
+            loadout.add(loadoutItem(companion, companionAmount));
+        }
+        loadout.addAll(DUEL_ARMOUR);
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("name", name);
-        values.put("icon", icon);
-        values.put("loadout", loadout);
+        values.put("name-de", nameDe);
+        values.put("icon", weapon);
+        values.put("loadout", List.copyOf(loadout));
         return Specs.createUnsafe(DuelKitSpec.class, values);
     }
 

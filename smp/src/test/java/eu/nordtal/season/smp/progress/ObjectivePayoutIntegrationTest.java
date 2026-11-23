@@ -211,7 +211,7 @@ class ObjectivePayoutIntegrationTest {
         engine.credit(OTHER, "logs", 1L, MINECRAFT_ID);
 
         final var map = new PendingItems.Item(
-                "minecraft:buried_ancient_city_map", 1, "", "minecraft:on_ancient_city_maps", true);
+                "minecraft:buried_ancient_city_map", 1, "", "minecraft:on_ancient_city_maps", true, false);
         assertEquals(List.of(map), pending.claim(PLAYER));
         assertEquals(List.of(map), pending.claim(OTHER));
         assertTrue(pending.claim(PLAYER).isEmpty());

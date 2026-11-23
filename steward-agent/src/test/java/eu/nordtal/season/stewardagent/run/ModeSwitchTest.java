@@ -25,6 +25,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,7 +53,11 @@ class ModeSwitchTest {
 
     @BeforeEach
     void open() {
-        postgres = TestDatabase.fresh();
+        open(TestDatabase::fresh);
+    }
+
+    void open(final Supplier<TestDatabase> databases) {
+        postgres = databases.get();
         database = Database.open(
                 new DatabaseSpec() {
                     @Override
@@ -90,9 +95,15 @@ class ModeSwitchTest {
         containers.calls.clear();
     }
 
+    Database database() {
+        return database;
+    }
+
     @AfterEach
     void close() {
-        database.close();
+        if (database != null) {
+            database.close();
+        }
     }
 
     @Test

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +64,11 @@ class RunPlayersBackTest {
 
     @BeforeEach
     void open() {
-        postgres = TestDatabase.fresh();
+        open(TestDatabase::fresh);
+    }
+
+    void open(final Supplier<TestDatabase> databases) {
+        postgres = databases.get();
         database = Database.open(
                 new DatabaseSpec() {
                     @Override
@@ -86,9 +91,15 @@ class RunPlayersBackTest {
         runner = new Runner(defaults(), database, containers, new FakeSnapshots(containers.calls), directory, clock);
     }
 
+    Database database() {
+        return database;
+    }
+
     @AfterEach
     void close() {
-        database.close();
+        if (database != null) {
+            database.close();
+        }
     }
 
     @Test

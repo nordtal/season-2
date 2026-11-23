@@ -193,7 +193,9 @@ public class PlayerNameTagImpl extends PlayerNameTag {
 
     @Override
     public void tick() {
-        this.cachedText = this.getText();
+        final Component previousText = this.cachedText;
+        final Component renderedText = this.getText();
+        this.cachedText = renderedText;
         final Location location = Objects.requireNonNull(this.player.getLocation(), "an online player has a location");
         this.display.setLocation(location.setRotation(0, 0));
         this.ghost.setLocation(this.display.getLocation());
@@ -215,8 +217,14 @@ public class PlayerNameTagImpl extends PlayerNameTag {
             } else if (!shouldBeVisible && visible) {
                 this.despawnFor(viewer);
             } else if (shouldBeVisible) {
-                this.updateFor(viewer);
+                updateIfChanged(previousText, renderedText, () -> this.updateFor(viewer));
             }
+        }
+    }
+
+    static void updateIfChanged(final Component previous, final Component rendered, final Runnable update) {
+        if (!rendered.equals(previous)) {
+            update.run();
         }
     }
 

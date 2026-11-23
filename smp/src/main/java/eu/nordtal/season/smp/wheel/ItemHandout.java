@@ -153,10 +153,11 @@ public final class ItemHandout implements Listener, ItemRewards {
     }
 
     private void put(final DiscordId discordId, final List<PendingItems.Item> items) {
-        put(discordId, items, true);
+        put(discordId, items, () -> handOutIfOnline(discordId));
     }
 
-    private void put(final DiscordId discordId, final List<PendingItems.Item> items, final boolean notify) {
+    /** Writes {@code items} to the store, then runs {@code written} while smp still runs. */
+    private void put(final DiscordId discordId, final List<PendingItems.Item> items, final Runnable written) {
         final Runnable write = () -> {
             items.forEach(each -> pending.store(
                     discordId,
@@ -166,8 +167,8 @@ public final class ItemHandout implements Listener, ItemRewards {
                     each.structure(),
                     each.objectiveReward(),
                     each.returnedStake()));
-            if (notify && plugin.isEnabled()) {
-                handOutIfOnline(discordId);
+            if (plugin.isEnabled()) {
+                written.run();
             }
         };
         if (!Bukkit.isPrimaryThread()) {
@@ -192,6 +193,24 @@ public final class ItemHandout implements Listener, ItemRewards {
                                     .isPresent())
                             .findFirst()
                             .ifPresent(player -> claimFor(player.getUniqueId(), discordId)));
+        } catch (final RejectedExecutionException stopping) {
+            // The rows wait for the next join.
+        }
+    }
+
+    /**
+     * Claims the rows a {@link Delivery#WAIT} put back once {@code player} is free.
+     * The respawn or the duel's restore that frees them may have looked at the store before the rows were back.
+     */
+    private void handOutIfFree(final UUID player, final DiscordId discordId) {
+        try {
+            PaperScheduler.of(plugin).onMain(() -> {
+                final @Nullable Player online = Bukkit.getPlayer(player);
+                if (online != null
+                        && Delivery.of(online.isOnline(), online.isDead(), held.test(player)) == Delivery.GIVE) {
+                    claimFor(player, discordId);
+                }
+            });
         } catch (final RejectedExecutionException stopping) {
             // The rows wait for the next join.
         }
@@ -238,8 +257,12 @@ public final class ItemHandout implements Listener, ItemRewards {
         final Delivery delivery = player == null
                 ? Delivery.STORE
                 : Delivery.of(player.isOnline(), player.isDead(), held.test(claim.player));
-        if (player == null || delivery != Delivery.GIVE) {
-            put(claim.discordId, claim.items, delivery == Delivery.STORE);
+        if (player == null || delivery == Delivery.STORE) {
+            put(claim.discordId, claim.items);
+            return;
+        }
+        if (delivery == Delivery.WAIT) {
+            put(claim.discordId, claim.items, () -> handOutIfFree(claim.player, claim.discordId));
             return;
         }
         final Locale locale = identities.languageOf(player.getUniqueId());
@@ -265,7 +288,7 @@ public final class ItemHandout implements Listener, ItemRewards {
         } else {
             stack = makeMap(player, recipient, item);
             if (stack == null) {
-                put(recipient, List.of(item), false);
+                put(recipient, List.of(item), () -> {});
                 return;
             }
         }

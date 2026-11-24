@@ -332,6 +332,7 @@ public final class SpawnExceptions implements Listener {
             display.setBillboard(Display.Billboard.FIXED);
             display.setBrightness(new Display.Brightness(15, 15));
             display.setSeeThrough(false);
+            display.setTextOpacity((byte) 180);
             display.setBackgroundColor(TRANSPARENT);
             display.setShadowed(false);
             display.setPersistent(false);

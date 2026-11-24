@@ -28,15 +28,19 @@ class MarkerGeometryTest {
 
     @Test
     void doorFrontSideRotatesWithHingeWhenOpened() {
-        final List<MarkerGeometry.Placement> closed = MarkerGeometry.forDoor(
+        final List<MarkerGeometry.Placement> closedLeft = MarkerGeometry.forDoor(
                 BlockFace.NORTH, Door.Hinge.LEFT, false, false, SpawnExceptionSpec.IconSide.FRONT);
-        final List<MarkerGeometry.Placement> opened = MarkerGeometry.forDoor(
+        final List<MarkerGeometry.Placement> openedLeft = MarkerGeometry.forDoor(
                 BlockFace.NORTH, Door.Hinge.LEFT, true, false, SpawnExceptionSpec.IconSide.FRONT);
+        final List<MarkerGeometry.Placement> openedRight = MarkerGeometry.forDoor(
+                BlockFace.NORTH, Door.Hinge.RIGHT, true, false, SpawnExceptionSpec.IconSide.FRONT);
 
-        assertEquals(1, closed.size());
-        assertEquals(BlockFace.NORTH, closed.getFirst().outward());
-        assertEquals(1, opened.size());
-        assertEquals(BlockFace.EAST, opened.getFirst().outward());
+        assertEquals(1, closedLeft.size());
+        assertEquals(BlockFace.NORTH, closedLeft.getFirst().outward());
+        assertEquals(1, openedLeft.size());
+        assertEquals(BlockFace.WEST, openedLeft.getFirst().outward());
+        assertEquals(1, openedRight.size());
+        assertEquals(BlockFace.EAST, openedRight.getFirst().outward());
     }
 
     @Test

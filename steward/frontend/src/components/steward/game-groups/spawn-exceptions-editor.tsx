@@ -321,7 +321,7 @@ export function SpawnExceptionsEditor({ file, document }: CustomEditorProps) {
                     <Badge variant="secondary">
                       {kind === "TRAPDOOR" ? t("steward.game.trapdoor") : t("steward.game.door")}
                     </Badge>
-                    <span className="font-mono text-sm">
+                    <span className="font-mono text-sm tabular-nums">
                       {world} {x} {y} {z}
                     </span>
                   </div>
@@ -350,13 +350,13 @@ export function SpawnExceptionsEditor({ file, document }: CustomEditorProps) {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <Label>{t("steward.game.default-state")}</Label>
+                    <Label htmlFor={`${key}-default`}>{t("steward.game.default-state")}</Label>
                     <Select
                       value={defaultState}
                       disabled={!document.writable}
                       onValueChange={(value) => updateRow(index, { "default-state": value })}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger id={`${key}-default`} className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -367,13 +367,13 @@ export function SpawnExceptionsEditor({ file, document }: CustomEditorProps) {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <Label>{t("steward.game.icon-side")}</Label>
+                    <Label htmlFor={`${key}-side`}>{t("steward.game.icon-side")}</Label>
                     <Select
                       value={iconSide}
                       disabled={!document.writable}
                       onValueChange={(value) => updateRow(index, { "icon-side": value })}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger id={`${key}-side`} className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -386,13 +386,13 @@ export function SpawnExceptionsEditor({ file, document }: CustomEditorProps) {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <Label>{t("steward.game.reset-behaviour")}</Label>
+                    <Label htmlFor={`${key}-reset`}>{t("steward.game.reset-behaviour")}</Label>
                     <Select
                       value={resetMode}
                       disabled={!document.writable}
                       onValueChange={(value) => updateRow(index, { "reset-mode": value })}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger id={`${key}-reset`} className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -411,7 +411,7 @@ export function SpawnExceptionsEditor({ file, document }: CustomEditorProps) {
                         id={`${key}-min`}
                         type="number"
                         min={0}
-                        value={text(row, "reset-minutes") || "0"}
+                        value={text(row, "reset-minutes")}
                         disabled={!document.writable}
                         onChange={(event) => updateRow(index, { "reset-minutes": event.target.value })}
                       />
@@ -423,7 +423,7 @@ export function SpawnExceptionsEditor({ file, document }: CustomEditorProps) {
                         type="number"
                         min={0}
                         max={59}
-                        value={text(row, "reset-seconds") || "0"}
+                        value={text(row, "reset-seconds")}
                         disabled={!document.writable}
                         onChange={(event) => updateRow(index, { "reset-seconds": event.target.value })}
                       />

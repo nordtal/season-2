@@ -129,6 +129,9 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW)
     public void onInteract(final PlayerInteractEvent event) {
+        if (event.useInteractedBlock() == Event.Result.DENY && event.useItemInHand() == Event.Result.DENY) {
+            return;
+        }
         final Player player = event.getPlayer();
         final @Nullable Block block = event.getClickedBlock();
         if (event.getAction() == Action.PHYSICAL) {
@@ -147,6 +150,7 @@ public final class ProtectionListener implements Listener {
             return;
         }
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK
+                || event.useInteractedBlock() == Event.Result.DENY
                 || block == null
                 || !inside(block.getLocation())
                 || builds(player)
@@ -162,16 +166,21 @@ public final class ProtectionListener implements Listener {
 
     private boolean handleDisruptiveItem(
             final PlayerInteractEvent event, final Player player, final @Nullable Block block) {
+        if (event.useItemInHand() == Event.Result.DENY) {
+            return false;
+        }
         final @Nullable ItemStack item = event.getItem();
         if (item == null || item.getType() == Material.AIR) {
             return false;
         }
         final Location at = Objects.requireNonNull(block != null ? block.getLocation() : player.getLocation());
-        if (!inside(at) || builds(player) || (block != null && arenas.buildsInArena(player, block))) {
+        final boolean inDuelArena = block != null ? arenas.buildsInArena(player, block) : arenas.isInArena(player);
+        if (!inside(at) || builds(player) || inDuelArena) {
             return false;
         }
         final boolean onNetworkRail = block != null && isNetworkRail.test(block);
-        if (!SpawnProtectionRules.isDisruptiveItem(item.getType(), block != null, onNetworkRail)) {
+        final boolean checksBlockTools = block != null && !isExemptBlock(block);
+        if (!SpawnProtectionRules.isDisruptiveItem(item.getType(), checksBlockTools, onNetworkRail)) {
             return false;
         }
         event.setUseItemInHand(Event.Result.DENY);
@@ -228,8 +237,9 @@ public final class ProtectionListener implements Listener {
     public void onEntityPlace(final EntityPlaceEvent event) {
         final @Nullable Player player = event.getPlayer();
         final Block block = event.getBlock();
-        if (!inside(block.getLocation())
-                || (player != null && (builds(player) || arenas.buildsInArena(player, block)))) {
+        final boolean inSpawn =
+                inside(block.getLocation()) || inside(event.getEntity().getLocation());
+        if (!inSpawn || (player != null && (builds(player) || arenas.buildsInArena(player, block)))) {
             return;
         }
         if (event.getEntity() instanceof RideableMinecart && isNetworkRail.test(block)) {

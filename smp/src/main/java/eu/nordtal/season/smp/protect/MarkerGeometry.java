@@ -86,7 +86,7 @@ final class MarkerGeometry {
         if (open == defaultOpen) {
             return defaultFront;
         }
-        final boolean clockwiseOnOpen = rotatesClockwiseOnOpen(facing, hinge);
+        final boolean clockwiseOnOpen = rotatesClockwiseOnOpen(hinge);
         return open ? rotate(defaultFront, clockwiseOnOpen) : rotate(defaultFront, !clockwiseOnOpen);
     }
 
@@ -96,13 +96,8 @@ final class MarkerGeometry {
         return northSouthDefault ? BlockFace.NORTH : BlockFace.EAST;
     }
 
-    private static boolean rotatesClockwiseOnOpen(final BlockFace facing, final Door.Hinge hinge) {
-        return switch (facing) {
-            case NORTH -> hinge == Door.Hinge.LEFT;
-            case SOUTH -> hinge == Door.Hinge.RIGHT;
-            case EAST, WEST -> hinge == Door.Hinge.RIGHT;
-            default -> true;
-        };
+    private static boolean rotatesClockwiseOnOpen(final Door.Hinge hinge) {
+        return hinge == Door.Hinge.RIGHT;
     }
 
     private static BlockFace doorEdge(final BlockFace facing, final Door.Hinge hinge, final boolean open) {

@@ -1122,7 +1122,7 @@
     "steward.game.kit-numbered": [["Kit ",{"v":"index","k":"number"}]],
     "steward.game.kits-full": [["At most ",{"v":"most","k":"number"}," kits fit the negotiation window."]],
     "steward.game.label": [["Label"]],
-    "steward.game.label-placeholder": [["Optional label"]],
+    "steward.game.label-placeholder": [["Town hall entrance…"]],
     "steward.game.loadout-line": [[{"v":"amount","k":"number"}," × ",{"v":"name"}]],
     "steward.game.locked": [["Locked"]],
     "steward.game.milestone": [["Milestone"]],

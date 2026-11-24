@@ -31,7 +31,7 @@ layout(location = 6) in vec2 texCoordGlint;
 #endif
 layout(location = 7) in vec4 wallCoord; // nordtal, from item.vsh
 layout(location = 8) in vec3 wallView;  // nordtal, from item.vsh
-layout(location = 9) flat in vec2 wallMeta; // nordtal, from item.vsh
+layout(location = 9) flat in float wallGround; // nordtal, from item.vsh
 
 #ifndef OIT_ALPHA_ONLY
 layout(location = 0) out vec4 fragColor;
@@ -240,11 +240,11 @@ const float WALL_GRAIN = 0.16;       // how much a single texel may differ from 
 const float WALL_FOLD_LIFT = 0.36;   // how much a strong fold of the curtain lifts the body's shade below it
 const float WALL_RAY_LOW = 0.58;     // the alpha of the faintest ray
 const float WALL_RAY_HIGH = 0.80;    // and of the strongest
-const float WALL_TOP_HIGH = 0.2;     // blocks below the wall's upper end where the tallest ray begins
-const float WALL_TOP_LOW = 1.6;      // and where the shortest one begins
+const float WALL_TOP_HIGH = 0.05;    // blocks below the wall's upper end where the tallest ray begins
+const float WALL_TOP_LOW = 2.4;      // and where the shortest one begins
 const float WALL_TAIL = 1.0;         // blocks over which a ray comes in below its beginning, at least; up to twice that
-const float WALL_BODY_HIGH = 1.3;    // blocks below the upper end where the first column turns from ray into body
-const float WALL_BODY_LOW = 2.1;     // and where the last one starts to
+const float WALL_BODY_HIGH = 1.6;    // blocks below the upper end where the first column turns from ray into body
+const float WALL_BODY_LOW = 2.5;     // and where the last one starts to
 const float WALL_BODY_LENGTH = 0.8;  // blocks a column takes for that turn
 const float WALL_GAPS = 0.12;        // the share of columns that are a gap among the rays
 const float WALL_BRIGHT = 0.06;      // the share of columns that are a bright column
@@ -284,24 +284,26 @@ vec4 wallField(vec4 coord, vec3 view, float fromTop, float fromBottom, float fad
     float gap = (kind < WALL_GAPS ? 1.0 : 0.0) * columns;
     float bright = (kind > 1.0 - WALL_BRIGHT ? 1.0 : 0.0) * columns;
 
-    // The curtain: folds of light along the wall that drift (0.11 and 0.06 blocks a second, against
-    // each other) and change shape, as northern lights do. A column takes the fold's strength at
-    // its middle. The fold sets how high the column's ray reaches and how light the body is below.
+    // The curtain: northern-lights waves travelling along the wall at 1.25 to 1.60 blocks a second,
+    // periodic over GameTime so nothing jumps on wrap. Columns grow, shrink and shimmer with each wave.
     float x = mix(coord.x, (q.x + 0.5) / 16.0, columns);
-    float fold = 0.6 * wallNoise(vec2(x / 2.8 + gameTime * 48.0, gameTime * 150.0), vec2(48.0, 150.0), 1)
-               + 0.4 * wallNoise(vec2(x / 0.75 - gameTime * 96.0, gameTime * 240.0 + 17.5), vec2(96.0, 240.0), 2);
-    fold = smoothstep(0.22, 0.74, fold);
+    float fold = 0.52 * wallNoise(vec2(x / 3.2 - gameTime * 600.0, gameTime * 300.0), vec2(600.0, 300.0), 1)
+               + 0.33 * wallNoise(vec2(x / 1.25 + gameTime * 1200.0, gameTime * 420.0 + 17.5), vec2(1200.0, 420.0), 2)
+               + 0.15 * wallNoise(vec2(x / 0.5 - gameTime * 3600.0, gameTime * 600.0 + 41.0), vec2(3600.0, 600.0), 5);
+    fold = smoothstep(0.24, 0.76, fold);
 
     // The upper part, the rays: one texel column is one ray, in five flat steps from the faintest
     // to the strongest, with gaps and a few bright ones. A ray begins at a height of its own, high
-    // where the fold is strong, and comes in softly below it, so the wall has no upper edge.
-    float level = clamp(0.10 + 0.90 * fold + (own - 0.5) * 0.5 * columns, 0.0, 1.0);
+    // where the wave is strong, and comes in softly below it, so the wall has no hard upper edge.
+    float level = clamp(0.10 + 0.90 * fold + (own - 0.5) * 0.42 * columns, 0.0, 1.0);
     level = mix(level, floor(level * 4.999) / 4.0, columns);
-    float top = mix(WALL_TOP_LOW, WALL_TOP_HIGH, clamp(fold * 0.8 + (own2 - 0.5) * 0.5 * columns + 0.45 * bright, 0.0, 1.0));
+    float top = mix(WALL_TOP_LOW, WALL_TOP_HIGH, clamp(fold * 0.92 + (own2 - 0.5) * 0.34 * columns + 0.35 * bright, 0.0, 1.0));
     float rise = wallEase(top, top + WALL_TAIL * (1.0 + own * columns), depth) * wallEase(0.0, 1.2, depth);
-    vec4 ray = vec4(mix(WALL_SHADE[1].rgb, WALL_SHADE[3].rgb, level),
-                    mix(WALL_RAY_LOW, WALL_RAY_HIGH, level) * (0.8 + 0.2 * smoothstep(1.0, 3.0, depth)));
-    ray = mix(ray, vec4(WALL_SHADE[4].rgb, 0.84), 0.8 * bright);
+    float shimmer = smoothstep(0.55, 0.95, fold);
+    vec4 ray = vec4(
+        mix(mix(WALL_SHADE[1].rgb, WALL_SHADE[3].rgb, level), WALL_SHADE[4].rgb, 0.45 * shimmer),
+        mix(WALL_RAY_LOW, WALL_RAY_HIGH, level) * (0.78 + 0.22 * smoothstep(1.0, 3.0, depth)) * (0.85 + 0.25 * shimmer));
+    ray = mix(ray, vec4(WALL_SHADE[4].rgb, 0.86), 0.8 * bright);
     ray.a *= 1.0 - gap * (0.62 - 0.32 * close);
 
     // The lower part, the body: mottling as on ice. Two fields of blobs, 6 and 10 texels wide,
@@ -359,67 +361,98 @@ vec4 wallField(vec4 coord, vec3 view, float fromTop, float fromBottom, float fad
     return vec4(colour, min(alpha * (1.0 + 0.2 * close), 0.97) * reach);
 }
 
-// Combine two vertical bands without double-darkening where they overlap.
-vec4 wallCombine(vec4 a, vec4 b) {
-    float alpha = max(a.a, b.a);
-    if (alpha < 0.012) {
-        return vec4(-1.0);
-    }
-    vec3 rgb = (a.rgb * a.a + b.rgb * b.a) / max(a.a + b.a, 0.0001);
-    return vec4(rgb, alpha);
+const float WALL_DOME_ALT_START = 1.5;   // altitude above ground where the flight dome starts to rise
+const float WALL_DOME_ALT_END = 4.5;     // altitude above ground where the dome reaches full apex headroom
+const float WALL_DOME_HALF_LOW = 10.0;   // dome half-width at low to mid altitude (20 blocks full width)
+const float WALL_DOME_HALF_HIGH = 30.0;  // capped dome half-width at high altitude (60 blocks full width)
+const float WALL_DOME_PROX_FULL = 10.0;  // horizontal distance where the flight dome reaches full opacity
+const float WALL_DOME_PROX_END = 30.0;   // horizontal distance where the flight dome fades out
+
+// Smooth maximum of a and b with fillet width k.
+float wallSmoothMax(float a, float b, float k) {
+    float h = max(k - abs(a - b), 0.0) / k;
+    return max(a, b) + h * h * k * 0.25;
 }
 
-// The band, cut out of the panel by world height:
-// Mode 0 (air focus): fixed terrain-anchored band along the edge, plus a short local second band at
-// player height that fades in when the player stands or flies several blocks above (or below) terrain.
-// Mode 1 (proximity window): fixed terrain-hugging band along the edge (including nearby pillars),
-// with no continuous band in open air; a soft elliptical local window appears when approaching close
-// to the border plane.
+// Unified grounded border contour: a steady terrain-anchored band smoothly merged into an organic
+// flight dome centred on the player, anchored down to under - WALL_BELOW with no mid-air gap.
+// Underground (feet < under - 2.0), a local band stays at player height without stretching through rock.
 // Returns the field's colour, or a negative alpha where nothing is drawn.
-vec4 wallBand(vec4 coord, vec3 view, vec2 meta, float gameTime) {
-    float ground = meta.x;
-    bool proximityMode = meta.y > 0.5;
+vec4 wallBand(vec4 coord, vec3 view, float ground, float gameTime) {
     float camera = coord.y - view.y;
     float feet = camera - WALL_EYE;
     float under = ground > -100000.0 ? ground : feet;
 
-    // Terrain-anchored band: steady while jumping, never stretched into a tall curtain across empty air.
-    float tFromTop = under + WALL_ABOVE - coord.y;
-    float tFromBottom = coord.y - (under - WALL_BELOW);
+    float groundTop = under + WALL_ABOVE;
+    float groundBottom = under - WALL_BELOW;
     float tFadeEnd = WALL_FADE_END + WALL_SLOPE * clamp(camera - coord.y - WALL_LEVEL, 0.0, WALL_DEPTH);
-    vec4 terrain = vec4(0.0);
-    if (tFromTop >= 0.0 && tFromBottom >= 0.0 && length(coord.zw) <= tFadeEnd) {
-        terrain = wallField(coord, view, tFromTop, tFromBottom, tFadeEnd, gameTime);
+
+    float alt = max(0.0, feet - under);
+    float flight = wallEase(WALL_DOME_ALT_START, WALL_DOME_ALT_END, alt);
+    float domeProx = 1.0 - wallEase(WALL_DOME_PROX_FULL, WALL_DOME_PROX_END, abs(view.z));
+
+    float effectiveTop = groundTop;
+    float perimScale = 1.0;
+    float proxMask = 1.0;
+    float fadeEnd = tFadeEnd;
+
+    if (flight > 0.001 && domeProx > 0.001) {
+        float apexTop = mix(groundTop, feet + WALL_ABOVE, flight);
+        float domeRise = max(0.0, apexTop - groundTop);
+        float domeHalfWidth = mix(WALL_DOME_HALF_LOW, WALL_DOME_HALF_HIGH, smoothstep(10.0, 110.0, alt));
+
+        // Slow multi-frequency periodic waves deform the dome organically so it never reads as an ellipse.
+        float cWave1 = wallNoise(vec2(coord.x / 11.0 + gameTime * 24.0, gameTime * 36.0), vec2(24.0, 36.0), 11);
+        float cWave2 = wallNoise(vec2(coord.x / 4.5 - gameTime * 48.0, gameTime * 60.0 + 7.3), vec2(48.0, 60.0), 12);
+        float cWave3 = wallNoise(vec2(coord.x / 2.2 + gameTime * 72.0, gameTime * 90.0 + 19.1), vec2(72.0, 90.0), 13);
+        float contourNoise = (cWave1 - 0.5) * 0.55 + (cWave2 - 0.5) * 0.30 + (cWave3 - 0.5) * 0.15;
+
+        float organicHalfWidth = domeHalfWidth * (1.0 + 0.30 * contourNoise);
+        float u = abs(view.x) / organicHalfWidth;
+        float q2 = max(0.0, 1.0 - u * u);
+        float bell = pow(q2, 0.42);
+        float verticalWave = contourNoise * min(domeRise * 0.25, 5.5) * smoothstep(0.0, 0.25, bell);
+
+        float domeTop = (groundTop - 2.5) + (domeRise + 2.5) * bell + verticalWave;
+        float smoothK = 2.5 * flight;
+        float fullTop = wallSmoothMax(groundTop, domeTop, smoothK);
+        effectiveTop = mix(groundTop, fullTop, smoothstep(0.0, 0.25, domeProx));
+
+        float dBellDu = 0.84 * min(u, 1.0) * pow(max(q2, 0.02), -0.58) * (1.0 - smoothstep(0.96, 1.02, u));
+        float slope = (domeRise + 2.5) * dBellDu / organicHalfWidth;
+        perimScale = mix(1.0, inversesqrt(1.0 + slope * slope * 0.65), smoothstep(groundTop, groundTop + 3.0, coord.y));
+
+        float aboveGround = wallEase(groundTop, groundTop + 3.5, coord.y);
+        proxMask = mix(1.0, domeProx, aboveGround);
+        float domeReach = length(vec2(WALL_DOME_PROX_END, organicHalfWidth)) + 4.0;
+        fadeEnd = max(tFadeEnd, mix(tFadeEnd, domeReach, aboveGround));
     }
 
-    vec4 air = vec4(0.0);
-    if (!proximityMode) {
-        // Approach A: short local second band at player height when several blocks away from terrain.
-        float airWeight = max(wallEase(3.0, 7.0, feet - under), wallEase(3.0, 6.0, under - feet));
-        float alongFade = 1.0 - wallEase(7.0, 16.0, abs(view.x));
-        float distFade = 1.0 - wallEase(26.0, 40.0, abs(view.z));
-        float airMask = airWeight * alongFade * distFade;
-        float aFromTop = feet + 5.5 - coord.y;
-        float aFromBottom = coord.y - (feet - 2.0);
-        if (airMask > 0.005 && aFromTop >= 0.0 && aFromBottom >= 0.0) {
-            air = wallField(coord, view, aFromTop, aFromBottom, 45.0, gameTime);
-            air.a *= airMask;
-        }
-    } else {
-        // Approach B: soft local elliptical window when approaching close to the invisible border plane in open air.
-        float airWeight = max(wallEase(2.5, 6.0, feet - under), wallEase(2.5, 5.0, under - feet));
-        float proximity = 1.0 - wallEase(5.0, 15.0, abs(view.z));
-        float radial = length(vec2(view.x / 7.0, (coord.y - (feet + 1.5)) / 4.5));
-        float windowMask = airWeight * proximity * (1.0 - wallEase(0.35, 1.0, radial));
-        float wFromTop = feet + 6.0 - coord.y;
-        float wFromBottom = coord.y - (feet - 3.0);
-        if (windowMask > 0.005 && wFromTop >= 0.0 && wFromBottom >= 0.0) {
-            air = wallField(coord, view, wFromTop, wFromBottom, 25.0, gameTime);
-            air.a *= windowMask;
+    vec4 field = vec4(0.0);
+    float fromTop = (effectiveTop - coord.y) * perimScale;
+    float fromBottom = coord.y - groundBottom;
+    if (fromTop >= 0.0 && fromBottom >= 0.0 && length(coord.zw) <= fadeEnd) {
+        field = wallField(coord, view, fromTop, fromBottom, fadeEnd, gameTime);
+        field.a *= proxMask;
+    }
+
+    vec4 cave = vec4(0.0);
+    if (feet < under - 2.0) {
+        float caveMask = wallEase(2.0, 5.0, under - feet) * (1.0 - wallEase(8.0, 18.0, abs(view.x)));
+        float uFromTop = feet + WALL_ABOVE - coord.y;
+        float uFromBottom = coord.y - (feet - WALL_BELOW);
+        if (caveMask > 0.005 && uFromTop >= 0.0 && uFromBottom >= 0.0 && length(coord.zw) <= 25.0) {
+            cave = wallField(coord, view, uFromTop, uFromBottom, 25.0, gameTime);
+            cave.a *= caveMask;
         }
     }
 
-    return wallCombine(terrain, air);
+    float alpha = max(field.a, cave.a);
+    if (alpha < 0.012) {
+        return vec4(-1.0);
+    }
+    vec3 rgb = (field.rgb * field.a + cave.rgb * cave.a) / max(field.a + cave.a, 0.0001);
+    return vec4(rgb, alpha);
 }
 
 // END nordtal wall field
@@ -458,7 +491,7 @@ void main() {
     bool wall = wallIsMarker(texel);
 
     if (wall) {
-        color = wallBand(wallCoord, wallView, wallMeta, GameTime);
+        color = wallBand(wallCoord, wallView, wallGround, GameTime);
         color.a *= ColorModulator.a;
         if (color.a < 0.012) {
             discard;

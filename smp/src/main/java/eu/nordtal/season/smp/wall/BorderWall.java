@@ -74,7 +74,6 @@ public final class BorderWall implements Listener {
     private final Consumer<Player> pushSound;
 
     private Map<String, Walls.Drawn> walls = Map.of();
-    private final Placement placement = Placement.configured();
     private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final Map<UUID, Long> pushed = new HashMap<>();
 
@@ -650,11 +649,10 @@ public final class BorderWall implements Listener {
         final Map<Panel, Band.Seen> seen = Band.seen(
                 drawn.wall(),
                 look,
-                placement,
                 at.getX(),
                 at.getZ(),
                 eye,
-                panel -> grounds.at(at.getWorld(), panel, placement, (int) Math.floor(eye), now));
+                panel -> grounds.at(at.getWorld(), panel, (int) Math.floor(eye), now));
         final Band.Change change = Band.change(viewer.seen(), seen);
         packets.remove(id, viewer.forget(change.removed()));
         change.remodelled().forEach((panel, after) -> packets.remodel(id, viewer.remodel(panel, after), after));

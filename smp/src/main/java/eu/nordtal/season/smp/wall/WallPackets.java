@@ -156,7 +156,7 @@ final class WallPackets {
         }
     }
 
-    /** The panel's item: its model, and its ground and placement in the tint the shader reads. */
+    /** The panel's item: its model, and its ground in the tint the shader reads. */
     private ItemStack item(final Band.Seen seen) {
         return items.computeIfAbsent(seen, ignored -> {
             final org.bukkit.inventory.ItemStack stack = org.bukkit.inventory.ItemStack.of(Material.PAPER);
@@ -164,7 +164,7 @@ final class WallPackets {
             stack.setData(
                     DataComponentTypes.CUSTOM_MODEL_DATA,
                     CustomModelData.customModelData()
-                            .addColor(Color.fromRGB(Band.tint(seen.ground(), seen.placement())))
+                            .addColor(Color.fromRGB(Band.tint(seen.ground())))
                             .build());
             return SpigotConversionUtil.fromBukkitItemStack(stack);
         });

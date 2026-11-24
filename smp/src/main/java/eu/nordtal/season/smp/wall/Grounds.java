@@ -20,17 +20,17 @@ final class Grounds {
     private final Map<String, Map<Panel, Read>> worlds = new HashMap<>();
 
     /**
-     * The ground height for a panel under {@code placement}, or {@link Band#UNKNOWN} while a chunk there is not loaded.
+     * The ground height for a panel, or {@link Band#UNKNOWN} while a chunk there is not loaded.
      * In a world with a ceiling, scans downward from {@code fromY} instead of reading the roof.
      */
-    int at(final World world, final Panel panel, final Placement placement, final int fromY, final long now) {
+    int at(final World world, final Panel panel, final int fromY, final long now) {
         final Map<Panel, Read> reads = worlds.computeIfAbsent(world.getName(), ignored -> new HashMap<>());
         final int height = world.hasCeiling() ? fromY : 0;
         final Read before = reads.get(panel);
         if (before != null && before.fromY() == height && now - before.at() < FRESH) {
             return before.ground();
         }
-        final int ground = read(world, panel, placement, fromY);
+        final int ground = read(world, panel, fromY);
         if (ground != Band.UNKNOWN) {
             reads.put(panel, new Read(ground, height, now));
         }
@@ -56,23 +56,31 @@ final class Grounds {
         worlds.remove(world);
     }
 
-    private static int read(final World world, final Panel panel, final Placement placement, final int fromY) {
+    private static int read(final World world, final Panel panel, final int fromY) {
+        return surfaceAt(panel, (x, z) -> surface(world, x, z, fromY));
+    }
+
+    /** Higher surface at 0.5 and 1.5 blocks inside the edge, or {@link Band#UNKNOWN} when either chunk is unloaded. */
+    static int surfaceAt(final Panel panel, final SurfaceReader reader) {
         final double yaw = Math.toRadians(panel.yaw());
         // Panel yaw is oriented so (-sin(yaw), cos(yaw)) points inward from the edge.
         final double inwardX = -Math.sin(yaw);
         final double inwardZ = Math.cos(yaw);
-        final int edge = surface(world, panel.x() + inwardX * 0.5, panel.z() + inwardZ * 0.5, fromY);
+        final int edge = reader.surface(panel.x() + inwardX * 0.5, panel.z() + inwardZ * 0.5);
         if (edge == Band.UNKNOWN) {
             return Band.UNKNOWN;
         }
-        if (placement == Placement.PROXIMITY_WINDOW) {
-            final int beside = surface(world, panel.x() + inwardX * 1.5, panel.z() + inwardZ * 1.5, fromY);
-            if (beside == Band.UNKNOWN) {
-                return Band.UNKNOWN;
-            }
-            return Math.max(edge, beside);
+        final int beside = reader.surface(panel.x() + inwardX * 1.5, panel.z() + inwardZ * 1.5);
+        if (beside == Band.UNKNOWN) {
+            return Band.UNKNOWN;
         }
-        return edge;
+        return Math.max(edge, beside);
+    }
+
+    @FunctionalInterface
+    interface SurfaceReader {
+
+        int surface(double x, double z);
     }
 
     private static int surface(final World world, final double x, final double z, final int fromY) {

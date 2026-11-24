@@ -74,6 +74,18 @@
     },
     {
       "type": "LABEL",
+      "slot": "show-hint",
+      "lines": [
+        {
+          "text": {
+            "en": "Everyone sees it on the ride map",
+            "de": "Alle sehen ihn auf der Streckenkarte"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
       "slot": "save",
       "lines": [
         {

@@ -150,8 +150,20 @@ public final class StationMenus implements Listener {
         example.accept(RideDialog.DOCUMENT, (reader, drafted) -> showRideExample(reader, drafted, 0));
         example.accept(
                 StationDialog.DOCUMENT,
-                (reader, drafted) -> reader.showDialog(StationDialog.placer(
-                        drafted, EXAMPLE_STOPS.get(0).name(), true, null, dialogs.send(), (saver, name, show) -> {})));
+                (reader, drafted) ->
+                        showStationExample(reader, drafted, EXAMPLE_STOPS.get(0).name(), true));
+    }
+
+    private void showStationExample(
+            final Player reader, final GameDocument drafted, final String typed, final boolean shown) {
+        reader.showDialog(StationDialog.placer(
+                drafted,
+                typed,
+                shown,
+                null,
+                dialogs.send(),
+                (player, name, nextShown) -> showStationExample(player, drafted, name, nextShown),
+                (saver, name, show) -> {}));
     }
 
     private void showRideExample(final Player reader, final GameDocument drafted, final int page) {
@@ -278,6 +290,7 @@ public final class StationMenus implements Listener {
                 shown,
                 refusal == null ? null : document.label(refusal, new StationDialog.Most(StationNames.MAX_LENGTH)),
                 dialogs.send(),
+                (toggler, name, nextShown) -> showPlacer(toggler, station, name, nextShown, refusal),
                 (saver, name, show) -> saved(saver, station, name, show)));
     }
 

@@ -10,6 +10,7 @@ import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
 import eu.nordtal.season.packrendering.ui.Letters;
 import eu.nordtal.season.packrendering.ui.Symbol;
+import eu.nordtal.season.packrendering.ui.Tooltip;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.ActionButton;
@@ -43,6 +44,7 @@ final class StationDialog {
                     Slot.label("hint"),
                     Slot.label("field"),
                     Slot.label("show"),
+                    Slot.label("show-hint"),
                     Slot.label("save"),
                     Slot.label("name-empty"),
                     Slot.label("name-too-long", Most.class),
@@ -55,7 +57,6 @@ final class StationDialog {
     }
 
     static final String FIELD = "name";
-    static final String SHOWN = "shown";
 
     /** The panel's inside, from margin to margin: the room of every text row. */
     static final int WIDTH = 186;
@@ -63,8 +64,8 @@ final class StationDialog {
     /** The visitor's panel top, at screen y. */
     private static final int VISITOR_TOP = 50;
 
-    /** The placer's panel top: the client puts the native field at screen y 63, which is panel + 18. */
-    private static final int PLACER_TOP = 45;
+    /** The placer's panel top: the client puts the native field at screen y 63, panel + 20 inside the bezel. */
+    private static final int PLACER_TOP = 43;
 
     /** The first row under the header, at panel + 18. */
     private static final int FIRST_ROW = 18;
@@ -72,8 +73,10 @@ final class StationDialog {
     /** From the name's capitals to the hint's: its 8 rows and a 7 px gap. */
     private static final int NAME_TO_HINT = 15;
 
-    /** The refusal's capitals, 7 under the bottom of Save, which the client puts at panel + 75. */
-    private static final int REFUSAL_ROW = 102;
+    /** The refusal's capitals, 7 under the bottom row, which the client puts at panel + 50..69. */
+    private static final int REFUSAL_ROW = 76;
+
+    private static final int BEZEL_TOP = 16;
 
     private static final Pattern PHRASE_BREAK = Pattern.compile("(?<=[,:;]) +");
     private static final int HINT_STEP = 9;
@@ -144,8 +147,8 @@ final class StationDialog {
     }
 
     /**
-     * The placer's dialog: the field holds {@code typed}, the checkbox {@code shown}, and the title draws a refusal.
-     * The labels of the checkbox and Save ring the box and the field, so neither shows the client's focus border.
+     * The placer's dialog: the name field sits in a wooden signboard bezel over the map toggle and Save.
+     * Clicking the map toggle redraws with the typed text preserved; hovering shows its tooltip.
      */
     static Dialog placer(
             final GameDocument document,
@@ -153,33 +156,41 @@ final class StationDialog {
             final boolean shown,
             final @Nullable String refusal,
             final Dialogs.Send send,
+            final Saved toggled,
             final Saved saved) {
         final DialogTitle drawn = DialogTitle.of(
-                        refusal == null ? DialogPanel.STATION_102 : DialogPanel.STATION_117, PLACER_TOP)
-                .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of());
+                        refusal == null ? DialogPanel.STATION_78 : DialogPanel.STATION_92, PLACER_TOP)
+                .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of())
+                .stationBezel(DialogTitle.MARGIN, PLACER_TOP + BEZEL_TOP);
         if (refusal != null) {
             drawn.text(DialogTitle.MARGIN, PLACER_TOP + REFUSAL_ROW, Letters.cut(refusal, WIDTH), Colours.REFUSAL);
         }
+        final String showLabel = document.label("show");
+        final Component mapTooltip = Tooltip.hover(
+                Tooltip.rows(showLabel, document.label("show-hint"), null, Tooltip.WRAP_NATIVE),
+                Letters.wrap(showLabel, Tooltip.WRAP_NATIVE).size());
+        final ActionButton mapToggle = ActionButton.builder(BodyLine.stationMapToggle(shown, showLabel))
+                .width(BodyLine.MAP_TOGGLE_BUTTON)
+                .tooltip(mapTooltip)
+                .action(send.action((player, response) ->
+                        toggled.save(player, Objects.requireNonNullElse(response.getText(FIELD), ""), !shown)))
+                .build();
         final ActionButton save = ActionButton.builder(BodyLine.primaryButtonOverField(document.label("save")))
                 .width(BodyLine.NATIVE_BUTTON)
-                .action(send.action((player, response) -> saved.save(
-                        player,
-                        Objects.requireNonNullElse(response.getText(FIELD), ""),
-                        Boolean.TRUE.equals(response.getBoolean(SHOWN)))))
+                .action(send.action((player, response) ->
+                        saved.save(player, Objects.requireNonNullElse(response.getText(FIELD), ""), shown)))
                 .build();
         return Dialog.create(builder -> builder.empty()
                 .base(Dialogs.base(drawn.build())
-                        .inputs(List.of(
-                                DialogInput.text(FIELD, Component.text(document.label("field")))
-                                        .labelVisible(false)
-                                        .width(BodyLine.FIELD)
-                                        .maxLength(StationNames.MAX_LENGTH)
-                                        .initial(typed)
-                                        .build(),
-                                DialogInput.bool(SHOWN, BodyLine.checkboxLabel(document.label("show")))
-                                        .initial(shown)
-                                        .build()))
+                        .inputs(List.of(DialogInput.text(FIELD, Component.text(document.label("field")))
+                                .labelVisible(false)
+                                .width(BodyLine.FIELD)
+                                .maxLength(StationNames.MAX_LENGTH)
+                                .initial(typed)
+                                .build()))
                         .build())
-                .type(DialogType.multiAction(List.of(save)).columns(1).build()));
+                .type(DialogType.multiAction(List.of(mapToggle, save))
+                        .columns(2)
+                        .build()));
     }
 }

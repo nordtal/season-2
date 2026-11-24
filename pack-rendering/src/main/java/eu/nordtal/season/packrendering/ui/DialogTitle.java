@@ -145,6 +145,12 @@ public final class DialogTitle {
         return this;
     }
 
+    /** Draws the 186 by 28 wooden signboard bezel at panel + {@code x}, top at screen y {@code y}. */
+    public DialogTitle stationBezel(final int x, final int y) {
+        pen.moveTo(left + x).art(Pen.artFont(y - TITLE_ROW), Glyphs.UI_STATION_BEZEL, BodyLine.STATION_BEZEL);
+        return this;
+    }
+
     /** Adds {@code words} for the narrator, which it reads with the title, such as what a redraw changed. */
     public DialogTitle words(final String words) {
         pen.append(BodyLine.silent(words), 0);

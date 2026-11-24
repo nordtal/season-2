@@ -275,16 +275,16 @@ class CompositionTest {
     void aHeaderWithItsRuleKeepsTheTitleTwoHundredFiftyWide() {
         assertEquals(
                 DialogTitle.NET_WIDTH,
-                Advances.of(DialogTitle.of(DialogPanel.STATION_117, 45)
+                Advances.of(DialogTitle.of(DialogPanel.STATION_92, 43)
                         .header(Symbol.RAIL, "Bahnhof", List.of())
-                        .text(DialogTitle.MARGIN, 147, "Gib einen Namen ein.", Colours.REFUSAL)
+                        .text(DialogTitle.MARGIN, 119, "Gib einen Namen ein.", Colours.REFUSAL)
                         .build()));
     }
 
     @Test
-    void aCheckboxLabelAdvancesAsItsTextSoTheClientCentresTheBoxAsWithoutTheRing() {
-        assertEquals(
-                Letters.width("Auf der Karte zeigen"), Advances.of(BodyLine.checkboxLabel("Auf der Karte zeigen")));
+    void aStationMapToggleAdvancesNothingSoTheClientCentresItsCover() {
+        assertEquals(0, Advances.of(BodyLine.stationMapToggle(true, "Auf der Karte zeigen")));
+        assertEquals(0, Advances.of(BodyLine.stationMapToggle(false, "Auf der Karte zeigen")));
     }
 
     @Test

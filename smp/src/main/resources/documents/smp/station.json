@@ -74,6 +74,42 @@
     },
     {
       "type": "LABEL",
+      "slot": "shown",
+      "lines": [
+        {
+          "text": {
+            "en": "Shown on the map",
+            "de": "Auf der Karte sichtbar"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "hidden",
+      "lines": [
+        {
+          "text": {
+            "en": "Hidden from the map",
+            "de": "Nicht auf der Karte sichtbar"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "show-hint",
+      "lines": [
+        {
+          "text": {
+            "en": "Everyone sees it on the ride map",
+            "de": "Alle sehen ihn auf der Streckenkarte"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
       "slot": "save",
       "lines": [
         {

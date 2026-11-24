@@ -1457,9 +1457,10 @@
     {
       "font": "nordtal:ui_text_{shift}",
       "shifts": [
-        -11, -10, -9, -8, -7, -6, -5, -4, -2, 0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 16, 17, 22, 25, 26, 28, 29, 30,
-        31, 33, 34, 35, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 61, 62, 65, 66,
-        67, 68, 69, 70, 71, 73, 79, 82, 85, 88, 89, 91, 93, 97, 98, 99, 100, 106, 107, 124, 125, 129, 134, 137
+        -11, -10, -9, -8, -7, -6, -5, -4, -2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 17, 22, 25, 26, 27, 28,
+        29, 30, 31, 33, 34, 35, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 61, 62,
+        65, 66, 67, 68, 69, 70, 71, 73, 79, 82, 85, 87, 88, 89, 91, 93, 97, 98, 99, 100, 106, 107, 111, 124, 125, 129,
+        134, 137
       ],
       "constant": "FONT_UI_TEXT",
       "letters": true,
@@ -1751,9 +1752,9 @@
     {
       "font": "nordtal:ui_art_{shift}",
       "shifts": [
-        -7, -3, -2, 0, 1, 3, 4, 5, 6, 7, 8, 11, 12, 17, 20, 21, 23, 24, 25, 26, 28, 29, 30, 34, 36, 37, 40, 41, 43, 44,
-        46, 47, 48, 49, 50, 51, 55, 56, 57, 59, 60, 61, 63, 64, 65, 66, 67, 68, 71, 75, 77, 79, 80, 83, 84, 86, 87, 88,
-        91, 92, 95, 99, 101, 102, 103, 106, 107, 111, 115, 119, 120, 124
+        -7, -3, -2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 17, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 34, 36, 37, 40, 41,
+        42, 43, 44, 46, 47, 48, 49, 50, 51, 55, 56, 57, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 71, 75, 77, 79, 80, 82,
+        83, 84, 86, 87, 88, 91, 92, 95, 99, 101, 102, 103, 106, 107, 111, 115, 119, 120, 124
       ],
       "constant": "FONT_UI_ART",
       "references": ["nordtal:ui_space"],
@@ -2281,17 +2282,61 @@
           "height": 54,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE840", "title": "Left column", "list": "UI_CARD_NORMAL" },
-            { "code": "FE841", "title": "Right column", "list": "UI_CARD_NORMAL" },
-            { "code": "FE842", "title": "Body 1 px", "list": "UI_CARD_NORMAL" },
-            { "code": "FE843", "title": "Body 2 px", "list": "UI_CARD_NORMAL" },
-            { "code": "FE844", "title": "Body 4 px", "list": "UI_CARD_NORMAL" },
-            { "code": "FE845", "title": "Body 8 px", "list": "UI_CARD_NORMAL" },
-            { "code": "FE846", "title": "Body 16 px", "list": "UI_CARD_NORMAL" },
-            { "code": "FE847", "title": "Body 32 px", "list": "UI_CARD_NORMAL" },
-            { "code": "FE848", "title": "Body 64 px", "list": "UI_CARD_NORMAL" },
-            { "code": "FE849", "title": "Body 128 px", "list": "UI_CARD_NORMAL" },
-            { "code": "FE84A", "title": "Body 256 px", "list": "UI_CARD_NORMAL" }
+            {
+              "code": "FE840",
+              "title": "Left column",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE841",
+              "title": "Right column",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE842",
+              "title": "Body 1 px",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE843",
+              "title": "Body 2 px",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE844",
+              "title": "Body 4 px",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE845",
+              "title": "Body 8 px",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE846",
+              "title": "Body 16 px",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE847",
+              "title": "Body 32 px",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE848",
+              "title": "Body 64 px",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE849",
+              "title": "Body 128 px",
+              "list": "UI_CARD_NORMAL"
+            },
+            {
+              "code": "FE84A",
+              "title": "Body 256 px",
+              "list": "UI_CARD_NORMAL"
+            }
           ]
         },
         {
@@ -2302,17 +2347,61 @@
           "height": 54,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE850", "title": "Left column", "list": "UI_CARD_DISABLED" },
-            { "code": "FE851", "title": "Right column", "list": "UI_CARD_DISABLED" },
-            { "code": "FE852", "title": "Body 1 px", "list": "UI_CARD_DISABLED" },
-            { "code": "FE853", "title": "Body 2 px", "list": "UI_CARD_DISABLED" },
-            { "code": "FE854", "title": "Body 4 px", "list": "UI_CARD_DISABLED" },
-            { "code": "FE855", "title": "Body 8 px", "list": "UI_CARD_DISABLED" },
-            { "code": "FE856", "title": "Body 16 px", "list": "UI_CARD_DISABLED" },
-            { "code": "FE857", "title": "Body 32 px", "list": "UI_CARD_DISABLED" },
-            { "code": "FE858", "title": "Body 64 px", "list": "UI_CARD_DISABLED" },
-            { "code": "FE859", "title": "Body 128 px", "list": "UI_CARD_DISABLED" },
-            { "code": "FE85A", "title": "Body 256 px", "list": "UI_CARD_DISABLED" }
+            {
+              "code": "FE850",
+              "title": "Left column",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE851",
+              "title": "Right column",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE852",
+              "title": "Body 1 px",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE853",
+              "title": "Body 2 px",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE854",
+              "title": "Body 4 px",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE855",
+              "title": "Body 8 px",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE856",
+              "title": "Body 16 px",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE857",
+              "title": "Body 32 px",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE858",
+              "title": "Body 64 px",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE859",
+              "title": "Body 128 px",
+              "list": "UI_CARD_DISABLED"
+            },
+            {
+              "code": "FE85A",
+              "title": "Body 256 px",
+              "list": "UI_CARD_DISABLED"
+            }
           ]
         },
         {
@@ -2323,22 +2412,86 @@
           "height": 5,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE860", "title": "Bar 1 px", "list": "UI_VAR_BAR" },
-            { "code": "FE861", "title": "Bar 2 px", "list": "UI_VAR_BAR" },
-            { "code": "FE862", "title": "Bar 4 px", "list": "UI_VAR_BAR" },
-            { "code": "FE863", "title": "Bar 8 px", "list": "UI_VAR_BAR" },
-            { "code": "FE864", "title": "Bar 16 px", "list": "UI_VAR_BAR" },
-            { "code": "FE865", "title": "Bar 32 px", "list": "UI_VAR_BAR" },
-            { "code": "FE866", "title": "Bar 64 px", "list": "UI_VAR_BAR" },
-            { "code": "FE867", "title": "Bar 128 px", "list": "UI_VAR_BAR" },
-            { "code": "FE868", "title": "Edge 1 px", "list": "UI_VAR_BAR_EDGE" },
-            { "code": "FE869", "title": "Edge 2 px", "list": "UI_VAR_BAR_EDGE" },
-            { "code": "FE86A", "title": "Edge 4 px", "list": "UI_VAR_BAR_EDGE" },
-            { "code": "FE86B", "title": "Edge 8 px", "list": "UI_VAR_BAR_EDGE" },
-            { "code": "FE86C", "title": "Edge 16 px", "list": "UI_VAR_BAR_EDGE" },
-            { "code": "FE86D", "title": "Edge 32 px", "list": "UI_VAR_BAR_EDGE" },
-            { "code": "FE86E", "title": "Edge 64 px", "list": "UI_VAR_BAR_EDGE" },
-            { "code": "FE86F", "title": "Edge 128 px", "list": "UI_VAR_BAR_EDGE" }
+            {
+              "code": "FE860",
+              "title": "Bar 1 px",
+              "list": "UI_VAR_BAR"
+            },
+            {
+              "code": "FE861",
+              "title": "Bar 2 px",
+              "list": "UI_VAR_BAR"
+            },
+            {
+              "code": "FE862",
+              "title": "Bar 4 px",
+              "list": "UI_VAR_BAR"
+            },
+            {
+              "code": "FE863",
+              "title": "Bar 8 px",
+              "list": "UI_VAR_BAR"
+            },
+            {
+              "code": "FE864",
+              "title": "Bar 16 px",
+              "list": "UI_VAR_BAR"
+            },
+            {
+              "code": "FE865",
+              "title": "Bar 32 px",
+              "list": "UI_VAR_BAR"
+            },
+            {
+              "code": "FE866",
+              "title": "Bar 64 px",
+              "list": "UI_VAR_BAR"
+            },
+            {
+              "code": "FE867",
+              "title": "Bar 128 px",
+              "list": "UI_VAR_BAR"
+            },
+            {
+              "code": "FE868",
+              "title": "Edge 1 px",
+              "list": "UI_VAR_BAR_EDGE"
+            },
+            {
+              "code": "FE869",
+              "title": "Edge 2 px",
+              "list": "UI_VAR_BAR_EDGE"
+            },
+            {
+              "code": "FE86A",
+              "title": "Edge 4 px",
+              "list": "UI_VAR_BAR_EDGE"
+            },
+            {
+              "code": "FE86B",
+              "title": "Edge 8 px",
+              "list": "UI_VAR_BAR_EDGE"
+            },
+            {
+              "code": "FE86C",
+              "title": "Edge 16 px",
+              "list": "UI_VAR_BAR_EDGE"
+            },
+            {
+              "code": "FE86D",
+              "title": "Edge 32 px",
+              "list": "UI_VAR_BAR_EDGE"
+            },
+            {
+              "code": "FE86E",
+              "title": "Edge 64 px",
+              "list": "UI_VAR_BAR_EDGE"
+            },
+            {
+              "code": "FE86F",
+              "title": "Edge 128 px",
+              "list": "UI_VAR_BAR_EDGE"
+            }
           ]
         },
         {
@@ -2349,11 +2502,31 @@
           "height": 13,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE870", "title": "Done node", "constant": "UI_RAIL_NODE_DONE" },
-            { "code": "FE871", "title": "Current node", "constant": "UI_RAIL_NODE_CURRENT" },
-            { "code": "FE872", "title": "Future node", "constant": "UI_RAIL_NODE_FUTURE" },
-            { "code": "FE873", "title": "Far node", "constant": "UI_RAIL_NODE_FAR" },
-            { "code": "FE874", "title": "Gap dot", "constant": "UI_RAIL_DOT" }
+            {
+              "code": "FE870",
+              "title": "Done node",
+              "constant": "UI_RAIL_NODE_DONE"
+            },
+            {
+              "code": "FE871",
+              "title": "Current node",
+              "constant": "UI_RAIL_NODE_CURRENT"
+            },
+            {
+              "code": "FE872",
+              "title": "Future node",
+              "constant": "UI_RAIL_NODE_FUTURE"
+            },
+            {
+              "code": "FE873",
+              "title": "Far node",
+              "constant": "UI_RAIL_NODE_FAR"
+            },
+            {
+              "code": "FE874",
+              "title": "Gap dot",
+              "constant": "UI_RAIL_DOT"
+            }
           ]
         },
         {
@@ -2364,20 +2537,91 @@
           "height": 13,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE880", "title": "Rail bar 1 px", "list": "UI_RAIL_BAR" },
-            { "code": "FE881", "title": "Rail bar 2 px", "list": "UI_RAIL_BAR" },
-            { "code": "FE882", "title": "Rail bar 4 px", "list": "UI_RAIL_BAR" },
-            { "code": "FE883", "title": "Rail bar 8 px", "list": "UI_RAIL_BAR" },
-            { "code": "FE884", "title": "Rail bar 16 px", "list": "UI_RAIL_BAR" },
-            { "code": "FE885", "title": "Rail bar 32 px", "list": "UI_RAIL_BAR" },
-            { "code": "FE886", "title": "Rail bar 64 px", "list": "UI_RAIL_BAR" },
-            { "code": "FE887", "title": "Rail edge 1 px", "list": "UI_RAIL_BAR_EDGE" },
-            { "code": "FE888", "title": "Rail edge 2 px", "list": "UI_RAIL_BAR_EDGE" },
-            { "code": "FE889", "title": "Rail edge 4 px", "list": "UI_RAIL_BAR_EDGE" },
-            { "code": "FE88A", "title": "Rail edge 8 px", "list": "UI_RAIL_BAR_EDGE" },
-            { "code": "FE88B", "title": "Rail edge 16 px", "list": "UI_RAIL_BAR_EDGE" },
-            { "code": "FE88C", "title": "Rail edge 32 px", "list": "UI_RAIL_BAR_EDGE" },
-            { "code": "FE88D", "title": "Rail edge 64 px", "list": "UI_RAIL_BAR_EDGE" }
+            {
+              "code": "FE880",
+              "title": "Rail bar 1 px",
+              "list": "UI_RAIL_BAR"
+            },
+            {
+              "code": "FE881",
+              "title": "Rail bar 2 px",
+              "list": "UI_RAIL_BAR"
+            },
+            {
+              "code": "FE882",
+              "title": "Rail bar 4 px",
+              "list": "UI_RAIL_BAR"
+            },
+            {
+              "code": "FE883",
+              "title": "Rail bar 8 px",
+              "list": "UI_RAIL_BAR"
+            },
+            {
+              "code": "FE884",
+              "title": "Rail bar 16 px",
+              "list": "UI_RAIL_BAR"
+            },
+            {
+              "code": "FE885",
+              "title": "Rail bar 32 px",
+              "list": "UI_RAIL_BAR"
+            },
+            {
+              "code": "FE886",
+              "title": "Rail bar 64 px",
+              "list": "UI_RAIL_BAR"
+            },
+            {
+              "code": "FE887",
+              "title": "Rail edge 1 px",
+              "list": "UI_RAIL_BAR_EDGE"
+            },
+            {
+              "code": "FE888",
+              "title": "Rail edge 2 px",
+              "list": "UI_RAIL_BAR_EDGE"
+            },
+            {
+              "code": "FE889",
+              "title": "Rail edge 4 px",
+              "list": "UI_RAIL_BAR_EDGE"
+            },
+            {
+              "code": "FE88A",
+              "title": "Rail edge 8 px",
+              "list": "UI_RAIL_BAR_EDGE"
+            },
+            {
+              "code": "FE88B",
+              "title": "Rail edge 16 px",
+              "list": "UI_RAIL_BAR_EDGE"
+            },
+            {
+              "code": "FE88C",
+              "title": "Rail edge 32 px",
+              "list": "UI_RAIL_BAR_EDGE"
+            },
+            {
+              "code": "FE88D",
+              "title": "Rail edge 64 px",
+              "list": "UI_RAIL_BAR_EDGE"
+            }
+          ]
+        },
+        {
+          "range": "FE890-FE897",
+          "title": "Station bezel",
+          "about": "The 186 x 28 wooden signboard bezel with four corner studs framing the station name field, drawn in the dialog title.",
+          "texture": "nordtal:ui/kit/station_bezel.png",
+          "height": 28,
+          "ascent": 7,
+          "glyphs": [
+            {
+              "code": "FE890",
+              "title": "Station bezel",
+              "constant": "UI_STATION_BEZEL"
+            }
           ]
         }
       ],
@@ -2752,18 +2996,18 @@
             },
             {
               "code": "FE3E0",
-              "title": "Station, 102 high",
-              "list": "UI_DIALOG_STATION_102",
-              "texture": "nordtal:ui/kit/dialog_station_102_0.png",
-              "height": 102,
+              "title": "Station, 78 high",
+              "list": "UI_DIALOG_STATION_78",
+              "texture": "nordtal:ui/kit/dialog_station_78_0.png",
+              "height": 78,
               "ascent": 20
             },
             {
               "code": "FE3E1",
-              "title": "Station, 117 high",
-              "list": "UI_DIALOG_STATION_117",
-              "texture": "nordtal:ui/kit/dialog_station_117_0.png",
-              "height": 117,
+              "title": "Station, 92 high",
+              "list": "UI_DIALOG_STATION_92",
+              "texture": "nordtal:ui/kit/dialog_station_92_0.png",
+              "height": 92,
               "ascent": 20
             },
             {
@@ -2825,10 +3069,10 @@
           "constant": "UI_DIALOG_STATION_66"
         },
         {
-          "constant": "UI_DIALOG_STATION_102"
+          "constant": "UI_DIALOG_STATION_78"
         },
         {
-          "constant": "UI_DIALOG_STATION_117"
+          "constant": "UI_DIALOG_STATION_92"
         },
         {
           "constant": "UI_DIALOG_OBJECTIVES_124"
@@ -6023,31 +6267,37 @@
         },
         {
           "range": "FE7B0-FE7B7",
-          "title": "Field ring",
-          "about": "One even 1 px #373737 ring over the station's 180 x 20 text field, drawn by the Save button's label, whose text row stands 63 under the field's top, so the client's white focus border never shows.",
-          "texture": "nordtal:ui/kit/field_ring.png",
-          "height": 70,
-          "ascent": 70,
+          "title": "Station field ring",
+          "about": "One even 1 px #BAAB8D ring over the station's 178 x 20 text field, matching the signboard bezel's inner trim, drawn by Save's label 36 px above its text row so the client's white focus border never shows.",
+          "texture": "nordtal:ui/kit/station_field_ring.png",
+          "height": 43,
+          "ascent": 43,
           "glyphs": [
             {
               "code": "FE7B0",
-              "title": "Field ring",
-              "constant": "UI_FIELD_RING"
+              "title": "Station field ring",
+              "constant": "UI_STATION_FIELD_RING"
             }
           ]
         },
         {
           "range": "FE7B8-FE7BF",
-          "title": "Box ring",
-          "about": "One even 1 px #373737 ring over a 17 x 17 checkbox, drawn by its own label, whose text row stands 4 under the box's top, so the client's white focus border never shows.",
-          "texture": "nordtal:ui/kit/box_ring.png",
-          "height": 17,
-          "ascent": 11,
+          "title": "Station map toggle",
+          "about": "The station dialog's 84 x 20 left button covering the vanilla button in panel grey with a 17 x 17 checkbox and a 22 x 17 mini map icon, checked or unchecked.",
+          "height": 20,
+          "ascent": 13,
           "glyphs": [
             {
               "code": "FE7B8",
-              "title": "Box ring",
-              "constant": "UI_BOX_RING"
+              "title": "Station map toggle on",
+              "constant": "UI_STATION_MAP_ON",
+              "texture": "nordtal:ui/kit/station_map_on.png"
+            },
+            {
+              "code": "FE7B9",
+              "title": "Station map toggle off",
+              "constant": "UI_STATION_MAP_OFF",
+              "texture": "nordtal:ui/kit/station_map_off.png"
             }
           ]
         },
@@ -7496,7 +7746,10 @@
           "constant": "NPC_PLATE_PILL",
           "about": "The pill, white for the NPC's colour to tint: its left end, its right end and middles of 1 to 128 columns."
         },
-        { "constant": "NPC_PLATE_LIGHT", "about": "The light row under a pill's top, runs of 1 to 128 columns." }
+        {
+          "constant": "NPC_PLATE_LIGHT",
+          "about": "The light row under a pill's top, runs of 1 to 128 columns."
+        }
       ],
       "blocks": [
         {

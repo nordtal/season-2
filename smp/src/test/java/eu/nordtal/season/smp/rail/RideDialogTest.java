@@ -3,8 +3,11 @@ package eu.nordtal.season.smp.rail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
+import eu.nordtal.season.packrendering.ui.DialogCanvas;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
+import eu.nordtal.season.packrendering.ui.DialogTitle;
 import eu.nordtal.season.packrendering.ui.Letters;
 import org.junit.jupiter.api.Test;
 
@@ -36,5 +39,15 @@ class RideDialogTest {
         assertEquals(32, longest.length());
         final int room = BodyLine.rowRoom(RideDialog.ROW, false, "12,400 m");
         assertTrue(Letters.visibleWidth(longest) <= room, "room " + room + " for " + Letters.visibleWidth(longest));
+    }
+
+    @Test
+    void thePagedCanvasEndsItsBoxOnThePanelsBlackFootBorder() {
+        final DialogCanvas canvas = DialogCanvas.of(DialogPanel.RIDE_LIST_146);
+        final int boxTop = BodyColumn.PANEL_TO_CONTENT - canvas.top();
+        final int boxHeight = 9 * canvas.rows() + 8;
+
+        assertEquals(DialogPanel.RIDE_LIST_146.height(), boxTop + boxHeight);
+        assertTrue(DialogTitle.TOPS.contains(canvas.panelTop()));
     }
 }

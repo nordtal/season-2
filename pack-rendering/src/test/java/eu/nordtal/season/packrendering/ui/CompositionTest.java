@@ -2,6 +2,7 @@ package eu.nordtal.season.packrendering.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.packrendering.Glyphs;
 import java.util.ArrayList;
@@ -275,16 +276,21 @@ class CompositionTest {
     void aHeaderWithItsRuleKeepsTheTitleTwoHundredFiftyWide() {
         assertEquals(
                 DialogTitle.NET_WIDTH,
-                Advances.of(DialogTitle.of(DialogPanel.STATION_117, 45)
+                Advances.of(DialogTitle.of(DialogPanel.STATION_92, 43)
                         .header(Symbol.RAIL, "Bahnhof", List.of())
-                        .text(DialogTitle.MARGIN, 147, "Gib einen Namen ein.", Colours.REFUSAL)
+                        .text(DialogTitle.MARGIN, 119, "Gib einen Namen ein.", Colours.REFUSAL)
                         .build()));
     }
 
     @Test
-    void aCheckboxLabelAdvancesAsItsTextSoTheClientCentresTheBoxAsWithoutTheRing() {
-        assertEquals(
-                Letters.width("Auf der Karte zeigen"), Advances.of(BodyLine.checkboxLabel("Auf der Karte zeigen")));
+    void aStationMapToggleNarratesItsStateAndAdvancesNothing() {
+        final Component shown = BodyLine.stationMapToggle(true, "Shown on the map", "Hidden from the map");
+        final Component hidden = BodyLine.stationMapToggle(false, "Shown on the map", "Hidden from the map");
+
+        assertTrue(text(shown).contains("Shown on the map"));
+        assertTrue(text(hidden).contains("Hidden from the map"));
+        assertEquals(0, Advances.of(shown));
+        assertEquals(0, Advances.of(hidden));
     }
 
     @Test

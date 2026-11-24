@@ -60,13 +60,8 @@ final class RideDialog {
 
     static final int WIDTH = ROW + BodyLine.SIDE_GAP + BodyLine.PLATE;
 
-    /** Ten text rows (98 px box) hold the 97 px five-row block with 1 px top slack so the pager sits 7 px below. */
-    private static final int PAGED_ROWS = 10;
-
-    private static final int PAGED_TOP = 1;
-
-    /** The pager art sits 7 px under row 5, which is 3 px above its 17 px single-row box (-7 from its text row). */
-    private static final int PAGER_DOWN = -7;
+    /** Content y of the pager row: five 17 px rows with 3 px gaps (97 px) plus a 7 px gap. */
+    private static final int PAGER_Y = EACH * BodyLine.PLATE + (EACH - 1) * BodyLine.SIDE_GAP + 7;
 
     private static final int TEXT_TOP = 50;
 
@@ -96,20 +91,16 @@ final class RideDialog {
             title = title(document, stops, TEXT_TOP);
         } else if (paging.paged()) {
             final List<RideList.Stop> shown = paging.slice(stops, page);
-            final DialogCanvas canvas = DialogCanvas.exact(
-                    WIDTH, EACH * BodyLine.PLATE + (EACH - 1) * BodyLine.SIDE_GAP, PAGED_ROWS, PAGED_TOP);
+            final DialogCanvas canvas = DialogCanvas.of(DialogPanel.RIDE_LIST_146);
             for (int index = 0; index < shown.size(); index++) {
                 final RideList.Stop stop = shown.get(index);
                 canvas.place(0, index * BodyColumn.STEP, true, line -> row(line, document, stop, page, send, answers));
             }
-            title = title(document, stops, canvas.panelTop());
-            body.add(Dialogs.line(canvas, FocusRing.Ground.BEVEL, title));
             final String words = document.label("pager", paging.page(page));
-            body.add(Dialogs.singleLine(
-                    send.pager(BodyLine.start(PAGER_DOWN), paging, page, words, answers::page)
-                            .build(),
-                    Dialogs.pagerWidth(paging, page),
-                    FocusRing.Ground.PANEL));
+            final int pagerX = (WIDTH - Dialogs.pagerWidth(paging, page)) / 2;
+            canvas.place(pagerX, PAGER_Y, true, line -> send.pager(line, paging, page, words, answers::page));
+            title = title(document, stops, canvas.panelTop());
+            body.add(Dialogs.line(canvas, FocusRing.Ground.BEVEL_FOOT, title));
         } else {
             final List<RideList.Stop> shown = paging.slice(stops, page);
             final BodyColumn column = BodyColumn.of(WIDTH, false)

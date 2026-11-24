@@ -9,6 +9,7 @@ import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.CopyVanillaTexture
 import eu.nordtal.season.build.DescribePack
 import eu.nordtal.season.build.DrawChestPanels
+import eu.nordtal.season.build.DrawUiPanels
 import eu.nordtal.season.build.EditMinecraftInstance
 import eu.nordtal.season.build.EditPackSources
 import eu.nordtal.season.build.ExtractVanillaFonts
@@ -94,6 +95,7 @@ configurations.consumable("glyphManifest") {
 }
 
 val drawChestPanels = tasks.register<DrawChestPanels>("drawChestPanels")
+val drawUiPanels = tasks.register<DrawUiPanels>("drawUiPanels")
 
 // The wooden wheel's turn for the default prizes. The vanilla facts come from the client jar further down.
 val vanillaFacts = layout.buildDirectory.file("vanilla-facts/vanilla-facts.zip")
@@ -146,6 +148,7 @@ val assemblePack =
         from(packSource)
         from(generateGlyphs.flatMap { it.fontDirectory })
         from(drawChestPanels.flatMap { it.textures })
+        from(drawUiPanels.flatMap { it.textures })
         from(generateWheel)
         into(assembledPack)
     }
@@ -163,6 +166,7 @@ val assemblePackBase =
         from(packSource)
         from(generateGlyphs.flatMap { it.fontDirectory })
         from(drawChestPanels.flatMap { it.textures })
+        from(drawUiPanels.flatMap { it.textures })
         into(packBaseDirectory)
     }
 configurations.consumable("packBase") {
@@ -187,6 +191,7 @@ val packZip =
                 packSource,
                 generateGlyphs.flatMap { it.fontDirectory },
                 drawChestPanels.flatMap { it.textures },
+                drawUiPanels.flatMap { it.textures },
             )
         inputs.file(facts).withPropertyName("facts").withPathSensitivity(PathSensitivity.NONE)
         inputs.files(prizes).withPropertyName("prizes").withPathSensitivity(PathSensitivity.NONE)
@@ -314,6 +319,7 @@ tasks.register<DescribePack>("describePack") {
     source.set(packSource)
     art.set(packArt)
     generated.from(drawChestPanels.flatMap { it.textures })
+    generated.from(drawUiPanels.flatMap { it.textures })
     model.set(layout.buildDirectory.file("pack-model.json"))
 }
 
@@ -360,12 +366,21 @@ val extractVanillaFonts =
         vanillaClient()
         fonts.set(layout.buildDirectory.dir("vanilla-fonts"))
     }
-generateGlyphs.configure { vanilla.set(extractVanillaFonts.flatMap { it.fonts }) }
+generateGlyphs.configure {
+    vanilla.set(extractVanillaFonts.flatMap { it.fonts })
+    generated.from(drawUiPanels.flatMap { it.textures })
+}
 
 // The chest window panels, drawn on every build from ChestPanelGeometry, so moving the panel is one number.
 drawChestPanels.configure {
     vanillaClient()
     textures.set(layout.buildDirectory.dir("generated/chest-panels"))
+}
+
+// All other non-NPC vanilla UI panels, drawn on every build from generic_54.png in the client jar.
+drawUiPanels.configure {
+    vanillaClient()
+    textures.set(layout.buildDirectory.dir("generated/ui-panels"))
 }
 
 // The few files of the client jar the wheel reads, in one zip, which steward-agent reads later as well.

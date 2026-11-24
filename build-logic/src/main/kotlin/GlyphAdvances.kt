@@ -21,9 +21,10 @@ object GlyphAdvances {
         assets: File,
         fonts: File? = null,
         vanilla: File? = null,
+        generated: List<File> = emptyList(),
     ): Map<Int, Int> {
         val table = LinkedHashMap<Int, Int>()
-        read(font, assets, fonts, vanilla, table)
+        read(font, assets, fonts, vanilla, generated, table)
         return table
     }
 
@@ -32,6 +33,7 @@ object GlyphAdvances {
         assets: File,
         fonts: File?,
         vanilla: File?,
+        generated: List<File>,
         table: MutableMap<Int, Int>,
     ) {
         @Suppress("UNCHECKED_CAST")
@@ -45,7 +47,7 @@ object GlyphAdvances {
                 val file =
                     listOfNotNull(fonts?.resolve("assets/$path"), vanilla?.resolve(path)).firstOrNull { it.isFile }
                         ?: throw IllegalStateException("$font references font $id, which neither the pack nor vanilla holds")
-                read(file, assets, fonts, vanilla, table)
+                read(file, assets, fonts, vanilla, generated, table)
                 continue
             }
             if (provider["type"] == "space") {
@@ -57,17 +59,14 @@ object GlyphAdvances {
             if (provider["type"] != "bitmap") continue
 
             val id = provider["file"] as String
-            val image =
-                image(
-                    listOfNotNull(
-                        texture(assets, id),
-                        fonts?.let {
-                            texture(it.resolve("assets"), id)
-                        },
-                        vanilla?.let { texture(it, id) },
-                    ).firstOrNull { it.isFile }
-                        ?: texture(assets, id),
-                )
+            val candidates =
+                buildList {
+                    add(texture(assets, id))
+                    generated.forEach { add(texture(it.resolve("assets"), id)) }
+                    fonts?.let { add(texture(it.resolve("assets"), id)) }
+                    vanilla?.let { add(texture(it, id)) }
+                }
+            val image = image(candidates.firstOrNull { it.isFile } ?: texture(assets, id))
             val rows = (provider["chars"] as List<String>).map { it.codePoints().toArray() }
             val cellWidth = image.width / rows[0].size
             val cellHeight = image.height / rows.size

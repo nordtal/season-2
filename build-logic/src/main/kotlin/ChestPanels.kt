@@ -35,6 +35,76 @@ object ChestPanelGeometry {
     fun height(rows: Int) = PAD + 114 + 18 * rows + PAD
 }
 
+/** Shared `generic_54.png` window and slot drawing helpers for build-generated UI panels. */
+internal object VanillaWindow {
+    const val GENERIC_54 = "assets/minecraft/textures/gui/container/generic_54.png"
+    const val WIDTH = 176
+    const val HEIGHT = 222
+    const val EDGE = 5
+    const val SLOT_X = 7
+    const val SLOT_Y = 17
+    const val SLOT_SIZE = 18
+
+    /** Reads `generic_54.png` from the Minecraft client [jar]. */
+    fun read(jar: File): BufferedImage =
+        ZipFile(jar).use { zip ->
+            val entry = zip.getEntry(GENERIC_54) ?: throw IllegalStateException("the client jar has no $GENERIC_54")
+            zip.getInputStream(entry).use { ImageIO.read(it) }
+        }
+
+    /** Draws vanilla's window at any size: `generic_54`'s 5 px corners and edges around its `#C6C6C6` fill. */
+    fun window(
+        vanilla: BufferedImage,
+        image: BufferedImage,
+        top: Int,
+        width: Int,
+        height: Int,
+    ) {
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val sx =
+                    if (x < EDGE) {
+                        x
+                    } else if (x >= width - EDGE) {
+                        WIDTH - (width - x)
+                    } else {
+                        10
+                    }
+                val sy =
+                    if (y < EDGE) {
+                        y
+                    } else if (y >= height - EDGE) {
+                        HEIGHT - (height - y)
+                    } else {
+                        10
+                    }
+                image.setRGB(x, top + y, vanilla.getRGB(sx, sy))
+            }
+        }
+    }
+
+    /** Copies vanilla's 18 x 18 slot frame from [vanilla] onto [image] at ([x], [y]). */
+    fun slot(
+        vanilla: BufferedImage,
+        image: BufferedImage,
+        x: Int,
+        y: Int,
+    ) = copy(vanilla, SLOT_X, SLOT_Y, image, x, y, SLOT_SIZE, SLOT_SIZE)
+
+    fun copy(
+        from: BufferedImage,
+        fx: Int,
+        fy: Int,
+        to: BufferedImage,
+        tx: Int,
+        ty: Int,
+        w: Int,
+        h: Int,
+    ) {
+        for (y in 0 until h) for (x in 0 until w) to.setRGB(tx + x, ty + y, from.getRGB(fx + x, fy + y))
+    }
+}
+
 /**
  * Draws the chest panels for 1 to 6 rows into [textures] as `assets/nordtal/textures/ui/kit/chest_<rows>.png` and
  * `chest_plain_<rows>.png`, from vanilla's `generic_54.png`: its outline and bevels at the size [ChestPanelGeometry] gives,
@@ -53,11 +123,7 @@ abstract class DrawChestPanels : VanillaClientTask() {
     fun draw() {
         val root = textures.get().asFile
         root.deleteRecursively()
-        val vanilla =
-            ZipFile(jar()).use { zip ->
-                val entry = zip.getEntry(GENERIC_54) ?: throw IllegalStateException("the client jar has no $GENERIC_54")
-                zip.getInputStream(entry).use { ImageIO.read(it) }
-            }
+        val vanilla = VanillaWindow.read(jar())
         val directory = root.resolve("assets/nordtal/textures/ui/kit").apply { mkdirs() }
         for (rows in 1..6) {
             for (plain in listOf(false, true)) {
@@ -68,9 +134,6 @@ abstract class DrawChestPanels : VanillaClientTask() {
     }
 
     companion object {
-        private const val GENERIC_54 = "assets/minecraft/textures/gui/container/generic_54.png"
-        private const val EDGE = 5
-
         /** The panel for [rows] content rows, drawn from [vanilla]'s corners, edges and slot frame. */
         fun panel(
             vanilla: BufferedImage,
@@ -81,64 +144,14 @@ abstract class DrawChestPanels : VanillaClientTask() {
             val image = BufferedImage(g.WIDTH, g.height(rows), BufferedImage.TYPE_INT_ARGB)
             val top = g.PAD + g.TOP
             val height = g.BOTTOM + 18 * rows - g.TOP + 1
-            window(vanilla, image, top, g.WIDTH, height)
+            VanillaWindow.window(vanilla, image, top, g.WIDTH, height)
 
-            fun slot(
-                x: Int,
-                y: Int,
-            ) = copy(vanilla, 7, 17, image, x, g.PAD + y, 18, 18)
             for (column in 0 until 9) {
-                for (row in 0 until 3) slot(7 + 18 * column, 30 + 18 * rows + 18 * row)
-                slot(7 + 18 * column, 88 + 18 * rows)
-                if (plain) for (row in 0 until rows) slot(7 + 18 * column, 17 + 18 * row)
+                for (row in 0 until 3) VanillaWindow.slot(vanilla, image, 7 + 18 * column, g.PAD + 30 + 18 * rows + 18 * row)
+                VanillaWindow.slot(vanilla, image, 7 + 18 * column, g.PAD + 88 + 18 * rows)
+                if (plain) for (row in 0 until rows) VanillaWindow.slot(vanilla, image, 7 + 18 * column, g.PAD + 17 + 18 * row)
             }
             return image
-        }
-
-        /** Vanilla's window look at any size: generic_54's 5 px corners and edges around its #C6C6C6 fill. */
-        private fun window(
-            vanilla: BufferedImage,
-            image: BufferedImage,
-            top: Int,
-            width: Int,
-            height: Int,
-        ) {
-            val vw = 176
-            val vh = 222
-            for (y in 0 until height) {
-                for (x in 0 until width) {
-                    val sx =
-                        if (x < EDGE) {
-                            x
-                        } else if (x >= width - EDGE) {
-                            vw - (width - x)
-                        } else {
-                            10
-                        }
-                    val sy =
-                        if (y < EDGE) {
-                            y
-                        } else if (y >= height - EDGE) {
-                            vh - (height - y)
-                        } else {
-                            10
-                        }
-                    image.setRGB(x, top + y, vanilla.getRGB(sx, sy))
-                }
-            }
-        }
-
-        private fun copy(
-            from: BufferedImage,
-            fx: Int,
-            fy: Int,
-            to: BufferedImage,
-            tx: Int,
-            ty: Int,
-            w: Int,
-            h: Int,
-        ) {
-            for (y in 0 until h) for (x in 0 until w) to.setRGB(tx + x, ty + y, from.getRGB(fx + x, fy + y))
         }
     }
 }

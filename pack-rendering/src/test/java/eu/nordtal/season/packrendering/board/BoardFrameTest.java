@@ -57,6 +57,7 @@ class BoardFrameTest {
                     trimmed("ui/board/edge_h_" + power + ".png"),
                     "edge_h_" + power + " has to be " + power + " pixels wide or a border composed"
                             + " from it lands short, and the corner then sits inside the box");
+            assertEquals(power, trimmed("ui/board/edge_b_" + power + ".png"));
             assertEquals(power, trimmed("ui/board/divider_" + power + ".png"));
         }
     }

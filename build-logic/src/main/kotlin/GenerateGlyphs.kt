@@ -4,6 +4,7 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.MapProperty
@@ -12,6 +13,7 @@ import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
@@ -38,6 +40,11 @@ abstract class GenerateGlyphs : DefaultTask() {
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val assets: DirectoryProperty
+
+    /** Folders of build-generated textures, each holding `assets/`, checked when `src/assets` lacks a texture. */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val generated: ConfigurableFileCollection
 
     /**
      * Vanilla's letter fonts and their sheets, as [ExtractVanillaFonts] writes them: the fonts under `minecraft/font/include` and
@@ -116,7 +123,7 @@ abstract class GenerateGlyphs : DefaultTask() {
                         val chars = block.chars ?: listOf(block.glyphs.joinToString("") { Character.toString(it.codePoint) })
                         val ascent = block.ascent!! - lower
                         if (ascent > block.height!!) {
-                            val source = GlyphAdvances.texture(assets.get().asFile, block.texture)
+                            val source = resolveTexture(block.texture)
                             providers += bitmap(raise(root, block.texture, source, chars.size, block.height, ascent), ascent, ascent, chars)
                         } else {
                             providers += bitmap(block.texture, ascent, block.height, chars)
@@ -126,7 +133,7 @@ abstract class GenerateGlyphs : DefaultTask() {
                             val chars = listOf(Character.toString(it.codePoint))
                             val ascent = it.ascent - lower
                             if (ascent > it.height) {
-                                val source = GlyphAdvances.texture(assets.get().asFile, it.texture)
+                                val source = resolveTexture(it.texture)
                                 providers += bitmap(raise(root, it.texture, source, 1, it.height, ascent), ascent, ascent, chars)
                             } else {
                                 providers += bitmap(it.texture, ascent, it.height, chars)
@@ -216,11 +223,21 @@ abstract class GenerateGlyphs : DefaultTask() {
         chars: List<String>,
     ): Map<String, Any> = linkedMapOf("type" to "bitmap", "file" to texture, "ascent" to ascent, "height" to height, "chars" to chars)
 
+    private fun resolveTexture(id: String): File {
+        val primary = GlyphAdvances.texture(assets.get().asFile, id)
+        if (primary.isFile) return primary
+        return generated.files
+            .map { GlyphAdvances.texture(it.resolve("assets"), id) }
+            .firstOrNull { it.isFile }
+            ?: primary
+    }
+
     private fun writeAdvances(fonts: Map<String, File>) {
         val root = fresh(resourceDirectory.get().asFile)
+        val generatedDirs = generated.files.toList()
         for ((id, resource) in advanceTables.get()) {
             val font = fonts[id] ?: throw GradleException("an advance table is asked for font $id, which glyphs.json does not declare")
-            val table = GlyphAdvances.of(font, assets.get().asFile, fontDirectory.get().asFile, vanilla.orNull?.asFile)
+            val table = GlyphAdvances.of(font, assets.get().asFile, fontDirectory.get().asFile, vanilla.orNull?.asFile, generatedDirs)
             val lines =
                 listOf(
                     "# Generated from resource-pack ${fontPath(id).removePrefix("assets/")} by the build - do not edit.",

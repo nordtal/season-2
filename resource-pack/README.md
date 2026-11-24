@@ -768,13 +768,16 @@ piece with a move of -1. The fill is two columns narrower than the plate, writte
 down to 1, so any width from 2 up takes one run per 256 columns and at most 8 more. A label stands on the plate in a
 text font 5 pixels lower than the plate's art.
 
-#### The chest panels
+#### The chest and UI panels
 
 `drawChestPanels` draws the twelve chest panel textures into `build/generated/chest-panels` on every
-build, from vanilla's `generic_54.png` in the client jar, and `assemblePack` copies them into the
-pack. They are never committed. `ChestPanelGeometry` in `build-logic` holds where the panel sits
-against vanilla's window (window y 0 to 113 + 18 rows), so moving it is a change to one constant
-there. The header's row is `ChestTitle.CAPS_Y`, which must be a shift that `nordtal:ui_text_{shift}` has.
+build, from vanilla's `generic_54.png` in the client jar, and `drawUiPanels` draws all eighteen
+dialog panels, the `ui/kit/slot.png` slot frame, `ui/gui/panel_1..6` and their plain variants, and
+the `ui/board` frame corners and edges into `build/generated/ui-panels`. `assemblePack` copies both
+into the pack, and none of these generated textures is committed. `ChestPanelGeometry` in
+`build-logic` holds where the chest panel sits against vanilla's window (window y 0 to 113 + 18 rows),
+so moving it is a change to one constant there. The header's row is `ChestTitle.CAPS_Y`, which must be
+a shift that `nordtal:ui_text_{shift}` has.
 
 ## Vanilla overrides
 

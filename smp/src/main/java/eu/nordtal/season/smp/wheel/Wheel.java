@@ -152,15 +152,7 @@ public final class Wheel {
                 final ClickEvent press = count > 0 ? send.clickUnless(() -> turning.containsKey(id), this::spin) : null;
                 player.setCooldown(WheelDialog.GROUP, timetable.open());
                 player.showDialog(WheelDialog.of(
-                        plan,
-                        stacks,
-                        stacks,
-                        timetable.rows(),
-                        texts(locale, count),
-                        locale.getLanguage(),
-                        count > 0,
-                        press,
-                        closing(send)));
+                        plan, stacks, stacks, timetable.rows(), texts(locale, count), count > 0, press, closing(send)));
                 stopPopping(id);
                 popping.put(id, pops(player, () -> popping.remove(id), Runnable::run));
             });
@@ -361,8 +353,6 @@ public final class Wheel {
                         return;
                     }
                     final Dialogs.Send send = dialogs.send();
-                    final ClickEvent again =
-                            spinsLeft > 0 ? send.clickUnless(() -> turning.containsKey(id), this::spin) : null;
                     stopPopping(id);
                     final Runnable show = () -> {
                         player.setCooldown(WheelDialog.GROUP, timetable.cooldown());
@@ -372,9 +362,8 @@ public final class Wheel {
                                 null,
                                 timetable.rows(),
                                 texts(locale, spinsLeft),
-                                locale.getLanguage(),
-                                spinsLeft > 0,
-                                again,
+                                false,
+                                null,
                                 closing(send)));
                     };
                     if (next.drawn()) {
@@ -402,7 +391,6 @@ public final class Wheel {
                 null,
                 timetable.rows(),
                 texts(locale, spinsLeft),
-                locale.getLanguage(),
                 false,
                 null,
                 closing(dialogs.send())));
@@ -426,7 +414,6 @@ public final class Wheel {
                 after,
                 timetable.rows(),
                 texts(locale, spinsLeft),
-                locale.getLanguage(),
                 spinsLeft > 0,
                 spinsLeft > 0 ? send.clickUnless(() -> turning.containsKey(id), this::spin) : null,
                 closing(send));

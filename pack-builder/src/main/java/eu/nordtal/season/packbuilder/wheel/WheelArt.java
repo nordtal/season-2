@@ -1,16 +1,12 @@
 package eu.nordtal.season.packbuilder.wheel;
 
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.List;
 
 /** The textures the pack draws for the wheel, from vanilla's letters and the kit's colours. */
 final class WheelArt {
 
     private static final int WHITE = 0xFFFFFFFF;
     private static final int SHADOW = 0xFF3F3F3F;
-    private static final int DISABLED = 0xFFBDBDBD;
-    private static final int FAINT = 0xFF8B8B8B;
 
     private WheelArt() {}
 
@@ -61,36 +57,5 @@ final class WheelArt {
                 }
             }
         }
-    }
-
-    /** The disabled plate with {@code label} centred in faint letters, its capitals from row 5, as a plate draws it. */
-    static BufferedImage offPlate(final BufferedImage ascii, final String label) {
-        final BufferedImage image =
-                new BufferedImage(WheelLayout.PLATE_WIDTH, WheelLayout.PLATE_HEIGHT, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < image.getHeight(); y++) {
-            for (int x = 0; x < image.getWidth(); x++) {
-                image.setRGB(x, y, DISABLED);
-            }
-        }
-        final List<WheelVanilla.Glyph> glyphs = new ArrayList<>();
-        int width = -1;
-        for (int i = 0; i < label.length(); i++) {
-            final WheelVanilla.Glyph glyph = WheelVanilla.glyph(ascii, label.charAt(i));
-            glyphs.add(glyph);
-            width += glyph.advance();
-        }
-        int pen = (image.getWidth() - width) / 2;
-        for (final WheelVanilla.Glyph glyph : glyphs) {
-            final boolean[][] rows = glyph.rows();
-            for (int y = 0; y < rows.length; y++) {
-                for (int x = 0; x < rows[y].length; x++) {
-                    if (rows[y][x] && pen + x < image.getWidth() && 5 + y < image.getHeight()) {
-                        image.setRGB(pen + x, 5 + y, FAINT);
-                    }
-                }
-            }
-            pen += glyph.advance();
-        }
-        return image;
     }
 }

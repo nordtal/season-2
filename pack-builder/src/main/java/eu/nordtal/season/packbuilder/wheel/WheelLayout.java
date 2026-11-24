@@ -4,66 +4,53 @@ import java.util.List;
 
 /**
  * Where the wheel's parts sit, in GUI pixels of a 480 x 270 screen, each from its body's origin.
- * The column holds {@link #BODIES} item bodies 10 apart, and the client's empty button column 10 below them,
- * so it is 168 high and starts at 63. The rows' texts lie over the prizes at rest, to show their items.
+ * The column holds {@link #BODIES} item bodies 10 apart: a lone base art body first, then the glinting prizes with
+ * a 17-line description (161 high) whose focus ring lies only on static pixels.
  */
 public final class WheelLayout {
 
-    public static final int BODIES = 6;
-    public static final int DISC_BODY = 0;
-    public static final int PRIZES_BODY = 1;
-    public static final int FOIL_BODY = 2;
-    public static final int PLATE_BODY = 3;
-    public static final int OVERLAY_BODY = 4;
-    public static final int HOVER_BODY = 5;
+    public static final int BODIES = 2;
+    public static final int BASE_BODY = 0;
+    public static final int FOIL_BODY = 1;
 
     static final int DISC = 156;
     static final int PLACES = WheelTurn.PLACES;
     private static final double RADIUS = DISC / 2.0 - 20;
 
     /** The row tops from the column's top, with a 10-pixel gap after each row. */
-    private static final int[] ROWS = {0, 11, 47, 74, 105, 132};
+    private static final int[] ROWS = {0, 11};
 
-    /**
-     * The rows' heights; the text of a row of 26 has two lines, of 17 one, centred in its row.
-     * Each row is taller than its text by an even number, so the centring needs no rounding.
-     */
-    public static final List<Integer> HEIGHTS = List.of(1, 26, 17, 21, 17, 26);
+    /** The text lines of the description body: 9 * 17 + 8 = 161 high. */
+    public static final int LINES = 17;
 
-    /** The width of every row with a description, from its item's left to its text's right. */
+    /** The rows' heights: 1 for the lone base art body, 161 for the 17-line description body. */
+    public static final List<Integer> HEIGHTS = List.of(1, 9 * LINES + 8);
+
+    /** The width of the description row, from its item's left to its text's right. */
     public static final int ROW_WIDTH = 254;
 
-    /** The item's width in a row with a description, but for the plate's, whose item hovers the prize left of it. */
-    public static final int ITEM_WIDTH = 1;
+    /** The item's width in the description row, even so the description text width is even. */
+    public static final int ITEM_WIDTH = 2;
 
-    /** The plate row's item: the hover of the prize at place 9, from 17 left of it to its right edge. */
-    public static final int PLATE_ITEM = 33;
-
-    /** The width of the disc's item, which has no text. */
+    /** The width of the lone base art body, which has no text. */
     public static final int LONE_ITEM = 2;
 
     /** The disc canvas's top-left from the column's top-middle. */
-    private static final int[] CANVAS = {-122, 8};
+    private static final int[] CANVAS = {-122, 16};
 
     static final int[] POINTER = {DISC / 2 - 8, -8};
 
-    /** The off plate's top-left on the disc canvas: 13 right of the disc, centred on its height. */
+    /** The Spin plate's top-left on the disc canvas: 13 right of the disc, centred on its height. */
     static final int[] PLATE = {DISC + 13, DISC / 2 - 8};
-
-    static final int PLATE_WIDTH = 75;
-    static final int PLATE_HEIGHT = 17;
 
     /** The rectangle every body spans on the disc canvas: the art with a margin. */
     static final int[] ANCHOR = {-2, -10, DISC + 2, DISC + 10};
-
-    /** The rectangle the overlay spans, which takes in the plate. */
-    static final int[] OVERLAY_ANCHOR = {-2, -10, PLATE[0] + PLATE_WIDTH + 2, DISC + 10};
 
     private WheelLayout() {}
 
     /** Body {@code body}'s item origin from the column's top-middle. */
     static int[] origin(final int body) {
-        final int x = body == DISC_BODY ? -LONE_ITEM / 2 : -ROW_WIDTH / 2;
+        final int x = body == BASE_BODY ? -LONE_ITEM / 2 : -ROW_WIDTH / 2;
         return new int[] {x, ROWS[body]};
     }
 
@@ -88,27 +75,33 @@ public final class WheelLayout {
         return new int[] {CANVAS[0] + p[0], CANVAS[1] + p[1]};
     }
 
-    /** The place whose prize the plate row's item hovers: the left one on the wheel's middle height. */
-    public static final int ITEM_PLACE = 9;
-
-    /** The row whose text hovers the prize at place {@code place} at rest. */
-    public static int hoverBody(final int place) {
-        return switch (place) {
-            case 11, 0, 1 -> PRIZES_BODY;
-            case 10, 2 -> FOIL_BODY;
-            case 9, 3 -> PLATE_BODY;
-            case 8, 4 -> OVERLAY_BODY;
-            default -> HOVER_BODY;
-        };
+    /** The description text's left, inside its box's padding of 4, from the column's middle. */
+    public static int textLeft() {
+        return -ROW_WIDTH / 2 + ITEM_WIDTH + 2 + 4;
     }
 
-    /** Row {@code body}'s text's left, inside its box's padding of 4, from the column's middle. */
-    public static int textLeft(final int body) {
-        return -ROW_WIDTH / 2 + (body == PLATE_BODY ? PLATE_ITEM : ITEM_WIDTH) + 2 + 4;
+    /** The description text's top, inside its box's padding of 4, from the column's top. */
+    public static int textTop() {
+        return ROWS[FOIL_BODY] + 4;
     }
 
-    /** The off plate's left from the plate row's text's left. */
-    public static int plateInText() {
-        return CANVAS[0] + PLATE[0] - textLeft(PLATE_BODY);
+    /** The plate's left from the description text's left. */
+    public static int plateX() {
+        return CANVAS[0] + PLATE[0] - textLeft();
+    }
+
+    /** The plate's top from the description text's top. */
+    public static int plateY() {
+        return CANVAS[1] + PLATE[1] - textTop();
+    }
+
+    /** Place {@code place}'s prize left from the description text's left. */
+    public static int hoverX(final int place) {
+        return place(place)[0] - textLeft();
+    }
+
+    /** Place {@code place}'s prize top from the description text's top. */
+    public static int hoverY(final int place) {
+        return place(place)[1] - textTop();
     }
 }

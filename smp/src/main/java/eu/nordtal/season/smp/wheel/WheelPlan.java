@@ -23,6 +23,12 @@ record WheelPlan(int variant, Face face) {
     /** The variant string the pack plays the pop-in for. */
     static final String OPEN = "open";
 
+    /** The string that draws nothing at a place whose prize the other body draws. */
+    static final String NONE = "-";
+
+    /** The count string that draws no stack count at a place. */
+    static final String NO_COUNT = "1";
+
     /**
      * The prizes at each place, place 0 first, and the parity of the disc's grain.
      * The grain stands at its frame 0 or 8, so the next turn starts from the grain the last one stopped on.
@@ -123,34 +129,39 @@ record WheelPlan(int variant, Face face) {
         return new Face(List.of(places), (face.parity() + variant) % 2);
     }
 
-    /** The disc's custom model data strings: the variant and the grain's parity. */
-    List<String> disc() {
-        return List.of(variantString(), String.valueOf(face.parity()));
+    /**
+     * The base body's strings: plain prize keys, plain prize counts, variant and grain parity.
+     * Glinting places hold {@link #NONE} and {@link #NO_COUNT} so the foil body draws them instead.
+     */
+    List<String> base(final List<Boolean> foil) {
+        final List<String> out = new ArrayList<>(2 * PLACES + 2);
+        addPrizesAndCounts(out, foil, false);
+        out.add(variantString());
+        out.add(String.valueOf(face.parity()));
+        return out;
     }
 
-    /** The strings that draw nothing at a place, whose prize the other prizes' body draws. */
-    static final String NONE = "-";
-
     /**
-     * A prizes body's strings: each place's prize, or {@link #NONE}, and the variant.
-     * The glinting body draws the prizes {@code foil} marks, so its glint falls on them alone; the plain one the rest.
+     * The foil body's strings: glinting prize keys, glinting prize counts and variant.
+     * Plain places hold {@link #NONE} and {@link #NO_COUNT} so the base body draws them instead.
      */
-    List<String> prizes(final List<Boolean> foil, final boolean glinting) {
-        final List<String> out = new ArrayList<>(PLACES + 1);
+    List<String> foil(final List<Boolean> foil) {
+        final List<String> out = new ArrayList<>(2 * PLACES + 1);
+        addPrizesAndCounts(out, foil, true);
+        out.add(variantString());
+        return out;
+    }
+
+    private void addPrizesAndCounts(final List<String> out, final List<Boolean> foil, final boolean glinting) {
         for (int body = 0; body < PLACES; body++) {
             out.add(foil.get(body) == glinting ? key(face.places().get(body)) : NONE);
         }
-        out.add(variantString());
-        return out;
-    }
-
-    /** The overlay's strings: each body's count, the variant and {@code language}. */
-    List<String> overlay(final String language) {
-        final List<String> out = new ArrayList<>(PLACES + 2);
-        face.places().forEach(prize -> out.add(String.valueOf(prize.amount())));
-        out.add(variantString());
-        out.add(language);
-        return out;
+        for (int body = 0; body < PLACES; body++) {
+            out.add(
+                    foil.get(body) == glinting
+                            ? String.valueOf(face.places().get(body).amount())
+                            : NO_COUNT);
+        }
     }
 
     private String variantString() {

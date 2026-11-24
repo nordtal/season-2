@@ -64,32 +64,39 @@ class WheelPlanTest {
     @Test
     void theWaitingWheelPlaysThePopInAndKeepsItsFace() {
         final WheelPlan plan = WheelPlan.waiting(face);
-        assertEquals(List.of("open", "1"), plan.disc());
-        assertEquals(
-                "open",
-                plan.prizes(Collections.nCopies(WheelPlan.PLACES, false), false).get(WheelPlan.PLACES));
+        final List<Boolean> plain = Collections.nCopies(WheelPlan.PLACES, false);
+        final List<String> base = plan.base(plain);
+        assertEquals("open", base.get(2 * WheelPlan.PLACES));
+        assertEquals("1", base.get(2 * WheelPlan.PLACES + 1));
+        assertEquals("open", plan.foil(plain).get(2 * WheelPlan.PLACES));
         assertEquals(face, plan.after());
     }
 
     @Test
-    void theStringsNameEachBodysPrizeTheVariantAndTheLanguage() {
+    void theStringsSplitPlainAndGlintingPrizesWithTheirCounts() {
         final WheelPlan plan = WheelPlan.turning(face, 3);
-        assertEquals(List.of("3", "1"), plan.disc());
         final List<Boolean> foil = new ArrayList<>(Collections.nCopies(WheelPlan.PLACES, false));
         foil.set(0, true);
-        final List<String> plain = plan.prizes(foil, false);
-        final List<String> glinting = plan.prizes(foil, true);
-        assertEquals(WheelPlan.PLACES + 1, plain.size());
-        assertEquals(WheelPlan.NONE, plain.get(0));
+        foil.set(9, true);
+        final List<String> base = plan.base(foil);
+        final List<String> glinting = plan.foil(foil);
+        assertEquals(2 * WheelPlan.PLACES + 2, base.size());
+        assertEquals(2 * WheelPlan.PLACES + 1, glinting.size());
+        assertEquals(WheelPlan.NONE, base.get(0));
+        assertEquals(WheelPlan.NO_COUNT, base.get(WheelPlan.PLACES));
         assertEquals("dirt", glinting.get(0));
-        assertEquals("dirt", plain.get(1));
+        assertEquals("1", glinting.get(WheelPlan.PLACES));
+        assertEquals("dirt", base.get(1));
+        assertEquals("2", base.get(WheelPlan.PLACES + 1));
         assertEquals(WheelPlan.NONE, glinting.get(1));
-        assertEquals("3", plain.get(WheelPlan.PLACES));
-        final List<String> overlay = plan.overlay("de");
-        assertEquals(WheelPlan.PLACES + 2, overlay.size());
-        assertEquals("10", overlay.get(9));
-        assertEquals("3", overlay.get(12));
-        assertEquals("de", overlay.get(13));
+        assertEquals(WheelPlan.NO_COUNT, glinting.get(WheelPlan.PLACES + 1));
+        assertEquals(WheelPlan.NONE, base.get(9));
+        assertEquals(WheelPlan.NO_COUNT, base.get(WheelPlan.PLACES + 9));
+        assertEquals("dirt", glinting.get(9));
+        assertEquals("10", glinting.get(WheelPlan.PLACES + 9));
+        assertEquals("3", base.get(2 * WheelPlan.PLACES));
+        assertEquals("1", base.get(2 * WheelPlan.PLACES + 1));
+        assertEquals("3", glinting.get(2 * WheelPlan.PLACES));
     }
 
     @Test

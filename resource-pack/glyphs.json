@@ -6302,6 +6302,27 @@
           ]
         },
         {
+          "range": "FE7D0-FE7D7",
+          "title": "Wheel focus cover",
+          "about": "Covers the wheel's two item outlines and its 161 px description ring in panel grey, pointer row 3, shadow, stand and disc row 155 so Tab and click focus show no white outline.",
+          "height": 172,
+          "ascent": 22,
+          "glyphs": [
+            {
+              "code": "FE7D0",
+              "title": "Wheel focus cover, left",
+              "constant": "UI_WHEEL_RING_LEFT",
+              "texture": "nordtal:ui/kit/wheel_ring_l.png"
+            },
+            {
+              "code": "FE7D1",
+              "title": "Wheel focus cover, right",
+              "constant": "UI_WHEEL_RING_RIGHT",
+              "texture": "nordtal:ui/kit/wheel_ring_r.png"
+            }
+          ]
+        },
+        {
           "range": "FE7E0-FE7FF",
           "title": "Ring 17",
           "about": "A focus ring cover 17 high: its side column, corners included, the bevel's dark column, alone and over the panel's black border, runs of 1 to 256 columns of its top and of its bottom row, bottom runs in the black of the panel's border, and its side column and the bevel's white column over the panel's foot.",

@@ -21,8 +21,8 @@
             },
             {
               "text": {
-                "en": "Extend it in the {@terms.contribution-channel}.",
-                "de": "Verlängere ihn im {@terms.contribution-channel}."
+                "en": "Extend it in the {@terms.join-channel}.",
+                "de": "Verlängere ihn im {@terms.join-channel}."
               },
               "when": "!channel"
             }

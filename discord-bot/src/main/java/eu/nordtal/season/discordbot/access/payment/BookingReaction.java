@@ -5,43 +5,24 @@ import eu.nordtal.season.database.payment.BookedPayment;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
-import eu.nordtal.season.discordbot.config.Configured;
-import eu.nordtal.season.discordbot.config.GuildLanguages;
-import eu.nordtal.season.discordrendering.DocumentRenderer;
-import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Money;
-import java.util.Locale;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 
 @Slf4j
 public final class BookingReaction {
 
-    private final GuildLanguages languages;
     private final AccessRoles roles;
     private final AdminLog admin;
-    private final DocumentRenderer documents;
-    private final JDA jda;
 
-    public BookingReaction(
-            final GuildLanguages languages,
-            final AccessRoles roles,
-            final AdminLog admin,
-            final DocumentRenderer documents,
-            final JDA jda) {
-        this.languages = languages;
+    public BookingReaction(final AccessRoles roles, final AdminLog admin) {
         this.roles = roles;
         this.admin = admin;
-        this.documents = documents;
-        this.jda = jda;
     }
 
     public void tell(final BookedPayment booked) {
         final DiscordId payer = booked.person();
-        final Locale locale = roles.localeOf(payer);
         roles.applyAccessRole(payer, true);
         if (booked.donation()) {
             roles.grantDonorRole(payer);
@@ -60,7 +41,6 @@ public final class BookingReaction {
                         : new Sent<>(Replies.DM_GRANTED, new Replies.Until(booked.until())));
         if (booked.donation()) {
             roles.dm(payer, Sent.of(Replies.DM_DONOR));
-            announceDonation(payer, booked.donationCents(), locale);
         }
 
         admin.show(booked.entry());
@@ -69,27 +49,5 @@ public final class BookingReaction {
                 payer,
                 booked.reference(),
                 booked.days());
-    }
-
-    private void announceDonation(final DiscordId discordId, final int donationCents, final Locale locale) {
-        final String channelId = languages.forLocale(locale).contributionChannelId();
-        if (!Configured.isSet(channelId)) {
-            return;
-        }
-        final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
-        if (channel == null) {
-            log.error("contribution channel not found, thank-you not posted: channel={}", channelId);
-            return;
-        }
-        channel.sendMessage(documents
-                        .reply(
-                                locale,
-                                new Sent<>(
-                                        Replies.PUBLIC_DONATION,
-                                        new Replies.Donated(
-                                                new DiscordMemberContext(discordId, discordId.value()),
-                                                Money.euroCents(donationCents))))
-                        .create())
-                .queue(ok -> {}, failure -> log.error("donation thank-you not posted", failure));
     }
 }

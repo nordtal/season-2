@@ -92,7 +92,7 @@ class DocumentRendererTest {
     @Test
     void aPreviewWritesEachExampleAsTheBotWritesItsValue() {
         final String drawn = StoredDocumentsStandIn.renderer()
-                .preview(packaged("contribution"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+                .preview(packaged("link"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
         assertTrue(drawn.contains("\\n**30 days** for €5.00\""), drawn);
         assertTrue(drawn.contains("added €5.00 donation"), drawn);

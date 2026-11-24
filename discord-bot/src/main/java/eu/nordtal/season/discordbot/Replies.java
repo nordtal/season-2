@@ -34,16 +34,13 @@ public final class Replies {
             @Example("30") long days,
             @Example("2026-11-22T18:00:00Z") Instant until) {}
 
-    /** @param channel the contribution channel, empty where the language has none */
+    /** @param channel the join channel, empty where the language has none */
     public record Reminder(
             @Example("2026-11-22T18:00:00Z") Instant until,
-            @Example("#contribution") String channel) {}
+            @Example("#join") String channel) {}
 
-    /** @param channel the contribution channel, empty where the language has none */
-    public record Ended(@Example("#contribution") String channel) {}
-
-    public record Donated(
-            DiscordMemberContext user, @Example("500") Money amount) {}
+    /** @param channel the join channel, empty where the language has none */
+    public record Ended(@Example("#join") String channel) {}
 
     public static final DocumentSpec<DocumentSpec.None> PURCHASE_PENDING =
             reply("purchase-pending", "Purchase").titled("Payment link being created");
@@ -129,9 +126,6 @@ public final class Replies {
             reply("dm-expired", "Direct messages", Ended.class).titled("Access ended");
     public static final DocumentSpec<DocumentSpec.None> DM_REVOKED =
             reply("dm-revoked", "Direct messages").titled("Access revoked");
-
-    public static final DocumentSpec<Donated> PUBLIC_DONATION =
-            reply("public-donation", "Contribution", Donated.class).titled("Donation thanks in the channel");
 
     private Replies() {}
 

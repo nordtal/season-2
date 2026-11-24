@@ -6,11 +6,8 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.document.AppliedDocuments;
-import eu.nordtal.season.database.inbox.BotRequest;
-import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
-import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.Objective;
@@ -77,8 +74,6 @@ class AdvancementCreditIntegrationTest {
 
         final Messages messages =
                 Messages.load(AdvancementCreditIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
-        final Announcer announcer = new Announcer(
-                Inbox.over(dataSource, BotRequest.TABLE), messages.locales(), Runnable::run, (message, failure) -> {});
         engine = new ObjectiveEngine(
                 null,
                 jdbi,
@@ -92,7 +87,6 @@ class AdvancementCreditIntegrationTest {
                 null,
                 null,
                 null,
-                announcer,
                 null);
 
         online.clear();

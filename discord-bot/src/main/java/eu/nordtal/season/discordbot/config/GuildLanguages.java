@@ -44,7 +44,6 @@ public final class GuildLanguages {
                         .map(language -> new Language(
                                 language.tag(),
                                 roleNameOf(language),
-                                language.contributionChannel(),
                                 language.linkChannel(),
                                 language.hungerGamesChannel(),
                                 language.statusChannel(),
@@ -140,17 +139,15 @@ public final class GuildLanguages {
      *
      * @param tag the lower-case language tag, which is the bundle file name and the {@code discord_user.locale} value
      * @param roleName the name of the role the bot finds or creates for the language
-     * @param contributionChannelId the channel of the buy-access message and the donation thank-yous
-     * @param linkChannelId the channel of the account-link message
+     * @param linkChannelId the channel of the join message (access and account link)
      * @param hungerGamesChannelId the channel of the hunger games Register message
-     * @param announcementChannelId the channel of milestone announcements
+     * @param announcementChannelId the default channel for Steward announcements and the News button
      * @param statusChannelId the channel whose name shows the status
      * @param emoji the emoji shown before the language in the language select
      */
     public record Language(
             String tag,
             String roleName,
-            String contributionChannelId,
             String linkChannelId,
             String hungerGamesChannelId,
             String statusChannelId,
@@ -162,7 +159,6 @@ public final class GuildLanguages {
         public Language(
                 final String tag,
                 final String roleName,
-                final String contributionChannelId,
                 final String linkChannelId,
                 final String hungerGamesChannelId,
                 final String statusChannelId,
@@ -172,7 +168,6 @@ public final class GuildLanguages {
             this(
                     tag,
                     roleName,
-                    contributionChannelId,
                     linkChannelId,
                     hungerGamesChannelId,
                     statusChannelId,
@@ -185,7 +180,6 @@ public final class GuildLanguages {
         public Language(
                 final String tag,
                 final String roleName,
-                final String contributionChannelId,
                 final String linkChannelId,
                 final String hungerGamesChannelId,
                 final String statusChannelId,
@@ -193,7 +187,6 @@ public final class GuildLanguages {
             this(
                     tag,
                     roleName,
-                    contributionChannelId,
                     linkChannelId,
                     hungerGamesChannelId,
                     statusChannelId,
@@ -206,21 +199,10 @@ public final class GuildLanguages {
         public Language(
                 final String tag,
                 final String roleName,
-                final String contributionChannelId,
                 final String linkChannelId,
                 final String hungerGamesChannelId,
                 final String statusChannelId) {
-            this(
-                    tag,
-                    roleName,
-                    contributionChannelId,
-                    linkChannelId,
-                    hungerGamesChannelId,
-                    statusChannelId,
-                    "",
-                    "",
-                    "",
-                    emojiOf(tag, ""));
+            this(tag, roleName, linkChannelId, hungerGamesChannelId, statusChannelId, "", "", "", emojiOf(tag, ""));
         }
 
         public boolean hasStatusChannel() {
@@ -240,12 +222,12 @@ public final class GuildLanguages {
             return Locales.parse(tag);
         }
 
-        /** Returns the {@code managed_message.kind} of the buy-access message, such as {@code CONTRIBUTION_EN}. */
+        /** Returns the {@code managed_message.kind} of the former buy-access message, e.g. {@code CONTRIBUTION_EN}. */
         public String contributionKind() {
             return "CONTRIBUTION_" + tag.toUpperCase(Locale.ROOT);
         }
 
-        /** Returns the {@code managed_message.kind} of the account-link message, such as {@code LINK_EN}. */
+        /** Returns the {@code managed_message.kind} of the join message, such as {@code LINK_EN}. */
         public String linkKind() {
             return "LINK_" + tag.toUpperCase(Locale.ROOT);
         }
@@ -255,7 +237,7 @@ public final class GuildLanguages {
             return "HG_REGISTER_" + tag.toUpperCase(Locale.ROOT);
         }
 
-        /** Returns the {@code managed_message.kind} of the rules and the guide, such as {@code RULES_EN}. */
+        /** Returns the {@code managed_message.kind} of the rules message, such as {@code RULES_EN}. */
         public String rulesKind() {
             return "RULES_" + tag.toUpperCase(Locale.ROOT);
         }

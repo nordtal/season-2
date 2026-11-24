@@ -18,10 +18,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.IntStream;
 import net.dv8tion.jda.api.components.Component;
-import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
+import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import org.junit.jupiter.api.Test;
@@ -29,99 +29,73 @@ import org.junit.jupiter.api.Test;
 class ManagedMessagesTest {
 
     private static final DocumentRenderer RENDERER = StoredDocumentsStandIn.renderer();
+    private static final Tiers TIERS = Tiers.of(List.of(new Tier(30, 500), new Tier(90, 1250)), 500);
     private static final GuildLanguages.Language GERMAN =
-            new GuildLanguages.Language("de", "Deutsch", "1", "2", "3", "", "", "", "4");
+            new GuildLanguages.Language("de", "Deutsch", "2", "3", "", "5", "", "4");
 
     @Test
-    void theContributionMessageListsEachTierUnderItsBannerInOneBoxWithTheBuyButton() {
-        final DocumentRenderer.Drawn drawn = ManagedMessages.contribution(
-                RENDERER, Tiers.of(List.of(new Tier(30, 500), new Tier(90, 1250)), 500), Locale.ENGLISH);
+    void theJoinMessageCombinesAccessPricesAndAccountLinkInOneContainerWithBothButtons() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.link(RENDERER, TIERS, Locale.ENGLISH);
         final Container box = (Container) drawn.components().getFirst();
-        final Button buy = MessageComponentTree.of(drawn.components())
-                .findAll(Button.class)
-                .getFirst();
-
-        assertAll(
-                () -> assertEquals(1, drawn.components().size()),
-                () -> assertInstanceOf(MediaGallery.class, box.getComponents().getFirst()),
-                () -> assertEquals(
-                        "With access you can join `play.nordtal.eu`.\n**30 days** for €5.00\n**90 days** for €12.50",
-                        ((TextDisplay) box.getComponents().get(2)).getContent()),
-                () -> assertEquals(List.of("contribution.png"), drawn.attachments()),
-                () -> assertEquals(Ids.BUY, buy.getCustomId()),
-                () -> assertEquals("Buy access", buy.getLabel()));
-    }
-
-    @Test
-    void theLinkStepsStandOverTheButtonThatTakesTheCode() {
-        final DocumentRenderer.Drawn drawn = ManagedMessages.link(RENDERER, Locale.GERMAN);
-        final Container box = (Container) drawn.components().getFirst();
-
-        assertAll(
-                () -> assertEquals(1, drawn.components().size()),
-                () -> assertEquals(
-                        "1. Betritt `play.nordtal.eu` in Minecraft.\n2. Gib hier den Code vom Login-Bildschirm ein.",
-                        ((TextDisplay) box.getComponents().get(2)).getContent()),
-                () -> assertEquals(
-                        "Code eingeben",
-                        ((ActionRow) box.getComponents().get(3))
-                                .getButtons()
-                                .getFirst()
-                                .getLabel()));
-    }
-
-    @Test
-    void theRulesStandUnderTheirBannerAsAListThatWelcomesBothLanguages() {
-        final DocumentRenderer.Drawn drawn = ManagedMessages.rules(RENDERER, Locale.ENGLISH);
-        final Container box = (Container) drawn.components().getFirst();
-
-        assertAll(
-                () -> assertEquals(1, drawn.components().size()),
-                () -> assertInstanceOf(MediaGallery.class, box.getComponents().getFirst()),
-                () -> assertEquals(List.of("rules.png"), drawn.attachments()),
-                () -> assertEquals(
-                        "These rules apply on Discord and in the game.\n1. Treat everyone decently.\n2. Play fair."
-                                + "\n3. Fight other players on the SMP only when both of you agree."
-                                + "\n4. German and English are both welcome in the shared channels.",
-                        ((TextDisplay) box.getComponents().get(2)).getContent()));
-    }
-
-    @Test
-    void eachStepOfTheGuideOpensItsChannelInTheSameLanguage() {
-        final DocumentRenderer.Drawn drawn = ManagedMessages.guide(RENDERER, GERMAN, "100");
         final List<Button> buttons = MessageComponentTree.of(drawn.components()).findAll(Button.class);
 
         assertAll(
                 () -> assertEquals(1, drawn.components().size()),
-                () -> assertEquals(List.of(), drawn.attachments()),
+                () -> assertInstanceOf(MediaGallery.class, box.getComponents().getFirst()),
+                () -> assertEquals(List.of("link.png"), drawn.attachments()),
                 () -> assertEquals(
-                        List.of("Konto verknüpfen", "Zugang kaufen"),
+                        "With access you can join `play.nordtal.eu`.\n**30 days** for €5.00\n**90 days** for €12.50",
+                        ((TextDisplay) box.getComponents().get(2)).getContent()),
+                () -> assertTrue(box.getComponents().stream().anyMatch(Separator.class::isInstance)),
+                () -> assertEquals(
+                        List.of(Ids.BUY, Ids.LINK),
+                        buttons.stream().map(Button::getCustomId).toList()),
+                () -> assertEquals(
+                        List.of("Buy access", "Enter code"),
                         buttons.stream().map(Button::getLabel).toList()),
-                () -> assertEquals(
-                        List.of("https://discord.com/channels/100/2", "https://discord.com/channels/100/1"),
-                        buttons.stream().map(Button::getUrl).toList()),
-                () -> assertTrue(
-                        drawn.text().contains("3. Verbinde dich in Minecraft mit `play.nordtal.eu`."), drawn.text()));
+                () -> assertTrue(drawn.text().contains("Run `/unlink` to link a different Minecraft account.")));
     }
 
     @Test
-    void theRulesAndTheGuideAreOneMessageWithinDiscordsLimits() {
-        final DocumentRenderer.Drawn drawn = ManagedMessages.rulesAndGuide(RENDERER, GERMAN, "100");
-        final Container rules = (Container) drawn.components().getFirst();
+    void theGermanJoinMessageShowsBothButtonsAndLinkSteps() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.link(RENDERER, TIERS, Locale.GERMAN);
+        final List<Button> buttons = MessageComponentTree.of(drawn.components()).findAll(Button.class);
 
         assertAll(
-                () -> assertEquals(2, drawn.components().size()),
-                () -> assertInstanceOf(MediaGallery.class, rules.getComponents().getFirst()),
-                () -> assertEquals(List.of("rules.png"), drawn.attachments()),
+                () -> assertEquals(1, drawn.components().size()),
                 () -> assertTrue(
-                        drawn.text().indexOf("Verknüpfe dein Minecraft-Konto")
-                                > drawn.text().indexOf("Spiel fair"),
+                        drawn.text()
+                                .contains(
+                                        "1. Betritt `play.nordtal.eu` in Minecraft.\n2. Gib hier den Code vom Login-Bildschirm ein."),
                         drawn.text()),
                 () -> assertEquals(
-                        2,
-                        MessageComponentTree.of(drawn.components())
-                                .findAll(Button.class)
-                                .size()),
+                        List.of("Zugang kaufen", "Code eingeben"),
+                        buttons.stream().map(Button::getLabel).toList()));
+    }
+
+    @Test
+    void theRulesAndSeasonOverviewShareOneContainerWithJoinAndNewsButtons() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.rules(RENDERER, GERMAN, "100");
+        final Container box = (Container) drawn.components().getFirst();
+        final List<Button> buttons = MessageComponentTree.of(drawn.components()).findAll(Button.class);
+
+        assertAll(
+                () -> assertEquals(1, drawn.components().size()),
+                () -> assertInstanceOf(MediaGallery.class, box.getComponents().getFirst()),
+                () -> assertEquals(List.of("rules.png"), drawn.attachments()),
+                () -> assertEquals(
+                        "Diese Regeln gelten im Discord und im Spiel.\n1. Geh mit allen anständig um.\n2. Spiel fair."
+                                + "\n3. Kämpfe auf der SMP nur gegen andere Spieler, wenn ihr beide zustimmt."
+                                + "\n4. In den gemeinsamen Kanälen sind Deutsch und Englisch beide willkommen.",
+                        ((TextDisplay) box.getComponents().get(2)).getContent()),
+                () -> assertTrue(box.getComponents().stream().anyMatch(Separator.class::isInstance)),
+                () -> assertTrue(drawn.text().contains("Schienennetz"), drawn.text()),
+                () -> assertEquals(
+                        List.of("Beitreten", "News"),
+                        buttons.stream().map(Button::getLabel).toList()),
+                () -> assertEquals(
+                        List.of("https://discord.com/channels/100/2", "https://discord.com/channels/100/5"),
+                        buttons.stream().map(Button::getUrl).toList()),
                 () -> assertTrue(MessageComponentTree.of(drawn.components())
                                 .findAll(Component.class)
                                 .size()
@@ -130,21 +104,25 @@ class ManagedMessagesTest {
     }
 
     @Test
-    void aGuideWithoutItsServerShowsTheStepsWithoutButtons() {
-        final DocumentRenderer.Drawn drawn = ManagedMessages.guide(RENDERER, GERMAN, "");
+    void theRulesWithoutServerOrChannelsHideTheOptionalLinkButtons() {
+        final DocumentRenderer.Drawn drawn = ManagedMessages.rules(RENDERER, GERMAN, "");
 
         assertAll(
                 () -> assertEquals(
                         List.of(), MessageComponentTree.of(drawn.components()).findAll(Button.class)),
-                () -> assertTrue(drawn.text().contains("1. Verknüpfe dein Minecraft-Konto."), drawn.text()));
+                () -> assertTrue(drawn.text().contains("1. Geh mit allen anständig um."), drawn.text()));
     }
 
     @Test
     void aDataListTooLongForOneMessageLosesItsLastItemsToACount() {
-        final String text = tooManyTiers(Locale.ENGLISH);
+        final DocumentRenderer.Drawn drawn = tooManyTiers(Locale.ENGLISH);
+        final int characters = MessageComponentTree.of(drawn.components()).findAll(TextDisplay.class).stream()
+                .mapToInt(display -> display.getContent().length())
+                .sum();
+        final String text = drawn.text();
 
         assertAll(
-                () -> assertTrue(text.length() <= DocumentCheck.TEXT, text.length() + " characters"),
+                () -> assertTrue(characters <= DocumentCheck.TEXT, characters + " characters"),
                 () -> assertTrue(
                         text.matches("(?s).*\n\\d+ more lines are not shown\\.(\n.*)?"),
                         text.substring(text.length() - 200)));
@@ -152,28 +130,29 @@ class ManagedMessagesTest {
 
     @Test
     void theCountOfWhatIsLeftOutIsWrittenInTheReadersLanguage() {
-        final String text = tooManyTiers(Locale.GERMAN);
+        final String text = tooManyTiers(Locale.GERMAN).text();
 
         assertTrue(
                 text.matches("(?s).*\n\\d+ weitere Zeilen werden nicht angezeigt\\.(\n.*)?"),
                 text.substring(text.length() - 200));
     }
 
-    private static String tooManyTiers(final Locale locale) {
+    private static DocumentRenderer.Drawn tooManyTiers(final Locale locale) {
         final List<ManagedMessages.Tier> tiers = IntStream.range(1, 400)
                 .mapToObj(day -> new ManagedMessages.Tier(day, Money.euroCents(100)))
                 .toList();
 
         return StoredDocumentsStandIn.renderer()
                 .render(
-                        ManagedMessages.CONTRIBUTION,
+                        ManagedMessages.LINK,
                         new ManagedMessages.Contribution(Money.euroCents(500)),
                         Map.of(
                                 "tiers",
                                 DocumentRenderer.FilledList.of(tiers),
                                 "buy",
-                                new DocumentRenderer.FilledButton(Ids.BUY)),
-                        locale)
-                .text();
+                                new DocumentRenderer.FilledButton(Ids.BUY),
+                                "link",
+                                new DocumentRenderer.FilledButton(Ids.LINK)),
+                        locale);
     }
 }

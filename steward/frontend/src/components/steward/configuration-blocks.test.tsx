@@ -32,7 +32,7 @@ afterEach(() => {
 function section(tag: string, channel: string): ConfigEntry[] {
   return [
     entry({ path: "tag", key: "tag", value: tag }),
-    entry({ path: "contribution-channel", key: "contribution-channel", value: channel }),
+    entry({ path: "link-channel", key: "link-channel", value: channel }),
   ]
 }
 
@@ -41,9 +41,9 @@ describe("repeatable cards for a SECTIONS entry", () => {
   const TEMPLATE: ConfigEntry[] = [
     entry({ path: "tag", key: "tag", label: "Tag" }),
     entry({
-      path: "contribution-channel",
-      key: "contribution-channel",
-      label: "Contribution channel",
+      path: "link-channel",
+      key: "link-channel",
+      label: "Join channel",
       refers: { to: "DISCORD_CHANNEL", optional: false },
     }),
   ]
@@ -169,7 +169,7 @@ describe("repeatable cards for a SECTIONS entry", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
 
     await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true))
-    expect(putChanges).toEqual({ languages: [{ tag: "en", "contribution-channel": "" }] })
+    expect(putChanges).toEqual({ languages: [{ tag: "en", "link-channel": "" }] })
   })
 })
 

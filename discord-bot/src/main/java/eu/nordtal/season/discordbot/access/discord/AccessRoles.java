@@ -231,9 +231,7 @@ public final class AccessRoles {
             final Locale locale = localeOf(deadline.discordId());
             dm(
                     deadline.discordId(),
-                    new Sent<>(
-                            Replies.DM_EXPIRING,
-                            new Replies.Reminder(deadline.validUntil(), contributionChannel(locale))));
+                    new Sent<>(Replies.DM_EXPIRING, new Replies.Reminder(deadline.validUntil(), joinChannel(locale))));
         }
 
         for (final AccessDeadline deadline : dao.endedWithin(EXPIRED_LOOKBACK_HOURS)) {
@@ -242,9 +240,7 @@ public final class AccessRoles {
             }
             dm(
                     deadline.discordId(),
-                    new Sent<>(
-                            Replies.DM_EXPIRED,
-                            new Replies.Ended(contributionChannel(localeOf(deadline.discordId())))));
+                    new Sent<>(Replies.DM_EXPIRED, new Replies.Ended(joinChannel(localeOf(deadline.discordId())))));
         }
     }
 
@@ -353,9 +349,9 @@ public final class AccessRoles {
                 new JournalDetail.MemberFailed(member, String.valueOf(failure.getMessage())));
     }
 
-    /** Returns the language's contribution channel as a mention, or an empty text where it has none. */
-    private String contributionChannel(final Locale locale) {
-        final String id = languages.forLocale(locale).contributionChannelId();
+    /** Returns the language's join channel as a mention, or an empty text where it has none. */
+    private String joinChannel(final Locale locale) {
+        final String id = languages.forLocale(locale).linkChannelId();
         return Configured.isSet(id) ? "<#" + id + ">" : "";
     }
 

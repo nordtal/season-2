@@ -31,7 +31,6 @@ import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.settings.network.NpcDialogueSpec;
-import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.area.AreaEditor;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.board.Boards;
@@ -130,7 +129,6 @@ public final class SmpPlugin extends NordtalPlugin {
     TrackDao trackRows;
     AuraDao aura;
 
-    Announcer announcer;
     private SmpAdmin admin;
     /** The problems of the last track reload, or empty when the reload took the track. */
     private volatile List<String> trackProblems = List.of();
@@ -287,8 +285,6 @@ public final class SmpPlugin extends NordtalPlugin {
         protectedAreas = ConfigAreas.ofSpawn(spawnSettings.get().protectedAreas());
         trackRows = jdbi().onDemand(TrackDao.class);
         aura = jdbi().onDemand(AuraDao.class);
-
-        announcer = SmpStart.startAnnouncer(this);
 
         nameTags = DisplayTags.start(this, nameTagSettings.get());
         final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this);

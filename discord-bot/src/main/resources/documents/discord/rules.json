@@ -53,6 +53,63 @@
               }
             }
           ]
+        },
+        {
+          "type": "SEPARATOR"
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "This {@terms.season}",
+                "de": "Diese {@terms.season}"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "This {@terms.season} takes you to the {@terms.smp} with a custom Overworld, the Nether and the End.",
+                "de": "Diese {@terms.season} führt dich auf die {@terms.smp} mit einer eigenen Oberwelt, dem Nether und dem Ende."
+              }
+            },
+            {
+              "text": {
+                "en": "Unlock {@terms.milestone, n=2} together to expand the border and open new areas, and connect your builds with the rail system.",
+                "de": "Schalte gemeinsam {@terms.milestone, n=2} frei, damit die Grenze wächst, und verbinde deine Orte mit dem Schienennetz."
+              }
+            },
+            {
+              "text": {
+                "en": "The News channel has further insights into the {@terms.season}.",
+                "de": "Im News-Kanal findest du weitere Einblicke in die {@terms.season}."
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "join",
+              "label": {
+                "en": "Join",
+                "de": "Beitreten"
+              }
+            },
+            {
+              "slot": "news",
+              "label": {
+                "en": "News",
+                "de": "News"
+              }
+            }
+          ]
         }
       ]
     }

@@ -21,8 +21,8 @@
             },
             {
               "text": {
-                "en": "Renew your {@terms.access} in the {@terms.contribution-channel}.",
-                "de": "Verlängere deinen {@terms.access} im {@terms.contribution-channel}."
+                "en": "Renew your {@terms.access} in the {@terms.join-channel}.",
+                "de": "Verlängere deinen {@terms.access} im {@terms.join-channel}."
               },
               "when": "!channel"
             }

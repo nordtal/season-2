@@ -45,7 +45,7 @@ public interface TermMessages {
     /** The words that a text never writes, by the key of the term it writes instead. */
     Map<String, List<String>> SYNONYMS = Map.of(
             "access", List.of("membership", "Mitgliedschaft", "Abo"),
-            "contribution-channel", List.of("payment channel", "Zahlungskanal"),
+            "join-channel", List.of("payment channel", "Zahlungskanal", "contribution channel", "Beitragskanal"),
             "milestone", List.of("Etappe"),
             "period", List.of("Laufzeit"),
             "season", List.of("Staffel"),
@@ -65,9 +65,9 @@ public interface TermMessages {
         @Describe("The unit a distance on a Minecraft map is counted in.")
         MessageRef block(@Arg("n") @Example("2") long n);
 
-        @Name("Contribution channel")
-        @Describe("The Discord channel where a member pays for access.")
-        MessageRef contributionChannel();
+        @Name("Join channel")
+        @Describe("The Discord channel where a member buys access and links their Minecraft account.")
+        MessageRef joinChannel();
 
         @Name("Extra spin")
         @Describe("A spin of the wheel that a finished objective or an admin gives beyond the daily ones.")

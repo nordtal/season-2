@@ -6,9 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.discordbot.StoredDocuments;
-import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
-import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.Documents;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -23,9 +21,7 @@ import org.slf4j.helpers.MessageFormatter;
 
 class AnnouncementsTest {
 
-    private static final DocumentRenderer DOCUMENTS = StoredDocumentsStandIn.renderer();
-
-    private static final Map<String, String> GUILD = Map.of("111", "announcements", "222", "ankuendigungen");
+    private static final Map<String, String> GUILD = Map.of("111", "news", "222", "neuigkeiten");
 
     record Line(String level, String text) {}
 
@@ -64,29 +60,25 @@ class AnnouncementsTest {
 
     private final GuildLanguages languages = GuildLanguages.of(
             List.of(
-                    new GuildLanguages.Language("en", "", "", "", "", "", "111"),
-                    new GuildLanguages.Language("de", "", "", "", "", "", "222")),
+                    new GuildLanguages.Language("en", "", "", "", "", "111"),
+                    new GuildLanguages.Language("de", "", "", "", "", "222")),
             new eu.nordtal.season.common.language.Languages(List.of("en", "de")));
 
     private final Announcements subject = new Announcements(channels, languages, log);
 
     @Test
     void everyPostedLineIsLoggedAtInfoWithItsLanguageAndChannel() {
-        assertTrue(post("en", milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "en", "Frontier")));
-        assertTrue(post("de", milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "de", "Grenzland")));
+        assertTrue(post("en", BotRequest.Announce.words(Map.of("en", "Season starts today."))));
+        assertTrue(post("de", BotRequest.Announce.words(Map.of("de", "Die Saison startet heute."))));
 
-        assertEquals(
-                List.of(
-                        "111: Frontier is complete. The border grows.",
-                        "222: Grenzland ist geschafft. Die Grenze wächst."),
-                sent);
+        assertEquals(List.of("111: Season starts today.", "222: Die Saison startet heute."), sent);
         final List<String> info = logged.stream()
                 .filter(line -> line.level().equals("info"))
                 .map(Line::text)
                 .toList();
         assertEquals(2, info.size(), () -> "logged: " + logged);
-        assertTrue(info.get(0).contains("language=en channel=111 channel_name=\"announcements\""), info.get(0));
-        assertTrue(info.get(1).contains("language=de channel=222 channel_name=\"ankuendigungen\""), info.get(1));
+        assertTrue(info.get(0).contains("language=en channel=111 channel_name=\"news\""), info.get(0));
+        assertTrue(info.get(1).contains("language=de channel=222 channel_name=\"neuigkeiten\""), info.get(1));
     }
 
     @Test
@@ -97,11 +89,10 @@ class AnnouncementsTest {
     }
 
     @Test
-    void anAdminsWordsKeepTheirMarkdownAndANameDoesNot() {
+    void anAdminsWordsKeepTheirMarkdown() {
         assertTrue(post("en", BotRequest.Announce.words(Map.of("en", "The **End** opens at 8_pm."))));
-        assertTrue(post("en", milestone(BotRequest.Announce.Message.MILESTONE, "en", "Far_Side")));
 
-        assertEquals(List.of("111: The **End** opens at 8_pm.", "111: Far\\_Side is complete."), sent);
+        assertEquals(List.of("111: The **End** opens at 8_pm."), sent);
     }
 
     @Test
@@ -112,11 +103,20 @@ class AnnouncementsTest {
     }
 
     @Test
-    void anAdminsWordsHaveNoDocumentForTranslationsToList() {
-        assertFalse(
-                Documents.packaged(Announcements.class.getClassLoader(), StoredDocuments.NAMESPACE)
-                        .containsKey("announce-words"),
-                "an admin's announcement is a document of its own");
+    void retiredMilestoneAnnouncementsAreNotPostedAndHaveNoDocuments() {
+        for (final BotRequest.Announce.Message message : List.of(
+                BotRequest.Announce.Message.MILESTONE,
+                BotRequest.Announce.Message.MILESTONE_BORDER,
+                BotRequest.Announce.Message.MILESTONE_NETHER,
+                BotRequest.Announce.Message.MILESTONE_END)) {
+            assertFalse(post("en", BotRequest.Announce.milestone(message, "a.milestone", Map.of("en", "Deep"))));
+        }
+        assertEquals(List.of(), sent);
+        final var packaged = Documents.packaged(Announcements.class.getClassLoader(), StoredDocuments.NAMESPACE);
+        for (final String name :
+                List.of("announce-milestone", "announce-border", "announce-nether", "announce-end", "announce-words")) {
+            assertFalse(packaged.containsKey(name), name);
+        }
     }
 
     @Test
@@ -126,26 +126,9 @@ class AnnouncementsTest {
         assertEquals(List.of(), sent);
     }
 
-    @Test
-    void eachMilestoneIsPostedFromItsOwnDocument() {
-        for (final BotRequest.Announce.Message message :
-                List.of(BotRequest.Announce.Message.MILESTONE_NETHER, BotRequest.Announce.Message.MILESTONE_END)) {
-            assertTrue(post("en", milestone(message, "en", "Deep")));
-        }
-
-        assertEquals(
-                List.of("111: Deep is complete. The Nether is open.", "111: Deep is complete. The End is open."), sent);
-    }
-
-    private static BotRequest.Announce milestone(
-            final BotRequest.Announce.Message message, final String language, final String name) {
-        return BotRequest.Announce.milestone(message, "a.milestone", Map.of(language, name));
-    }
-
-    /** Posts the one line of an announcement as the bot posts what Steward or the game asks for. */
     private boolean post(final String languageTag, final BotRequest.Announce announcement) {
-        return subject.post(
-                languageTag,
-                Announcements.text(DOCUMENTS, announcement, announcement.lines().getFirst()));
+        return Announcements.text(announcement, announcement.lines().getFirst())
+                .map(text -> subject.post(languageTag, text))
+                .orElse(false);
     }
 }

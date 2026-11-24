@@ -21,8 +21,8 @@ import org.junit.jupiter.api.Test;
 class OnboardingMessageTest {
     private static final GuildLanguages LANGUAGES = GuildLanguages.of(
             List.of(
-                    new GuildLanguages.Language("en", "English", "", "", "", "", "", "", "123"),
-                    new GuildLanguages.Language("de", "Deutsch", "", "", "", "", "", "", "456")),
+                    new GuildLanguages.Language("en", "English", "", "", "", "", "", "123"),
+                    new GuildLanguages.Language("de", "Deutsch", "", "", "", "", "", "456")),
             new Languages(List.of("en", "de")));
     private static final Choices CHOICES = new Choices(
             List.of(),

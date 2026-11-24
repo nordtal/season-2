@@ -198,19 +198,19 @@ describe("RepeatableCards", () => {
     const template = [
       field({ key: "tag", label: "Tag" }),
       field({
-        key: "contribution-channel",
-        label: "Contribution channel",
+        key: "link-channel",
+        label: "Join channel",
         refers: { to: "DISCORD_CHANNEL", optional: false },
       }),
     ]
     const entry = sectionsEntry(
-      [[field({ key: "tag", value: "en" }), field({ key: "contribution-channel", value: "" })]],
+      [[field({ key: "tag", value: "en" }), field({ key: "link-channel", value: "" })]],
       template,
     )
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     expect(screen.getByText("no bot token in this test")).toBeTruthy()
-    expect(asInput(screen.getByLabelText("Contribution channel")).value).toBe("")
+    expect(asInput(screen.getByLabelText("Join channel")).value).toBe("")
   })
 
   it("falls back to raw text instead of a card when the schema names no template", () => {
@@ -356,32 +356,32 @@ describe("RepeatableCards - a caller-supplied title", () => {
 
 describe("RepeatableCards - an incomplete card", () => {
   const REQUIRED_CHANNEL = field({
-    key: "contribution-channel",
-    label: "Contribution channel",
+    key: "link-channel",
+    label: "Join channel",
     refers: { to: "DISCORD_CHANNEL", optional: false },
   })
   const OPTIONAL_CHANNEL = field({
     key: "announcement-channel",
-    label: "Announcement channel",
+    label: "News channel",
     refers: { to: "DISCORD_CHANNEL", optional: true },
   })
 
   it("says so, and names the missing field, when a required channel is blank", () => {
     const template = [field({ key: "tag", label: "Tag" }), REQUIRED_CHANNEL]
     const entry = sectionsEntry(
-      [[field({ key: "tag", value: "en" }), field({ key: "contribution-channel", value: "" })]],
+      [[field({ key: "tag", value: "en" }), field({ key: "link-channel", value: "" })]],
       template,
     )
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
     screen.getByText(/Missing/i)
-    expect(screen.getAllByText(/Contribution channel/)).toHaveLength(2)
+    expect(screen.getAllByText(/Join channel/)).toHaveLength(2)
   })
 
   it("says nothing when every required channel is filled", () => {
     const template = [field({ key: "tag", label: "Tag" }), REQUIRED_CHANNEL]
     const entry = sectionsEntry(
-      [[field({ key: "tag", value: "en" }), field({ key: "contribution-channel", value: "123" })]],
+      [[field({ key: "tag", value: "en" }), field({ key: "link-channel", value: "123" })]],
       template,
     )
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)

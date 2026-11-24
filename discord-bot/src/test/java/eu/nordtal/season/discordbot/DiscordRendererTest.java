@@ -69,11 +69,12 @@ class DiscordRendererTest {
 
     @Test
     void aMemberIsAMentionAndMoneyIsWrittenAsTheReadersLanguageWritesIt() {
-        final Replies.Donated donated =
-                new Replies.Donated(new DiscordMemberContext(DiscordId.of("123"), "Al_ex"), Money.euroCents(300));
+        final Replies.Partner partner = new Replies.Partner(new DiscordMemberContext(DiscordId.of("123"), "Al_ex"));
+        final Replies.Paid paid = new Replies.Paid(Money.euroCents(300), 30, AT);
 
-        assertEquals("<@123> donated €3.00. Thank you.", text(Locale.ENGLISH, Replies.PUBLIC_DONATION, donated));
-        assertEquals("<@123> hat 3,00 € gespendet. Danke.", text(Locale.GERMAN, Replies.PUBLIC_DONATION, donated));
+        assertEquals("Invitation sent to <@123>.", text(Locale.ENGLISH, Replies.INVITE_SENT, partner));
+        assertTrue(text(Locale.ENGLISH, Replies.DM_GRANTED_SHORT, paid).contains("€3.00"));
+        assertTrue(text(Locale.GERMAN, Replies.DM_GRANTED_SHORT, paid).contains("3,00\u00a0€"));
     }
 
     @Test

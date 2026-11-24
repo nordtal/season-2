@@ -35,7 +35,7 @@ class StoredDocumentsTest {
     void anAddressThatIsNoUploadOrAnImageNotStoredIsNoAttachment() {
         final StoredDocuments documents = StoredDocumentsStandIn.holding(List.of(), List.of(JPEG));
 
-        assertTrue(documents.upload("attachment://contribution.png").isEmpty());
+        assertTrue(documents.upload("attachment://link.png").isEmpty());
         assertTrue(documents.upload("upload://8").isEmpty());
     }
 

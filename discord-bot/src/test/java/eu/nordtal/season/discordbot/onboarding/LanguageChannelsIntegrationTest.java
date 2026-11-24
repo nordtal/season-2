@@ -169,7 +169,7 @@ class LanguageChannelsIntegrationTest {
     }
 
     private static GuildLanguages.Language language(final String tag, final String category) {
-        return new GuildLanguages.Language(tag, tag, "", "", "", "", "", category, "");
+        return new GuildLanguages.Language(tag, tag, "", "", "", "", category, "");
     }
 
     private PermissionOverride override(final String id, final Role role) {

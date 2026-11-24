@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp;
 
-import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.npc.NpcMenuStore;
@@ -15,7 +14,6 @@ import eu.nordtal.season.papercommon.npc.Feel;
 import eu.nordtal.season.papercommon.npc.NpcDialogues;
 import eu.nordtal.season.papercommon.npc.NpcMenus;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.area.AreaEditor;
 import eu.nordtal.season.smp.aura.DeathPenalty;
 import eu.nordtal.season.smp.board.Boards;
@@ -75,16 +73,6 @@ import java.util.function.Supplier;
 final class SmpStart {
 
     private SmpStart() {}
-
-    static Announcer startAnnouncer(final SmpPlugin plugin) {
-        // Sends one request with every language to the bot's inbox and does not wait.
-        final Announcer announcer = new Announcer(
-                Inbox.over(plugin.pool(), BotRequest.TABLE),
-                plugin.renderer().raw().locales(),
-                PaperScheduler.of(plugin),
-                (message, failure) -> plugin.getLogger().log(java.util.logging.Level.WARNING, message, failure));
-        return announcer;
-    }
 
     record Surfaces(WorldEffects effects, PlayerComposition composition, PlayerSurfaces surfaces, Boards boards) {}
 
@@ -157,7 +145,6 @@ final class SmpStart {
                 new ExtraSpins(plugin.jdbi().onDemand(SpinDao.class)),
                 plugin.sounds,
                 effects,
-                plugin.announcer,
                 handout);
         final StatisticPoller poller = new StatisticPoller(plugin, () -> plugin.track, engine, plugin.identities());
         poller.start();

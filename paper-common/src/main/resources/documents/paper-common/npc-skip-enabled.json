@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{npc}'s dialog is now skipped. Hold Shift while interacting to see it again.",
+            "de": "Der Dialog von {npc} wird jetzt übersprungen. Halte beim Interagieren Shift, um ihn wieder zu sehen."
+          }
+        }
+      ]
+    }
+  ]
+}

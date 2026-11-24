@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.bukkit.entity.Player;
@@ -17,8 +18,8 @@ public final class NpcMenus {
 
     private final Map<String, Menu> menus = new LinkedHashMap<>();
 
-    /** A menu: its key in the dialogue, the hint word in a reader's language, and how it opens. */
-    public record Menu(String key, Function<Locale, String> hint, Consumer<Player> open) {
+    /** A menu: its key in the dialogue, the hint word in a reader's language, and how it opens with a close hook. */
+    public record Menu(String key, Function<Locale, String> hint, BiConsumer<Player, Runnable> open) {
 
         public Menu {
             Objects.requireNonNull(key, "key");
@@ -29,6 +30,13 @@ public final class NpcMenus {
 
     /** Offers the menu {@code key}. Register every menu before the first dialogue starts. */
     public NpcMenus register(final String key, final Function<Locale, String> hint, final Consumer<Player> open) {
+        Objects.requireNonNull(open, "open");
+        return register(key, hint, (player, onClose) -> open.accept(player));
+    }
+
+    /** Offers the menu {@code key} whose close notifies {@code onClose}. Register every menu before dialogues start. */
+    public NpcMenus register(
+            final String key, final Function<Locale, String> hint, final BiConsumer<Player, Runnable> open) {
         if (menus.putIfAbsent(key, new Menu(key, hint, open)) != null) {
             throw new IllegalArgumentException("the menu " + key + " is registered twice");
         }

@@ -99,7 +99,8 @@ public final class ObjectiveDialog {
                     Slot.label("scroll-down"),
                     Slot.label("not-started"),
                     Slot.label("none"),
-                    Slot.label("all"))
+                    Slot.label("all"),
+                    Slot.label("close"))
             .titled("Objectives");
 
     /** Content width of the 280 by 161 panel (7 px margin on each side). */
@@ -151,6 +152,7 @@ public final class ObjectiveDialog {
     private final Function<Objective, String> objectiveName;
     private final Function<NamespacedKey, @Nullable String> advancementIcon;
     private final boolean readOnly;
+    private final Runnable onClose;
 
     public ObjectiveDialog(
             final MessageRenderer renderer,
@@ -176,10 +178,39 @@ public final class ObjectiveDialog {
                 share,
                 confirm,
                 nextTick,
+                () -> {});
+    }
+
+    public ObjectiveDialog(
+            final MessageRenderer renderer,
+            final AppliedDocuments documents,
+            final Dialogs dialogs,
+            final Locale locale,
+            final Milestone milestone,
+            final int totalMilestones,
+            final int currentMilestone,
+            final List<ObjectiveRow> rows,
+            final OwnShare.Summary share,
+            final BiConsumer<Player, HandInGui> confirm,
+            final Consumer<Runnable> nextTick,
+            final Runnable onClose) {
+        this(
+                renderer,
+                documents,
+                dialogs,
+                locale,
+                milestone,
+                totalMilestones,
+                currentMilestone,
+                rows,
+                share,
+                confirm,
+                nextTick,
                 document(renderer, documents, locale),
                 objective -> MilestoneNames.objective(renderer, locale, milestone.key(), objective.key()),
                 ObjectiveDialog::advancementIconKey,
-                false);
+                false,
+                onClose);
     }
 
     private ObjectiveDialog(
@@ -197,7 +228,8 @@ public final class ObjectiveDialog {
             final GameDocument document,
             final Function<Objective, String> objectiveName,
             final Function<NamespacedKey, @Nullable String> advancementIcon,
-            final boolean readOnly) {
+            final boolean readOnly,
+            final Runnable onClose) {
         this.renderer = renderer;
         this.documents = documents;
         this.dialogs = dialogs;
@@ -213,6 +245,7 @@ public final class ObjectiveDialog {
         this.objectiveName = objectiveName;
         this.advancementIcon = advancementIcon;
         this.readOnly = readOnly;
+        this.onClose = onClose;
     }
 
     private static GameDocument document(
@@ -257,14 +290,34 @@ public final class ObjectiveDialog {
     /** Shows that no objectives run, and why. */
     public static Dialog empty(
             final MessageRenderer renderer, final AppliedDocuments documents, final Locale locale, final Empty why) {
+        return empty(renderer, documents, null, locale, why, () -> {});
+    }
+
+    /** Shows that no objectives run, and why, notifying {@code onClose} on Esc or Close when {@code dialogs} is set. */
+    public static Dialog empty(
+            final MessageRenderer renderer,
+            final AppliedDocuments documents,
+            final @Nullable Dialogs dialogs,
+            final Locale locale,
+            final Empty why,
+            final Runnable onClose) {
         final GameDocument document = document(renderer, documents, locale);
+        final var type = dialogs == null
+                ? Dialogs.bodyOnly()
+                : Dialogs.bodyOnly(
+                        BodyLine.normalButton(document.label("close")),
+                        BodyLine.NATIVE_BUTTON,
+                        dialogs.send().action((player, response) -> {
+                            player.closeDialog();
+                            onClose.run();
+                        }));
         return Dialog.create(builder -> builder.empty()
                 .base(Dialogs.base(DialogTitle.of(DialogPanel.OBJECTIVES_33, TEXT_TOP)
                                 .header(Symbol.FLAG, Dialogs.plain(document.title()), List.of())
                                 .centred(EMPTY_TEXT, document.label(why.label), Colours.SOFT)
                                 .build())
                         .build())
-                .type(Dialogs.bodyOnly()));
+                .type(type));
     }
 
     /** Opens a read-only objectives dialog at its example state in {@code drafted}'s words for Steward's preview. */
@@ -288,7 +341,8 @@ public final class ObjectiveDialog {
                         drafted,
                         names,
                         key -> "minecraft:ender_pearl",
-                        true)
+                        true,
+                        () -> {})
                 .show(reader, 0);
     }
 
@@ -415,9 +469,13 @@ public final class ObjectiveDialog {
         final DialogTitle title = DialogTitle.of(DialogPanel.WIDE_161, canvas.panelTop())
                 .header(Symbol.FLAG, Dialogs.plain(document.title()), List.of());
         final List<DialogBody> body = List.of(Dialogs.line(canvas, FocusRing.Ground.BEVEL_FOOT, title));
+        final var close = send.action((player, response) -> {
+            player.closeDialog();
+            onClose.run();
+        });
         return Dialog.create(builder -> builder.empty()
                 .base(Dialogs.base(title.build()).body(body).build())
-                .type(Dialogs.bodyOnly()));
+                .type(Dialogs.bodyOnly(BodyLine.normalButton(document.label("close")), BodyLine.NATIVE_BUTTON, close)));
     }
 
     private void placeSpinsPlate(final DialogCanvas canvas) {

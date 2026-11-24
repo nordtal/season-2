@@ -85,6 +85,11 @@ public final class ObjectivesMenu {
 
     /** Opens the objective dialog for {@code player}, or the dialog that says why there is nothing to hand in. */
     public void openObjectives(final Player player) {
+        openObjectives(player, () -> {});
+    }
+
+    /** Opens the objective dialog for {@code player} and calls {@code onClose} when its dialog closes. */
+    public void openObjectives(final Player player, final Runnable onClose) {
         final Locale locale = identities.languageOf(player.getUniqueId());
         final SeasonState.Active active = season.active();
         final String activeKey = active.key();
@@ -94,8 +99,8 @@ public final class ObjectivesMenu {
         final Optional<ObjectiveDialog.Empty> why =
                 ObjectiveDialog.Empty.of(currentTrack, season.completedKeys(), milestone);
         if (why.isPresent() || milestone == null) {
-            player.showDialog(
-                    ObjectiveDialog.empty(renderer, documents, locale, why.orElse(ObjectiveDialog.Empty.NONE)));
+            player.showDialog(ObjectiveDialog.empty(
+                    renderer, documents, dialogs, locale, why.orElse(ObjectiveDialog.Empty.NONE), onClose));
             return;
         }
         show(
@@ -104,7 +109,8 @@ public final class ObjectivesMenu {
                 milestone,
                 currentTrack.size(),
                 currentTrack.positionOf(milestone.key()),
-                active.objectives());
+                active.objectives(),
+                onClose);
     }
 
     /** Reads the player's share from the database off the main thread, then opens the dialog on the main thread. */
@@ -114,7 +120,8 @@ public final class ObjectivesMenu {
             final Milestone milestone,
             final int totalMilestones,
             final int currentMilestone,
-            final List<ObjectiveRow> rows) {
+            final List<ObjectiveRow> rows,
+            final Runnable onClose) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         PaperScheduler.of(plugin).execute(() -> {
             final OwnShare.Summary share = discordId
@@ -134,7 +141,8 @@ public final class ObjectivesMenu {
                                     rows,
                                     share,
                                     this::confirm,
-                                    work -> PaperScheduler.of(plugin).onMain(work))
+                                    work -> PaperScheduler.of(plugin).onMain(work),
+                                    onClose)
                             .show(player, 0);
                 }
             });

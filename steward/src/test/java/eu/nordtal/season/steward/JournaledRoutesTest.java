@@ -66,6 +66,8 @@ class JournaledRoutesTest extends WebFixture {
             Map.entry("POST /api/smp/take-position", Unjournaled.SHOWN_ONCE_SAVED),
             Map.entry("POST /api/smp/area-editor", Unjournaled.SHOWN_ONCE_SAVED),
             Map.entry("POST /api/smp/area-draft", Unjournaled.SHOWN_ONCE_SAVED),
+            Map.entry("POST /api/smp/spawn-exceptions-editor", Unjournaled.SHOWN_ONCE_SAVED),
+            Map.entry("POST /api/smp/spawn-exceptions-draft", Unjournaled.SHOWN_ONCE_SAVED),
             Map.entry("DELETE /api/commands/{id}", Unjournaled.SHOWN_ONCE_SAVED));
 
     @Test

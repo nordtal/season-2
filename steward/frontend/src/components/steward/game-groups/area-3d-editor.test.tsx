@@ -253,7 +253,7 @@ describe("3D area editors", () => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
         const method = init?.method ?? "GET"
         if (url === "/api/setting-groups/smp/worlds") return json(WORLDS_CONFIG)
-        if (url === "/api/smp/take-position") return json({ taker: "READY" })
+        if (url === "/api/smp/capture") return json({ taker: "READY" })
         if (url === "/api/smp/area-editor" && method === "POST") {
           const body = parseBody(init)
           asked.push({ path: url, body })

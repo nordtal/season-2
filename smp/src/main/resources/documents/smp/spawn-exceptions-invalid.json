@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>Select a wood or copper door or trapdoor.</bad>",
+            "de": "<bad>Wähle eine Holz- oder Kupfertür oder Falltür.</bad>"
+          }
+        }
+      ]
+    }
+  ]
+}

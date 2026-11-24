@@ -368,6 +368,87 @@ public interface GameTexts {
     @Name("Span")
     MessageRef span(@Arg("from") @Example("64") String from, @Arg("to") @Example("80") String to);
 
+    @Name("Select spawn exceptions in the game")
+    MessageRef selectSpawnExceptions();
+
+    @Name("Selecting spawn exceptions")
+    MessageRef selectingSpawnExceptions();
+
+    @Name("Spawn exception capture failed")
+    MessageRef spawnExceptionsCaptureFailed();
+
+    @Name("Spawn exceptions saved")
+    MessageRef spawnExceptionsSaved();
+
+    @Name("No spawn exceptions")
+    MessageRef noSpawnExceptions();
+
+    @Name("Door")
+    MessageRef door();
+
+    @Name("Trapdoor")
+    MessageRef trapdoor();
+
+    @Name("Label")
+    MessageRef label();
+
+    @Name("Label placeholder")
+    MessageRef labelPlaceholder();
+
+    @Name("Default state")
+    MessageRef defaultState();
+
+    @Name("Closed")
+    MessageRef closed();
+
+    @Name("Open")
+    MessageRef open();
+
+    @Name("Reset behaviour")
+    MessageRef resetBehaviour();
+
+    @Name("Stay in new state")
+    MessageRef stayInNewState();
+
+    @Name("Auto-reset")
+    MessageRef autoReset();
+
+    @Name("Minutes")
+    MessageRef minutes();
+
+    @Name("Seconds")
+    MessageRef seconds();
+
+    @Name("Icon side")
+    MessageRef iconSide();
+
+    @Name("Both sides")
+    MessageRef sideBoth();
+
+    @Name("None")
+    MessageRef sideNone();
+
+    @Name("North")
+    MessageRef sideNorth();
+
+    @Name("South")
+    MessageRef sideSouth();
+
+    @Name("East")
+    MessageRef sideEast();
+
+    @Name("West")
+    MessageRef sideWest();
+
+    @Name("Top")
+    MessageRef sideTop();
+
+    @Name("Bottom")
+    MessageRef sideBottom();
+
+    @Name("Waiting for game")
+    MessageRef captureWaiting();
+
     /** The slots an item's attribute applies in, as the game names them. */
     enum ItemSlot {
         MAINHAND,

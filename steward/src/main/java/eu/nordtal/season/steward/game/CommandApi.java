@@ -21,6 +21,7 @@ import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.inbox.SmpRequest;
+import eu.nordtal.season.database.inbox.SpawnExceptionBlock;
 import eu.nordtal.season.database.inbox.TakeInPurpose;
 import eu.nordtal.season.database.npc.Npc;
 import eu.nordtal.season.database.online.OnlinePlayer;
@@ -208,24 +209,24 @@ public final class CommandApi {
     /** What a position take asks for: the block the admin's player looks at, or where the player stands. */
     public record TakePosition(boolean block) {}
 
-    /** Whether the admin's player can give a position: ready, without a linked player, or not on the SMP. */
+    /** Whether the admin's player can run an in-game capture: ready, unlinked, or not on the SMP. */
     public enum Taker {
         READY,
         UNLINKED,
         ELSEWHERE
     }
 
-    /** {@code GET /api/smp/take-position}: whether Take my position can ask the admin's player, and why not. */
-    public record PositionTaker(Taker taker) {}
+    /** {@code GET /api/smp/capture}: whether any in-game capture can ask the admin's player, and why not. */
+    public record CaptureReadiness(Taker taker) {}
 
-    /** Answers whether the admin's player is linked and on the SMP, so the button can say why it cannot ask. */
-    public void positionTaker(final Context ctx) {
+    /** Answers whether the admin's player is linked and on the SMP, shared across all capture modes. */
+    public void captureReadiness(final Context ctx) {
         final DiscordId admin = DiscordId.of(accounts.apply(ctx).id());
         final Taker taker = data.access()
                 .linkedMinecraftAccount(admin)
                 .map(account -> serverOf(PlayerId.of(account)).equals(Topology.SMP) ? Taker.READY : Taker.ELSEWHERE)
                 .orElse(Taker.UNLINKED);
-        ctx.json(new PositionTaker(taker));
+        ctx.json(new CaptureReadiness(taker));
     }
 
     /**
@@ -312,6 +313,66 @@ public final class CommandApi {
         if (step.step() == SmpRequest.AreaDraft.Step.ADD
                 && (step.name() == null || step.name().isBlank())) {
             throw new BadRequestResponse("a new polygon has a name");
+        }
+        return step;
+    }
+
+    /** What Select in the game asks for on spawn exceptions: the initial selected blocks. */
+    public record EditSpawnExceptions(List<SpawnExceptionBlock> entries) {}
+
+    /** What a step of the admin's spawn exception draft asks for: READ or CLOSE. */
+    public record SpawnExceptionDraft(SmpRequest.SpawnExceptionDraft.Step step) {}
+
+    /** Writes the request that starts spawn exception capture for the admin's player, and returns its name. */
+    public String editSpawnExceptions(final Context ctx) {
+        final EditSpawnExceptions edit = editSpawnExceptionsOf(ctx.body());
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final PlayerId player = onSmp(DiscordId.of(who.id()));
+        return "smp:" + ask(who, data.smp(), new SmpRequest.EditSpawnExceptions(player, edit.entries()));
+    }
+
+    /** Writes the request to read or close the admin's spawn exception capture draft, and returns its name. */
+    public String spawnExceptionDraft(final Context ctx) {
+        final SpawnExceptionDraft step = spawnExceptionDraftOf(ctx.body());
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final PlayerId player = onSmp(DiscordId.of(who.id()));
+        return "smp:" + ask(who, data.smp(), new SmpRequest.SpawnExceptionDraft(player, step.step()));
+    }
+
+    /** The most spawn exception entries a capture draft carries. */
+    static final int MOST_SPAWN_EXCEPTIONS = 256;
+
+    static EditSpawnExceptions editSpawnExceptionsOf(final String body) {
+        final EditSpawnExceptions edit;
+        try {
+            edit = Json.gson().fromJson(body, EditSpawnExceptions.class);
+        } catch (final RuntimeException unreadable) {
+            throw new BadRequestResponse("a spawn exception capture names its entries");
+        }
+        if (edit == null || edit.entries() == null || edit.entries().size() > MOST_SPAWN_EXCEPTIONS) {
+            throw new BadRequestResponse(
+                    "a spawn exception capture holds at most " + MOST_SPAWN_EXCEPTIONS + " entries");
+        }
+        if (edit.entries().stream()
+                .anyMatch(entry -> entry == null
+                        || entry.world() == null
+                        || entry.world().isBlank()
+                        || entry.kind() == null
+                        || entry.facing() == null)) {
+            throw new BadRequestResponse("every spawn exception entry names world, kind and facing");
+        }
+        return new EditSpawnExceptions(List.copyOf(edit.entries()));
+    }
+
+    static SpawnExceptionDraft spawnExceptionDraftOf(final String body) {
+        final SpawnExceptionDraft step;
+        try {
+            step = Json.gson().fromJson(body, SpawnExceptionDraft.class);
+        } catch (final RuntimeException unreadable) {
+            throw new BadRequestResponse("a spawn exception draft step names READ or CLOSE");
+        }
+        if (step == null || step.step() == null) {
+            throw new BadRequestResponse("a spawn exception draft step names READ or CLOSE");
         }
         return step;
     }
@@ -467,7 +528,8 @@ public final class CommandApi {
         if (row.answer() != null) {
             return Json.gson().toJsonTree(row.answer()).getAsJsonObject();
         }
-        if (row.payload() instanceof SmpRequest.AreaDraft && row.outcome() != null) {
+        if ((row.payload() instanceof SmpRequest.AreaDraft || row.payload() instanceof SmpRequest.SpawnExceptionDraft)
+                && row.outcome() != null) {
             return JsonParser.parseString(row.outcome()).getAsJsonObject();
         }
         return null;

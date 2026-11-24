@@ -64,7 +64,13 @@ public enum ServerRefusal implements RefusalReason {
     /**
      * The server of the admin's player has no example state for the drafted menu, so it cannot open it as a preview.
      */
-    NO_EXAMPLE;
+    NO_EXAMPLE,
+
+    /** The admin's player already has another in-game capture session running. */
+    CAPTURE_ACTIVE,
+
+    /** The admin's player holds no spawn exception capture draft. */
+    NO_SPAWN_EXCEPTION_DRAFT;
 
     /** Returns the names of the values that {@link #with} takes, in order: the message's arguments and columns. */
     public List<String> arguments() {
@@ -79,7 +85,9 @@ public enum ServerRefusal implements RefusalReason {
                     NO_AREA_DRAFT,
                     HOTBAR_FULL,
                     WRONG_WORLD,
-                    NO_EXAMPLE -> List.of();
+                    NO_EXAMPLE,
+                    CAPTURE_ACTIVE,
+                    NO_SPAWN_EXCEPTION_DRAFT -> List.of();
             case NO_SUCH_OBJECTIVE -> List.of("key");
             case MILESTONE_NOT_ACTIVE -> List.of("key", "active");
             case WRONG_STATE -> List.of("state");
@@ -118,6 +126,8 @@ public enum ServerRefusal implements RefusalReason {
                     case HOTBAR_FULL -> words.hotbarFull();
                     case WRONG_WORLD -> words.wrongWorld();
                     case NO_EXAMPLE -> words.noExample();
+                    case CAPTURE_ACTIVE -> words.captureActive();
+                    case NO_SPAWN_EXCEPTION_DRAFT -> words.noSpawnExceptionDraft();
                 });
     }
 

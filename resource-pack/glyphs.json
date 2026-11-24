@@ -7582,6 +7582,15 @@
               "height": 18,
               "ascent": 16,
               "about": "The bubble's three dots on its fourth row, white, tinted to the NPC's colour."
+            },
+            {
+              "code": "FE7A5",
+              "title": "World right-click mark",
+              "constant": "WORLD_MOUSE_RIGHT",
+              "texture": "nordtal:npc/mouse_right.png",
+              "height": 8,
+              "ascent": 7,
+              "about": "A 7 x 8 mouse with its right key lit, centred on the baseline for world display entities."
             }
           ]
         }

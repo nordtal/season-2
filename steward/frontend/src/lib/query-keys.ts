@@ -33,7 +33,7 @@ export const keys = {
   journal: (q: string, limit: number) => ["journal", q, limit] as const,
   settings: ["settings"] as const,
   commandRun: (id: string) => ["command-run", id] as const,
-  positionTaker: ["position-taker"] as const,
+  captureReadiness: ["capture-readiness"] as const,
   smpTrack: ["smp-track"] as const,
   hungerGamesRound: ["hunger-games-round"] as const,
   configs: ["configs"] as const,

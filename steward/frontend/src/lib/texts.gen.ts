@@ -1188,6 +1188,7 @@ export type TextArgs = {
   "steward.game.aura-of": {
     name: Arg["text"]
   }
+  "steward.game.auto-reset": Record<string, never>
   "steward.game.awarded": {
     count: Arg["number"]
   }
@@ -1197,10 +1198,12 @@ export type TextArgs = {
   }
   "steward.game.cancel-take-in": Record<string, never>
   "steward.game.cancel-take-position": Record<string, never>
+  "steward.game.capture-waiting": Record<string, never>
   "steward.game.chance": Record<string, never>
   "steward.game.chance-is": {
     total: Arg["number"]
   }
+  "steward.game.closed": Record<string, never>
   "steward.game.complete": Record<string, never>
   "steward.game.complete-ask": {
     name: Arg["text"]
@@ -1223,10 +1226,12 @@ export type TextArgs = {
   "steward.game.damaged": {
     damage: Arg["number"]
   }
+  "steward.game.default-state": Record<string, never>
   "steward.game.discard-areas": Record<string, never>
   "steward.game.done-at": {
     at: Arg["text"]
   }
+  "steward.game.door": Record<string, never>
   "steward.game.dyed": {
     colour: Arg["text"]
   }
@@ -1237,6 +1242,7 @@ export type TextArgs = {
     level: Arg["text"]
   }
   "steward.game.height": Record<string, never>
+  "steward.game.icon-side": Record<string, never>
   "steward.game.item": Record<string, never>
   "steward.game.item-model": {
     model: Arg["text"]
@@ -1249,6 +1255,8 @@ export type TextArgs = {
   "steward.game.kits-full": {
     most: Arg["number"]
   }
+  "steward.game.label": Record<string, never>
+  "steward.game.label-placeholder": Record<string, never>
   "steward.game.loadout-line": {
     amount: Arg["number"]
     name: Arg["text"]
@@ -1256,6 +1264,7 @@ export type TextArgs = {
   "steward.game.locked": Record<string, never>
   "steward.game.milestone": Record<string, never>
   "steward.game.milestones": Record<string, never>
+  "steward.game.minutes": Record<string, never>
   "steward.game.more-enchantments": {
     count: Arg["number"]
   }
@@ -1277,11 +1286,13 @@ export type TextArgs = {
   "steward.game.no-points": Record<string, never>
   "steward.game.no-prizes": Record<string, never>
   "steward.game.no-round": Record<string, never>
+  "steward.game.no-spawn-exceptions": Record<string, never>
   "steward.game.no-spots": Record<string, never>
   "steward.game.no-track": Record<string, never>
   "steward.game.no-way-back": Record<string, never>
   "steward.game.no-world": Record<string, never>
   "steward.game.objective": Record<string, never>
+  "steward.game.open": Record<string, never>
   "steward.game.pack": Record<string, never>
   "steward.game.pack-active": {
     size: Arg["text"]
@@ -1324,6 +1335,7 @@ export type TextArgs = {
   "steward.game.remove-it": Record<string, never>
   "steward.game.remove-item-reward": Record<string, never>
   "steward.game.reset-ask": Record<string, never>
+  "steward.game.reset-behaviour": Record<string, never>
   "steward.game.reset-note": Record<string, never>
   "steward.game.reset-pending": Record<string, never>
   "steward.game.reset-track": Record<string, never>
@@ -1331,10 +1343,23 @@ export type TextArgs = {
   "steward.game.running": Record<string, never>
   "steward.game.save-areas": Record<string, never>
   "steward.game.season-sum": Record<string, never>
+  "steward.game.seconds": Record<string, never>
+  "steward.game.select-spawn-exceptions": Record<string, never>
+  "steward.game.selecting-spawn-exceptions": Record<string, never>
+  "steward.game.side-both": Record<string, never>
+  "steward.game.side-bottom": Record<string, never>
+  "steward.game.side-east": Record<string, never>
+  "steward.game.side-none": Record<string, never>
+  "steward.game.side-north": Record<string, never>
+  "steward.game.side-south": Record<string, never>
+  "steward.game.side-top": Record<string, never>
+  "steward.game.side-west": Record<string, never>
   "steward.game.span": {
     from: Arg["text"]
     to: Arg["text"]
   }
+  "steward.game.spawn-exceptions-capture-failed": Record<string, never>
+  "steward.game.spawn-exceptions-saved": Record<string, never>
   "steward.game.spins-awarded": {
     total: Arg["number"]
   }
@@ -1352,6 +1377,7 @@ export type TextArgs = {
     anyway: Arg["choice"]
   }
   "steward.game.start-round": Record<string, never>
+  "steward.game.stay-in-new-state": Record<string, never>
   "steward.game.take-block": Record<string, never>
   "steward.game.take-corner": {
     index: Arg["number"]
@@ -1368,6 +1394,7 @@ export type TextArgs = {
     total: Arg["number"]
   }
   "steward.game.track": Record<string, never>
+  "steward.game.trapdoor": Record<string, never>
   "steward.game.unbreakable": Record<string, never>
   "steward.game.unlock": Record<string, never>
   "steward.game.unlock-ask": {

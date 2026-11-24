@@ -748,7 +748,7 @@ const MARKED = document("wheel", [{ ...WHEEL.entries[0], position: "BLOCK" }, ..
 function takePosition(run: Record<string, unknown>) {
   const asked: unknown[] = []
   const more: Asked = (url, method, body) => {
-    if (url === "/api/smp/take-position" && method === "GET") return json({ taker: "READY" })
+    if (url === "/api/smp/capture" && method === "GET") return json({ taker: "READY" })
     if (url === "/api/smp/take-position" && method === "POST") {
       asked.push(JSON.parse(body ?? "null"))
       return json({ id: "smp:9", status: "PENDING" })

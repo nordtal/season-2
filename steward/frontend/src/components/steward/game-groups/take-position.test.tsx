@@ -72,7 +72,7 @@ function steward(taker: string, run: Record<string, unknown>) {
     "fetch",
     vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
       const method = init?.method ?? "GET"
-      if (url === "/api/smp/take-position" && method === "GET") return json({ taker })
+      if (url === "/api/smp/capture" && method === "GET") return json({ taker })
       if (url === "/api/smp/take-position" && method === "POST") {
         asked.push(JSON.parse(init?.body ?? "null"))
         return json({ id: "smp:9", status: "PENDING" })

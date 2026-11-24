@@ -45,6 +45,7 @@ import eu.nordtal.season.smp.config.Milestones;
 import eu.nordtal.season.smp.config.MilestonesSpec;
 import eu.nordtal.season.smp.config.RailsSpec;
 import eu.nordtal.season.smp.config.SmpSettings;
+import eu.nordtal.season.smp.config.SpawnExceptionsSpec;
 import eu.nordtal.season.smp.config.SpawnSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.config.WorldsSpec;
@@ -66,6 +67,8 @@ import eu.nordtal.season.smp.prestige.PrestigeColours;
 import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
 import eu.nordtal.season.smp.progress.StatisticPoller;
+import eu.nordtal.season.smp.protect.SpawnExceptionCapture;
+import eu.nordtal.season.smp.protect.SpawnExceptions;
 import eu.nordtal.season.smp.region.ConfigAreas;
 import eu.nordtal.season.smp.region.PolygonAreas;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
@@ -104,6 +107,7 @@ public final class SmpPlugin extends NordtalPlugin {
     Setting<BoardsSpec> boardSettings;
     Setting<NpcDialogueSpec> npcDialogueSettings;
     Setting<SpawnSpec> spawnSettings;
+    Setting<SpawnExceptionsSpec> spawnExceptionsSettings;
     Setting<DeathsSpec> deathSettings;
     Setting<RailsSpec> railSettings;
     Setting<CustomBorderSpec> customBorderSettings;
@@ -149,7 +153,6 @@ public final class SmpPlugin extends NordtalPlugin {
 
     GateHolders gates;
     Graves graves;
-
     SmpStart.@Nullable Rails rails;
 
     @Nullable
@@ -160,6 +163,12 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Nullable
     AreaEditor areaEditor;
+
+    @Nullable
+    SpawnExceptions spawnExceptions;
+
+    @Nullable
+    SpawnExceptionCapture spawnExceptionCapture;
 
     @Nullable
     Duels duels;
@@ -182,6 +191,10 @@ public final class SmpPlugin extends NordtalPlugin {
     BukkitCinematics cinematics;
 
     private PlayerSurfacesListener presence;
+
+    WorldsSpec worldsSpec() {
+        return worldsSettings.get();
+    }
 
     @Override
     protected String settingsPrefix() {
@@ -250,6 +263,7 @@ public final class SmpPlugin extends NordtalPlugin {
         boardSettings = setting(Group.of("boards", BoardsSpec.class).whileRunning());
         npcDialogueSettings = setting(NetworkSettings.NPC_DIALOGUE);
         spawnSettings = setting(SmpSettings.spawnGroup(nordtal));
+        spawnExceptionsSettings = setting(SmpSettings.spawnExceptionsGroup());
         deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
         railSettings = setting(Group.of("rails", RailsSpec.class).whileRunning());
         customBorderSettings = setting(SmpSettings.customBorderGroup(nordtal));
@@ -313,33 +327,23 @@ public final class SmpPlugin extends NordtalPlugin {
         PaperScheduler.of(this).execute(this::loadSeasonStateAndSweep);
         SmpStart.registerActivityListeners(this, activities);
         npcDialogues = SmpStart.wireNpc(this);
-        SmpStart.restoreGravesAndRegisterWorld(this);
-        rails = SmpStart.wireRails(this, wired.effects());
-        portals = SmpStart.wireMapPortals(this);
-        borderWall = SmpStart.wireBorderWall(this);
-        final AreaEditor editor = SmpStart.wireAreaEditor(
-                this, wired.effects(), worldsSettings.get().worldNordtal());
-        areaEditor = editor;
+        SmpStart.wireCapturesAndProtect(this, wired);
         applyCustomLimit();
-
         admin = admin();
-        // Steward signals a reset here, and this runs before the surface handler, so one pass resets and draws.
         hub().on(Channel.SMP, "the track reset", this::startTrackOverIfDue);
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
-        final ItemTakeIn takeIn = new ItemTakeIn(this, pool(), renderer(), documents(), identities());
-        takeIn.watch(hub());
-        ItemTakeIn.examples(this::example);
-        final PackSwap packSwap = new PackSwap(this, pool());
-        getServer().getPluginManager().registerEvents(packSwap, this);
-        answerRequests(takeIn, new PositionTake(this, pool()), packSwap, editor);
         getLogger()
                 .info("track loaded: milestones=" + track.size() + " protected_areas="
                         + protectedAreas.all().size());
     }
 
     /** Carries out what Steward asks of smp, each request by its kind. */
-    private void answerRequests(
-            final ItemTakeIn takeIn, final PositionTake positions, final PackSwap packSwap, final AreaEditor editor) {
+    void answerRequests(
+            final ItemTakeIn takeIn,
+            final PositionTake positions,
+            final PackSwap packSwap,
+            final AreaEditor editor,
+            final SpawnExceptionCapture exceptionCapture) {
         answer(SmpRequest.TABLE, request -> switch (request.payload()) {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
@@ -356,6 +360,8 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.SendPack send -> packSwap.send(request.id(), send);
             case SmpRequest.EditAreas edit -> editor.open(edit);
             case SmpRequest.AreaDraft step -> editor.step(request.id(), step);
+            case SmpRequest.EditSpawnExceptions edit -> exceptionCapture.open(edit);
+            case SmpRequest.SpawnExceptionDraft step -> exceptionCapture.step(request.id(), step);
             case SmpRequest.RemoveStack remove ->
                 removeStack(
                         remove.player(),
@@ -472,61 +478,34 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void disable() {
-        // A running staging leaves a potion effect on the player.
-        final BukkitCinematics staging = cinematics;
-        if (staging != null) {
-            quietly("cinematics.stop", staging::stop);
-        }
-        final NpcDialogues dialogues = npcDialogues;
-        if (dialogues != null) {
-            quietly("npcDialogues.stop", dialogues::stop);
-        }
-        final Wheel turning = wheel;
-        if (turning != null) {
-            quietly("wheel.stop", turning::stop);
-        }
+        stopQuietly("cinematics.stop", cinematics, BukkitCinematics::stop);
+        stopQuietly("npcDialogues.stop", npcDialogues, NpcDialogues::stop);
+        stopQuietly("wheel.stop", wheel, Wheel::stop);
         // The duels refund through the hand-out, so they stop before it and before the item work closes.
-        final Duels running = duels;
-        if (running != null) {
-            quietly("duels.stop", running::stop);
-        }
-        final ItemHandout handing = handout;
-        if (handing != null) {
-            quietly("handout.stop", handing::stop);
-        }
+        stopQuietly("duels.stop", duels, Duels::stop);
+        stopQuietly("handout.stop", handout, ItemHandout::stop);
         quietly("itemWork.close", itemWork::close);
-        if (graves != null) {
-            quietly("graves.stop", graves::stop);
-        }
+        stopQuietly("graves.stop", graves, Graves::stop);
         final SmpStart.Rails tracked = rails;
         if (tracked != null) {
             quietly("rides.stop", tracked.rides()::stop);
             quietly("riderCartPackets.stop", tracked.packets()::stop);
             quietly("rails.stop", tracked.networks()::stop);
         }
-        final AreaEditor editing = areaEditor;
-        if (editing != null) {
-            quietly("areaEditor.stop", editing::stop);
-        }
-        final BorderWall wall = borderWall;
-        if (wall != null) {
-            quietly("borderWall.stop", () -> wall.stop(getServer().getOnlinePlayers()));
-        }
-        final MapPortals scanning = portals;
-        if (scanning != null) {
-            quietly("portals.stop", scanning::stop);
-        }
-        final StatisticPoller statistics = poller;
-        if (statistics != null) {
-            quietly("poller.stop", statistics::stop);
-        }
-        final Boards drawn = boards;
-        if (drawn != null) {
-            quietly("boards.stop", drawn::stop);
-        }
-        final DisplayTags tags = nameTags;
-        if (tags != null) {
-            quietly("nameTags.stop", tags::stop);
+        stopQuietly("areaEditor.stop", areaEditor, AreaEditor::stop);
+        stopQuietly("spawnExceptionCapture.stop", spawnExceptionCapture, SpawnExceptionCapture::stop);
+        stopQuietly("spawnExceptions.stop", spawnExceptions, SpawnExceptions::stop);
+        stopQuietly("borderWall.stop", borderWall, wall -> wall.stop(getServer().getOnlinePlayers()));
+        stopQuietly("portals.stop", portals, MapPortals::stop);
+        stopQuietly("poller.stop", poller, StatisticPoller::stop);
+        stopQuietly("boards.stop", boards, Boards::stop);
+        stopQuietly("nameTags.stop", nameTags, DisplayTags::stop);
+    }
+
+    private <T> void stopQuietly(
+            final String label, final @Nullable T target, final java.util.function.Consumer<T> action) {
+        if (target != null) {
+            quietly(label, () -> action.accept(target));
         }
     }
 
@@ -672,6 +651,12 @@ public final class SmpPlugin extends NordtalPlugin {
                 "the spawn",
                 spawnSettings,
                 () -> protectedAreas = ConfigAreas.ofSpawn(spawnSettings.get().protectedAreas()));
+        reload(
+                problems,
+                "the spawn exceptions",
+                spawnExceptionsSettings,
+                () -> scheduler.onMain(
+                        () -> Objects.requireNonNull(spawnExceptions).apply(spawnExceptionsSettings.get())));
         // These are read where they are used, so a reload alone applies them.
         reload(problems, "the wheel", wheelSettings, () -> {});
         reload(problems, "the advancement awards", awardSettings, () -> {});

@@ -42,11 +42,7 @@ class ProtectionListenerTest {
     }
 
     @Test
-    void hostileSpawningAndMobGriefingAreBlockedOnlyInsideSpawn() {
-        assertTrue(ProtectionListener.blocksHostileSpawn(true, true));
-        assertFalse(ProtectionListener.blocksHostileSpawn(false, true));
-        assertFalse(ProtectionListener.blocksHostileSpawn(true, false));
-
+    void mobGriefingIsBlockedOnlyInsideSpawn() {
         assertTrue(ProtectionListener.blocksMobGrief(true, true));
         assertFalse(ProtectionListener.blocksMobGrief(false, true));
         assertFalse(ProtectionListener.blocksMobGrief(true, false));

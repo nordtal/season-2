@@ -1,21 +1,12 @@
-import { CursorClickIcon, PlusIcon } from "@/components/ui/icons"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { PlusIcon } from "@/components/ui/icons"
+import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 
-import {
-  api,
-  errorMessage,
-  type CommandAsked,
-  type CommandRun,
-  type ConfigDocument,
-  type ConfigEntry,
-  type PositionTaker,
-} from "@/lib/api"
+import { api, errorMessage, type CommandAsked, type CommandRun, type ConfigDocument, type ConfigEntry } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { setDraftValue, useDraft } from "@/lib/drafts"
 import { finalRun } from "@/lib/queries-commands"
-import { RECONCILE } from "@/lib/live"
 import { keys } from "@/lib/query-keys"
 import { useConfig, useSaveConfig } from "@/lib/queries"
 import { message, t } from "@/lib/texts"
@@ -24,7 +15,13 @@ import type { CustomEditorProps } from "@/components/steward/config-editors"
 import { blankSection, type SectionValues } from "@/components/steward/repeatable-cards"
 import { DraftForm } from "@/components/steward/settings-config"
 import { type DraftValue, isDraftValueRecord } from "@/components/steward/group-draft"
-import { blockedBy } from "@/components/steward/game-groups/take-position"
+import {
+  CaptureBlockedNote,
+  CaptureSessionControls,
+  CaptureStartButton,
+  captureBlockedBy,
+  useCaptureReadiness,
+} from "@/components/steward/game-groups/in-game-capture"
 import { listEntry, text } from "@/components/steward/game-groups/model"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -231,13 +228,7 @@ export function AreaEditorPanel({
   beforeWorld?: ReactNode
 }) {
   const client = useQueryClient()
-  const taker = useQuery({
-    queryKey: keys.positionTaker,
-    queryFn: () => api<PositionTaker>("/api/smp/take-position"),
-    refetchInterval: RECONCILE,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: "always",
-  })
+  const taker = useCaptureReadiness()
   const names = worlds
   const [chosen, choose] = useState<string | undefined>(undefined)
   const editing = liveDraft !== null
@@ -281,7 +272,7 @@ export function AreaEditorPanel({
       const done = await ask(client, path, body)
       if (done.status === "DONE") return done
       if (done.status === "REFUSED" && done.reason === "NO_AREA_DRAFT") onDraftChange(null)
-      void client.invalidateQueries({ queryKey: keys.positionTaker })
+      void client.invalidateQueries({ queryKey: keys.captureReadiness })
       toast.error(t("steward.game.area-draft-failed"), { description: done.result ? message(done.result) : undefined })
     } catch (error) {
       toast.error(t("steward.game.area-draft-failed"), { description: errorMessage(error) })
@@ -320,7 +311,7 @@ export function AreaEditorPanel({
     if (await run("/api/smp/area-draft", { step: "CLOSE" })) onDraftChange(null)
   }
 
-  const blocked = blockedBy(taker.data)
+  const blocked = captureBlockedBy(taker.data)
   const off = disabled || busy || blocked !== null
   return (
     <section className="flex flex-col gap-2">
@@ -338,20 +329,14 @@ export function AreaEditorPanel({
             ))}
           </SelectContent>
         </Select>
-        <Button
-          type="button"
-          variant="outline"
-          className="max-sm:w-full"
-          disabled={off || world === undefined}
-          onClick={() => void edit()}
-        >
-          <CursorClickIcon aria-hidden />
-          {t("steward.game.edit-areas")}
-        </Button>
+        <CaptureStartButton
+          label={t("steward.game.edit-areas")}
+          disabled={off || editing || world === undefined}
+          onStart={() => void edit()}
+        />
       </div>
       {editing ? (
         <>
-          <p className="text-xs text-muted-foreground">{t("steward.game.editing-areas")}</p>
           <div className="flex flex-wrap items-center gap-2">
             <Input
               aria-label={t("steward.game.polygon-name")}
@@ -372,23 +357,17 @@ export function AreaEditorPanel({
               {t("steward.game.new-polygon")}
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              className="max-sm:w-full"
-              disabled={off}
-              onClick={() => void discard()}
-            >
-              {t("steward.game.discard-areas")}
-            </Button>
-            <Button type="button" className="max-sm:w-full" disabled={off} onClick={() => void saveDraft()}>
-              {t("steward.game.save-areas")}
-            </Button>
-          </div>
+          <CaptureSessionControls
+            notice={t("steward.game.editing-areas")}
+            disabled={off}
+            cancelLabel={t("steward.game.discard-areas")}
+            doneLabel={t("steward.game.save-areas")}
+            onCancel={() => void discard()}
+            onDone={() => void saveDraft()}
+          />
         </>
       ) : null}
-      {blocked !== null && !disabled ? <p className="text-xs text-muted-foreground">{blocked}</p> : null}
+      <CaptureBlockedNote blocked={blocked} disabled={disabled} />
     </section>
   )
 }

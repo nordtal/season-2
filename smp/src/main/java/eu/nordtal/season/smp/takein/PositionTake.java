@@ -6,8 +6,11 @@ import eu.nordtal.season.database.inbox.Outcome;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.inbox.SmpRequest.TakePosition;
+import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.capture.CaptureFeedback;
+import eu.nordtal.season.smp.capture.CaptureSessions;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -34,10 +37,18 @@ public final class PositionTake {
 
     private final Plugin plugin;
     private final Inbox<SmpRequest> inbox;
+    private final CaptureSessions sessions;
+    private final CaptureFeedback feedback;
 
-    public PositionTake(final Plugin plugin, final DataSource pool) {
+    public PositionTake(
+            final Plugin plugin,
+            final DataSource pool,
+            final CaptureSessions sessions,
+            final CaptureFeedback feedback) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.inbox = Inbox.over(pool, SmpRequest.TABLE);
+        this.sessions = Objects.requireNonNull(sessions, "sessions");
+        this.feedback = Objects.requireNonNull(feedback, "feedback");
     }
 
     /** Settles {@code request} with the player's place, or refuses while the player is not here or sees no block. */
@@ -61,14 +72,20 @@ public final class PositionTake {
         if (here == null) {
             return new Found(null, ServerRefusal.NOT_HERE);
         }
+        if (sessions.isActive(here.getUniqueId())) {
+            return new Found(null, ServerRefusal.CAPTURE_ACTIVE);
+        }
         final Location feet = Objects.requireNonNull(here.getLocation(), "location");
         if (!block) {
+            feedback.tell(here, CaptureFeedback.POSITION_TAKEN, Feedback.SMALL_SUCCESS);
             return new Found(place(feet, feet.getX(), feet.getY(), feet.getZ()), null);
         }
         final Block seen = here.getTargetBlockExact(REACH);
-        return seen == null
-                ? new Found(null, ServerRefusal.NO_BLOCK_IN_SIGHT)
-                : new Found(place(feet, seen.getX(), seen.getY(), seen.getZ()), null);
+        if (seen == null) {
+            return new Found(null, ServerRefusal.NO_BLOCK_IN_SIGHT);
+        }
+        feedback.tell(here, CaptureFeedback.POSITION_TAKEN, Feedback.SMALL_SUCCESS);
+        return new Found(place(feet, seen.getX(), seen.getY(), seen.getZ()), null);
     }
 
     private static TakePosition.Answer place(final Location facing, final double x, final double y, final double z) {

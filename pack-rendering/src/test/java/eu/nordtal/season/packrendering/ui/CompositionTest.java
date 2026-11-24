@@ -2,6 +2,7 @@ package eu.nordtal.season.packrendering.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.packrendering.Glyphs;
 import java.util.ArrayList;
@@ -282,9 +283,14 @@ class CompositionTest {
     }
 
     @Test
-    void aStationMapToggleAdvancesNothingSoTheClientCentresItsCover() {
-        assertEquals(0, Advances.of(BodyLine.stationMapToggle(true, "Auf der Karte zeigen")));
-        assertEquals(0, Advances.of(BodyLine.stationMapToggle(false, "Auf der Karte zeigen")));
+    void aStationMapToggleNarratesItsStateAndAdvancesNothing() {
+        final Component shown = BodyLine.stationMapToggle(true, "Shown on the map", "Hidden from the map");
+        final Component hidden = BodyLine.stationMapToggle(false, "Shown on the map", "Hidden from the map");
+
+        assertTrue(text(shown).contains("Shown on the map"));
+        assertTrue(text(hidden).contains("Hidden from the map"));
+        assertEquals(0, Advances.of(shown));
+        assertEquals(0, Advances.of(hidden));
     }
 
     @Test

@@ -152,16 +152,17 @@ public final class BodyLine {
 
     /**
      * Returns the label of the station's map toggle button: checkbox and mini map icon over panel grey.
-     * Appends silent narrator words and advances 0, so the client centres the cover over the native button.
+     * Appends silent narrator words for its state and advances 0, so the client centres the cover over the native
+     * button.
      */
-    public static Component stationMapToggle(final boolean shown, final String words) {
+    public static Component stationMapToggle(final boolean shown, final String shownWords, final String hiddenWords) {
         return Pen.start()
                 .moveTo(-(MAP_TOGGLE_BUTTON / 2))
                 .art(
                         Glyphs.FONT_UI_RING,
                         shown ? Glyphs.UI_STATION_MAP_ON : Glyphs.UI_STATION_MAP_OFF,
                         MAP_TOGGLE_BUTTON)
-                .append(silent(words), 0)
+                .append(silent(shown ? shownWords : hiddenWords), 0)
                 .build(0);
     }
 

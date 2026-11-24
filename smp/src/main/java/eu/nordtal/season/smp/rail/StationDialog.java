@@ -44,6 +44,8 @@ final class StationDialog {
                     Slot.label("hint"),
                     Slot.label("field"),
                     Slot.label("show"),
+                    Slot.label("shown"),
+                    Slot.label("hidden"),
                     Slot.label("show-hint"),
                     Slot.label("save"),
                     Slot.label("name-empty"),
@@ -169,7 +171,8 @@ final class StationDialog {
         final Component mapTooltip = Tooltip.hover(
                 Tooltip.rows(showLabel, document.label("show-hint"), null, Tooltip.WRAP_NATIVE),
                 Letters.wrap(showLabel, Tooltip.WRAP_NATIVE).size());
-        final ActionButton mapToggle = ActionButton.builder(BodyLine.stationMapToggle(shown, showLabel))
+        final ActionButton mapToggle = ActionButton.builder(
+                        BodyLine.stationMapToggle(shown, document.label("shown"), document.label("hidden")))
                 .width(BodyLine.MAP_TOGGLE_BUTTON)
                 .tooltip(mapTooltip)
                 .action(send.action((player, response) ->

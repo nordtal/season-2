@@ -4,6 +4,7 @@ import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.npc.Npc;
 import eu.nordtal.season.database.npc.NpcStore;
 import eu.nordtal.season.papercommon.hud.Hud;
+import eu.nordtal.season.papercommon.menu.Menus;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import java.util.HashMap;
@@ -13,8 +14,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Mannequin;
 import org.bukkit.entity.Player;
@@ -22,11 +26,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -40,18 +49,23 @@ import org.jspecify.annotations.Nullable;
  */
 public final class NpcDialogues implements Listener {
 
+    private record PendingNotice(Locale locale, String npcName) {}
+
     private final Plugin plugin;
     private final Figures figures;
     private final Skips skips;
     private final Hud hud;
     private final Function<UUID, Locale> languageOf;
     private final Function<Locale, Labels> labels;
+    private final BiFunction<Locale, String, Component> skipNotice;
     private final NpcMenus menus;
     private final Supplier<Feel> feel;
     private final DialogueSounds sounds = new DialogueSounds();
+    private final DialoguePacketGuard packetGuard;
     private final NamespacedKey zoomKey;
     private final Map<UUID, DialogueSession> sessions = new HashMap<>();
     private final Map<UUID, Mannequin> previews = new HashMap<>();
+    private final Map<UUID, PendingNotice> pendingNotices = new HashMap<>();
     private Scheduler.@Nullable Task task;
 
     /** The parts a server hands in; {@code labels} gives the words of each language, {@code feel} the settings. */
@@ -59,6 +73,7 @@ public final class NpcDialogues implements Listener {
             Hud hud,
             Function<UUID, Locale> languageOf,
             Function<Locale, Labels> labels,
+            BiFunction<Locale, String, Component> skipNotice,
             NpcMenus menus,
             NamePlates plates,
             Supplier<Feel> feel) {}
@@ -70,8 +85,10 @@ public final class NpcDialogues implements Listener {
         this.hud = parts.hud();
         this.languageOf = parts.languageOf();
         this.labels = parts.labels();
+        this.skipNotice = parts.skipNotice();
         this.menus = parts.menus();
         this.feel = parts.feel();
+        this.packetGuard = new DialoguePacketGuard(this::scheduleResync);
         this.zoomKey = new NamespacedKey(plugin, "npc_zoom");
     }
 
@@ -81,6 +98,7 @@ public final class NpcDialogues implements Listener {
         plugin.getServer().getPluginManager().registerEvents(figures, plugin);
         plugin.getServer().getPluginManager().registerEvents(new FigureGuard(figures), plugin);
         plugin.getServer().getPluginManager().registerEvents(skips, plugin);
+        packetGuard.register();
         skips.start();
         task = PaperScheduler.of(plugin).onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, this::tick);
     }
@@ -92,6 +110,8 @@ public final class NpcDialogues implements Listener {
             task = null;
         }
         List.copyOf(sessions.keySet()).forEach(this::end);
+        pendingNotices.clear();
+        packetGuard.stop();
         figures.removeAll();
     }
 
@@ -156,8 +176,68 @@ public final class NpcDialogues implements Listener {
     @EventHandler(priority = EventPriority.LOW)
     public void onHeld(final PlayerItemHeldEvent event) {
         final DialogueSession session = sessions.get(event.getPlayer().getUniqueId());
-        if (session != null && !session.movingSlot() && session.run().select(event.getNewSlot())) {
+        if (session == null || session.movingSlot()) {
+            return;
+        }
+        if (session.run().select(event.getNewSlot())) {
             event.setCancelled(true);
+        } else {
+            session.hideHandsNow(event.getNewSlot());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onInventoryClick(final InventoryClickEvent event) {
+        final DialogueSession session = sessions.get(event.getWhoClicked().getUniqueId());
+        if (session != null) {
+            event.setCancelled(true);
+            session.resyncVisuals();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onInventoryDrag(final InventoryDragEvent event) {
+        final DialogueSession session = sessions.get(event.getWhoClicked().getUniqueId());
+        if (session != null) {
+            event.setCancelled(true);
+            session.resyncVisuals();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onDrop(final PlayerDropItemEvent event) {
+        final DialogueSession session = sessions.get(event.getPlayer().getUniqueId());
+        if (session != null) {
+            event.setCancelled(true);
+            session.resyncVisuals();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onSwapHand(final PlayerSwapHandItemsEvent event) {
+        final DialogueSession session = sessions.get(event.getPlayer().getUniqueId());
+        if (session != null) {
+            event.setCancelled(true);
+            session.resyncVisuals();
+        }
+    }
+
+    private void scheduleResync(final UUID player) {
+        if (!plugin.isEnabled()) {
+            return;
+        }
+        PaperScheduler.of(plugin).onMain(() -> {
+            final DialogueSession session = sessions.get(player);
+            if (session != null) {
+                session.resyncVisuals();
+            }
+        });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onInventoryClose(final InventoryCloseEvent event) {
+        if (Menus.isMenuClose(event)) {
+            sendPendingNotice(event.getPlayer().getUniqueId());
         }
     }
 
@@ -171,7 +251,9 @@ public final class NpcDialogues implements Listener {
 
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
-        end(event.getPlayer().getUniqueId());
+        final UUID player = event.getPlayer().getUniqueId();
+        pendingNotices.remove(player);
+        end(player);
     }
 
     @EventHandler
@@ -197,10 +279,11 @@ public final class NpcDialogues implements Listener {
         if (figure == null || !DialogueRun.playable(npc.dialogue())) {
             return;
         }
+        pendingNotices.remove(player.getUniqueId());
         final String skipped = skips.of(player.getUniqueId(), npc.id());
         final SkipChoice.Start start = SkipChoice.start(skipped, npc.dialogue(), player.isSneaking());
         if (start == SkipChoice.Start.OPEN_MENU) {
-            open(player, Objects.requireNonNull(skipped, "skipped"));
+            open(player, Objects.requireNonNull(skipped, "skipped"), () -> {});
             return;
         }
         final Locale locale = languageOf.apply(player.getUniqueId());
@@ -214,6 +297,7 @@ public final class NpcDialogues implements Listener {
                 skipped,
                 start == SkipChoice.Start.REPLAY,
                 player.isSneaking());
+        packetGuard.activate(player.getUniqueId());
         sessions.put(player.getUniqueId(), new DialogueSession(player, npc, figure, run, now, hud, sounds, zoomKey));
     }
 
@@ -238,6 +322,7 @@ public final class NpcDialogues implements Listener {
                 false,
                 player.isSneaking());
         previews.put(player.getUniqueId(), figure);
+        packetGuard.activate(player.getUniqueId());
         sessions.put(player.getUniqueId(), new DialogueSession(player, npc, figure, run, now, hud, sounds, zoomKey));
         return true;
     }
@@ -257,8 +342,16 @@ public final class NpcDialogues implements Listener {
                 if (effect instanceof final Effect.HandOff handOff) {
                     if (preview == null) {
                         skips.apply(player, session.npc().id(), handOff.menu(), handOff.change());
+                        if (handOff.change() == SkipChoice.Change.SKIP) {
+                            final Locale locale = languageOf.apply(player);
+                            pendingNotices.put(
+                                    player,
+                                    new PendingNotice(
+                                            locale, session.npc().name().in(locale)));
+                        }
                     }
-                    open(session.player(), handOff.menu());
+                    end(player);
+                    open(session.player(), handOff.menu(), () -> sendPendingNotice(player));
                 } else if (effect instanceof Effect.End) {
                     end(session.player().getUniqueId());
                 }
@@ -275,16 +368,26 @@ public final class NpcDialogues implements Listener {
         return null;
     }
 
-    private void open(final Player player, final String key) {
-        menus.menu(key)
-                .ifPresentOrElse(
-                        menu -> menu.open().accept(player),
-                        () -> plugin.getLogger()
-                                .warning("npc menu unknown, nothing opened: menu=" + key + " player="
-                                        + player.getName()));
+    private void open(final Player player, final String key, final Runnable onClose) {
+        menus.menu(key).ifPresentOrElse(menu -> menu.open().accept(player, onClose), () -> {
+            pendingNotices.remove(player.getUniqueId());
+            plugin.getLogger().warning("npc menu unknown, nothing opened: menu=" + key + " player=" + player.getName());
+        });
+    }
+
+    private void sendPendingNotice(final UUID playerId) {
+        final PendingNotice notice = pendingNotices.remove(playerId);
+        if (notice == null) {
+            return;
+        }
+        final Player player = Bukkit.getPlayer(playerId);
+        if (player != null && player.isOnline()) {
+            player.sendMessage(skipNotice.apply(notice.locale(), notice.npcName()));
+        }
     }
 
     private void end(final UUID player) {
+        packetGuard.deactivate(player);
         final DialogueSession session = sessions.remove(player);
         if (session != null) {
             session.stopNow();

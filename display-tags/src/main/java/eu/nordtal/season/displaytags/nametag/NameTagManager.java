@@ -24,5 +24,8 @@ public interface NameTagManager {
 
     void removeEntityNameTag(Entity entity);
 
+    /** Removes the name tag for {@code entityUuid}, even when the entity's chunk is unloaded. */
+    void removeEntityNameTag(UUID entityUuid);
+
     Collection<EntityNameTag> getAllEntityNameTags();
 }

@@ -312,8 +312,11 @@ final class SmpStart {
                 .register(
                         ObjectivesMenu.MENU,
                         locale -> NpcTexts.objectivesHint(plugin.renderer(), locale),
-                        objectives::openObjectives)
-                .register("wheel", locale -> NpcTexts.wheelHint(plugin.renderer(), locale), wheel::open);
+                        (player, onClose) -> objectives.openObjectives(player, onClose))
+                .register(
+                        "wheel",
+                        locale -> NpcTexts.wheelHint(plugin.renderer(), locale),
+                        (player, onClose) -> wheel.open(player, onClose));
         final NpcStore store = NpcStore.using(plugin.pool());
         PaperScheduler.of(plugin)
                 .execute(() -> NpcMenuStore.using(plugin.pool()).publish("smp", menus.describe()));
@@ -324,6 +327,7 @@ final class SmpStart {
                         plugin.hud(),
                         plugin.identities()::languageOf,
                         DialogueTexts.labels(plugin.renderer(), menus),
+                        DialogueTexts.skipNotice(plugin.renderer()),
                         menus,
                         new NpcNamePlates(plugin.nameTags.getNameTagManager(), plugin.identities()::languageOf),
                         () -> Feel.of(plugin.npcDialogueSettings.get())));

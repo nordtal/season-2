@@ -272,6 +272,15 @@ abstract class GenerateGlyphs : DefaultTask() {
             .texture(assets.get().asFile, NPC_TEXTURES)
             .listFiles { file -> file.extension == "png" }!!
             .forEach { it.copyTo(root.resolve("npc").resolve(it.name), overwrite = true) }
+        for (dir in generated.files) {
+            val generatedNpc = GlyphAdvances.texture(dir.resolve("assets"), NPC_TEXTURES)
+            if (generatedNpc.isDirectory) {
+                generatedNpc
+                    .listFiles { file -> file.extension == "png" }
+                    .orEmpty()
+                    .forEach { it.copyTo(root.resolve("npc").resolve(it.name), overwrite = true) }
+            }
+        }
     }
 
     private fun writeJava(glyphs: GlyphAllocation) {

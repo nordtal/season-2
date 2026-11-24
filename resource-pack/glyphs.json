@@ -7386,7 +7386,9 @@
     },
     {
       "font": "nordtal:npc_text_{shift}",
-      "shifts": [-35, -25, -23, -18, -15, -13, -11, -8, -6, -3, -1, 2, 4, 6, 9, 11, 14, 16, 17, 21, 26, 29, 31, 41],
+      "shifts": [
+        -35, -25, -23, -19, -15, -13, -11, -9, -7, -6, -3, -1, 1, 3, 4, 5, 9, 10, 13, 15, 17, 20, 25, 29, 30, 35, 40, 41
+      ],
       "constant": "FONT_NPC_TEXT",
       "letters": true,
       "references": ["minecraft:include/space", "nordtal:ui_space"],

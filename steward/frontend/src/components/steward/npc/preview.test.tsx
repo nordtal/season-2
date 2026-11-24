@@ -52,7 +52,7 @@ describe("the NPC's plate and dialogue preview", () => {
 
   it("lays the uploaded picture on an empty well, so no default bust shows through it", () => {
     const container = preview(npc({ artwork: ARTWORK }))
-    const well = container.querySelector("svg[aria-label] rect[fill='url(#npc-preview-well)']")
+    const well = container.querySelector("svg[aria-label] rect[fill='#8b8b8b']")
     const picture = container.querySelector(`image[href='/api/npc-artworks/${ARTWORK}']`)
     expect(well).not.toBeNull()
     expect(picture).not.toBeNull()
@@ -61,7 +61,7 @@ describe("the NPC's plate and dialogue preview", () => {
 
   it("draws a skin's own bust on an empty well, outlined as the game outlines it", () => {
     const container = preview(npc({ skin: "00000000-0000-0000-0000-0000000000bb" }))
-    const well = container.querySelector("svg[aria-label] rect[fill='url(#npc-preview-well)']")
+    const well = container.querySelector("svg[aria-label] rect[fill='#8b8b8b']")
     const bust = container.querySelector("svg[viewBox='0 0 40 40']")
     expect(well).not.toBeNull()
     expect(bust).not.toBeNull()
@@ -70,6 +70,6 @@ describe("the NPC's plate and dialogue preview", () => {
   })
 
   it("keeps the pack's default portrait for an NPC in the default skin", () => {
-    expect(preview(npc({})).querySelector("rect[fill='url(#npc-preview-well)']")).toBeNull()
+    expect(preview(npc({})).querySelector("rect[fill='#8b8b8b']")).toBeNull()
   })
 })

@@ -67,6 +67,12 @@ public final class DialogueScreen {
     static final TextColor HINT = TextColor.color(0xD8D8D8);
 
     private static final int BOTTOM = 16;
+    private static final int BORDER = 3;
+    private static final int TAB_CLEARANCE = 6;
+    private static final int LINE_CAP = 7;
+    private static final int LINE_STEP = 10;
+    private static final int ANSWER_LOWEST = 33;
+    private static final int ANSWER_STEP = 12;
     private static final int TILE = 256;
     private static final int TILES = 12;
     private static final int BAND = TILE * TILES;
@@ -284,8 +290,9 @@ public final class DialogueScreen {
                 .art(Glyphs.FONT_NPC, Glyphs.NPC_PANELS_RIGHT.get(index), WIDTH - TILE);
         pen.moveTo(PORTRAIT_X).art(panel.speaker().portraitFont(), Glyphs.NPC_PORTRAITS.get(index), PORTRAIT);
         tab(pen, panel.speaker(), top);
+        final int firstB = firstLineBottom(panel);
         for (int line = 0; line < panel.lines().size(); line++) {
-            final int b = top - 13 - 10 * line;
+            final int b = firstB - LINE_STEP * line;
             pen.moveTo(TEXT_X).text(text(72 - b), panel.lines().get(line), INK);
         }
         for (int answer = 0; answer < panel.answers().size(); answer++) {
@@ -299,6 +306,18 @@ public final class DialogueScreen {
         if (panel.more()) {
             pen.moveTo(MORE_X).art(Glyphs.FONT_NPC, Glyphs.NPC_MORE, MORE);
         }
+    }
+
+    /**
+     * Returns the first spoken line's top row above the screen's bottom, centred in the inner text area.
+     * The inner area runs from below the speaker name tab to the bottom border, or to the top answer strip.
+     */
+    static int firstLineBottom(final Panel panel) {
+        final int top = BOTTOM + panel.height();
+        final int areaTop = top - TAB_CLEARANCE;
+        final int areaBottom = panel.rows() == 0 ? BOTTOM + BORDER : ANSWER_LOWEST + ANSWER_STEP * (panel.rows() - 1);
+        final int block = LINE_CAP + LINE_STEP * (Math.max(panel.lines().size(), 1) - 1);
+        return areaTop - (areaTop - areaBottom - block) / 2;
     }
 
     private static void tab(final Pen pen, final Speaker speaker, final int top) {

@@ -354,7 +354,9 @@ public final class PackBuilds {
             final Path texts = Files.writeString(work.resolve("texts.json"), inputs.texts(), StandardCharsets.UTF_8);
             final Path zip = work.resolve("pack.zip");
             final Path npcRoot = Files.createDirectories(work.resolve("npc"));
-            NpcPack.write(npcRoot, inputs.skins(), inputs.pictures());
+            if (!inputs.skins().isEmpty() || !inputs.pictures().isEmpty()) {
+                NpcPack.write(npcRoot, inputs.skins(), inputs.pictures(), NpcPack.vanilla(facts));
+            }
             zipper.zip(
                     facts,
                     prizes,

@@ -44,6 +44,15 @@ function heightOf(lines: number, answers: number): number {
   return 26 + 10 * (Math.max(lines, 1) - 1) + 12 * (answers - 1) + 17
 }
 
+/** First spoken line's top row above the screen's bottom, matching DialogueScreen.firstLineBottom. */
+function firstLineBottom(height: number, lines: number, answers: number): number {
+  const top = PANEL.bottom + height
+  const areaTop = top - 6
+  const areaBottom = answers === 0 ? PANEL.bottom + 3 : ANSWER.lowest + ANSWER.step * (answers - 1)
+  const block = 7 + 10 * (Math.max(lines, 1) - 1)
+  return areaTop - Math.floor((areaTop - areaBottom - block) / 2)
+}
+
 /** Returns `hex` with every channel times `factor`, or moved `factor` of the way to white when `lighter`. */
 function shade(hex: string, factor: number, lighter = false): string {
   const value = Number.parseInt(hex.slice(1), 16)
@@ -318,15 +327,17 @@ function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y:
 }
 
 /**
- * The portrait's empty well at 40 by 40, as steward-agent draws it under an uploaded picture or a skin's bust: grey
- * from light to dark, sunk by a dark line at its top and left edge. It hides the default bust of the pack's portrait.
+ * The portrait's empty well at 40 by 40, as vanilla's slot bevel draws it under an uploaded picture or a skin's bust.
+ * It hides the default bust of the pack's portrait.
  */
 function Well({ x, y }: { x: number; y: number }) {
   return (
     <g>
-      <rect x={x} y={y} width={40} height={40} fill="url(#npc-preview-well)" />
-      <rect x={x} y={y} width={40} height={1} fill="#373737" fillOpacity={160 / 255} />
-      <rect x={x} y={y} width={1} height={40} fill="#373737" fillOpacity={160 / 255} />
+      <rect x={x} y={y} width={40} height={40} fill="#8b8b8b" />
+      <rect x={x} y={y} width={39} height={1} fill="#373737" />
+      <rect x={x} y={y} width={1} height={39} fill="#373737" />
+      <rect x={x + 1} y={y + 39} width={39} height={1} fill="#ffffff" />
+      <rect x={x + 39} y={y + 1} width={1} height={39} fill="#ffffff" />
     </g>
   )
 }
@@ -398,10 +409,6 @@ export function DialoguePreview({
           <stop offset="0" stopColor="#6f9be0" />
           <stop offset="1" stopColor="#c3d6f2" />
         </linearGradient>
-        <linearGradient id="npc-preview-well" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#9a9a9a" />
-          <stop offset="1" stopColor="#6e6e6e" />
-        </linearGradient>
       </defs>
       <rect width={SCREEN.width} height={SCREEN.height * 0.62} fill="url(#npc-preview-sky)" />
       <rect y={SCREEN.height * 0.62} width={SCREEN.width} height={SCREEN.height * 0.38} fill="#5d8f3f" />
@@ -455,7 +462,13 @@ export function DialoguePreview({
         </Line>
       </g>
       {lines.map((line, index) => (
-        <Line key={index} x={left + PANEL.text} y={row(top - 13 - 10 * index)} room={226} fill={INK}>
+        <Line
+          key={index}
+          x={left + PANEL.text}
+          y={row(firstLineBottom(height, lines.length, rows) - 10 * index)}
+          room={226}
+          fill={INK}
+        >
           {line}
         </Line>
       ))}

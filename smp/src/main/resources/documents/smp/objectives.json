@@ -167,6 +167,18 @@
           }
         }
       ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "close",
+      "lines": [
+        {
+          "text": {
+            "en": "Close",
+            "de": "Schließen"
+          }
+        }
+      ]
     }
   ]
 }

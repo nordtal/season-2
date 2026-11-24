@@ -91,6 +91,9 @@ public final class Wheel {
     /** The pop-in that still plays, per player, with the turn a spin starts after it; a spin or a close stops it. */
     private final Map<UUID, Scheduler.Task> popping = new ConcurrentHashMap<>();
 
+    /** Callbacks registered by callers such as NPC dialogues to run once when the player closes the wheel. */
+    private final Map<UUID, Runnable> onClose = new ConcurrentHashMap<>();
+
     private final Clock clock;
 
     private static final Duration TICK = Duration.ofMillis(50);
@@ -127,17 +130,28 @@ public final class Wheel {
      * The prizes pop in; no spin is spent. Callable from the main thread; ignored while the player's wheel turns.
      */
     public void open(final Player player) {
+        open(player, () -> {});
+    }
+
+    /**
+     * Shows the player's wheel and runs {@code closeCallback} once when the dialog closes.
+     * Callable from the main thread; ignored while the player's wheel turns.
+     */
+    public void open(final Player player, final Runnable closeCallback) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = identities.languageOf(player.getUniqueId());
         if (discordId.isEmpty()) {
             player.sendMessage(renderer.format(locale, Sent.of(SmpTexts.NO_ACCOUNT_LINK)));
             sounds.play(player, Feedback.REFUSED);
+            closeCallback.run();
             return;
         }
         final UUID id = player.getUniqueId();
         if (turning.containsKey(id)) {
+            closeCallback.run();
             return;
         }
+        onClose.put(id, closeCallback);
         PaperScheduler.of(plugin).execute(() -> {
             final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
             final int count = spins.available(LocalDate.now(clock));
@@ -146,6 +160,10 @@ public final class Wheel {
             final List<ItemStack> stacks = shown(plan);
             PaperScheduler.of(plugin).onMain(() -> {
                 if (!player.isOnline() || turning.containsKey(id)) {
+                    final Runnable pending = onClose.remove(id);
+                    if (pending != null) {
+                        pending.run();
+                    }
                     return;
                 }
                 final Dialogs.Send send = dialogs.send();
@@ -177,6 +195,10 @@ public final class Wheel {
         final Runnable end = ending.remove(id);
         if (end != null) {
             end.run();
+        }
+        final Runnable callback = onClose.remove(id);
+        if (callback != null) {
+            callback.run();
         }
     }
 
@@ -535,6 +557,11 @@ public final class Wheel {
                 document.label("close"));
     }
 
+    /** Drops any pending close callback when {@code playerId} disconnects. */
+    void onQuit(final UUID playerId) {
+        onClose.remove(playerId);
+    }
+
     /**
      * Pays out every spin still turning and puts back every one taken but not shown yet.
      * Paper disables plugins before it disconnects players.
@@ -543,6 +570,7 @@ public final class Wheel {
         List.copyOf(popping.values()).forEach(Scheduler.Task::cancel);
         popping.clear();
         ending.clear();
+        onClose.clear();
         Map.copyOf(turning).forEach((id, turn) -> {
             try {
                 settle(id, turn);

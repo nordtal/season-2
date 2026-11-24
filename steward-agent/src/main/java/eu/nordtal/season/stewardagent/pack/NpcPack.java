@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.database.npc.NpcArtwork;
 import eu.nordtal.season.database.npc.NpcSkin;
+import eu.nordtal.season.packbuilder.vanilla.VanillaFacts;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -57,30 +58,41 @@ final class NpcPack {
 
     private static final int OPAQUE = 255;
 
-    private static final int BLACK = 0xFF000000;
+    /** Vanilla {@code generic_54.png} window and slot coordinates, matching {@code VanillaWindow} in build-logic. */
+    static final int VANILLA_WIDTH = 176;
 
-    private static final int WHITE = 0xFFFFFFFF;
-
-    private static final int FILL = 0xFFC6C6C6;
-
-    private static final int SHADE = 0xFF555555;
-
-    private static final int WELL_TOP = 0x9A9A9A;
-
-    private static final int WELL_LOW = 0x6E6E6E;
-
-    /** The line that sinks the well's top and left edge: #373737 at alpha 160. */
-    private static final int WELL_EDGE = 0xA0373737;
+    static final int VANILLA_HEIGHT = 222;
+    static final int VANILLA_EDGE = 5;
+    static final int VANILLA_SLOT_X = 7;
+    static final int VANILLA_SLOT_Y = 17;
+    static final int VANILLA_SLOT_SIZE = 18;
 
     private static final int OUTLINE = 0xFF101014;
 
     private NpcPack() {}
 
+    /** Reads vanilla's {@code generic_54.png} from the extracted {@code facts} zip. */
+    static BufferedImage vanilla(final Path facts) throws IOException {
+        final byte[] bytes = VanillaFacts.read(facts)
+                .file(VanillaFacts.GENERIC_54)
+                .orElseThrow(() -> new IOException("the vanilla facts have no " + VanillaFacts.GENERIC_54));
+        final BufferedImage image = ImageIO.read(new ByteArrayInputStream(bytes));
+        if (image == null) {
+            throw new IOException("vanilla generic_54.png is not a readable PNG");
+        }
+        return image;
+    }
+
     /**
      * Writes the files of every NPC in {@code skins} or {@code artworks} under {@code root}, laid out like the pack.
-     * These are the body texture of a skin, and a portrait of the artwork, else of the skin's bust.
+     * These are the body texture of a skin, and a portrait of the artwork, else of the skin's bust, framed from
+     * {@code vanilla} ({@code generic_54.png}).
      */
-    static void write(final Path root, final Map<UUID, NpcSkin> skins, final Map<UUID, NpcArtwork> artworks)
+    static void write(
+            final Path root,
+            final Map<UUID, NpcSkin> skins,
+            final Map<UUID, NpcArtwork> artworks,
+            final BufferedImage vanilla)
             throws IOException {
         final Set<UUID> npcs = new TreeSet<>(skins.keySet());
         npcs.addAll(artworks.keySet());
@@ -100,7 +112,9 @@ final class NpcPack {
                 Files.write(body, Base64.getDecoder().decode(skin.png()));
             }
             ImageIO.write(
-                    portrait(picture), "png", textures.resolve(FILE + ".png").toFile());
+                    portrait(picture, vanilla),
+                    "png",
+                    textures.resolve(FILE + ".png").toFile());
             final Path font = asset(root, "font", NpcSkin.portraitFont(npc), ".json");
             Files.createDirectories(Objects.requireNonNull(font.getParent(), "folder"));
             Files.writeString(font, font(npc.toString()), StandardCharsets.UTF_8);
@@ -207,92 +221,57 @@ final class NpcPack {
     }
 
     /**
-     * Frames a {@value #PICTURE} square picture as the panel's bevel and well, padded below to {@value #HEIGHT}.
-     * The picture lies over the whole well, its sunk edge included, so an uploaded picture shows every pixel; where it
-     * is clear, the well shows.
+     * Frames a {@value #PICTURE} square picture in vanilla's window bevel and slot well, padded to {@value #HEIGHT}.
+     * The picture lies over the whole well so an uploaded artwork shows every pixel; where clear, the well shows.
      */
-    static BufferedImage portrait(final BufferedImage picture) {
+    static BufferedImage portrait(final BufferedImage picture, final BufferedImage vanilla) {
         final BufferedImage frame = blank(FRAME, HEIGHT);
-        bevel(frame);
-        for (int y = 0; y < PICTURE; y++) {
-            final double t = y / (double) (PICTURE - 1);
-            final int colour = OPAQUE << 24 | mix(WELL_TOP, WELL_LOW, t);
-            for (int x = 0; x < PICTURE; x++) {
-                frame.setRGB(3 + x, 3 + y, colour);
-            }
-        }
-        for (int i = 0; i < PICTURE; i++) {
-            over(frame, 3 + i, 3, WELL_EDGE);
-        }
-        for (int i = 0; i < PICTURE; i++) {
-            over(frame, 3, 3 + i, WELL_EDGE);
-        }
+        vanillaWindow(vanilla, frame, FRAME, FRAME);
+        vanillaSlotWell(vanilla, frame, 3, 3, PICTURE, PICTURE);
         blit(frame, picture, 3, 3);
         return frame;
     }
 
-    /** Draws the chest window's outline, light and shade on the top {@value #FRAME} rows, as the pack's panels do. */
-    private static void bevel(final BufferedImage frame) {
-        final int n = FRAME;
-        for (int y = 0; y < n; y++) {
-            for (int x = 0; x < n; x++) {
-                frame.setRGB(x, y, FILL);
+    /** Copies vanilla's 5 px corners, edges and fill from {@code generic_54.png} onto {@code target}. */
+    private static void vanillaWindow(
+            final BufferedImage vanilla, final BufferedImage target, final int width, final int height) {
+        for (int y = 0; y < height; y++) {
+            final int sy = y < VANILLA_EDGE ? y : (y >= height - VANILLA_EDGE ? VANILLA_HEIGHT - (height - y) : 10);
+            for (int x = 0; x < width; x++) {
+                final int sx = x < VANILLA_EDGE ? x : (x >= width - VANILLA_EDGE ? VANILLA_WIDTH - (width - x) : 10);
+                target.setRGB(x, y, vanilla.getRGB(sx, sy));
             }
         }
-        for (int i = 0; i < n; i++) {
-            frame.setRGB(i, 0, BLACK);
-            frame.setRGB(i, n - 1, BLACK);
-            frame.setRGB(0, i, BLACK);
-            frame.setRGB(n - 1, i, BLACK);
-        }
-        for (int y = 1; y < n - 1; y++) {
-            for (final int x : new int[] {1, 2}) {
-                frame.setRGB(x, y, y <= n - 4 ? WHITE : SHADE);
-            }
-            for (final int x : new int[] {n - 3, n - 2}) {
-                frame.setRGB(x, y, y >= 3 ? SHADE : WHITE);
-            }
-        }
-        for (int x = 1; x < n - 1; x++) {
-            for (final int y : new int[] {1, 2}) {
-                if (x <= n - 4) {
-                    frame.setRGB(x, y, WHITE);
-                }
-            }
-            for (final int y : new int[] {n - 3, n - 2}) {
-                if (x >= 3) {
-                    frame.setRGB(x, y, SHADE);
-                }
-            }
-        }
-        corners(frame);
     }
 
-    /** Rounds the frame's corners: clear outside, black inside, and the fill where light and shade meet. */
-    private static void corners(final BufferedImage frame) {
-        final int n = FRAME;
-        final int[][] clear = {
-            {0, 0},
-            {1, 0},
-            {0, 1},
-            {n - 1, 0},
-            {n - 2, 0},
-            {n - 1, 1},
-            {0, n - 1},
-            {1, n - 1},
-            {0, n - 2},
-            {n - 1, n - 1},
-            {n - 2, n - 1},
-            {n - 1, n - 2}
-        };
-        for (final int[] corner : clear) {
-            frame.setRGB(corner[0], corner[1], 0);
+    /** Draws vanilla's sunk slot bevel from {@code generic_54.png} stretched to {@code width} by {@code height}. */
+    private static void vanillaSlotWell(
+            final BufferedImage vanilla,
+            final BufferedImage target,
+            final int x,
+            final int y,
+            final int width,
+            final int height) {
+        final int dark = vanilla.getRGB(VANILLA_SLOT_X, VANILLA_SLOT_Y);
+        final int fill = vanilla.getRGB(VANILLA_SLOT_X + 1, VANILLA_SLOT_Y + 1);
+        final int corner = vanilla.getRGB(VANILLA_SLOT_X + VANILLA_SLOT_SIZE - 1, VANILLA_SLOT_Y);
+        final int light =
+                vanilla.getRGB(VANILLA_SLOT_X + VANILLA_SLOT_SIZE - 1, VANILLA_SLOT_Y + VANILLA_SLOT_SIZE - 1);
+        for (int dy = 0; dy < height; dy++) {
+            for (int dx = 0; dx < width; dx++) {
+                final int color;
+                if ((dx == width - 1 && dy == 0) || (dx == 0 && dy == height - 1)) {
+                    color = corner;
+                } else if (dx == 0 || dy == 0) {
+                    color = dark;
+                } else if (dx == width - 1 || dy == height - 1) {
+                    color = light;
+                } else {
+                    color = fill;
+                }
+                target.setRGB(x + dx, y + dy, color);
+            }
         }
-        for (final int[] corner : new int[][] {{1, 1}, {n - 2, 1}, {1, n - 2}, {n - 2, n - 2}}) {
-            frame.setRGB(corner[0], corner[1], BLACK);
-        }
-        frame.setRGB(n - 3, 2, FILL);
-        frame.setRGB(2, n - 3, FILL);
     }
 
     /** Returns a part of the skin, {@code width} by {@code height} from its top left, with its outer layer on top. */
@@ -397,17 +376,6 @@ final class NpcPack {
             argb |= (int) Math.round(channel) << shift;
         }
         return argb;
-    }
-
-    /** Returns the colour {@code share} of the way from {@code from} to {@code to}, both without alpha. */
-    private static int mix(final int from, final int to, final double share) {
-        int mixed = 0;
-        for (int shift = 0; shift <= 16; shift += 8) {
-            final int a = from >> shift & 0xFF;
-            final int b = to >> shift & 0xFF;
-            mixed |= (int) Math.round(a + (b - a) * share) << shift;
-        }
-        return mixed;
     }
 
     private static int alpha(final int argb) {

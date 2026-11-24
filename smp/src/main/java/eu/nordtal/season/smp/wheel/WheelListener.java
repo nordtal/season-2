@@ -12,6 +12,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
 /**
@@ -63,5 +64,11 @@ public final class WheelListener implements Listener {
         if (event.getPlayer() instanceof final Player player) {
             wheel.close(player);
         }
+    }
+
+    /** Drops any pending close callback when the player disconnects. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(final PlayerQuitEvent event) {
+        wheel.onQuit(event.getPlayer().getUniqueId());
     }
 }

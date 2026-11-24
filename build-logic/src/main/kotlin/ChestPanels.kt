@@ -91,6 +91,33 @@ internal object VanillaWindow {
         y: Int,
     ) = copy(vanilla, SLOT_X, SLOT_Y, image, x, y, SLOT_SIZE, SLOT_SIZE)
 
+    /** Draws vanilla's sunk slot bevel from `generic_54.png` stretched to [width] by [height] at ([x], [y]). */
+    fun slotWell(
+        vanilla: BufferedImage,
+        image: BufferedImage,
+        x: Int,
+        y: Int,
+        width: Int,
+        height: Int,
+    ) {
+        val dark = vanilla.getRGB(SLOT_X, SLOT_Y)
+        val fill = vanilla.getRGB(SLOT_X + 1, SLOT_Y + 1)
+        val corner = vanilla.getRGB(SLOT_X + SLOT_SIZE - 1, SLOT_Y)
+        val light = vanilla.getRGB(SLOT_X + SLOT_SIZE - 1, SLOT_Y + SLOT_SIZE - 1)
+        for (dy in 0 until height) {
+            for (dx in 0 until width) {
+                val color =
+                    when {
+                        (dx == width - 1 && dy == 0) || (dx == 0 && dy == height - 1) -> corner
+                        dx == 0 || dy == 0 -> dark
+                        dx == width - 1 || dy == height - 1 -> light
+                        else -> fill
+                    }
+                image.setRGB(x + dx, y + dy, color)
+            }
+        }
+    }
+
     fun copy(
         from: BufferedImage,
         fx: Int,

@@ -66,7 +66,12 @@ public class NameTagManagerImpl implements NameTagManager {
 
     @Override
     public void removeEntityNameTag(final Entity entity) {
-        final EntityNameTag tag = this.entityTags.remove(entity.getUniqueId());
+        this.removeEntityNameTag(entity.getUniqueId());
+    }
+
+    @Override
+    public void removeEntityNameTag(final UUID entityUuid) {
+        final EntityNameTag tag = this.entityTags.remove(entityUuid);
         if (tag != null) {
             tag.despawnForViewers();
         }
@@ -75,5 +80,11 @@ public class NameTagManagerImpl implements NameTagManager {
     @Override
     public Collection<EntityNameTag> getAllEntityNameTags() {
         return Collections.unmodifiableCollection(this.entityTags.values());
+    }
+
+    /** Returns the entity name tag attached to {@code entity}, or null if none is attached. */
+    @Nullable
+    EntityNameTag getEntityNameTag(final Entity entity) {
+        return this.entityTags.get(entity.getUniqueId());
     }
 }

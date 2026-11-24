@@ -56,9 +56,9 @@ class DialogueScreenTest {
         assertEquals(0, placed.only(Glyphs.NPC_PANELS_LEFT.get(index(48))).x());
         assertEquals(256, placed.only(Glyphs.NPC_PANELS_RIGHT.get(index(48))).x());
         assertEquals(7, placed.only(Glyphs.NPC_PORTRAITS.get(index(48))).x());
-        assertEquals(new Placed.Ink(text(21), DialogueScreen.INK, 60, "Hallo", false), placed.only("Hallo"));
-        assertEquals(text(31), placed.only("du").font());
-        assertEquals(text(41), placed.only("da").font());
+        assertEquals(new Placed.Ink(text(20), DialogueScreen.INK, 60, "Hallo", false), placed.only("Hallo"));
+        assertEquals(text(30), placed.only("du").font());
+        assertEquals(text(40), placed.only("da").font());
     }
 
     @Test
@@ -66,8 +66,29 @@ class DialogueScreenTest {
         final Placed placed = last(Panel.speaking(ALMA, List.of("a1", "a2", "a3", "a4"), false));
 
         assertEquals(0, placed.only(Glyphs.NPC_PANELS_LEFT.get(index(58))).x());
-        assertEquals(text(11), placed.only("a1").font());
-        assertEquals(text(41), placed.only("a4").font());
+        assertEquals(text(10), placed.only("a1").font());
+        assertEquals(text(40), placed.only("a4").font());
+    }
+
+    @Test
+    void speakingLinesAreVerticallyCentredWithBalancedMarginsAcrossAllLineCounts() {
+        for (int count = 1; count <= 4; count++) {
+            final List<String> lines =
+                    IntStream.range(0, count).mapToObj(i -> "line" + i).toList();
+            final Panel panel = Panel.speaking(ALMA, lines, false);
+            final int top = 16 + panel.height();
+            final int areaTop = top - 6;
+            final int areaBottom = 16 + 3;
+            final int firstB = DialogueScreen.firstLineBottom(panel);
+            final int lastBottom = firstB - 10 * (count - 1) - 7;
+            final int topMargin = areaTop - firstB;
+            final int bottomMargin = lastBottom - areaBottom;
+
+            assertEquals(topMargin, bottomMargin, "symmetric margins for " + count + " lines");
+            assertTrue(bottomMargin >= 6, "enough bottom room for " + count + " lines: " + bottomMargin);
+            final Placed placed = last(panel);
+            assertEquals(text(72 - firstB), placed.only("line0").font());
+        }
     }
 
     @Test
@@ -171,8 +192,8 @@ class DialogueScreenTest {
                         0,
                         placed.only(Glyphs.NPC_PANELS_LEFT.get(index(height))).x(),
                         lines + "/" + answers);
-                // The question's lines stand above the answers, 10 rows apart.
-                final int first = 16 + height - 13;
+                // The question's lines stand centred between the tab clearance and the top answer strip.
+                final int first = 16 + height - 12;
                 assertEquals(text(72 - first), placed.only("z0").font());
             }
         }

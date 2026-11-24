@@ -24,7 +24,7 @@ import org.jspecify.annotations.Nullable;
 public final class NpcNamePlates implements NamePlates {
 
     /** How close a viewer stands before the speech bubble over the plate shows that the NPC talks. */
-    static final double NEAR = 6;
+    static final double NEAR = 12;
 
     private final NameTagManager nameTags;
     private final Function<UUID, Locale> languageOf;

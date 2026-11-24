@@ -71,6 +71,11 @@ class NpcNamePlatesTest {
     }
 
     @Test
+    void speechBubbleAppearsWithinTwelveBlocks() {
+        assertEquals(12.0, NpcNamePlates.NEAR);
+    }
+
+    @Test
     void theObjectivesHintIsTranslated() {
         assertEquals("Open objectives", NpcTexts.objectivesHint(RENDERER, Locale.ENGLISH));
         assertEquals("Ziele öffnen", NpcTexts.objectivesHint(RENDERER, Locale.GERMAN));

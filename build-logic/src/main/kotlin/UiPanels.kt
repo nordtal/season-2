@@ -1,14 +1,18 @@
 package eu.nordtal.season.build
 
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 
-/** Dimensions of all non-NPC in-game UI panels drawn from vanilla's `generic_54.png`. */
+/** Dimensions of in-game UI and NPC panels drawn from vanilla's `generic_54.png`. */
 object UiPanelGeometry {
     /** One dialog panel size matching `DialogPanel` in `:pack-rendering`. */
     data class DialogSpec(
@@ -38,6 +42,17 @@ object UiPanelGeometry {
     /** Powers of two tiled by `BoardFrame`. */
     val BOARD_POWERS = listOf(1, 2, 4, 8, 16, 32, 64, 128)
 
+    /** Width of every NPC dialogue panel, matching `DialogueScreen.WIDTH`. */
+    const val NPC_PANEL_WIDTH = 300
+
+    /** All 11 NPC dialogue panel heights declared in `glyphs.json` and `DialogueScreen.HEIGHTS`. */
+    val NPC_PANEL_HEIGHTS = listOf(43, 48, 53, 55, 58, 63, 65, 67, 75, 77, 87)
+
+    /** Picture side, frame side and padded texture height of `npc/portrait.png`. */
+    const val NPC_PORTRAIT_PICTURE = 40
+    const val NPC_PORTRAIT_FRAME = 46
+    const val NPC_PORTRAIT_HEIGHT = 64
+
     /** All 18 dialog panel sizes declared in `glyphs.json`. */
     val DIALOGS =
         listOf(
@@ -63,17 +78,21 @@ object UiPanelGeometry {
 }
 
 /**
- * Draws every non-NPC vanilla UI panel texture into [textures] from Minecraft's `generic_54.png`.
+ * Draws every vanilla UI and NPC panel texture into [textures] from Minecraft's `generic_54.png`.
  * Produces all 18 dialog panels, the 18 x 18 slot sprite, `ui/gui/panel_1..6` and plain variants,
- * and the `ui/board` frame corners and edges.
+ * the `ui/board` frame corners and edges, the 11 NPC dialogue panels and `npc/portrait.png`.
  */
 @CacheableTask
 abstract class DrawUiPanels : VanillaClientTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val npcDefaultBust: RegularFileProperty
+
     @get:OutputDirectory
     abstract val textures: DirectoryProperty
 
     init {
-        description = "Draws dialog panels, slot sprite, gui panels and board frames from the client jar."
+        description = "Draws dialog panels, NPC panels and portrait frame, slot sprite, gui panels and board frames."
     }
 
     @TaskAction
@@ -84,6 +103,20 @@ abstract class DrawUiPanels : VanillaClientTask() {
         writeDialogs(vanilla, root.resolve("assets/nordtal/textures/ui/kit").apply { mkdirs() })
         writeGuiPanels(vanilla, root.resolve("assets/nordtal/textures/ui/gui").apply { mkdirs() })
         writeBoardFrame(vanilla, root.resolve("assets/nordtal/textures/ui/board").apply { mkdirs() })
+        writeNpcPanels(vanilla, root.resolve("assets/nordtal/textures/npc").apply { mkdirs() })
+    }
+
+    private fun writeNpcPanels(
+        vanilla: BufferedImage,
+        directory: File,
+    ) {
+        for (height in UiPanelGeometry.NPC_PANEL_HEIGHTS) {
+            dialogTiles(vanilla, UiPanelGeometry.NPC_PANEL_WIDTH, height).forEachIndexed { index, tile ->
+                ImageIO.write(tile, "png", File(directory, "panel_${height}_$index.png"))
+            }
+        }
+        val bust = ImageIO.read(npcDefaultBust.get().asFile)
+        ImageIO.write(npcPortrait(vanilla, bust), "png", File(directory, "portrait.png"))
     }
 
     private fun writeDialogs(
@@ -150,6 +183,51 @@ abstract class DrawUiPanels : VanillaClientTask() {
                 offset += tileWidth
             }
             return tiles
+        }
+
+        /** Draws the 46 x 64 NPC avatar frame from [vanilla] with its 40 x 40 slot well and optional [picture]. */
+        fun npcPortrait(
+            vanilla: BufferedImage,
+            picture: BufferedImage? = null,
+        ): BufferedImage {
+            val frame =
+                BufferedImage(
+                    UiPanelGeometry.NPC_PORTRAIT_FRAME,
+                    UiPanelGeometry.NPC_PORTRAIT_HEIGHT,
+                    BufferedImage.TYPE_INT_ARGB,
+                )
+            VanillaWindow.window(vanilla, frame, 0, UiPanelGeometry.NPC_PORTRAIT_FRAME, UiPanelGeometry.NPC_PORTRAIT_FRAME)
+            VanillaWindow.slotWell(vanilla, frame, 3, 3, UiPanelGeometry.NPC_PORTRAIT_PICTURE, UiPanelGeometry.NPC_PORTRAIT_PICTURE)
+            if (picture != null) {
+                for (y in 0 until picture.height) {
+                    for (x in 0 until picture.width) {
+                        val argb = picture.getRGB(x, y)
+                        val alpha = argb ushr 24
+                        if (alpha == 255) {
+                            frame.setRGB(3 + x, 3 + y, argb)
+                        } else if (alpha > 0) {
+                            frame.setRGB(3 + x, 3 + y, sourceOver(frame.getRGB(3 + x, 3 + y), argb))
+                        }
+                    }
+                }
+            }
+            return frame
+        }
+
+        private fun sourceOver(
+            below: Int,
+            top: Int,
+        ): Int {
+            val a = (top ushr 24) / 255.0
+            val b = (below ushr 24) / 255.0 * (1.0 - a)
+            val out = a + b
+            if (out == 0.0) return 0
+            var argb = Math.round(out * 255.0).toInt() shl 24
+            for (shift in intArrayOf(0, 8, 16)) {
+                val c = ((top ushr shift and 0xFF) * a + (below ushr shift and 0xFF) * b) / out
+                argb = argb or (Math.round(c).toInt() shl shift)
+            }
+            return argb
         }
 
         /** Extracts vanilla's 18 x 18 slot frame from [vanilla]. */

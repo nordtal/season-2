@@ -91,6 +91,67 @@ class UiPanelsTest {
     }
 
     @Test
+    fun npcPanelsAndPortraitMatchGeneric54CornersEdgesAndSlotWell() {
+        val vanilla = syntheticGeneric54()
+        for (height in UiPanelGeometry.NPC_PANEL_HEIGHTS) {
+            val tiles = DrawUiPanels.dialogTiles(vanilla, UiPanelGeometry.NPC_PANEL_WIDTH, height)
+            assertEquals(2, tiles.size, "height $height splits into two tiles")
+            assertEquals(256, tiles[0].width)
+            assertEquals(44, tiles[1].width)
+            for (y in 0 until VanillaWindow.EDGE) {
+                for (x in 0 until VanillaWindow.EDGE) {
+                    assertEquals(vanilla.getRGB(x, y), tiles[0].getRGB(x, y), "panel_$height TL ($x,$y)")
+                    assertEquals(
+                        vanilla.getRGB(VanillaWindow.WIDTH - VanillaWindow.EDGE + x, y),
+                        tiles[1].getRGB(tiles[1].width - VanillaWindow.EDGE + x, y),
+                        "panel_$height TR ($x,$y)",
+                    )
+                    assertEquals(
+                        vanilla.getRGB(x, VanillaWindow.HEIGHT - VanillaWindow.EDGE + y),
+                        tiles[0].getRGB(x, height - VanillaWindow.EDGE + y),
+                        "panel_$height BL ($x,$y)",
+                    )
+                    assertEquals(
+                        vanilla.getRGB(VanillaWindow.WIDTH - VanillaWindow.EDGE + x, VanillaWindow.HEIGHT - VanillaWindow.EDGE + y),
+                        tiles[1].getRGB(tiles[1].width - VanillaWindow.EDGE + x, height - VanillaWindow.EDGE + y),
+                        "panel_$height BR ($x,$y)",
+                    )
+                }
+            }
+        }
+        val portrait = DrawUiPanels.npcPortrait(vanilla)
+        assertEquals(UiPanelGeometry.NPC_PORTRAIT_FRAME, portrait.width)
+        assertEquals(UiPanelGeometry.NPC_PORTRAIT_HEIGHT, portrait.height)
+        for (y in 0 until 3) {
+            for (x in 0 until 3) {
+                assertEquals(vanilla.getRGB(x, y), portrait.getRGB(x, y), "portrait TL ($x,$y)")
+                assertEquals(
+                    vanilla.getRGB(VanillaWindow.WIDTH - 3 + x, y),
+                    portrait.getRGB(UiPanelGeometry.NPC_PORTRAIT_FRAME - 3 + x, y),
+                    "portrait TR ($x,$y)",
+                )
+                assertEquals(
+                    vanilla.getRGB(x, VanillaWindow.HEIGHT - 3 + y),
+                    portrait.getRGB(x, UiPanelGeometry.NPC_PORTRAIT_FRAME - 3 + y),
+                    "portrait BL ($x,$y)",
+                )
+                assertEquals(
+                    vanilla.getRGB(VanillaWindow.WIDTH - 3 + x, VanillaWindow.HEIGHT - 3 + y),
+                    portrait.getRGB(UiPanelGeometry.NPC_PORTRAIT_FRAME - 3 + x, UiPanelGeometry.NPC_PORTRAIT_FRAME - 3 + y),
+                    "portrait BR ($x,$y)",
+                )
+            }
+        }
+        assertEquals(vanilla.getRGB(VanillaWindow.SLOT_X, VanillaWindow.SLOT_Y), portrait.getRGB(3, 3))
+        assertEquals(vanilla.getRGB(VanillaWindow.SLOT_X + 1, VanillaWindow.SLOT_Y + 1), portrait.getRGB(20, 20))
+        assertEquals(
+            vanilla.getRGB(VanillaWindow.SLOT_X + VanillaWindow.SLOT_SIZE - 1, VanillaWindow.SLOT_Y + VanillaWindow.SLOT_SIZE - 1),
+            portrait.getRGB(42, 42),
+        )
+        assertEquals(0, portrait.getRGB(20, 50), "padding below portrait frame stays clear")
+    }
+
+    @Test
     fun slotSpriteMatchesGeneric54SlotPixelForPixel() {
         val vanilla = syntheticGeneric54()
         val slot = DrawUiPanels.slotSprite(vanilla)

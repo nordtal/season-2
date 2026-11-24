@@ -377,9 +377,10 @@ drawChestPanels.configure {
     textures.set(layout.buildDirectory.dir("generated/chest-panels"))
 }
 
-// All other non-NPC vanilla UI panels, drawn on every build from generic_54.png in the client jar.
+// All vanilla UI and NPC panels, drawn on every build from generic_54.png in the client jar.
 drawUiPanels.configure {
     vanillaClient()
+    npcDefaultBust.set(layout.projectDirectory.file("portrait_bust.png"))
     textures.set(layout.buildDirectory.dir("generated/ui-panels"))
 }
 

@@ -96,6 +96,11 @@ public final class Menus implements Listener {
         }
     }
 
+    /** Returns whether {@code event} closes a Nordtal {@link Menu} rather than a replacement or reopen. */
+    public static boolean isMenuClose(final InventoryCloseEvent event) {
+        return event.getInventory().getHolder() instanceof final Menu menu && !menu.replaced();
+    }
+
     /** Tells every open menu on the main thread that the plugin stops. */
     public void stopAll() {
         for (final Player player : Bukkit.getOnlinePlayers()) {

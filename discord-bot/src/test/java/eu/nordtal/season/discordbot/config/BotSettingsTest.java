@@ -43,11 +43,10 @@ class BotSettingsTest {
         return values;
     }
 
-    /** Returns a language entry with two channels numbered from {@code first} and a Hunger Games channel. */
+    /** Returns a language entry with a join channel numbered from {@code first} and a Hunger Games channel. */
     private static Map<String, String> language(final String tag, final int first, final int hungerGamesChannel) {
         final Map<String, String> entry = new LinkedHashMap<>();
         entry.put("tag", tag);
-        entry.put("contribution-channel", String.valueOf(first + 1));
         entry.put("link-channel", String.valueOf(first + 2));
         entry.put("hunger-games-channel", String.valueOf(hungerGamesChannel));
         return entry;
@@ -207,7 +206,7 @@ class BotSettingsTest {
                 () -> assertEquals("", config.languages().getFirst().roleName()),
                 () -> assertEquals("32", config.languages().getFirst().linkChannel()),
                 () -> assertEquals("de", config.languages().getLast().tag()),
-                () -> assertEquals("34", config.languages().getLast().contributionChannel()),
+                () -> assertEquals("35", config.languages().getLast().linkChannel()),
                 () -> assertEquals("40", config.languages().getLast().hungerGamesChannel()));
     }
 
@@ -274,7 +273,6 @@ class BotSettingsTest {
 
         assertAll(
                 () -> assertEquals("", german.roleName()),
-                () -> assertEquals("", german.contributionChannel()),
                 () -> assertEquals("", german.linkChannel()),
                 () -> assertEquals("", german.hungerGamesChannel()));
     }
@@ -350,14 +348,13 @@ class BotSettingsTest {
                 () -> assertEquals(3, languages.all().size()),
                 () -> assertEquals(Locale.FRENCH, french.locale()),
                 () -> assertEquals("Français", french.roleName()),
-                () -> assertEquals("37", french.contributionChannelId()),
                 () -> assertEquals("38", french.linkChannelId()),
                 () -> assertEquals("41", french.hungerGamesChannelId()),
                 () -> assertEquals("CONTRIBUTION_FR", french.contributionKind()),
                 () -> assertEquals("HG_REGISTER_FR", french.hungerGamesRegisterKind()),
                 () -> assertArrayEquals(
                         new Locale[] {Locale.ENGLISH, Locale.GERMAN, Locale.FRENCH}, languages.locales()),
-                () -> assertEquals("31", languages.forLocale(Locale.ENGLISH).contributionChannelId()));
+                () -> assertEquals("32", languages.forLocale(Locale.ENGLISH).linkChannelId()));
     }
 
     @Test

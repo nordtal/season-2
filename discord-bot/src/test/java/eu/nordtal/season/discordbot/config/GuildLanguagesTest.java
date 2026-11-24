@@ -16,12 +16,9 @@ import org.junit.jupiter.api.Test;
 class LanguagesTest {
 
     private static final Languages NETWORK = new Languages(List.of("en", "de"));
-    private static final GuildLanguages.Language EN =
-            new GuildLanguages.Language("en", "English", "11", "12", "13", "14");
-    private static final GuildLanguages.Language DE =
-            new GuildLanguages.Language("de", "Deutsch", "21", "22", "23", "24");
-    private static final GuildLanguages.Language FR =
-            new GuildLanguages.Language("fr", "Français", "31", "32", "33", "");
+    private static final GuildLanguages.Language EN = new GuildLanguages.Language("en", "English", "12", "13", "14");
+    private static final GuildLanguages.Language DE = new GuildLanguages.Language("de", "Deutsch", "22", "23", "24");
+    private static final GuildLanguages.Language FR = new GuildLanguages.Language("fr", "Français", "32", "33", "");
 
     private static GuildLanguages today() {
         return GuildLanguages.of(List.of(EN, DE), NETWORK);
@@ -29,10 +26,10 @@ class LanguagesTest {
 
     @Test
     void theAnnouncementChannelIsTheSecondOptionalId() {
-        // The constructor with six ids has no announcement channel. The seventh id adds it.
+        // The constructor with five ids has no announcement channel. The sixth id adds it.
         assertFalse(EN.hasAnnouncementChannel());
         final GuildLanguages.Language withChannel =
-                new GuildLanguages.Language("en", "English", "11", "12", "13", "14", "15");
+                new GuildLanguages.Language("en", "English", "12", "13", "14", "15");
         assertTrue(withChannel.hasAnnouncementChannel());
         assertEquals("15", withChannel.announcementChannelId());
         assertTrue(withChannel.hasStatusChannel());
@@ -45,7 +42,6 @@ class LanguagesTest {
         assertAll(
                 () -> assertEquals(
                         Locale.FRENCH, three.byTag("fr").orElseThrow().locale()),
-                () -> assertEquals("31", three.forLocale(Locale.FRENCH).contributionChannelId()),
                 () -> assertEquals("32", three.forLocale(Locale.FRENCH).linkChannelId()),
                 () -> assertEquals(3, three.all().size()),
                 // Messages.load takes the whole list, so the French bundle needs no code change.
@@ -67,20 +63,18 @@ class LanguagesTest {
     @Test
     void aLocaleResolvesToItsOwnChannels() {
         assertAll(
-                () -> assertEquals("11", today().forLocale(Locale.ENGLISH).contributionChannelId()),
-                () -> assertEquals("21", today().forLocale(Locale.GERMAN).contributionChannelId()),
                 () -> assertEquals("12", today().forLocale(Locale.ENGLISH).linkChannelId()),
                 () -> assertEquals("22", today().forLocale(Locale.GERMAN).linkChannelId()),
                 // discord_user.locale stores only the language, so de-AT is German.
                 () -> assertEquals(
-                        "21", today().forLocale(Locale.forLanguageTag("de-AT")).contributionChannelId()));
+                        "22", today().forLocale(Locale.forLanguageTag("de-AT")).linkChannelId()));
     }
 
     @Test
     void aLanguageThatIsNotConfiguredFallsBackToEnRatherThanToNothing() {
         assertAll(
                 () -> assertEquals("en", today().forLocale(Locale.FRENCH).tag()),
-                () -> assertEquals("11", today().forLocale(Locale.FRENCH).contributionChannelId()),
+                () -> assertEquals("12", today().forLocale(Locale.FRENCH).linkChannelId()),
                 () -> assertEquals("en", today().forLocale(null).tag()),
                 () -> assertEquals("en", today().fallback().tag()));
     }
@@ -121,8 +115,7 @@ class LanguagesTest {
         final IllegalArgumentException error = assertThrows(
                 IllegalArgumentException.class,
                 () -> GuildLanguages.of(
-                        List.of(EN, new GuildLanguages.Language("en", "English", "41", "42", "43", "44"), DE),
-                        NETWORK));
+                        List.of(EN, new GuildLanguages.Language("en", "English", "42", "43", "44"), DE), NETWORK));
         assertTrue(error.getMessage().contains("unique"), error.getMessage());
     }
 

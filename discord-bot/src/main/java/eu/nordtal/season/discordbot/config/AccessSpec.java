@@ -110,7 +110,7 @@ public interface AccessSpec {
             return "";
         }
 
-        @Order(8)
+        @Order(7)
         @Name("Category")
         @Key("category")
         @Explain("Other languages cannot see this category or its channels.")
@@ -119,7 +119,7 @@ public interface AccessSpec {
             return "";
         }
 
-        @Order(9)
+        @Order(8)
         @Name("Rules channel")
         @Key("rules-channel")
         @NoExplanationNeeded
@@ -128,19 +128,9 @@ public interface AccessSpec {
             return "";
         }
 
-        /** The buy-access message in this language and its donation thank-yous go here. */
+        /** The join message (access and account link) in this language goes here. */
         @Order(3)
-        @Name("Contribution channel")
-        @Key("contribution-channel")
-        @NoExplanationNeeded
-        @Refers(Refers.To.DISCORD_CHANNEL)
-        default String contributionChannel() {
-            return "";
-        }
-
-        /** The account-link message in this language goes here. */
-        @Order(4)
-        @Name("Link channel")
+        @Name("Join channel")
         @Key("link-channel")
         @NoExplanationNeeded
         @Refers(Refers.To.DISCORD_CHANNEL)
@@ -150,9 +140,9 @@ public interface AccessSpec {
 
         /**
          * The Hunger Games registration message goes here.
-         * It is separate from the contribution channel, because access is not required to play.
+         * It is separate from the join channel, because access is not required to play.
          */
-        @Order(5)
+        @Order(4)
         @Name("Hunger Games channel")
         @Key("hunger-games-channel")
         @NoExplanationNeeded
@@ -162,7 +152,7 @@ public interface AccessSpec {
         }
 
         /** The bot only renames it and never posts in it. Empty means none. */
-        @Order(6)
+        @Order(5)
         @Name("Status channel")
         @Key("status-channel")
         @NoExplanationNeeded
@@ -172,7 +162,7 @@ public interface AccessSpec {
         }
 
         /** Empty means the default: the flag of Germany for German, a globe for every other language. */
-        @Order(10)
+        @Order(9)
         @Name("Discord emoji")
         @Key("emoji")
         @Explain("Shown before the language's name in the language select.")
@@ -180,9 +170,9 @@ public interface AccessSpec {
             return "";
         }
 
-        /** The bot posts milestones and season announcements here for this language. */
-        @Order(7)
-        @Name("Announcement channel")
+        /** Default channel for Steward announcements and the News button in the rules embed. */
+        @Order(6)
+        @Name("News channel")
         @Key("announcement-channel")
         @NoExplanationNeeded
         @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)

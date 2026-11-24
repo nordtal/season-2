@@ -48,8 +48,7 @@ class AdminAnnouncementsTest {
                 }
             },
             GuildLanguages.of(
-                    List.of(new GuildLanguages.Language("en", "", "", "", "", "", "222")),
-                    new Languages(List.of("en"))),
+                    List.of(new GuildLanguages.Language("en", "", "", "", "", "222")), new Languages(List.of("en"))),
             LOG);
 
     private AdminAnnouncements subject(final Optional<Document> document) {

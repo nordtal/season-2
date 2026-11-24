@@ -47,7 +47,7 @@ class StatusChannelsSignalTest {
         final JDA jda = (JDA) Proxy.newProxyInstance(
                 JDA.class.getClassLoader(), new Class<?>[] {JDA.class}, (proxy, method, args) -> null);
         final GuildLanguages languages = GuildLanguages.of(
-                List.of(new GuildLanguages.Language("en", "English", "", "", "", statusChannel)),
+                List.of(new GuildLanguages.Language("en", "English", "", "", statusChannel)),
                 new Languages(List.of("en")));
         return new StatusChannels(
                 jda,

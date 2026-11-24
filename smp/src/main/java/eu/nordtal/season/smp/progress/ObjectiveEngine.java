@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.progress;
 
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -9,7 +8,6 @@ import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.feedback.SmpSounds;
@@ -81,7 +79,6 @@ public final class ObjectiveEngine implements Contributions {
     private final PrizeSource prizes;
     private final SmpSounds sounds;
     private final WorldEffects effects;
-    private final Announcer announcer;
     private final ItemRewards itemRewards;
 
     /** The fade in, stay and fade out of the milestone title. */
@@ -112,9 +109,7 @@ public final class ObjectiveEngine implements Contributions {
             final PrizeSource prizes,
             final SmpSounds sounds,
             final WorldEffects effects,
-            final Announcer announcer,
             final ItemRewards itemRewards) {
-        this.announcer = java.util.Objects.requireNonNull(announcer, "announcer");
         this.plugin = plugin;
         this.jdbi = jdbi;
         this.rows = jdbi.onDemand(TrackDao.class);
@@ -367,7 +362,7 @@ public final class ObjectiveEngine implements Contributions {
             if (milestone != null && milestone.unlock() == Unlock.BORDER) {
                 borderOpened.accept(milestone.borderRegions());
             }
-            announceMilestone(milestoneKey, completedBy, milestone == null ? Unlock.NOTHING : milestone.unlock());
+            announceMilestone(milestoneKey, completedBy);
         });
     }
 
@@ -383,17 +378,10 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /**
-     * Announces the unlocked milestone on Discord and to every online player.
+     * Announces the unlocked milestone to every online player.
      * The player {@code completedBy} hears {@code BIG_SUCCESS} and everybody else {@code NETWORK_EVENT}.
      */
-    private void announceMilestone(final String milestoneKey, final @Nullable UUID completedBy, final Unlock unlock) {
-        final BotRequest.Announce.Message message = switch (unlock) {
-            case BORDER -> BotRequest.Announce.Message.MILESTONE_BORDER;
-            case NETHER -> BotRequest.Announce.Message.MILESTONE_NETHER;
-            case END -> BotRequest.Announce.Message.MILESTONE_END;
-            case NOTHING -> BotRequest.Announce.Message.MILESTONE;
-        };
-        announcer.announce(message, milestoneKey, locale -> MilestoneNames.of(renderer, locale, milestoneKey));
+    private void announceMilestone(final String milestoneKey, final @Nullable UUID completedBy) {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             final var locale = identities.languageOf(player.getUniqueId());
             final Reached reached =

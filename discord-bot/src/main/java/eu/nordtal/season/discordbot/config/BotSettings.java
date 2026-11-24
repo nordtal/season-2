@@ -108,7 +108,6 @@ public final class BotSettings {
             // Each channel is optional and must be a snowflake when set.
             requireSnowflakeIfSet(path + ".category", language.category());
             requireSnowflakeIfSet(path + ".rules-channel", language.rulesChannel());
-            requireSnowflakeIfSet(path + ".contribution-channel", language.contributionChannel());
             requireSnowflakeIfSet(path + ".link-channel", language.linkChannel());
             requireSnowflakeIfSet(path + ".hunger-games-channel", language.hungerGamesChannel());
             requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());

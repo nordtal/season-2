@@ -50,9 +50,6 @@ public final class Configured {
     private static void addLanguages(final List<String> off, final AccessSpec config) {
         for (final AccessSpec.LanguageSpec language : config.languages()) {
             final String path = "languages[" + language.tag() + "]";
-            if (!isSet(language.contributionChannel())) {
-                off.add(path + ".contribution-channel");
-            }
             if (!isSet(language.linkChannel())) {
                 off.add(path + ".link-channel");
             }

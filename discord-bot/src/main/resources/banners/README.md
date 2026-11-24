@@ -1,7 +1,7 @@
 # Banner images
 
-`contribution.png`, `hunger-games.png`, `link.png`, `onboarding.png` and `rules.png` are the Nordtal banner, 2560x640 pixels.
-Each heads one managed message: the contribution message, the Register message of the Hunger Games, the link
+`hunger-games.png`, `link.png`, `onboarding.png` and `rules.png` are the Nordtal banner, 2560x640 pixels.
+Each heads one managed message: the Register message of the Hunger Games, the join
 message, the welcome in the onboarding channel and the rules. A document names its file as `attachment://<name>`, and the bot
 attaches the file to the message.
 

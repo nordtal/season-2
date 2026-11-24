@@ -23,7 +23,6 @@ final class DefaultLanguages {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("tag", tag);
         values.put("role-name", "");
-        values.put("contribution-channel", "");
         values.put("link-channel", "");
         values.put("hunger-games-channel", "");
         values.put("status-channel", "");

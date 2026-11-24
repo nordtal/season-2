@@ -6,14 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
-import eu.nordtal.season.database.inbox.BotRequest;
-import eu.nordtal.season.database.inbox.Inbox;
-import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.settings.SettingsException;
-import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.command.SmpAdmin;
 import eu.nordtal.season.smp.config.Milestones;
@@ -28,7 +24,6 @@ import eu.nordtal.season.smp.wheel.SpinDao;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -89,8 +84,6 @@ class OneUnlockStartsTheSeasonIntegrationTest {
 
         final SeasonState season = new SeasonState();
         season.refresh(List.of(), track);
-        final Messages messages = Messages.load(
-                OneUnlockStartsTheSeasonIntegrationTest.class.getClassLoader(), "messages/smp", Locale.ENGLISH);
         final ObjectiveEngine engine = new ObjectiveEngine(
                 fake(Plugin.class, Map.of("getLogger", LOGGER)),
                 jdbi,
@@ -102,11 +95,6 @@ class OneUnlockStartsTheSeasonIntegrationTest {
                 null,
                 null,
                 null,
-                new Announcer(
-                        Inbox.over(dataSource, BotRequest.TABLE),
-                        messages.locales(),
-                        Runnable::run,
-                        (message, failure) -> {}),
                 null);
         final SmpAdmin admin = new SmpAdmin(
                 rows,

@@ -12,6 +12,68 @@
           "lines": [
             {
               "text": {
+                "en": "Access",
+                "de": "{@terms.access, capital=first}"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "With {@terms.access} you can join `play.nordtal.eu`.",
+                "de": "Mit {@terms.access} kannst du `play.nordtal.eu` betreten."
+              }
+            },
+            {
+              "list": "tiers",
+              "text": {
+                "en": "**{@values.duration.days, n=days}** for {price}",
+                "de": "**{@values.duration.days, n=days}** für {price}"
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "buy",
+              "label": {
+                "en": "Buy {@terms.access}",
+                "de": "{@terms.access, capital=first} kaufen"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Further purchases extend your existing {@terms.access}.",
+                "de": "Jeder weitere Kauf verlängert deinen bestehenden {@terms.access}."
+              }
+            },
+            {
+              "text": {
+                "en": "With an added {amount} donation, you get the permanent donor role.",
+                "de": "Mit einer zusätzlichen Spende von {amount} bekommst du die dauerhafte Spenderrolle."
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEPARATOR"
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
                 "en": "Link your Minecraft account",
                 "de": "Minecraft-Konto verknüpfen"
               },
@@ -47,9 +109,6 @@
               }
             }
           ]
-        },
-        {
-          "type": "SEPARATOR"
         },
         {
           "type": "TEXT",

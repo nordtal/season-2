@@ -213,11 +213,10 @@ public class AccessBot implements AutoCloseable {
                 wiring.purchaseFlow(),
                 openInbox(new BotInbox(
                         wiring.inboxEffects(),
-                        (announcement, line) -> wiring.announcements()
-                                .post(
-                                        line.language(),
-                                        eu.nordtal.season.discordbot.announce.Announcements.text(
-                                                core.renderer(), announcement, line)),
+                        (announcement, line) -> eu.nordtal.season.discordbot.announce.Announcements.text(
+                                        announcement, line)
+                                .map(text -> wiring.announcements().post(line.language(), text))
+                                .orElse(false),
                         adminAnnouncements(core, wiring.announcements())::post,
                         alert -> wiring.admin()
                                 .postAlert(alert, wiring.adminRole().id(), updateFeed::failedCard),
@@ -342,7 +341,7 @@ public class AccessBot implements AutoCloseable {
                 admin,
                 database.jdbi(),
                 clock);
-        final BookingReaction bookings = new BookingReaction(core.languages(), roles, admin, core.renderer(), jda);
+        final BookingReaction bookings = new BookingReaction(roles, admin);
         final AdminTree adminTree = AdminTree.using(database.dataSource());
         final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
         final AdminRole adminRole = new AdminRole(jda, accessConfig, guildRoles, adminTree, admin);

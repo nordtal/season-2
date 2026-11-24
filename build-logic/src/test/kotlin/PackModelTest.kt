@@ -355,7 +355,7 @@ class PackModelTest {
         // The chest and UI panels are drawn by drawChestPanels and drawUiPanels on every build and have no source to measure.
         val drawnByTheBuild =
             Regex(
-                "nordtal:(ui/kit/(chest_(plain_)?[1-6]|dialog_[a-z0-9_]+|slot)|ui/gui/panel_[1-6](_plain)?|ui/board/(corner_[a-z]{2}|edge_[a-z0-9_]+))\\.png",
+                "nordtal:(ui/kit/(chest_(plain_)?[1-6]|dialog_[a-z0-9_]+|slot)|ui/gui/panel_[1-6](_plain)?|ui/board/(corner_[a-z]{2}|edge_[a-z0-9_]+)|npc/(panel_[0-9]+_[01]|portrait))\\.png",
             )
         textures
             .filterNot { drawnByTheBuild.matches(it["id"] as String) }

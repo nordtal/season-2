@@ -33,6 +33,9 @@ public final class VanillaFacts {
     /** Vanilla's font sheet, 16 by 16 cells of 8 pixels. */
     public static final String ASCII = "assets/minecraft/textures/font/ascii.png";
 
+    /** Vanilla's generic chest container sheet, used for NPC portrait frames and slot wells. */
+    public static final String GENERIC_54 = "assets/minecraft/textures/gui/container/generic_54.png";
+
     private final Map<String, byte[]> files;
 
     private VanillaFacts(final Map<String, byte[]> files) {
@@ -89,6 +92,10 @@ public final class VanillaFacts {
             out.put(
                     ASCII,
                     bytes(zip, ASCII).orElseThrow(() -> new IllegalStateException("the client jar has no " + ASCII)));
+            out.put(
+                    GENERIC_54,
+                    bytes(zip, GENERIC_54)
+                            .orElseThrow(() -> new IllegalStateException("the client jar has no " + GENERIC_54)));
         } catch (final IOException e) {
             throw new UncheckedIOException(e);
         }

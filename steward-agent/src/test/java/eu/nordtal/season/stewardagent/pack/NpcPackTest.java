@@ -36,7 +36,11 @@ class NpcPackTest {
     void aSkinBecomesTheNpcsBodyTextureAndPortraitFont() throws IOException {
         final byte[] png = skin(Color.RED, null);
 
-        NpcPack.write(root, Map.of(NPC, new NpcSkin(UUID.randomUUID(), NpcSkin.SkinModel.SLIM, encode(png))), Map.of());
+        NpcPack.write(
+                root,
+                Map.of(NPC, new NpcSkin(UUID.randomUUID(), NpcSkin.SkinModel.SLIM, encode(png))),
+                Map.of(),
+                syntheticGeneric54());
 
         final Path textures = root.resolve("assets/nordtal/textures/npc/" + NPC);
         assertTrue(java.util.Arrays.equals(png, Files.readAllBytes(textures.resolve("skin.png"))));
@@ -82,22 +86,30 @@ class NpcPackTest {
     }
 
     @Test
-    void anOwnPortraitHasTheFrameOfTheDefaultPortrait() throws IOException {
-        final BufferedImage own = NpcPack.portrait(NpcPack.bust(skin(Color.RED, null), true));
-        final BufferedImage standard =
-                ImageIO.read(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/textures/npc/portrait.png")
-                        .toFile());
+    void anOwnPortraitMatchesVanillaGeneric54CornersBevelAndSlotWell() throws IOException {
+        final BufferedImage vanilla = syntheticGeneric54();
+        final BufferedImage own = NpcPack.portrait(NpcPack.bust(skin(Color.RED, null), true), vanilla);
 
-        assertEquals(standard.getWidth(), own.getWidth());
-        assertEquals(standard.getHeight(), own.getHeight());
-        for (int y = 0; y < own.getHeight(); y++) {
-            for (int x = 0; x < own.getWidth(); x++) {
-                final boolean well = x >= 3 && x < 43 && y >= 3 && y < 43;
-                if (!well) {
-                    assertEquals(standard.getRGB(x, y), own.getRGB(x, y), "at " + x + ", " + y);
-                }
+        assertEquals(NpcPack.FRAME, own.getWidth());
+        assertEquals(NpcPack.HEIGHT, own.getHeight());
+        for (int y = 0; y < 3; y++) {
+            for (int x = 0; x < 3; x++) {
+                assertEquals(vanilla.getRGB(x, y), own.getRGB(x, y), "TL (" + x + "," + y + ")");
+                assertEquals(
+                        vanilla.getRGB(NpcPack.VANILLA_WIDTH - 3 + x, y),
+                        own.getRGB(NpcPack.FRAME - 3 + x, y),
+                        "TR (" + x + "," + y + ")");
+                assertEquals(
+                        vanilla.getRGB(x, NpcPack.VANILLA_HEIGHT - 3 + y),
+                        own.getRGB(x, NpcPack.FRAME - 3 + y),
+                        "BL (" + x + "," + y + ")");
+                assertEquals(
+                        vanilla.getRGB(NpcPack.VANILLA_WIDTH - 3 + x, NpcPack.VANILLA_HEIGHT - 3 + y),
+                        own.getRGB(NpcPack.FRAME - 3 + x, NpcPack.FRAME - 3 + y),
+                        "BR (" + x + "," + y + ")");
             }
         }
+        assertEquals(0, own.getRGB(23, 50), "padding below frame stays transparent");
     }
 
     @Test
@@ -108,17 +120,16 @@ class NpcPackTest {
                 upload.setRGB(x, y, 0xFF000000 | (x * 6) << 16 | (y * 6) << 8 | 0x40);
             }
         }
+        final BufferedImage vanilla = syntheticGeneric54();
         final BufferedImage picture = NpcPack.artwork(png(upload));
 
-        final BufferedImage own = NpcPack.portrait(picture);
-        final BufferedImage standard =
-                ImageIO.read(RepositoryRoot.resolve("resource-pack/src/assets/nordtal/textures/npc/portrait.png")
-                        .toFile());
+        final BufferedImage own = NpcPack.portrait(picture, vanilla);
+        final BufferedImage empty = NpcPack.portrait(new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), vanilla);
 
         for (int y = 0; y < own.getHeight(); y++) {
             for (int x = 0; x < own.getWidth(); x++) {
                 final boolean well = x >= 3 && x < 43 && y >= 3 && y < 43;
-                final int expected = well ? upload.getRGB(x - 3, y - 3) : standard.getRGB(x, y);
+                final int expected = well ? upload.getRGB(x - 3, y - 3) : empty.getRGB(x, y);
                 assertEquals(expected, own.getRGB(x, y), "at " + x + ", " + y);
             }
         }
@@ -126,15 +137,22 @@ class NpcPackTest {
 
     @Test
     void theWellsSunkEdgeStillShowsWhereThePictureIsClear() throws IOException {
+        final BufferedImage vanilla = syntheticGeneric54();
         final BufferedImage bust = NpcPack.bust(skin(Color.RED, null), false);
         assertEquals(0, bust.getRGB(0, 0) >>> 24, "the bust leaves the well's corner clear");
 
-        final BufferedImage own = NpcPack.portrait(bust);
-        final BufferedImage blank = NpcPack.portrait(new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB));
+        final BufferedImage own = NpcPack.portrait(bust, vanilla);
+        final BufferedImage blank = NpcPack.portrait(new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), vanilla);
 
-        assertEquals(blank.getRGB(3, 3), own.getRGB(3, 3));
+        assertEquals(vanilla.getRGB(NpcPack.VANILLA_SLOT_X, NpcPack.VANILLA_SLOT_Y), own.getRGB(3, 3));
         assertEquals(blank.getRGB(20, 3), own.getRGB(20, 3));
         assertTrue(blank.getRGB(20, 3) != blank.getRGB(20, 4), "the top row is sunk");
+        assertEquals(
+                vanilla.getRGB(
+                        NpcPack.VANILLA_SLOT_X + NpcPack.VANILLA_SLOT_SIZE - 1,
+                        NpcPack.VANILLA_SLOT_Y + NpcPack.VANILLA_SLOT_SIZE - 1),
+                blank.getRGB(42, 42),
+                "the bottom-right edge uses vanilla's slot highlight");
     }
 
     @Test
@@ -193,7 +211,8 @@ class NpcPackTest {
         NpcPack.write(
                 root,
                 Map.of(NPC, new NpcSkin(UUID.randomUUID(), NpcSkin.SkinModel.CLASSIC, encode(skin))),
-                Map.of(NPC, new NpcArtwork(UUID.randomUUID(), encode(png(upload)))));
+                Map.of(NPC, new NpcArtwork(UUID.randomUUID(), encode(png(upload)))),
+                syntheticGeneric54());
 
         final Path textures = root.resolve("assets/nordtal/textures/npc/" + NPC);
         assertTrue(Files.exists(textures.resolve("skin.png")), "the skin still dresses the figure");
@@ -212,7 +231,11 @@ class NpcPackTest {
             }
         }
 
-        NpcPack.write(root, Map.of(), Map.of(NPC, new NpcArtwork(UUID.randomUUID(), encode(png(upload)))));
+        NpcPack.write(
+                root,
+                Map.of(),
+                Map.of(NPC, new NpcArtwork(UUID.randomUUID(), encode(png(upload)))),
+                syntheticGeneric54());
 
         final Path textures = root.resolve("assets/nordtal/textures/npc/" + NPC);
         assertTrue(Files.notExists(textures.resolve("skin.png")));
@@ -244,7 +267,48 @@ class NpcPackTest {
 
         assertThrows(
                 IOException.class,
-                () -> NpcPack.write(root, Map.of(), Map.of(NPC, new NpcArtwork(UUID.randomUUID(), encode(wide)))));
+                () -> NpcPack.write(
+                        root,
+                        Map.of(),
+                        Map.of(NPC, new NpcArtwork(UUID.randomUUID(), encode(wide))),
+                        syntheticGeneric54()));
+    }
+
+    private static BufferedImage syntheticGeneric54() {
+        final BufferedImage image =
+                new BufferedImage(NpcPack.VANILLA_WIDTH, NpcPack.VANILLA_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < NpcPack.VANILLA_HEIGHT; y++) {
+            for (int x = 0; x < NpcPack.VANILLA_WIDTH; x++) {
+                final int color;
+                if (x == 0 || y == 0 || x == NpcPack.VANILLA_WIDTH - 1 || y == NpcPack.VANILLA_HEIGHT - 1) {
+                    color = 0xFF000000;
+                } else if (x <= 2 || y <= 2) {
+                    color = 0xFFFFFFFF;
+                } else if (x >= NpcPack.VANILLA_WIDTH - 3 || y >= NpcPack.VANILLA_HEIGHT - 3) {
+                    color = 0xFF555555;
+                } else {
+                    color = 0xFFC6C6C6;
+                }
+                image.setRGB(x, y, color);
+            }
+        }
+        for (int dy = 0; dy < NpcPack.VANILLA_SLOT_SIZE; dy++) {
+            for (int dx = 0; dx < NpcPack.VANILLA_SLOT_SIZE; dx++) {
+                final int color;
+                if ((dx == NpcPack.VANILLA_SLOT_SIZE - 1 && dy == 0)
+                        || (dx == 0 && dy == NpcPack.VANILLA_SLOT_SIZE - 1)) {
+                    color = 0xFF8B8B8B;
+                } else if (dx == 0 || dy == 0) {
+                    color = 0xFF373737;
+                } else if (dx == NpcPack.VANILLA_SLOT_SIZE - 1 || dy == NpcPack.VANILLA_SLOT_SIZE - 1) {
+                    color = 0xFFFFFFFF;
+                } else {
+                    color = 0xFF8B8B8B;
+                }
+                image.setRGB(NpcPack.VANILLA_SLOT_X + dx, NpcPack.VANILLA_SLOT_Y + dy, color);
+            }
+        }
+        return image;
     }
 
     private static byte[] png(final BufferedImage image) throws IOException {

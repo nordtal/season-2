@@ -5,8 +5,10 @@ import eu.nordtal.season.stewardagent.plan.Installation;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -17,6 +19,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -24,6 +27,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -46,6 +53,9 @@ public final class Standbys {
      */
     private static final String METRICS = "bStats";
 
+    /** Upper bound on mirroring one standby directory, so a FIFO swapped in at the open cannot stall an update run. */
+    private static final Duration COPY_TIMEOUT = Duration.ofMinutes(2);
+
     private Standbys() {}
 
     /**
@@ -58,7 +68,7 @@ public final class Standbys {
      */
     public static List<ApplyResult.Outcome> fill(
             final Path volumesRoot, final Collection<String> services, final AgentWire.Topology topology) {
-        return fill(volumesRoot, services, topology, directory -> {});
+        return fill(volumesRoot, services, topology, directory -> {}, COPY_TIMEOUT);
     }
 
     static List<ApplyResult.Outcome> fill(
@@ -66,6 +76,15 @@ public final class Standbys {
             final Collection<String> services,
             final AgentWire.Topology topology,
             final Consumer<Path> opening) {
+        return fill(volumesRoot, services, topology, opening, COPY_TIMEOUT);
+    }
+
+    static List<ApplyResult.Outcome> fill(
+            final Path volumesRoot,
+            final Collection<String> services,
+            final AgentWire.Topology topology,
+            final Consumer<Path> opening,
+            final Duration timeout) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
         for (final AgentWire.Service each : topology.services()) {
             final String service = each.standbyOf();
@@ -90,12 +109,13 @@ public final class Standbys {
                                 + " start."));
                 continue;
             }
-            outcomes.add(mirror(serviceVolume, standbyVolume, standby, Installation.PLUGINS, opening));
+            outcomes.add(mirror(serviceVolume, standbyVolume, standby, Installation.PLUGINS, opening, timeout));
             // The entrypoint runs the newest jar cached, so a stale cache is an older Minecraft than the service's.
             final Path cache = serviceVolume.resolve(Installation.SERVER_CACHE);
             // A link is mirrored, so that its row fails instead of the cache being silently left stale.
             if (Files.isDirectory(cache, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(cache)) {
-                outcomes.add(mirror(serviceVolume, standbyVolume, standby, Installation.SERVER_CACHE, opening));
+                outcomes.add(
+                        mirror(serviceVolume, standbyVolume, standby, Installation.SERVER_CACHE, opening, timeout));
             }
         }
         return List.copyOf(outcomes);
@@ -106,7 +126,8 @@ public final class Standbys {
             final Path standbyVolume,
             final String standby,
             final String directory,
-            final Consumer<Path> opening) {
+            final Consumer<Path> opening,
+            final Duration timeout) {
         final Path source = serviceVolume.resolve(directory);
         final Path target = standbyVolume.resolve(directory);
         // Either side belongs to the game's account, which could point it at the agent's secrets or a world.
@@ -120,19 +141,9 @@ public final class Standbys {
                     link + " is a symbolic link, so nothing was copied. Started for a swap, this"
                             + " service would come up on whatever is still lying in it.");
         }
-        final Tally tally = new Tally();
-        // A volume root is a mount point, which no service can swap, so only it is opened by path.
-        try (Folder sourceRoot = Folder.open(serviceVolume);
-                Folder standbyRoot = Folder.open(standbyVolume)) {
-            if (standbyRoot.find(directory) == null) {
-                Files.createDirectory(target);
-            }
-            try (Folder from = sourceRoot.child(directory, opening);
-                    Folder into = standbyRoot.child(directory, opening)) {
-                // plugins/ is its own bind mount on the volume's file system, and a rename out of it fails EXDEV.
-                final Folder workbench = Installation.PLUGINS.equals(directory) ? into : standbyRoot;
-                new Copy(workbench, opening, tally).into(from, into, 0);
-            }
+        final Tally tally;
+        try {
+            tally = copyWithinBudget(serviceVolume, standbyVolume, standby, directory, target, opening, timeout);
         } catch (final IOException failed) {
             log.error(
                     "standby file copy failed: service={} dir={} from={} cause={}",
@@ -159,6 +170,88 @@ public final class Standbys {
                 tally.copied + " file(s) copied"
                         + (tally.removed == 0 ? "" : ", " + tally.removed + " removed")
                         + ", " + tally.same + " already the same");
+    }
+
+    /** Runs one directory mirror on a daemon thread so a blocking open cannot stall the update run. */
+    private static Tally copyWithinBudget(
+            final Path serviceVolume,
+            final Path standbyVolume,
+            final String standby,
+            final String directory,
+            final Path target,
+            final Consumer<Path> opening,
+            final Duration timeout)
+            throws IOException {
+        final FutureTask<Tally> task =
+                new FutureTask<>(() -> copyTree(serviceVolume, standbyVolume, directory, target, opening));
+        Thread.ofPlatform()
+                .daemon(true)
+                .name("standby-mirror-" + standby + "-" + directory)
+                .start(task);
+        try {
+            return task.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
+        } catch (final TimeoutException timedOut) {
+            task.cancel(true);
+            throw new IOException("timed out after " + formatDuration(timeout), timedOut);
+        } catch (final InterruptedException interrupted) {
+            task.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new IOException("interrupted while copying", interrupted);
+        } catch (final ExecutionException failed) {
+            final Throwable cause = failed.getCause();
+            if (cause instanceof IOException io) {
+                throw io;
+            }
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IOException(cause);
+        }
+    }
+
+    private static Tally copyTree(
+            final Path serviceVolume,
+            final Path standbyVolume,
+            final String directory,
+            final Path target,
+            final Consumer<Path> opening)
+            throws IOException {
+        final Tally tally = new Tally();
+        // A volume root is a mount point, which no service can swap, so only it is opened by path.
+        try (Folder sourceRoot = Folder.open(serviceVolume);
+                Folder standbyRoot = Folder.open(standbyVolume)) {
+            if (standbyRoot.find(directory) == null) {
+                Files.createDirectory(target);
+            }
+            try (Folder from = sourceRoot.child(directory, opening);
+                    Folder into = standbyRoot.child(directory, opening)) {
+                // plugins/ is its own bind mount on the volume's file system, and a rename out of it fails EXDEV.
+                final Folder workbench = Installation.PLUGINS.equals(directory) ? into : standbyRoot;
+                new Copy(workbench, opening, tally).into(from, into, 0);
+            }
+        }
+        return tally;
+    }
+
+    private static String formatDuration(final Duration duration) {
+        final long millis = duration.toMillis();
+        if (millis < 1000) {
+            return millis + "ms";
+        }
+        final long seconds = duration.toSeconds();
+        if (seconds % 60 == 0) {
+            return (seconds / 60) + "m";
+        }
+        return seconds + "s";
+    }
+
+    private static void abortIfInterrupted() throws InterruptedIOException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedIOException("standby copy cancelled");
+        }
     }
 
     private static boolean isScratch(final String name, final PosixFileAttributes attributes, final int depth) {
@@ -196,9 +289,16 @@ public final class Standbys {
 
         /** Opens an entry as a directory and refuses it if it is a symbolic link by then. */
         Folder child(final String name, final Consumer<Path> opening) throws IOException {
+            abortIfInterrupted();
             final Path path = this.path.resolve(name);
             opening.accept(path);
-            return new Folder(entries.newDirectoryStream(Path.of(name), LinkOption.NOFOLLOW_LINKS), path);
+            final SecureDirectoryStream<Path> opened =
+                    entries.newDirectoryStream(Path.of(name), LinkOption.NOFOLLOW_LINKS);
+            if (Thread.currentThread().isInterrupted()) {
+                opened.close();
+                throw new InterruptedIOException("standby copy cancelled");
+            }
+            return new Folder(opened, path);
         }
 
         /** The entry itself, a link not followed, or {@code null} if there is none. */
@@ -213,9 +313,17 @@ public final class Standbys {
             }
         }
 
-        InputStream read(final String name) throws IOException {
-            return Channels.newInputStream(
-                    entries.newByteChannel(Path.of(name), Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)));
+        InputStream read(final String name, final Consumer<Path> opening) throws IOException {
+            abortIfInterrupted();
+            opening.accept(this.path.resolve(name));
+            final SeekableByteChannel channel =
+                    entries.newByteChannel(Path.of(name), Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
+            // openat on a FIFO ignores Thread.interrupt until a writer unblocks it, so re-check before reading.
+            if (Thread.currentThread().isInterrupted()) {
+                channel.close();
+                throw new InterruptedIOException("standby copy cancelled");
+            }
+            return Channels.newInputStream(channel);
         }
 
         void move(final String name, final Folder into, final String as) throws IOException {
@@ -238,6 +346,7 @@ public final class Standbys {
         void into(final Folder source, final Folder target, final int depth) throws IOException {
             final Set<String> wanted = new LinkedHashSet<>();
             for (final Path entry : source.entries()) {
+                abortIfInterrupted();
                 final String name = entry.getFileName().toString();
                 final PosixFileAttributes attributes = source.find(name);
                 // A link, and anything else that is neither a file nor a directory, is skipped.
@@ -268,6 +377,7 @@ public final class Standbys {
                 }
             }
             for (final Path entry : target.entries()) {
+                abortIfInterrupted();
                 final String name = entry.getFileName().toString();
                 final PosixFileAttributes attributes = target.find(name);
                 if (attributes == null
@@ -305,12 +415,12 @@ public final class Standbys {
         }
 
         /** Writes the file beside its destination and moves it over, so a running server never reads half a jar. */
-        private static void copy(
+        private void copy(
                 final Folder source, final Folder target, final String name, final PosixFileAttributes attributes)
                 throws IOException {
             final String made = unused();
             try {
-                try (InputStream in = source.read(name);
+                try (InputStream in = source.read(name, opening);
                         OutputStream out = Channels.newOutputStream(target.entries()
                                 .newByteChannel(
                                         Path.of(made),
@@ -321,13 +431,14 @@ public final class Standbys {
                                         PosixFilePermissions.asFileAttribute(attributes.permissions())))) {
                     in.transferTo(out);
                 }
+                abortIfInterrupted();
                 target.move(made, target, name);
             } finally {
                 deleteIfLeft(target, made, false);
             }
         }
 
-        private static boolean isDifferent(
+        private boolean isDifferent(
                 final Folder source,
                 final Folder target,
                 final String name,
@@ -337,8 +448,8 @@ public final class Standbys {
                 return true;
             }
             // By content, as timestamps collide and a changed file can keep its size.
-            try (InputStream left = source.read(name);
-                    InputStream right = target.read(name)) {
+            try (InputStream left = source.read(name, opening);
+                    InputStream right = target.read(name, opening)) {
                 final byte[] one = new byte[8192];
                 final byte[] other = new byte[8192];
                 while (true) {
@@ -356,6 +467,7 @@ public final class Standbys {
 
         private int delete(final Folder parent, final String name, final PosixFileAttributes attributes)
                 throws IOException {
+            abortIfInterrupted();
             if (!attributes.isDirectory()) {
                 parent.entries().deleteFile(Path.of(name));
                 return 1;

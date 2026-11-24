@@ -2,6 +2,7 @@ package eu.nordtal.season.stewardagent.apply;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.internalapi.agent.Topology;
@@ -9,10 +10,14 @@ import eu.nordtal.season.stewardagent.plan.Installation;
 import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -279,6 +284,68 @@ class StandbysTest {
     }
 
     @Test
+    void aSourceFileSwappedForAFifoAtTheOpenFailsTheRowInsteadOfStalling() throws IOException {
+        write("proxy/plugins/proxy-0.9.3.jar", "new");
+        mounted(DeclaredTopology.topology().standbyOf(Topology.PROXY).orElseThrow());
+        final Path fifo = makeFifo("outside/source-fifo");
+
+        final List<ApplyResult.Outcome> outcomes = assertTimeoutPreemptively(
+                Duration.ofSeconds(2),
+                () -> Standbys.fill(
+                        volumes,
+                        List.of(Topology.PROXY),
+                        DeclaredTopology.topology(),
+                        swapForFifoAtOpen("proxy/plugins/proxy-0.9.3.jar", fifo),
+                        Duration.ofMillis(200)));
+
+        assertEquals(1, outcomes.size(), detail(outcomes));
+        assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
+        assertTrue(
+                String.valueOf(outcomes.getFirst().detail()).contains("timed out"),
+                "the failure does not say the copy timed out: " + detail(outcomes));
+        // Unblocking the FIFO afterwards must not let the timed-out worker finish the copy into the standby.
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
+            try (FileChannel writer =
+                    FileChannel.open(volumes.resolve("proxy/plugins/proxy-0.9.3.jar"), StandardOpenOption.WRITE)) {
+                writer.write(StandardCharsets.UTF_8.encode("late"));
+            } catch (final IOException brokenPipe) {
+                // Expected once the cancelled reader closes its end immediately on seeing the interrupt.
+            }
+        });
+        assertFalse(
+                Files.exists(volumes.resolve("proxy-standby/plugins/proxy-0.9.3.jar"), LinkOption.NOFOLLOW_LINKS),
+                "a partial file was moved into the standby after the open stalled");
+    }
+
+    @Test
+    void aStandbyFileSwappedForAFifoAtTheOpenFailsTheRowInsteadOfStalling() throws IOException {
+        write("proxy/plugins/proxy-0.9.3.jar", "new");
+        write("proxy-standby/plugins/proxy-0.9.3.jar", "old");
+        final Path fifo = makeFifo("outside/standby-fifo");
+
+        final List<ApplyResult.Outcome> outcomes = assertTimeoutPreemptively(
+                Duration.ofSeconds(2),
+                () -> Standbys.fill(
+                        volumes,
+                        List.of(Topology.PROXY),
+                        DeclaredTopology.topology(),
+                        swapForFifoAtOpen("proxy-standby/plugins/proxy-0.9.3.jar", fifo),
+                        Duration.ofMillis(200)));
+
+        assertEquals(1, outcomes.size(), detail(outcomes));
+        assertEquals(ApplyResult.Status.FAILED, outcomes.getFirst().status(), detail(outcomes));
+        assertTrue(
+                String.valueOf(outcomes.getFirst().detail()).contains("timed out"),
+                "the failure does not say the copy timed out: " + detail(outcomes));
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
+            try (FileChannel ignored = FileChannel.open(
+                    volumes.resolve("proxy-standby/plugins/proxy-0.9.3.jar"), StandardOpenOption.WRITE)) {
+                // Opens the write end so the cancelled reader exits cleanly before temp-dir cleanup.
+            }
+        });
+    }
+
+    @Test
     void aPluginsScratchDirectoryIsNeitherCopiedNorRemovedSoTheRunningStandbyKeepsItsOwn() throws IOException {
         // spark, which Paper bundles, writes its profile into plugins/spark/tmp while the standby runs.
         write("limbo/plugins/limbo-0.9.3.jar", "new");
@@ -441,6 +508,39 @@ class StandbysTest {
             try {
                 Files.move(opening, opening.resolveSibling(opening.getFileName() + ".moved"));
                 Files.createSymbolicLink(opening, volumes.resolve(linkTarget));
+            } catch (final IOException failed) {
+                throw new UncheckedIOException(failed);
+            }
+        };
+    }
+
+    /** Creates a FIFO before the mirror starts so the swap hook does only an atomic rename inside the timeout. */
+    private Path makeFifo(final String relative) throws IOException {
+        final Path fifo = volumes.resolve(relative);
+        Files.createDirectories(fifo.getParent());
+        try {
+            final int exit =
+                    new ProcessBuilder("mkfifo", fifo.toString()).start().waitFor();
+            if (exit != 0) {
+                throw new IOException("mkfifo exited with " + exit);
+            }
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(interrupted);
+        }
+        return fifo;
+    }
+
+    /** Replaces a file with a pre-created FIFO right before the agent opens it, reproducing a blocking open race. */
+    private Consumer<Path> swapForFifoAtOpen(final String file, final Path fifo) {
+        final Path target = volumes.resolve(file);
+        final AtomicBoolean done = new AtomicBoolean();
+        return opening -> {
+            if (!target.equals(opening) || done.getAndSet(true)) {
+                return;
+            }
+            try {
+                Files.move(fifo, opening, StandardCopyOption.REPLACE_EXISTING);
             } catch (final IOException failed) {
                 throw new UncheckedIOException(failed);
             }

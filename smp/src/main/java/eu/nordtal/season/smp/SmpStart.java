@@ -586,7 +586,9 @@ final class SmpStart {
                 plugin,
                 () -> plugin.tunnelMinerSettings.get().timeFactor(),
                 tunnelProtections(plugin, rails),
-                rails::notifyRailChanged);
+                rails::notifyRailChanged,
+                rails::isStation,
+                rails::removeStationForTunnel);
         plugin.getServer().getPluginManager().registerEvents(miner, plugin);
         PaperScheduler.of(plugin)
                 .onMainEvery(
@@ -620,16 +622,6 @@ final class SmpStart {
                     }
                 }
                 return true;
-            }
-
-            @Override
-            public boolean isProtectedStation(
-                    final org.bukkit.entity.Player player, final org.bukkit.block.Block block) {
-                return rails.stationBreakRefusal(
-                                block,
-                                player.getUniqueId(),
-                                plugin.identities().of(player).admin())
-                        != null;
             }
         };
     }

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Set;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.Rail;
@@ -112,5 +113,13 @@ class TunnelPlanTest {
         final TunnelFrame frame = new TunnelFrame("nordtal", new BlockPos(0, 64, 0), TunnelHeading.NORTH, 2);
         assertTrue(frame.withinActiveRange(0.5, 66.5, 12.5));
         assertFalse(frame.withinActiveRange(0.5, 66.5, 12.6));
+    }
+
+    @Test
+    void upwardShiftIncludesPreviousRailInProtectionFootprint() {
+        final TunnelFrame active = new TunnelFrame("nordtal", new BlockPos(0, 64, -2), TunnelHeading.NORTH, 2);
+        final TunnelPlan.StepPlan plan = TunnelPlan.planZone(active, TunnelZone.TOP);
+        assertEquals(List.of(new BlockPos(0, 64, -1)), plan.slopeEditBlocks());
+        assertTrue(plan.protectionFootprint().contains(new BlockPos(0, 64, -1)));
     }
 }

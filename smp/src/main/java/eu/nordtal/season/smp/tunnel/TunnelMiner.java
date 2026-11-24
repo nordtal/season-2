@@ -5,8 +5,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
+import java.util.function.Predicate;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -46,6 +48,7 @@ public final class TunnelMiner implements Listener {
     private final TunnelOverlayPackets overlays = new TunnelOverlayPackets();
 
     private final Map<UUID, TunnelFrame> activeTunnels = new HashMap<>();
+    private final Map<UUID, TunnelFrame> lastStartCandidates = new HashMap<>();
     private final Map<UUID, TunnelOverlayPackets.Shown> shownOverlays = new HashMap<>();
     private final Map<UUID, Double> appliedMultipliers = new HashMap<>();
 
@@ -53,11 +56,16 @@ public final class TunnelMiner implements Listener {
             final Plugin plugin,
             final DoubleSupplier timeFactor,
             final TunnelProtections protections,
-            final Consumer<Block> railChanged) {
+            final Consumer<Block> railChanged,
+            final Predicate<Block> isStation,
+            final BiPredicate<Block, Boolean> removeStation) {
         this.speedModifierKey = new NamespacedKey(plugin, "tunnel_miner_speed");
         this.timeFactor = Objects.requireNonNull(timeFactor, "timeFactor");
         this.protections = Objects.requireNonNull(protections, "protections");
-        this.executor = new TunnelExecutor(Objects.requireNonNull(railChanged, "railChanged"));
+        this.executor = new TunnelExecutor(
+                Objects.requireNonNull(railChanged, "railChanged"),
+                Objects.requireNonNull(isStation, "isStation"),
+                Objects.requireNonNull(removeStation, "removeStation"));
     }
 
     /** Updates overlays and mining speed for every online player once per tick. */
@@ -73,6 +81,7 @@ public final class TunnelMiner implements Listener {
             cancelTunnel(player);
         }
         activeTunnels.clear();
+        lastStartCandidates.clear();
         shownOverlays.clear();
         appliedMultipliers.clear();
     }
@@ -113,16 +122,19 @@ public final class TunnelMiner implements Listener {
     private void tickStartPreview(final Player player, final @Nullable RayTraceResult hit) {
         final @Nullable TunnelFrame candidate = startCandidate(player, hit);
         if (candidate == null) {
+            lastStartCandidates.remove(player.getUniqueId());
             hideOverlay(player);
             clearSpeedModifier(player);
             return;
         }
         final TunnelPlan.StepPlan plan = TunnelPlan.planStart(candidate);
         if (!protections.check(player, player.getWorld(), plan.protectionFootprint(), false)) {
+            lastStartCandidates.remove(player.getUniqueId());
             hideOverlay(player);
             clearSpeedModifier(player);
             return;
         }
+        lastStartCandidates.put(player.getUniqueId(), candidate);
         showStartOverlay(player, candidate);
         final Block target = Objects.requireNonNull(Objects.requireNonNull(hit).getHitBlock());
         if (isSingleBlockOnly(target)) {
@@ -132,7 +144,7 @@ public final class TunnelMiner implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onBlockBreak(final BlockBreakEvent event) {
         final Player player = event.getPlayer();
         if (!canUseMode(player.getGameMode()) || player.isSneaking()) {
@@ -212,6 +224,7 @@ public final class TunnelMiner implements Listener {
         final Player player = event.getPlayer();
         clearSpeedModifier(player);
         activeTunnels.remove(player.getUniqueId());
+        lastStartCandidates.remove(player.getUniqueId());
         shownOverlays.remove(player.getUniqueId());
     }
 
@@ -234,6 +247,7 @@ public final class TunnelMiner implements Listener {
 
     private void cancelTunnel(final Player player) {
         activeTunnels.remove(player.getUniqueId());
+        lastStartCandidates.remove(player.getUniqueId());
         hideOverlay(player);
         clearSpeedModifier(player);
     }
@@ -263,16 +277,21 @@ public final class TunnelMiner implements Listener {
 
     private @Nullable TunnelFrame startCandidateForBreak(
             final Player player, final Block broken, final @Nullable RayTraceResult hit) {
-        final BlockFace face;
         if (hit != null
                 && hit.getHitBlock() != null
                 && hit.getHitBlock().equals(broken)
                 && hit.getHitBlockFace() != null) {
-            face = hit.getHitBlockFace();
-        } else {
-            face = player.getFacing().getOppositeFace();
+            return buildStartFrame(player, broken, hit.getHitBlockFace());
         }
-        return buildStartFrame(player, broken, face);
+        final @Nullable TunnelFrame preview = lastStartCandidates.get(player.getUniqueId());
+        if (preview == null || !preview.world().equals(broken.getWorld().getName())) {
+            return null;
+        }
+        final TunnelFrame.Local local = preview.locate(posOf(broken));
+        if (local.depth() != 1 || local.col() < -2 || local.col() > 2 || local.row() < 0 || local.row() > 4) {
+            return null;
+        }
+        return allFrontBlocksSolid(broken.getWorld(), preview) ? preview : null;
     }
 
     private @Nullable TunnelFrame buildStartFrame(final Player player, final Block target, final BlockFace face) {

@@ -4,7 +4,9 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -25,9 +27,16 @@ import org.jspecify.annotations.Nullable;
 final class TunnelExecutor {
 
     private final Consumer<Block> railChanged;
+    private final Predicate<Block> isStation;
+    private final BiPredicate<Block, Boolean> removeStation;
 
-    TunnelExecutor(final Consumer<Block> railChanged) {
+    TunnelExecutor(
+            final Consumer<Block> railChanged,
+            final Predicate<Block> isStation,
+            final BiPredicate<Block, Boolean> removeStation) {
         this.railChanged = railChanged;
+        this.isStation = isStation;
+        this.removeStation = removeStation;
     }
 
     /** Executes {@code plan} for {@code player} with {@code tool} after protections have already passed. */
@@ -73,6 +82,9 @@ final class TunnelExecutor {
                 skipped.add(pos);
                 continue;
             }
+            if (removeStation.test(block, !creative)) {
+                continue;
+            }
             if (TunnelMaterials.stairFor(type) != null) {
                 rockCounts.merge(type, 1, Integer::sum);
             }
@@ -80,6 +92,9 @@ final class TunnelExecutor {
                 block.setType(Material.AIR, false);
             } else {
                 block.breakNaturally(tool, false, true);
+                if (block.isLiquid()) {
+                    block.setType(Material.AIR, false);
+                }
             }
         }
     }
@@ -94,6 +109,7 @@ final class TunnelExecutor {
             final Set<BlockPos> skipped) {
         final boolean verticalUp = zone == TunnelZone.TOP;
         final boolean verticalDown = zone == TunnelZone.BOTTOM;
+        boolean firstRailPlaced = false;
         for (int i = 0; i < plan.rails().size(); i++) {
             final TunnelPlan.RailPlacement rail = plan.rails().get(i);
             if (skipped.contains(rail.pos())) {
@@ -116,11 +132,16 @@ final class TunnelExecutor {
             }
             block.setBlockData(data, false);
             railChanged.accept(block);
+            if (i == 0) {
+                firstRailPlaced = true;
+            }
         }
-        if (verticalUp && previousFrame != null) {
+        if (verticalUp && firstRailPlaced && previousFrame != null) {
             final BlockPos prevPos = previousFrame.at(0, 0, 0);
             final Block prevBlock = world.getBlockAt(prevPos.x(), prevPos.y(), prevPos.z());
-            if (prevBlock.getType() == Material.RAIL && prevBlock.getBlockData() instanceof final Rail prevRail) {
+            if (!isStation.test(prevBlock)
+                    && prevBlock.getType() == Material.RAIL
+                    && prevBlock.getBlockData() instanceof final Rail prevRail) {
                 prevRail.setShape(ascending(previousFrame.heading()));
                 prevBlock.setBlockData(prevRail, false);
                 railChanged.accept(prevBlock);

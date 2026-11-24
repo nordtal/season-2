@@ -30,9 +30,10 @@ public final class TunnelPlan {
             List<BlockPos> removeBlocks,
             List<StairRotation> rotateStairs,
             List<LanternPlacement> lanterns,
+            List<BlockPos> slopeEditBlocks,
             TunnelFrame nextFrame) {
 
-        /** All block positions touched by carving, support placement, or 90-degree stair edits. */
+        /** All block positions touched by carving, support placement, slope edits, or 90-degree stair edits. */
         public Set<BlockPos> protectionFootprint() {
             final Set<BlockPos> all = new LinkedHashSet<>(carveBlocks);
             for (final RailPlacement rail : rails) {
@@ -42,6 +43,7 @@ public final class TunnelPlan {
             for (final StairRotation rotation : rotateStairs) {
                 all.add(rotation.pos());
             }
+            all.addAll(slopeEditBlocks);
             return all;
         }
     }
@@ -85,6 +87,7 @@ public final class TunnelPlan {
                 lanterns.add(new LanternPlacement(shifted.at(0, 4, depth), shifted.at(0, 5, depth)));
             }
         }
+        final List<BlockPos> slopeEdits = !isStart && shiftRow > 0 ? List.of(baseFrame.at(0, 0, 0)) : List.of();
         final TunnelFrame next =
                 new TunnelFrame(baseFrame.world(), shifted.at(0, 0, 3), shifted.heading(), baseFrame.length() + 2);
         return new StepPlan(
@@ -94,6 +97,7 @@ public final class TunnelPlan {
                 List.of(),
                 List.of(),
                 List.copyOf(lanterns),
+                slopeEdits,
                 next);
     }
 
@@ -158,7 +162,7 @@ public final class TunnelPlan {
         final List<LanternPlacement> lanterns = buildTurnLanterns(frame, rails);
         final TunnelFrame next =
                 new TunnelFrame(frame.world(), frame.at(3 * turnSign, 0, 1), newHeading, frame.length() + 3);
-        return new StepPlan(List.copyOf(carve), rails, stairs, remove, rotate, lanterns, next);
+        return new StepPlan(List.copyOf(carve), rails, stairs, remove, rotate, lanterns, List.of(), next);
     }
 
     private static List<RailPlacement> buildTurnRails(

@@ -108,6 +108,25 @@ public final class RailNetworks {
     }
 
     /**
+     * Removes a station rail at {@code block} (or directly above it) when an allowed player tunnels through it.
+     * Returns true when {@code block} itself was the station rail and has already been cleared.
+     */
+    public boolean removeStationForTunnel(final Block block, final boolean dropItem) {
+        final Block above = block.getRelative(org.bukkit.block.BlockFace.UP);
+        final boolean onStation = isStation(block);
+        final Block station = onStation ? block : isStation(above) ? above : null;
+        if (station == null) {
+            return false;
+        }
+        station.setType(org.bukkit.Material.AIR, false);
+        if (dropItem) {
+            station.getWorld().dropItemNaturally(station.getLocation().add(0.5, 0.5, 0.5), item.create());
+        }
+        remove(station);
+        return onStation;
+    }
+
+    /**
      * Adds the recipe and reads the stored networks, building them off the main thread.
      * Changes wait until they are back; then every network is read again once, as the store keeps no spur.
      */

@@ -95,7 +95,7 @@ object PackRules {
             .sorted()
             .flatMap { file ->
                 val definition =
-                    runCatching { OxfmtJson.read(file) }.getOrElse {
+                    runCatching { JsonSlurper().parse(file) }.getOrElse {
                         return@flatMap listOf("${name(assets, file)} is no JSON. Export or write it again.")
                     }
                 ItemDefinitions

@@ -83,6 +83,49 @@ public final class RailNetworks {
         return item;
     }
 
+    /** Returns a fresh Station Rail item stack for admin handouts. */
+    public org.bukkit.inventory.ItemStack stationRailItem() {
+        return item.create();
+    }
+
+    /** Returns the refusal document if {@code block} is a protected station rail or support, else null. */
+    public eu.nordtal.season.messages.document.@Nullable DocumentSpec<
+                    eu.nordtal.season.messages.document.DocumentSpec.None>
+            stationBreakRefusal(final Block block, final UUID player, final boolean admin) {
+        final Block above = block.getRelative(org.bukkit.block.BlockFace.UP);
+        final Block station = isStation(block) ? block : isStation(above) ? above : null;
+        if (station == null) {
+            return null;
+        }
+        final Optional<StationRow> row = station(station);
+        final boolean allowed = row.map(r -> r.mayChange(player, admin)).orElse(admin);
+        return allowed ? null : StationRailListener.refusal(row);
+    }
+
+    /** Notifies the rail networks that a rail block was placed or modified outside a player place event. */
+    public void notifyRailChanged(final Block block) {
+        changed(block);
+    }
+
+    /**
+     * Removes a station rail at {@code block} (or directly above it) when an allowed player tunnels through it.
+     * Returns true when {@code block} itself was the station rail and has already been cleared.
+     */
+    public boolean removeStationForTunnel(final Block block, final boolean dropItem) {
+        final Block above = block.getRelative(org.bukkit.block.BlockFace.UP);
+        final boolean onStation = isStation(block);
+        final Block station = onStation ? block : isStation(above) ? above : null;
+        if (station == null) {
+            return false;
+        }
+        station.setType(org.bukkit.Material.AIR, false);
+        if (dropItem) {
+            station.getWorld().dropItemNaturally(station.getLocation().add(0.5, 0.5, 0.5), item.create());
+        }
+        remove(station);
+        return onStation;
+    }
+
     /**
      * Adds the recipe and reads the stored networks, building them off the main thread.
      * Changes wait until they are back; then every network is read again once, as the store keeps no spur.

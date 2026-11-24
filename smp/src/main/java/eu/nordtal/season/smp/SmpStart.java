@@ -4,7 +4,10 @@ import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcStore;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.Lines;
+import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.packrendering.wheel.WheelTimetable;
@@ -31,6 +34,8 @@ import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.grave.GraveDao;
 import eu.nordtal.season.smp.grave.GraveListener;
 import eu.nordtal.season.smp.grave.Graves;
+import eu.nordtal.season.smp.item.CustomItems;
+import eu.nordtal.season.smp.item.ItemsMenu;
 import eu.nordtal.season.smp.npc.NpcNamePlates;
 import eu.nordtal.season.smp.npc.NpcTexts;
 import eu.nordtal.season.smp.npc.ObjectivesMenu;
@@ -61,6 +66,10 @@ import eu.nordtal.season.smp.takein.ItemTakeIn;
 import eu.nordtal.season.smp.takein.PositionTake;
 import eu.nordtal.season.smp.trader.PlantTrades;
 import eu.nordtal.season.smp.travel.PortalGate;
+import eu.nordtal.season.smp.tunnel.BlockPos;
+import eu.nordtal.season.smp.tunnel.TunnelMiner;
+import eu.nordtal.season.smp.tunnel.TunnelMinerItems;
+import eu.nordtal.season.smp.tunnel.TunnelProtections;
 import eu.nordtal.season.smp.wall.BorderWall;
 import eu.nordtal.season.smp.welcome.SeasonWelcome;
 import eu.nordtal.season.smp.welcome.WelcomeDao;
@@ -335,6 +344,8 @@ final class SmpStart {
         plugin.rails = wireRails(plugin, wired.effects());
         plugin.portals = wireMapPortals(plugin);
         plugin.borderWall = wireBorderWall(plugin);
+        plugin.customItems = wireCustomItems(plugin);
+        plugin.tunnelMiner = wireTunnelMiner(plugin);
         final AreaEditor editor =
                 wireAreaEditor(plugin, wired.effects(), plugin.worldsSpec().worldNordtal(), captureSessions);
         plugin.areaEditor = editor;
@@ -541,5 +552,109 @@ final class SmpStart {
                                 rails, rides, menus, plugin.renderer(), plugin.identities(), plugin.sounds, scheduler),
                         plugin);
         return new Rails(rails, rides, packets);
+    }
+
+    /** Builds the central custom items registry and registers its draft preview. */
+    static CustomItems wireCustomItems(final SmpPlugin plugin) {
+        final RailNetworks rails =
+                Objects.requireNonNull(plugin.rails, "rails start before items").networks();
+        final CustomItems registry = new CustomItems(java.util.List.of(
+                new CustomItems.Entry("station_rail", rails::stationRailItem),
+                new CustomItems.Entry("tunnel_miner_book", TunnelMinerItems::enchantedBook)));
+        ItemsMenu.examples(plugin::example, registry);
+        return registry;
+    }
+
+    /** Opens the paginated Nordtal custom items menu for an in-game admin. */
+    static int openAdminItems(final SmpPlugin plugin, final org.bukkit.command.CommandSender sender) {
+        if (sender instanceof final org.bukkit.entity.Player player && plugin.customItems != null) {
+            final GameDocument document = new GameDocument(
+                    plugin.renderer(),
+                    plugin.documents().applied(ItemsMenu.DOCUMENT),
+                    Viewer.of(plugin.identities().languageOf(player.getUniqueId())),
+                    new DocumentSpec.None());
+            ItemsMenu.open(player, plugin.customItems, document);
+        }
+        return com.mojang.brigadier.Command.SINGLE_SUCCESS;
+    }
+
+    /** Wires Tunnel Miner with spawn, custom border, active duel arena and station rail protections. */
+    static TunnelMiner wireTunnelMiner(final SmpPlugin plugin) {
+        final RailNetworks rails = Objects.requireNonNull(plugin.rails, "rails start before tunnel miner")
+                .networks();
+        final TunnelMiner miner = new TunnelMiner(
+                plugin,
+                () -> plugin.tunnelMinerSettings.get().timeFactor(),
+                tunnelProtections(plugin, rails),
+                rails::notifyRailChanged,
+                rails::isStation,
+                rails::removeStationForTunnel);
+        plugin.getServer().getPluginManager().registerEvents(miner, plugin);
+        PaperScheduler.of(plugin)
+                .onMainEvery(
+                        PaperScheduler.TICK,
+                        PaperScheduler.TICK,
+                        () -> miner.tick(plugin.getServer().getOnlinePlayers()));
+        return miner;
+    }
+
+    private static TunnelProtections tunnelProtections(final SmpPlugin plugin, final RailNetworks rails) {
+        final BorderWall border = Objects.requireNonNull(plugin.borderWall, "border starts before tunnel miner");
+        final Duels duels = Objects.requireNonNull(plugin.duels, "duels start before tunnel miner");
+        return new TunnelProtections() {
+            @Override
+            public boolean check(
+                    final org.bukkit.entity.Player player,
+                    final org.bukkit.World world,
+                    final java.util.Collection<BlockPos> footprint,
+                    final boolean notifyPlayer) {
+                final boolean creativeAdmin = player.getGameMode() == org.bukkit.GameMode.CREATIVE
+                        && plugin.identities().of(player.getUniqueId()).admin();
+                for (final BlockPos pos : footprint) {
+                    final org.bukkit.block.Block block = world.getBlockAt(pos.x(), pos.y(), pos.z());
+                    final DocumentSpec<DocumentSpec.None> refusal =
+                            refusalForBlock(plugin, rails, border, duels, player, block, creativeAdmin);
+                    if (refusal != null) {
+                        if (notifyPlayer) {
+                            refuse(plugin, player, refusal);
+                        }
+                        return false;
+                    }
+                }
+                return true;
+            }
+        };
+    }
+
+    private static @org.jspecify.annotations.Nullable DocumentSpec<DocumentSpec.None> refusalForBlock(
+            final SmpPlugin plugin,
+            final RailNetworks rails,
+            final BorderWall border,
+            final Duels duels,
+            final org.bukkit.entity.Player player,
+            final org.bukkit.block.Block block,
+            final boolean creativeAdmin) {
+        if (duels.isActiveArenaBlock(block)) {
+            return ProtectionListener.DENIED;
+        }
+        if (!creativeAdmin
+                && plugin.protectedAreas.containsBlock(
+                        block.getWorld().getName(), block.getX(), block.getY(), block.getZ())) {
+            return ProtectionListener.DENIED;
+        }
+        if (border.blocksEdit(player, block)) {
+            return BorderWall.LIMIT;
+        }
+        return rails.stationBreakRefusal(
+                block, player.getUniqueId(), plugin.identities().of(player).admin());
+    }
+
+    private static void refuse(
+            final SmpPlugin plugin,
+            final org.bukkit.entity.Player player,
+            final DocumentSpec<DocumentSpec.None> document) {
+        player.sendActionBar(Lines.joined(
+                plugin.renderer().format(plugin.identities().languageOf(player.getUniqueId()), Sent.of(document))));
+        plugin.sounds.play(player, Feedback.REFUSED);
     }
 }

@@ -27,6 +27,7 @@ import org.bukkit.Statistic;
 import org.bukkit.World;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.damage.DamageType;
+import org.bukkit.enchantments.Enchantment;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -39,9 +40,11 @@ public final class GameDataExport {
     private static final List<Component> DEATH_ARGUMENTS =
             List.of(Component.text("Someone"), Component.text("something"));
 
-    private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.builder()
-            .flattener(PaperComponents.flattener())
-            .build();
+    private static final class ServerPlain {
+        private static final PlainTextComponentSerializer INSTANCE = PlainTextComponentSerializer.builder()
+                .flattener(PaperComponents.flattener())
+                .build();
+    }
 
     private GameDataExport() {}
 
@@ -79,7 +82,7 @@ public final class GameDataExport {
         final List<GameCatalogue.Entry> entries = new ArrayList<>();
         registry.stream().forEach(value -> {
             final String key = keyOf(value);
-            entries.add(GameCatalogue.Entry.named(value.getKey().toString(), key, textOf(key, List.of())));
+            entries.add(GameCatalogue.Entry.named(value.getKey().toString(), key, nameOf(value, key)));
         });
         entries.sort(Comparator.comparing(GameCatalogue.Entry::id));
         registries.put(name, entries);
@@ -184,9 +187,9 @@ public final class GameDataExport {
             entries.add(new GameCatalogue.Entry(
                     advancement.getKey().toString(),
                     title instanceof TranslatableComponent translatable ? translatable.key() : null,
-                    PLAIN.serialize(title),
+                    ServerPlain.INSTANCE.serialize(title),
                     parentId,
-                    PLAIN.serialize(display.description()),
+                    ServerPlain.INSTANCE.serialize(display.description()),
                     display.frame().name().toLowerCase(Locale.ROOT),
                     display.icon().getType().getKey().toString(),
                     display.isHidden(),
@@ -201,6 +204,25 @@ public final class GameDataExport {
             return translatable.translationKey();
         }
         return null;
+    }
+
+    /** Returns the English name of a registry entry, falling back to an enchantment's own description when custom. */
+    static @Nullable String nameOf(final Object value, final @Nullable String key) {
+        final String text = textOf(key, List.of());
+        if (text != null) {
+            return text;
+        }
+        if (value instanceof Enchantment enchantment) {
+            return descriptionText(enchantment.description(), key, ServerPlain.INSTANCE);
+        }
+        return null;
+    }
+
+    /** Flattens {@code description} to English text, or returns null when it resolves only to {@code key} or blank. */
+    static @Nullable String descriptionText(
+            final Component description, final @Nullable String key, final PlainTextComponentSerializer serializer) {
+        final String rendered = serializer.serialize(description);
+        return rendered.isBlank() || rendered.equals(key) ? null : rendered;
     }
 
     /**
@@ -221,7 +243,7 @@ public final class GameDataExport {
         if (key == null) {
             return null;
         }
-        final String text = PLAIN.serialize(Component.translatable(key, arguments));
+        final String text = ServerPlain.INSTANCE.serialize(Component.translatable(key, arguments));
         return text.isBlank() || text.equals(key) ? null : text;
     }
 }

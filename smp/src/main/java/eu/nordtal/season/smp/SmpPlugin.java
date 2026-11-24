@@ -47,12 +47,14 @@ import eu.nordtal.season.smp.config.RailsSpec;
 import eu.nordtal.season.smp.config.SmpSettings;
 import eu.nordtal.season.smp.config.SpawnExceptionsSpec;
 import eu.nordtal.season.smp.config.SpawnSpec;
+import eu.nordtal.season.smp.config.TunnelMinerSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.config.WorldsSpec;
 import eu.nordtal.season.smp.duel.Duels;
 import eu.nordtal.season.smp.eye.MapPortals;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.grave.Graves;
+import eu.nordtal.season.smp.item.CustomItems;
 import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneState;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
@@ -75,6 +77,7 @@ import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.state.SeasonState;
 import eu.nordtal.season.smp.takein.ItemTakeIn;
 import eu.nordtal.season.smp.takein.PositionTake;
+import eu.nordtal.season.smp.tunnel.TunnelMiner;
 import eu.nordtal.season.smp.wall.BorderWall;
 import eu.nordtal.season.smp.wheel.ExplorerMaps;
 import eu.nordtal.season.smp.wheel.ItemHandout;
@@ -111,6 +114,7 @@ public final class SmpPlugin extends NordtalPlugin {
     Setting<DeathsSpec> deathSettings;
     Setting<RailsSpec> railSettings;
     Setting<CustomBorderSpec> customBorderSettings;
+    Setting<TunnelMinerSpec> tunnelMinerSettings;
 
     /** The protected areas of the spawn, rebuilt when the spawn group changes. */
     volatile PolygonAreas protectedAreas;
@@ -162,6 +166,12 @@ public final class SmpPlugin extends NordtalPlugin {
     BorderWall borderWall;
 
     @Nullable
+    TunnelMiner tunnelMiner;
+
+    @Nullable
+    CustomItems customItems;
+
+    @Nullable
     AreaEditor areaEditor;
 
     @Nullable
@@ -207,8 +217,18 @@ public final class SmpPlugin extends NordtalPlugin {
     }
 
     @Override
+    protected boolean playersUseCommandRoot() {
+        return true;
+    }
+
+    @Override
     protected void commands(final LiteralArgumentBuilder<CommandSourceStack> root) {
-        root.then(console("access")
+        root.then(Commands.literal("items")
+                        .requires(source -> source.getSender() instanceof final Player player
+                                && identities().of(player).admin())
+                        .executes(context -> SmpStart.openAdminItems(
+                                this, context.getSource().getSender())))
+                .then(console("access")
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .executes(this::showAccess)))
                 .then(console("objective")
@@ -267,6 +287,7 @@ public final class SmpPlugin extends NordtalPlugin {
         deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
         railSettings = setting(Group.of("rails", RailsSpec.class).whileRunning());
         customBorderSettings = setting(SmpSettings.customBorderGroup(nordtal));
+        tunnelMinerSettings = setting(SmpSettings.tunnelMinerGroup());
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
                 .checkedBy(spec -> SmpSettings.checkMilestones(spec, ExplorerMaps::knowsTag, reward -> {
                     final var stack = TakenItems.one(reward.item(), reward.data());
@@ -496,6 +517,8 @@ public final class SmpPlugin extends NordtalPlugin {
         stopQuietly("spawnExceptionCapture.stop", spawnExceptionCapture, SpawnExceptionCapture::stop);
         stopQuietly("spawnExceptions.stop", spawnExceptions, SpawnExceptions::stop);
         stopQuietly("borderWall.stop", borderWall, wall -> wall.stop(getServer().getOnlinePlayers()));
+        stopQuietly(
+                "tunnelMiner.stop", tunnelMiner, miner -> miner.stop(getServer().getOnlinePlayers()));
         stopQuietly("portals.stop", portals, MapPortals::stop);
         stopQuietly("poller.stop", poller, StatisticPoller::stop);
         stopQuietly("boards.stop", boards, Boards::stop);
@@ -667,6 +690,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 () -> Objects.requireNonNull(duels).reload());
         reload(problems, "the deaths and graves", deathSettings, () -> {});
         reload(problems, "the rails", railSettings, () -> {});
+        reload(problems, "the tunnel miner", tunnelMinerSettings, () -> {});
         prestigeColours = prestigeColours();
         reloadMilestoneTrack();
         problems.addAll(trackProblems);

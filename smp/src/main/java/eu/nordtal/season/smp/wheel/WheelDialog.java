@@ -27,13 +27,14 @@ import java.util.List;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The wooden wheel as a dialog of 6 item bodies, which the pack draws over one another.
- * It turns them by the cooldown of {@link #GROUP}. Their texts carry the plate and, at rest, the prizes' hovers.
+ * The wooden wheel as a dialog of 2 item bodies: a lone base art body, then glinting prizes with a 17-line description.
+ * The description's focus cover hides every client focus outline while carrying the Spin plate and prize hovers.
  */
 final class WheelDialog {
 
@@ -58,21 +59,18 @@ final class WheelDialog {
     /** The item group whose cooldown plays the spin. */
     static final Key GROUP = Key.key("nordtal", "wheel");
 
-    static final int BODIES = 6;
-    private static final int DISC_BODY = 0;
-    private static final int PRIZES_BODY = 1;
-    private static final int FOIL_BODY = 2;
-    private static final int PLATE_BODY = 3;
-    private static final int OVERLAY_BODY = 4;
-    private static final int HOVER_BODY = 5;
+    static final int BODIES = 2;
+    private static final int BASE_BODY = 0;
+    private static final int FOIL_BODY = 1;
 
-    /** The panel's top, which the header draws from; the column below starts at the client's 63. */
+    /** The panel's top, which the header draws from. */
     private static final int TOP = 43;
 
     /** The panel's one margin around the header, the wheel and the plate. */
     private static final int MARGIN = 7;
 
     private static final int PLATE_WIDTH = 75;
+    private static final int PLATE_HEIGHT = BodyLine.PLATE;
 
     /** The text box's padding on each side, which the client keeps clear inside a body's text width. */
     private static final int PADDING = 4;
@@ -80,8 +78,8 @@ final class WheelDialog {
     /** The gap the client leaves between a body's item and its text. */
     private static final int ITEM_GAP = 2;
 
-    /** A text two lines high: 9 a line and the padding above and below. */
-    private static final int TWO_LINES = 2 * 9 + 2 * PADDING;
+    /** One text line's height in pixels. */
+    private static final int LINE_HEIGHT = 9;
 
     /** A hover glyph's ink, which stands over a 16-pixel prize. */
     private static final int HOVER = 16;
@@ -89,14 +87,8 @@ final class WheelDialog {
     /** The hover glyphs' ui art font, which with their 2 higher ascent puts their tops on the text box's top. */
     private static final int HOVER_SHIFT = -2;
 
-    /**
-     * The plate's top above its text row, as high as the pack draws art, so most of the plate is in its box.
-     * The 17-pixel plate overhangs the one-line box of 17 by 2, where the client takes no click and no hover.
-     */
-    private static final int PLATE_UP = 2;
-
-    /** The spins line's ui text font, below the plate's box and outside the client's outline. */
-    private static final int SPINS_SHIFT = 22;
+    /** The spins line's offset below the plate's top. */
+    private static final int SPINS_OFFSET = 22;
 
     private WheelDialog() {}
 
@@ -112,7 +104,7 @@ final class WheelDialog {
             String close) {}
 
     /**
-     * The dialog of {@code plan}, whose {@code prizes} stand at its bodies.
+     * The dialog of {@code plan}, whose {@code prizes} stand on its two bodies.
      * {@code resting} holds the item at each place at rest, which the hovers show, and is null while it turns.
      * {@code click} spins, null without spins left, and {@code close} runs on Esc and on the close button.
      */
@@ -130,21 +122,16 @@ final class WheelDialog {
         final ItemStack paper = named(texts.heading());
         final ItemStack shining = paper.clone();
         shining.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
-        final List<DialogBody> bodies = new ArrayList<>(BODIES);
-        bodies.add(lone(stack(paper, "disc", plan.disc()), rows, DISC_BODY));
-        bodies.add(row(stack(paper, "prizes", plan.prizes(foil, false)), rows, PRIZES_BODY, resting));
-        bodies.add(row(stack(shining, "prizes_foil", plan.prizes(foil, true)), rows, FOIL_BODY, resting));
-        final ItemStack beside = resting == null ? paper : resting.get(rows.itemPlace());
-        bodies.add(DialogBody.item(stack(beside, "none", List.of()))
-                .showDecorations(false)
-                .showTooltip(resting != null)
-                .width(rows.plateItem())
-                .height(rows.heights().get(PLATE_BODY))
-                .description(DialogBody.plainMessage(
-                        plateRow(texts, spinLeft, click, rows, resting), textWidth(rows, PLATE_BODY)))
-                .build());
-        bodies.add(row(stack(paper, "overlay", plan.overlay(language)), rows, OVERLAY_BODY, resting));
-        bodies.add(row(stack(paper, "none", List.of()), rows, HOVER_BODY, resting));
+        final List<DialogBody> bodies = List.of(
+                lone(stack(paper, "base", plan.base(foil, language)), rows),
+                DialogBody.item(stack(shining, "foil", plan.foil(foil)))
+                        .showDecorations(false)
+                        .showTooltip(false)
+                        .width(rows.itemWidth())
+                        .height(rows.heights().get(FOIL_BODY))
+                        .description(DialogBody.plainMessage(
+                                description(texts, spinLeft, click, rows, resting), textWidth(rows)))
+                        .build());
         final Component title = DialogTitle.of(DialogPanel.WHEEL_197, TOP)
                 .header(Symbol.WHEEL, texts.name(), List.of(), MARGIN)
                 .build();
@@ -154,10 +141,10 @@ final class WheelDialog {
     }
 
     /**
-     * The plate row's text: the hovers on its line, the plate and under it the spins line.
-     * The plate's hover says what a spin costs or that none is left. All share one line, so the row is one line high.
+     * The 17-line description: focus cover on line 0, all 12 prize hovers at rest, the Spin plate and the spins line.
+     * Every line advances to {@link #lineWidth}, so the client centres each line without shifting it.
      */
-    static Component plateRow(
+    static Component description(
             final Texts texts,
             final boolean spinLeft,
             final @Nullable ClickEvent click,
@@ -165,85 +152,118 @@ final class WheelDialog {
             final @Nullable List<ItemStack> resting) {
         final Component hover =
                 spinLeft ? Tooltip.hover(texts.title(), texts.cost(), null) : Tooltip.hover(texts.none(), null, null);
-        final Component plate = BodyLine.start(-PLATE_UP)
-                .button(
-                        new BodyLine.Press(click, hover),
-                        line -> line.plate(PLATE_WIDTH, null, texts.button(), spinLeft ? Look.PRIMARY : Look.DISABLED))
-                .build();
+        final int plateLine = rows.plateY() / LINE_HEIGHT;
+        final int spinsY = rows.plateY() + SPINS_OFFSET;
+        final int spinsLine = spinsY / LINE_HEIGHT;
         final String spins = Letters.cut(texts.spins(), PLATE_WIDTH);
-        final int x = rows.plateX();
-        return hovers(Pen.start(), rows, PLATE_BODY, resting, Glyphs.UI_HOVER_17)
-                .moveTo(x)
-                .append(plate, PLATE_WIDTH)
-                .moveTo(x + (PLATE_WIDTH - Letters.visibleWidth(spins) + 1) / 2)
-                .text(SPINS_SHIFT, spins, Colours.SOFT)
-                .build(lineWidth(rows, PLATE_BODY));
+        final List<Component> parts = new ArrayList<>(rows.lines() * 2);
+        for (int line = 0; line < rows.lines(); line++) {
+            if (line > 0) {
+                parts.add(Component.newline());
+            }
+            parts.add(lineOf(line, plateLine, spinsLine, spinsY, spins, texts, spinLeft, click, hover, rows, resting));
+        }
+        return Component.textOfChildren(parts.toArray(Component[]::new));
     }
 
-    /** A body without a text, which sets its row's height. */
-    private static DialogBody lone(final ItemStack stack, final WheelTimetable.Rows rows, final int body) {
+    private static Component lineOf(
+            final int line,
+            final int plateLine,
+            final int spinsLine,
+            final int spinsY,
+            final String spins,
+            final Texts texts,
+            final boolean spinLeft,
+            final @Nullable ClickEvent click,
+            final Component hover,
+            final WheelTimetable.Rows rows,
+            final @Nullable List<ItemStack> resting) {
+        final Pen pen = Pen.start();
+        if (line == 0) {
+            final int leftWidth = rows.itemWidth() + ITEM_GAP + textWidth(rows) / 2;
+            final int rightWidth = rows.rowWidth() - leftWidth;
+            return pen.moveTo(-leftWidth)
+                    .art(Glyphs.FONT_UI_RING, Glyphs.UI_WHEEL_RING_LEFT, leftWidth)
+                    .art(Glyphs.FONT_UI_RING, Glyphs.UI_WHEEL_RING_RIGHT, rightWidth)
+                    .build(0);
+        }
+        final int lineTop = line * LINE_HEIGHT;
+        final int lineBottom = lineTop + LINE_HEIGHT - 1;
+        hovers(pen, rows, lineTop, lineBottom, resting);
+        if (line == plateLine) {
+            final Component plate = BodyLine.start(rows.plateY() - lineTop)
+                    .button(
+                            new BodyLine.Press(click, hover),
+                            button -> button.plate(
+                                    PLATE_WIDTH, null, texts.button(), spinLeft ? Look.PRIMARY : Look.DISABLED))
+                    .build();
+            pen.moveTo(rows.plateX()).append(plate, PLATE_WIDTH);
+        } else if (lineTop <= rows.plateY() + PLATE_HEIGHT - 1 && lineBottom >= rows.plateY()) {
+            pen.moveTo(rows.plateX()).append(plateHit(click, hover), PLATE_WIDTH);
+        }
+        if (line == spinsLine) {
+            pen.moveTo(rows.plateX() + (PLATE_WIDTH - Letters.visibleWidth(spins) + 1) / 2)
+                    .text(spinsY - lineTop, spins, Colours.SOFT);
+        }
+        return pen.build(lineWidth(rows));
+    }
+
+    /** Transparent hit area for the lower text lines covered by the Spin plate. */
+    private static Component plateHit(final @Nullable ClickEvent click, final Component hover) {
+        final Pen hit = Pen.start();
+        final String font = Pen.artFont(HOVER_SHIFT);
+        for (int x = 0; x + HOVER < PLATE_WIDTH; x += HOVER) {
+            hit.moveTo(x).art(font, Glyphs.UI_HOVER_17, HOVER);
+        }
+        hit.moveTo(PLATE_WIDTH - HOVER).art(font, Glyphs.UI_HOVER_17, HOVER);
+        final Component area = hit.build(PLATE_WIDTH).hoverEvent(HoverEvent.showText(hover));
+        return click != null ? area.clickEvent(click) : area;
+    }
+
+    /** Draws the hovers whose 16 px prize box overlaps [{@code lineTop}, {@code lineBottom}]. */
+    private static void hovers(
+            final Pen pen,
+            final WheelTimetable.Rows rows,
+            final int lineTop,
+            final int lineBottom,
+            final @Nullable List<ItemStack> resting) {
+        if (resting == null) {
+            return;
+        }
+        final String font = Pen.artFont(HOVER_SHIFT);
+        rows.hovers().entrySet().stream()
+                .filter(entry ->
+                        entry.getValue().y() <= lineBottom && entry.getValue().y() + HOVER - 1 >= lineTop)
+                .sorted(Comparator.comparingInt(entry -> entry.getValue().x()))
+                .forEach(entry -> pen.moveTo(entry.getValue().x())
+                        .art(
+                                font,
+                                Glyphs.UI_HOVER_17,
+                                HOVER,
+                                resting.get(entry.getKey()).asHoverEvent()));
+    }
+
+    /** The lone base art body, without a text. */
+    private static DialogBody lone(final ItemStack stack, final WheelTimetable.Rows rows) {
         return DialogBody.item(stack)
                 .showDecorations(false)
                 .showTooltip(false)
                 .width(rows.loneItem())
-                .height(rows.heights().get(body))
+                .height(rows.heights().get(BASE_BODY))
                 .build();
     }
 
-    /** A body whose text holds the hovers over the prizes on its row while the wheel rests. */
-    private static DialogBody row(
-            final ItemStack stack,
-            final WheelTimetable.Rows rows,
-            final int body,
-            final @Nullable List<ItemStack> resting) {
-        final int height = rows.heights().get(body);
-        final boolean two = height == TWO_LINES;
-        Component text = hovers(Pen.start(), rows, body, resting, two ? Glyphs.UI_HOVER_26 : Glyphs.UI_HOVER_17)
-                .build(lineWidth(rows, body));
-        if (two) {
-            // The second line only fills the box, which the first line's tall hovers reach down over.
-            text = Component.textOfChildren(
-                    text, Component.newline(), Pen.start().build(lineWidth(rows, body)));
-        }
-        return DialogBody.item(stack)
-                .showDecorations(false)
-                .showTooltip(false)
-                .width(rows.itemWidth())
-                .height(height)
-                .description(DialogBody.plainMessage(text, textWidth(rows, body)))
-                .build();
-    }
-
-    /** Draws the hovers of {@code body}'s row with {@code glyph}, each showing the item resting under it. */
-    private static Pen hovers(
-            final Pen pen,
-            final WheelTimetable.Rows rows,
-            final int body,
-            final @Nullable List<ItemStack> resting,
-            final String glyph) {
-        if (resting == null) {
-            return pen;
-        }
-        final String font = Pen.artFont(HOVER_SHIFT);
-        rows.hovers().entrySet().stream()
-                .filter(hover -> hover.getValue().body() == body)
-                .sorted(Comparator.comparingInt(hover -> hover.getValue().x()))
-                .forEach(hover -> pen.moveTo(hover.getValue().x())
-                        .art(font, glyph, HOVER, resting.get(hover.getKey()).asHoverEvent()));
-        return pen;
-    }
-
-    /** The width the client gives {@code body}'s text, its padding included. */
-    private static int textWidth(final WheelTimetable.Rows rows, final int body) {
-        return rows.rowWidth() - (body == PLATE_BODY ? rows.plateItem() : rows.itemWidth()) - ITEM_GAP;
+    /** The width the client gives the description text, its padding included. */
+    private static int textWidth(final WheelTimetable.Rows rows) {
+        return rows.rowWidth() - rows.itemWidth() - ITEM_GAP;
     }
 
     /**
-     * The width every line of {@code body}'s text is drawn to: all of its box inside the padding.
+     * The width every line of the description is drawn to: all of its box inside the padding.
      * The client's centring then moves it by nothing, and the hovers stand where the pack measured them.
      */
-    private static int lineWidth(final WheelTimetable.Rows rows, final int body) {
-        return textWidth(rows, body) - 2 * PADDING;
+    private static int lineWidth(final WheelTimetable.Rows rows) {
+        return textWidth(rows) - 2 * PADDING;
     }
 
     /** Whether {@code item} glints: by its override, the default its item has included, else by its enchantments. */

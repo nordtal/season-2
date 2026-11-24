@@ -33,12 +33,21 @@ public final class WheelPack {
     /** The variant string's value while the dialog waits for the press. */
     static final String OPEN = "open";
 
-    static final int PARITY = 1;
-
     /** The key of a place whose prize the other prize body draws. */
     static final String NONE = "-";
 
-    static final int LANGUAGE = 13;
+    static final int COUNT_OFFSET = WheelLayout.PLACES;
+    static final int VARIANT = 2 * WheelLayout.PLACES;
+    static final int PARITY = VARIANT + 1;
+    static final int LANGUAGE = VARIANT + 2;
+
+    private static final double ANCHOR_Z = -1.5;
+    private static final double SHADOW_Z = -1.4;
+    private static final double STAND_Z = -1.3;
+    private static final double DISC_Z = -1.2;
+    private static final double WINNER_Z = -1.1;
+    private static final double OVERLAY_Z = 1.0;
+
     private static final Map<String, Object> EMPTY = Map.of("type", "minecraft:empty");
 
     private static final System.Logger LOG = System.getLogger(WheelPack.class.getName());
@@ -165,12 +174,12 @@ public final class WheelPack {
     }
 
     private static Map<String, Object> anchor(final int body, final int[] rect) {
-        return part("anchor", rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1], body, -0.4);
+        return part("anchor", rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1], body, ANCHOR_Z);
     }
 
-    private static double[] move(final int body, final int x, final int y) {
+    private static double[] move(final int body, final int x, final int y, final double z) {
         final int[] c = WheelLayout.canvas(body);
-        return WheelMath.translate((c[0] + x) / 16.0, -(c[1] + y) / 16.0, 0.0);
+        return WheelMath.translate((c[0] + x) / 16.0, -(c[1] + y) / 16.0, z);
     }
 
     private static Map<String, Object> select(
@@ -218,7 +227,7 @@ public final class WheelPack {
      * A place whose prize glints in the other prize body holds no key here, and so draws nothing.
      */
     private Map<String, Object> prizeNode(final int body, final int index, final PrizeAt at) {
-        final double[] m = move(body, at.x(), at.y());
+        final double[] m = move(body, at.x(), at.y(), 0.0);
         final List<Map<String, Object>> cases = new ArrayList<>();
         for (final Group group : groups) {
             final double[] local = WheelVanilla.local(group.display(), m);
@@ -253,34 +262,24 @@ public final class WheelPack {
     }
 
     private static String discNode(final DiscAt at) {
-        final int body = WheelLayout.DISC_BODY;
+        final int body = WheelLayout.BASE_BODY;
         final int size = WheelLayout.DISC;
         final List<Object> models = new ArrayList<>();
-        models.add(part("shadow", 0, 0, size + 1, size + 1, body, -0.3));
-        models.add(part("stand", 0, 0, size, size + 9, body, -0.2));
-        models.add(part(discTexture(at), 0, 0, size, size, body, -0.1));
+        models.add(part("shadow", 0, 0, size + 1, size + 1, body, SHADOW_Z));
+        models.add(part("stand", 0, 0, size, size + 9, body, STAND_Z));
+        models.add(part(discTexture(at), 0, 0, size, size, body, DISC_Z));
         if (at.mark()) {
-            models.add(part("winner", 0, 0, size, size, body, 0.0));
+            models.add(part("winner", 0, 0, size, size, body, WINNER_Z));
         }
         return Json.write(map("type", "minecraft:composite", "models", models));
     }
 
     private String overlayNode(final OverlayAt at) {
-        final int body = WheelLayout.OVERLAY_BODY;
+        final int body = WheelLayout.BASE_BODY;
         final List<Object> models = new ArrayList<>();
-        models.add(part(at.pointer().texture(), WheelLayout.POINTER[0], WheelLayout.POINTER[1], 16, 16, body, 0.1));
-        if (!countCases.isEmpty()) {
-            for (int b = 0; b < at.counts().size(); b++) {
-                final Optional<PrizeAt> count = at.counts().get(b);
-                if (count.isPresent()) {
-                    models.add(select(
-                            b,
-                            countCases,
-                            EMPTY,
-                            move(body, count.get().x(), count.get().y())));
-                }
-            }
-        }
+        models.add(
+                part(at.pointer().texture(), WheelLayout.POINTER[0], WheelLayout.POINTER[1], 16, 16, body, OVERLAY_Z));
+        addCounts(models, body, at.counts());
         if (at.plate()) {
             final List<Map<String, Object>> plates = new ArrayList<>();
             for (final String lang : labels.keySet()) {
@@ -291,7 +290,7 @@ public final class WheelPack {
                         WheelLayout.PLATE_WIDTH,
                         WheelLayout.PLATE_HEIGHT,
                         body,
-                        0.0));
+                        OVERLAY_Z));
             }
             final List<String> langs = List.copyOf(labels.keySet());
             final List<Map<String, Object>> cases = new ArrayList<>();
@@ -301,6 +300,28 @@ public final class WheelPack {
             models.add(select(LANGUAGE, cases, plates.getFirst(), null));
         }
         return Json.write(map("type", "minecraft:composite", "models", models));
+    }
+
+    private String countsNode(final int body, final List<Optional<PrizeAt>> counts) {
+        final List<Object> models = new ArrayList<>();
+        addCounts(models, body, counts);
+        return Json.write(models.isEmpty() ? EMPTY : map("type", "minecraft:composite", "models", models));
+    }
+
+    private void addCounts(final List<Object> models, final int body, final List<Optional<PrizeAt>> counts) {
+        if (countCases.isEmpty()) {
+            return;
+        }
+        for (int b = 0; b < counts.size(); b++) {
+            final Optional<PrizeAt> count = counts.get(b);
+            if (count.isPresent()) {
+                models.add(select(
+                        COUNT_OFFSET + b,
+                        countCases,
+                        EMPTY,
+                        move(body, count.get().x(), count.get().y(), OVERLAY_Z)));
+            }
+        }
     }
 
     /** A range on the cooldown over {@code runs}, with {@code fallback} once the last has passed. */
@@ -374,7 +395,7 @@ public final class WheelPack {
 
     private static Map<String, Object> disc(final int parity, final List<Integer> offsets) {
         return body(
-                0,
+                VARIANT,
                 offsets,
                 new Pictures<>(
                         t -> WheelSpin.waitingDisc(parity),
@@ -387,7 +408,7 @@ public final class WheelPack {
     /** The prizes' pictures from body {@code body}'s origin: the plain or the glinting prizes. */
     private Map<String, Object> prizes(final List<Integer> offsets, final int body) {
         return body(
-                WheelLayout.PLACES,
+                VARIANT,
                 offsets,
                 new Pictures<List<Optional<PrizeAt>>>(
                         WheelSpin::popIns,
@@ -397,9 +418,22 @@ public final class WheelPack {
                         at -> prizesNode(body, at)));
     }
 
+    /** The stack counts for body {@code body}'s glinting prizes, drawn in front of them. */
+    private Map<String, Object> counts(final List<Integer> offsets, final int body) {
+        return body(
+                VARIANT,
+                offsets,
+                new Pictures<List<Optional<PrizeAt>>>(
+                        WheelSpin::popIns,
+                        WheelSpin.waitings(),
+                        WheelSpin::prizes,
+                        WheelSpin::prizesRest,
+                        at -> countsNode(body, at)));
+    }
+
     private Map<String, Object> overlay(final List<Integer> offsets) {
         return body(
-                WheelLayout.PLACES,
+                VARIANT,
                 offsets,
                 new Pictures<>(
                         WheelSpin::popInOverlay,
@@ -409,30 +443,30 @@ public final class WheelPack {
                         this::overlayNode));
     }
 
-    private static byte[] item(final int body, final Object node, final int[] rect) {
-        return Json.bytes(map(
-                "model",
-                map("type", "minecraft:composite", "models", List.of(node, anchor(body, rect))),
-                "oversized_in_gui",
-                true));
+    private static byte[] item(final int body, final List<Object> nodes, final int[] rect) {
+        final List<Object> models = new ArrayList<>(nodes.size() + 1);
+        models.addAll(nodes);
+        models.add(anchor(body, rect));
+        return Json.bytes(map("model", map("type", "minecraft:composite", "models", models), "oversized_in_gui", true));
     }
 
-    /** The body kinds' item definitions for the turn variants {@code offsets}; "none" draws nothing. */
+    /** The two item definitions for the turn variants {@code offsets}: the base art and the glinting prizes. */
     public Map<String, byte[]> items(final List<Integer> offsets) {
         final Map<String, byte[]> out = new LinkedHashMap<>();
         final Map<String, Object> disc =
                 select(PARITY, List.of(map("when", "1", "model", disc(1, offsets))), disc(0, offsets), null);
-        out.put("assets/nordtal/items/wheel/disc.json", item(0, disc, WheelLayout.ANCHOR));
         out.put(
-                "assets/nordtal/items/wheel/prizes.json",
-                item(WheelLayout.PRIZES_BODY, prizes(offsets, WheelLayout.PRIZES_BODY), WheelLayout.ANCHOR));
+                "assets/nordtal/items/wheel/base.json",
+                item(
+                        WheelLayout.BASE_BODY,
+                        List.of(disc, prizes(offsets, WheelLayout.BASE_BODY), overlay(offsets)),
+                        WheelLayout.OVERLAY_ANCHOR));
         out.put(
-                "assets/nordtal/items/wheel/prizes_foil.json",
-                item(WheelLayout.FOIL_BODY, prizes(offsets, WheelLayout.FOIL_BODY), WheelLayout.ANCHOR));
-        out.put(
-                "assets/nordtal/items/wheel/overlay.json",
-                item(WheelLayout.OVERLAY_BODY, overlay(offsets), WheelLayout.OVERLAY_ANCHOR));
-        out.put("assets/nordtal/items/wheel/none.json", Json.bytes(map("model", EMPTY)));
+                "assets/nordtal/items/wheel/foil.json",
+                item(
+                        WheelLayout.FOIL_BODY,
+                        List.of(prizes(offsets, WheelLayout.FOIL_BODY), counts(offsets, WheelLayout.FOIL_BODY)),
+                        WheelLayout.ANCHOR));
         return out;
     }
 
@@ -494,7 +528,7 @@ public final class WheelPack {
 
     /**
      * The plugin's timetable, in cooldown ticks: the cooldown, the pop-in, each variant's clicks and end.
-     * It also holds the dialog's rows: their sizes, the plate's place in its row's text and each prize's hover.
+     * It also holds the dialog's rows: their sizes, the plate's place in the description and each prize's hover.
      */
     public static String timetable(final List<Integer> offsets) {
         final StringBuilder out = new StringBuilder();
@@ -518,23 +552,19 @@ public final class WheelPack {
             out.append("end.").append(e).append('=').append(WheelTurn.length(e)).append('\n');
         }
         out.append("heights=").append(joined(WheelLayout.HEIGHTS)).append('\n');
+        out.append("lines=").append(WheelLayout.LINES).append('\n');
         out.append("row-width=").append(WheelLayout.ROW_WIDTH).append('\n');
         out.append("item-width=").append(WheelLayout.ITEM_WIDTH).append('\n');
-        out.append("plate-item=").append(WheelLayout.PLATE_ITEM).append('\n');
         out.append("lone-item=").append(WheelLayout.LONE_ITEM).append('\n');
-        out.append("plate-x=").append(WheelLayout.plateInText()).append('\n');
-        out.append("item-place=").append(WheelLayout.ITEM_PLACE).append('\n');
+        out.append("plate-x=").append(WheelLayout.plateX()).append('\n');
+        out.append("plate-y=").append(WheelLayout.plateY()).append('\n');
         for (int place = 0; place < WheelLayout.PLACES; place++) {
-            if (place == WheelLayout.ITEM_PLACE) {
-                continue;
-            }
-            final int body = WheelLayout.hoverBody(place);
             out.append("hover.")
                     .append(place)
                     .append('=')
-                    .append(body)
+                    .append(WheelLayout.hoverX(place))
                     .append(',')
-                    .append(WheelLayout.place(place)[0] - WheelLayout.textLeft(body))
+                    .append(WheelLayout.hoverY(place))
                     .append('\n');
         }
         return out.toString();

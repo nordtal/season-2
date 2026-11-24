@@ -33,23 +33,23 @@ public record WheelTimetable(
     /**
      * The dialog's rows, one per body, which the pack's art is drawn for.
      *
-     * @param heights each row's height, the disc's first; a row of 26 has a text of two lines, of 17 one
-     * @param rowWidth the width of a row with a text, from its item's left to its text's right
-     * @param itemWidth the item's width in a row with a text, but for the plate's row
-     * @param plateItem the plate row's item's width, which hovers the prize at {@code itemPlace}
-     * @param loneItem the width of the item in a row without a text
-     * @param plateX the plate's left from its row's text's left
-     * @param itemPlace the place whose prize the plate row's item shows
-     * @param hovers per other place, the row whose text hovers its prize and the hover's left in that text
+     * @param heights each row's height, the lone base art body first, then the description body
+     * @param lines the text lines in the description body
+     * @param rowWidth the width of the description row, from its item's left to its text's right
+     * @param itemWidth the item's width in the description row
+     * @param loneItem the width of the item in the lone base art body
+     * @param plateX the plate's left from the description text's left
+     * @param plateY the plate's top from the description text's top
+     * @param hovers per place, the prize's top-left in the description text
      */
     public record Rows(
             List<Integer> heights,
+            int lines,
             int rowWidth,
             int itemWidth,
-            int plateItem,
             int loneItem,
             int plateX,
-            int itemPlace,
+            int plateY,
             Map<Integer, Hover> hovers) {
 
         public Rows {
@@ -58,8 +58,8 @@ public record WheelTimetable(
         }
     }
 
-    /** Where a prize's hover sits: in body {@code body}'s text, {@code x} from its left. */
-    public record Hover(int body, int x) {}
+    /** Where a prize's hover sits in the description text: ({@code x}, {@code y}) from its top-left. */
+    public record Hover(int x, int y) {}
 
     /** Where the build puts the timetable, beside this module's other generated tables. */
     public static final String RESOURCE = "nordtal/wheel/wheel.properties";
@@ -106,12 +106,12 @@ public record WheelTimetable(
                 });
         final Rows rows = new Rows(
                 numbers(required(properties, "heights")),
+                number(properties, "lines"),
                 number(properties, "row-width"),
                 number(properties, "item-width"),
-                number(properties, "plate-item"),
                 number(properties, "lone-item"),
                 number(properties, "plate-x"),
-                number(properties, "item-place"),
+                number(properties, "plate-y"),
                 hovers);
         return new WheelTimetable(
                 cooldown, number(properties, "open"), numbers(required(properties, "pops")), clicks, ends, rows);

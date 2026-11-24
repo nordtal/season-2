@@ -21,14 +21,14 @@ class WheelTimetableTest {
         properties.setProperty("variants", "0,5");
         properties.setProperty("clicks.0", "50,51");
         properties.setProperty("clicks.5", "");
-        properties.setProperty("heights", "1,26,4");
+        properties.setProperty("heights", "1,161");
+        properties.setProperty("lines", "17");
         properties.setProperty("row-width", "254");
         properties.setProperty("item-width", "1");
-        properties.setProperty("plate-item", "27");
         properties.setProperty("lone-item", "2");
-        properties.setProperty("plate-x", "40");
-        properties.setProperty("item-place", "9");
-        properties.setProperty("hover.0", "1,120");
+        properties.setProperty("plate-x", "167");
+        properties.setProperty("plate-y", "71");
+        properties.setProperty("hover.0", "68,13");
         final WheelTimetable timetable = WheelTimetable.parse(properties);
         assertEquals(199, timetable.cooldown());
         assertEquals(List.of(0, 3, 6), timetable.pops());
@@ -38,10 +38,12 @@ class WheelTimetableTest {
         assertEquals(24, timetable.open());
         assertEquals(180, timetable.end(0));
         assertEquals(199, timetable.end(5));
-        assertEquals(List.of(1, 26, 4), timetable.rows().heights());
-        assertEquals(40, timetable.rows().plateX());
+        assertEquals(List.of(1, 161), timetable.rows().heights());
+        assertEquals(17, timetable.rows().lines());
+        assertEquals(167, timetable.rows().plateX());
+        assertEquals(71, timetable.rows().plateY());
         assertEquals(
-                Map.of(0, new WheelTimetable.Hover(1, 120)), timetable.rows().hovers());
+                Map.of(0, new WheelTimetable.Hover(68, 13)), timetable.rows().hovers());
     }
 
     @Test
@@ -61,12 +63,16 @@ class WheelTimetableTest {
                 .forEach(clicks -> clicks.forEach(
                         tick -> assertTrue(tick > 0 && tick < timetable.cooldown(), "click at " + tick)));
         timetable.variants().forEach(variant -> assertTrue(timetable.end(variant) <= timetable.cooldown()));
-        assertEquals(11, timetable.rows().hovers().size());
         final WheelTimetable.Rows rows = timetable.rows();
-        // A hover's 17 advance stays inside its row's line: the text box but its padding of 4 on each side.
-        assertTrue(rows.hovers().values().stream().allMatch(hover -> {
-            final int item = hover.body() == 3 ? rows.plateItem() : rows.itemWidth();
-            return hover.x() >= 0 && hover.x() + 17 <= rows.rowWidth() - item - 2 - 8;
-        }));
+        assertEquals(List.of(1, 161), rows.heights());
+        assertEquals(17, rows.lines());
+        assertEquals(12, rows.hovers().size());
+        final int lineWidth = rows.rowWidth() - rows.itemWidth() - 2 - 8;
+        final int textHeight = rows.lines() * 9;
+        assertTrue(rows.hovers().values().stream()
+                .allMatch(hover -> hover.x() >= 0
+                        && hover.x() + 17 <= lineWidth
+                        && hover.y() >= 0
+                        && hover.y() + 16 <= textHeight));
     }
 }

@@ -95,9 +95,11 @@ public final class StewardWire {
             CommandApi.CommandRun.class,
             CommandApi.TakeIn.class,
             CommandApi.TakePosition.class,
-            CommandApi.PositionTaker.class,
+            CommandApi.CaptureReadiness.class,
             CommandApi.EditAreas.class,
             CommandApi.AreaDraft.class,
+            CommandApi.EditSpawnExceptions.class,
+            CommandApi.SpawnExceptionDraft.class,
             NpcApi.NpcView.class,
             NpcApi.NpcPublication.class,
             NpcApi.NpcVersion.class,
@@ -259,7 +261,12 @@ public final class StewardWire {
             Map.entry(Npc.Place.class, "NpcPlace"),
             Map.entry(NpcSkin.SkinModel.class, "NpcSkinModel"),
             Map.entry(Dialogue.Step.class, "NpcStep"),
-            Map.entry(Dialogue.Answer.class, "NpcAnswer"));
+            Map.entry(Dialogue.Answer.class, "NpcAnswer"),
+            Map.entry(
+                    eu.nordtal.season.database.inbox.SmpRequest.SpawnExceptionDraft.Step.class,
+                    "SpawnExceptionDraftStep"),
+            Map.entry(eu.nordtal.season.database.inbox.SpawnExceptionBlock.Kind.class, "SpawnExceptionKind"),
+            Map.entry(eu.nordtal.season.database.inbox.SpawnExceptionBlock.Facing.class, "SpawnExceptionFacing"));
 
     private StewardWire() {}
 }

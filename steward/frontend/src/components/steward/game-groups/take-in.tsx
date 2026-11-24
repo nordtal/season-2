@@ -1,13 +1,20 @@
-import { ArrowSquareInIcon, XIcon } from "@/components/ui/icons"
+import { ArrowSquareInIcon } from "@/components/ui/icons"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { api, errorMessage, type CommandAsked, type CommandRun, type TakeInPurpose } from "@/lib/api"
 import { finalRun } from "@/lib/queries-commands"
+import { keys } from "@/lib/query-keys"
 import { useClosePicker } from "@/components/steward/reference-picker"
 import { message, t } from "@/lib/texts"
-import { Button } from "@/components/ui/button"
+import {
+  CaptureBlockedNote,
+  CaptureSessionControls,
+  CaptureStartButton,
+  captureBlockedBy,
+  useCaptureReadiness,
+} from "@/components/steward/game-groups/in-game-capture"
 
 /** An item taken in from the game: its material, and the whole item serialised. */
 export type TakenItem = { item: string; data: string }
@@ -40,6 +47,7 @@ export function TakeInButton({
 }) {
   const client = useQueryClient()
   const close = useClosePicker()
+  const readiness = useCaptureReadiness()
   const [waiting, setWaiting] = useState<string | null>(null)
   const [asking, setAsking] = useState(false)
   // The request this button still waits for; a run of any other is stale.
@@ -67,7 +75,11 @@ export function TakeInButton({
         taken.current.onTaken(item)
         taken.current.close()
       }
+    } else if (run.status === "REFUSED" && run.result) {
+      void client.invalidateQueries({ queryKey: keys.captureReadiness })
+      toast.error(t("steward.game.take-in-failed"), { description: message(run.result) })
     } else if (run.status === "REFUSED" || run.status === "EXPIRED") {
+      void client.invalidateQueries({ queryKey: keys.captureReadiness })
       toast.error(t("steward.answer.take-in-offline"))
     } else if (run.status !== "CANCELLED") {
       toast.error(t("steward.game.take-in-failed"), { description: run.result ? message(run.result) : undefined })
@@ -96,6 +108,7 @@ export function TakeInButton({
       )
     } catch (error) {
       toast.error(t("steward.game.take-in-failed"), { description: errorMessage(error) })
+      void client.invalidateQueries({ queryKey: keys.captureReadiness })
     } finally {
       if (!gone.current) setAsking(false)
     }
@@ -108,15 +121,20 @@ export function TakeInButton({
     withdraw(waiting)
   }
 
-  return waiting === null ? (
-    <Button type="button" variant="outline" disabled={disabled || asking} className="max-sm:w-full" onClick={ask}>
-      <ArrowSquareInIcon aria-hidden />
-      {t("steward.game.take-in")}
-    </Button>
-  ) : (
-    <Button type="button" variant="destructive" className="max-sm:w-full" onClick={cancel}>
-      <XIcon aria-hidden />
-      {t("steward.game.cancel-take-in")}
-    </Button>
+  const blocked = captureBlockedBy(readiness.data)
+  return (
+    <div className="flex flex-col gap-1.5">
+      {waiting === null ? (
+        <CaptureStartButton
+          label={t("steward.game.take-in")}
+          icon={<ArrowSquareInIcon aria-hidden />}
+          disabled={disabled || asking || blocked !== null}
+          onStart={() => void ask()}
+        />
+      ) : (
+        <CaptureSessionControls cancelLabel={t("steward.game.cancel-take-in")} onCancel={cancel} />
+      )}
+      <CaptureBlockedNote blocked={blocked} disabled={disabled} />
+    </div>
   )
 }

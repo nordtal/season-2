@@ -9,7 +9,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
 /**
@@ -106,5 +109,47 @@ public final class SmpSounds {
 
     public boolean isSilent(final Feedback category) {
         return sounds.isSilent(category);
+    }
+
+    /** Plays the normal vanilla open or close sound for a door or trapdoor at {@code block}. */
+    public void playDoorToggle(final Block block, final boolean opened) {
+        final Sound sound = doorSound(block.getType(), opened);
+        block.getWorld().playSound(block.getLocation().add(0.5, 0.5, 0.5), sound, SoundCategory.BLOCKS, 1.0f, 1.0f);
+    }
+
+    private static Sound doorSound(final Material material, final boolean opened) {
+        final String name = material.name();
+        final boolean copper = name.contains("COPPER");
+        final boolean bamboo = name.contains("BAMBOO");
+        final boolean cherry = name.contains("CHERRY");
+        final boolean nether = name.contains("CRIMSON") || name.contains("WARPED");
+        if (name.endsWith("_TRAPDOOR")) {
+            if (copper) {
+                return opened ? Sound.BLOCK_COPPER_TRAPDOOR_OPEN : Sound.BLOCK_COPPER_TRAPDOOR_CLOSE;
+            }
+            if (bamboo) {
+                return opened ? Sound.BLOCK_BAMBOO_WOOD_TRAPDOOR_OPEN : Sound.BLOCK_BAMBOO_WOOD_TRAPDOOR_CLOSE;
+            }
+            if (cherry) {
+                return opened ? Sound.BLOCK_CHERRY_WOOD_TRAPDOOR_OPEN : Sound.BLOCK_CHERRY_WOOD_TRAPDOOR_CLOSE;
+            }
+            if (nether) {
+                return opened ? Sound.BLOCK_NETHER_WOOD_TRAPDOOR_OPEN : Sound.BLOCK_NETHER_WOOD_TRAPDOOR_CLOSE;
+            }
+            return opened ? Sound.BLOCK_WOODEN_TRAPDOOR_OPEN : Sound.BLOCK_WOODEN_TRAPDOOR_CLOSE;
+        }
+        if (copper) {
+            return opened ? Sound.BLOCK_COPPER_DOOR_OPEN : Sound.BLOCK_COPPER_DOOR_CLOSE;
+        }
+        if (bamboo) {
+            return opened ? Sound.BLOCK_BAMBOO_WOOD_DOOR_OPEN : Sound.BLOCK_BAMBOO_WOOD_DOOR_CLOSE;
+        }
+        if (cherry) {
+            return opened ? Sound.BLOCK_CHERRY_WOOD_DOOR_OPEN : Sound.BLOCK_CHERRY_WOOD_DOOR_CLOSE;
+        }
+        if (nether) {
+            return opened ? Sound.BLOCK_NETHER_WOOD_DOOR_OPEN : Sound.BLOCK_NETHER_WOOD_DOOR_CLOSE;
+        }
+        return opened ? Sound.BLOCK_WOODEN_DOOR_OPEN : Sound.BLOCK_WOODEN_DOOR_CLOSE;
     }
 }

@@ -22,12 +22,12 @@ public final class GameRoutes {
             final ConsoleCommands consoleCommands) {
         cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
         cfg.routes.delete("/api/commands/{id}", commands::withdraw, Gate.KEY_HELD, Unjournaled.SHOWN_ONCE_SAVED);
+        cfg.routes.get("/api/smp/capture", commands::captureReadiness, Gate.KEY_HELD);
         cfg.routes.post(
                 "/api/smp/take-in",
                 ctx -> GameActions.answer(ctx, commands.takeIn(ctx)),
                 Gate.KEY_HELD,
                 Unjournaled.SHOWN_ONCE_SAVED);
-        cfg.routes.get("/api/smp/take-position", commands::positionTaker, Gate.KEY_HELD);
         cfg.routes.post(
                 "/api/smp/take-position",
                 ctx -> GameActions.answer(ctx, commands.takePosition(ctx)),
@@ -41,6 +41,16 @@ public final class GameRoutes {
         cfg.routes.post(
                 "/api/smp/area-draft",
                 ctx -> GameActions.answer(ctx, commands.areaDraft(ctx)),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_ONCE_SAVED);
+        cfg.routes.post(
+                "/api/smp/spawn-exceptions-editor",
+                ctx -> GameActions.answer(ctx, commands.editSpawnExceptions(ctx)),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_ONCE_SAVED);
+        cfg.routes.post(
+                "/api/smp/spawn-exceptions-draft",
+                ctx -> GameActions.answer(ctx, commands.spawnExceptionDraft(ctx)),
                 Gate.KEY_HELD,
                 Unjournaled.SHOWN_ONCE_SAVED);
 

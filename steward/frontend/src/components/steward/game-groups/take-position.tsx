@@ -1,15 +1,26 @@
-import { CursorClickIcon, XIcon } from "@/components/ui/icons"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { api, errorMessage, type CommandAsked, type CommandRun, type ConfigEntry, type PositionTaker } from "@/lib/api"
+import {
+  api,
+  errorMessage,
+  type CaptureReadiness,
+  type CommandAsked,
+  type CommandRun,
+  type ConfigEntry,
+} from "@/lib/api"
 import { finalRun } from "@/lib/queries-commands"
-import { RECONCILE } from "@/lib/live"
 import { keys } from "@/lib/query-keys"
 import { message, t } from "@/lib/texts"
 import type { PlaceShape } from "@/components/steward/game-groups/model"
-import { Button } from "@/components/ui/button"
+import {
+  CaptureBlockedNote,
+  CaptureSessionControls,
+  CaptureStartButton,
+  captureBlockedBy,
+  useCaptureReadiness,
+} from "@/components/steward/game-groups/in-game-capture"
 
 /** Where the admin's player stood and faced, or the block it looked at, as the server answered. */
 export type TakenPosition = { world: string; x: number; y: number; z: number; yaw: number; pitch: number }
@@ -55,9 +66,8 @@ export function takenValues(
 }
 
 /** Why the admin's player cannot take a position now, or null when it can, or while Steward has not said. */
-export function blockedBy(taker: PositionTaker | undefined): string | null {
-  if (taker === undefined || taker.taker === "READY") return null
-  return taker.taker === "UNLINKED" ? t("steward.answer.preview-unlinked") : t("steward.answer.take-in-offline")
+export function blockedBy(taker: CaptureReadiness | undefined): string | null {
+  return captureBlockedBy(taker)
 }
 
 function withdraw(id: string) {
@@ -81,14 +91,7 @@ export function TakePosition({
   onTaken: (taken: TakenPosition, corner: 0 | 1) => void
 }) {
   const client = useQueryClient()
-  const taker = useQuery({
-    queryKey: keys.positionTaker,
-    queryFn: () => api<PositionTaker>("/api/smp/take-position"),
-    // No topic tells when a player joins or leaves, so it is read again whenever the admin returns from the game.
-    refetchInterval: RECONCILE,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: "always",
-  })
+  const taker = useCaptureReadiness()
   const [waiting, setWaiting] = useState<{ id: string; corner: 0 | 1 } | null>(null)
   const [asking, setAsking] = useState(false)
   // The take this field still waits for; a run of any other is stale.
@@ -112,7 +115,7 @@ export function TakePosition({
     setWaiting(null)
     const place = run.status === "DONE" ? takenOf(run) : undefined
     // A refused or expired take may mean the player left the server since Steward last said.
-    if (!place) void client.invalidateQueries({ queryKey: keys.positionTaker })
+    if (!place) void client.invalidateQueries({ queryKey: keys.captureReadiness })
     if (place) taken.current(place, corner)
     else if (run.status === "EXPIRED") toast.error(t("steward.answer.take-in-offline"))
     else if (run.status !== "CANCELLED")
@@ -142,7 +145,7 @@ export function TakePosition({
       )
     } catch (error) {
       toast.error(t("steward.game.take-position-failed"), { description: errorMessage(error) })
-      void client.invalidateQueries({ queryKey: keys.positionTaker })
+      void client.invalidateQueries({ queryKey: keys.captureReadiness })
     } finally {
       if (!gone.current) setAsking(false)
     }
@@ -155,7 +158,7 @@ export function TakePosition({
     withdraw(waiting.id)
   }
 
-  const blocked = blockedBy(taker.data)
+  const blocked = captureBlockedBy(taker.data)
   const takes: { corner: 0 | 1; label: string }[] =
     shape === "area"
       ? [
@@ -168,26 +171,22 @@ export function TakePosition({
       <div className="flex flex-wrap gap-2">
         {takes.map((take) =>
           waiting?.corner === take.corner ? (
-            <Button key={take.corner} type="button" variant="destructive" className="max-sm:w-full" onClick={cancel}>
-              <XIcon aria-hidden />
-              {t("steward.game.cancel-take-position")}
-            </Button>
-          ) : (
-            <Button
+            <CaptureSessionControls
               key={take.corner}
-              type="button"
-              variant="outline"
+              cancelLabel={t("steward.game.cancel-take-position")}
+              onCancel={cancel}
+            />
+          ) : (
+            <CaptureStartButton
+              key={take.corner}
+              label={take.label}
               disabled={disabled || asking || waiting !== null || blocked !== null}
-              className="max-sm:w-full"
-              onClick={() => void ask(take.corner)}
-            >
-              <CursorClickIcon aria-hidden />
-              {take.label}
-            </Button>
+              onStart={() => void ask(take.corner)}
+            />
           ),
         )}
       </div>
-      {blocked !== null && !disabled ? <p className="text-xs text-muted-foreground">{blocked}</p> : null}
+      <CaptureBlockedNote blocked={blocked} disabled={disabled} />
     </div>
   )
 }

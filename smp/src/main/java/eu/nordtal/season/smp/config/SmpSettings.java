@@ -6,6 +6,7 @@ import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.smp.area.Polygons;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -143,6 +144,32 @@ public final class SmpSettings {
     public static Group<CustomBorderSpec> customBorderGroup(final String overworld) {
         return Group.of("custom-border", CustomBorderSpec.class)
                 .checkedBy(spec -> checkCustomBorder(spec, overworld))
+                .whileRunning();
+    }
+
+    /** Throws {@link SettingRefused} for duplicate coordinates or an auto-reset entry with zero delay. */
+    public static void checkSpawnExceptions(final SpawnExceptionsSpec config) {
+        final Set<String> seen = new HashSet<>();
+        for (final SpawnExceptionSpec entry : config.entries()) {
+            final String key = entry.world() + ":" + entry.x() + "," + entry.y() + "," + entry.z();
+            if (!seen.add(key)) {
+                throw new SettingRefused("entries", SettingRule.UNIQUE, key, "duplicate spawn exception at " + key);
+            }
+            if (entry.resetMode() == SpawnExceptionSpec.ResetMode.AUTO_RESET
+                    && entry.resetMinutes() == 0
+                    && entry.resetSeconds() == 0) {
+                throw new SettingRefused(
+                        "entries.reset-seconds",
+                        SettingRule.POSITIVE,
+                        "auto-reset requires at least 1 second at " + key);
+            }
+        }
+    }
+
+    /** Returns the {@code spawn-exceptions} group with its checks wired. */
+    public static Group<SpawnExceptionsSpec> spawnExceptionsGroup() {
+        return Group.of("spawn-exceptions", SpawnExceptionsSpec.class)
+                .checkedBy(SmpSettings::checkSpawnExceptions)
                 .whileRunning();
     }
 

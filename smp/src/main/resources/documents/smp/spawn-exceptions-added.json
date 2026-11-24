@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Added to spawn exceptions.</good>",
+            "de": "<good>Zu den Spawn-Ausnahmen hinzugefügt.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

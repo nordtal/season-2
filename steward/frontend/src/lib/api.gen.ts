@@ -180,7 +180,7 @@ export type TakePosition = {
   block: boolean
 }
 
-export type PositionTaker = {
+export type CaptureReadiness = {
   taker: Taker
 }
 
@@ -193,6 +193,14 @@ export type EditAreas = {
 export type AreaDraft = {
   step: Step
   name?: string
+}
+
+export type EditSpawnExceptions = {
+  entries: SpawnExceptionBlock[]
+}
+
+export type SpawnExceptionDraft = {
+  step: SpawnExceptionDraftStep
 }
 
 export type NpcView = {
@@ -867,6 +875,18 @@ export type AreaShape = {
 
 export type Step = "ADD" | "READ" | "CLOSE"
 
+export type SpawnExceptionBlock = {
+  world: string
+  x: number
+  y: number
+  z: number
+  kind: SpawnExceptionKind
+  facing: SpawnExceptionFacing
+  defaultOpen: boolean
+}
+
+export type SpawnExceptionDraftStep = "READ" | "CLOSE"
+
 export type Npc = {
   id: string
   name: Words
@@ -1441,6 +1461,10 @@ export type Corner = {
   x: number
   z: number
 }
+
+export type SpawnExceptionKind = "DOOR" | "TRAPDOOR"
+
+export type SpawnExceptionFacing = "NORTH" | "SOUTH" | "EAST" | "WEST"
 
 export type NpcPlace = {
   world: string

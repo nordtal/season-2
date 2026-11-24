@@ -150,5 +150,13 @@ public interface DatabaseMessages {
         @Name("No menu preview here")
         @Shown(Display.STEWARD)
         MessageRef noExample();
+
+        @Name("Capture already active")
+        @Shown(Display.STEWARD)
+        MessageRef captureActive();
+
+        @Name("No spawn exception draft")
+        @Shown(Display.STEWARD)
+        MessageRef noSpawnExceptionDraft();
     }
 }

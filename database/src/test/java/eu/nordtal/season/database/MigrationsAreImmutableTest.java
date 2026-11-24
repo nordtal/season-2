@@ -429,6 +429,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V148__a_duel_holds_both_stakes_until_it_ends.sql",
                 "8512480ccea79def1d200b3ec747bbfeb3623bfaa405516f7dfa9cb716e5e110");
+        FROZEN.put(
+                "V149__an_admin_captures_spawn_exceptions_in_the_game.sql",
+                "d145815c695cce7b9c1352e97757a6f29bd1f3f02d03af7955e9f2857821714d");
     }
 
     @Test

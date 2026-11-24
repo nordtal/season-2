@@ -9,6 +9,8 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.capture.CaptureMode;
+import eu.nordtal.season.smp.capture.CaptureSessions;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -101,6 +103,7 @@ public final class AreaEditor implements Listener {
     private final WorldEffects effects;
     private final BiFunction<Player, DocumentSpec<DocumentSpec.None>, Component> text;
     private final Predicate<String> overworld;
+    private final CaptureSessions captureSessions;
     private final NamespacedKey toolKey;
     private final Map<UUID, Session> sessions = new HashMap<>();
 
@@ -113,12 +116,14 @@ public final class AreaEditor implements Listener {
             final Inbox<SmpRequest> inbox,
             final WorldEffects effects,
             final BiFunction<Player, DocumentSpec<DocumentSpec.None>, Component> text,
-            final Predicate<String> overworld) {
+            final Predicate<String> overworld,
+            final CaptureSessions captureSessions) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.inbox = Objects.requireNonNull(inbox, "inbox");
         this.effects = Objects.requireNonNull(effects, "effects");
         this.text = Objects.requireNonNull(text, "text");
         this.overworld = Objects.requireNonNull(overworld, "overworld");
+        this.captureSessions = Objects.requireNonNull(captureSessions, "captureSessions");
         this.toolKey = new NamespacedKey(plugin, "area-editor");
     }
 
@@ -154,7 +159,7 @@ public final class AreaEditor implements Listener {
         }
     }
 
-    /** Opens the editor for {@code edit}'s player with a draft of its shapes, replacing a draft it holds. */
+    /** Opens the editor for {@code edit}'s player with a draft of its shapes, refusing if another capture is active. */
     public Answer open(final SmpRequest.EditAreas edit) {
         return onMain(() -> {
             final Player admin = plugin.getServer().getPlayer(edit.player().value());
@@ -164,9 +169,12 @@ public final class AreaEditor implements Listener {
             if (plugin.getServer().getWorld(edit.world()) == null) {
                 throw new IllegalStateException("the world of an area edit is not loaded: world=" + edit.world());
             }
-            close(admin);
+            if (!captureSessions.tryBegin(admin.getUniqueId(), CaptureMode.AREA_EDITOR)) {
+                return Answer.refused(ServerRefusal.CAPTURE_ACTIVE.with());
+            }
             final int slot = freeHotbarSlot(admin.getInventory());
             if (slot < 0) {
+                captureSessions.end(admin.getUniqueId(), CaptureMode.AREA_EDITOR);
                 return Answer.refused(ServerRefusal.HOTBAR_FULL.with());
             }
             admin.getInventory().setItem(slot, tool(admin));
@@ -229,6 +237,7 @@ public final class AreaEditor implements Listener {
                 close(admin);
             } else {
                 Objects.requireNonNull(sessions.remove(id)).handles.values().forEach(Handle::remove);
+                captureSessions.end(id, CaptureMode.AREA_EDITOR);
             }
         }
     }
@@ -261,6 +270,7 @@ public final class AreaEditor implements Listener {
         if (session != null) {
             session.handles.values().forEach(Handle::remove);
         }
+        captureSessions.end(admin.getUniqueId(), CaptureMode.AREA_EDITOR);
         removeTools(admin);
     }
 

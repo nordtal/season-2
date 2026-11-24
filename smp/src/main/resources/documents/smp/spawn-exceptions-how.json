@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Right-click wood or copper doors and trapdoors inside spawn to add or remove them.",
+            "de": "Rechtsklicke Holz- oder Kupfertüren und Falltüren im Spawn, um sie hinzuzufügen oder zu entfernen."
+          }
+        }
+      ]
+    }
+  ]
+}

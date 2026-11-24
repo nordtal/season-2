@@ -18,6 +18,8 @@ import eu.nordtal.season.papercommon.chat.Previews;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.capture.CaptureMode;
+import eu.nordtal.season.smp.capture.CaptureSessions;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -51,6 +53,7 @@ public final class ItemTakeIn {
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;
     private final Identities identities;
+    private final CaptureSessions sessions;
     // The windows open now, by their request. The main thread writes it, the hub's thread reads it.
     private final Map<Long, Shown> open = new ConcurrentHashMap<>();
 
@@ -73,12 +76,14 @@ public final class ItemTakeIn {
             final DataSource pool,
             final MessageRenderer renderer,
             final AppliedDocuments documents,
-            final Identities identities) {
+            final Identities identities,
+            final CaptureSessions sessions) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.inbox = Inbox.over(pool, SmpRequest.TABLE);
         this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.documents = Objects.requireNonNull(documents, "documents");
         this.identities = Objects.requireNonNull(identities, "identities");
+        this.sessions = Objects.requireNonNull(sessions, "sessions");
     }
 
     /** Closes a window once Steward withdrew its request. Call it before the hub starts. */
@@ -91,6 +96,9 @@ public final class ItemTakeIn {
      * The window names {@code purpose}. It runs on the hub's thread and is refused while the player is not here.
      */
     public Answer open(final long request, final PlayerId player, final TakeInPurpose purpose) {
+        if (!sessions.tryBegin(player.value(), CaptureMode.ITEM_TAKE_IN)) {
+            return Answer.refused(ServerRefusal.CAPTURE_ACTIVE.with());
+        }
         final GameDocument document = new GameDocument(
                 renderer,
                 documents.applied(TakeInWindow.document(purpose)),
@@ -104,11 +112,12 @@ public final class ItemTakeIn {
             final TakeInWindow current = last.get(here.getUniqueId());
             if (current != null && current.showsTo(here) && current.purpose() == purpose && !current.waiting()) {
                 // The window open since the last item takes the next one, and keeps showing that item's copy.
-                current.await(stack -> answer(request, stack));
+                current.await(stack -> answer(request, player.value(), stack));
                 open.put(request, new Shown(here.getUniqueId(), current));
                 return true;
             }
-            final TakeInWindow window = new TakeInWindow(purpose, document, stack -> answer(request, stack));
+            final TakeInWindow window =
+                    new TakeInWindow(purpose, document, stack -> answer(request, player.value(), stack));
             window.open(here);
             if (!window.showsTo(here)) {
                 return false;
@@ -117,12 +126,17 @@ public final class ItemTakeIn {
             last.put(here.getUniqueId(), window);
             return true;
         });
-        return shown ? Answer.open() : Answer.refused(ServerRefusal.NOT_HERE.with());
+        if (!shown) {
+            sessions.end(player.value(), CaptureMode.ITEM_TAKE_IN);
+            return Answer.refused(ServerRefusal.NOT_HERE.with());
+        }
+        return Answer.open();
     }
 
     /** Runs on the main thread once the window ended, and settles off it. */
-    private void answer(final long request, final @Nullable ItemStack stack) {
+    private void answer(final long request, final UUID player, final @Nullable ItemStack stack) {
         open.remove(request);
+        sessions.end(player, CaptureMode.ITEM_TAKE_IN);
         final TakeInItem.Answer answer = stack == null
                 ? TakeInItem.Answer.none()
                 : new TakeInItem.Answer(
@@ -144,6 +158,7 @@ public final class ItemTakeIn {
             if (!running) {
                 PaperScheduler.of(plugin).onMain(() -> {
                     if (open.remove(entry.getKey(), entry.getValue())) {
+                        sessions.end(entry.getValue().player(), CaptureMode.ITEM_TAKE_IN);
                         entry.getValue()
                                 .window()
                                 .withdraw(plugin.getServer()

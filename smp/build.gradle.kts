@@ -14,6 +14,7 @@ pluginDescriptor {
     editors.put("advancement-awards", "advancement-awards")
     editors.put("wheel", "wheel")
     editors.put("custom-border", "custom-border")
+    editors.put("spawn-exceptions", "spawn-exceptions")
 }
 
 // The base class calls prepare() and enable() before any code reads the fields of SmpPlugin.
@@ -119,6 +120,8 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.grave.GraveListener")
     documentClasses.add("eu.nordtal.season.smp.grave.Graves")
     documentClasses.add("eu.nordtal.season.smp.protect.ProtectionListener")
+    documentClasses.add("eu.nordtal.season.smp.protect.SpawnExceptionCapture")
+    documentClasses.add("eu.nordtal.season.smp.capture.CaptureFeedback")
     documentClasses.add("eu.nordtal.season.smp.wall.BorderWall")
     documentClasses.add("eu.nordtal.season.smp.area.AreaEditor")
     documentClasses.add("eu.nordtal.season.smp.travel.PortalGate")

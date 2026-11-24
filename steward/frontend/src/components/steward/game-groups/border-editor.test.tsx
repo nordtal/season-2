@@ -144,7 +144,7 @@ function backend({
         puts.push(JSON.parse(init?.body ?? "null"))
         return json(configSaved(document))
       }
-      if (url === "/api/smp/take-position" && method === "GET") return json({ taker })
+      if (url === "/api/smp/capture" && method === "GET") return json({ taker })
       if (url === "/api/smp/area-editor" && method === "POST") {
         opened.push(JSON.parse(init?.body ?? "null"))
         const id = `smp:${nextId++}`

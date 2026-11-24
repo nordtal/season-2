@@ -29,6 +29,8 @@ public sealed interface SmpRequest
                 SmpRequest.TakePosition,
                 SmpRequest.EditAreas,
                 SmpRequest.AreaDraft,
+                SmpRequest.EditSpawnExceptions,
+                SmpRequest.SpawnExceptionDraft,
                 SmpRequest.SendPack {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
@@ -264,7 +266,7 @@ public sealed interface SmpRequest
      *
      * @param name the name of the shape that {@link Step#ADD} adds, blank for every other step
      */
-    record AreaDraft(PlayerId player, Step step, String name) implements SmpRequest {
+    record AreaDraft(PlayerId player, AreaDraft.Step step, String name) implements SmpRequest {
 
         public AreaDraft {
             Objects.requireNonNull(player, "player");
@@ -288,6 +290,46 @@ public sealed interface SmpRequest
             public Answer {
                 Objects.requireNonNull(world, "world");
                 shapes = List.copyOf(shapes);
+            }
+        }
+    }
+
+    /**
+     * Starts spawn exception capture for the admin's player with {@code entries} as the initial draft.
+     * Refused while the player is not on the server or already holds an active capture session.
+     */
+    record EditSpawnExceptions(PlayerId player, List<SpawnExceptionBlock> entries) implements SmpRequest {
+
+        public EditSpawnExceptions {
+            Objects.requireNonNull(player, "player");
+            entries = List.copyOf(entries);
+        }
+    }
+
+    /**
+     * Reads or closes the admin's spawn exception capture draft and answers with its entries.
+     * Refused while the player is not on the server or holds no spawn exception draft.
+     */
+    record SpawnExceptionDraft(PlayerId player, SpawnExceptionDraft.Step step) implements SmpRequest {
+
+        public SpawnExceptionDraft {
+            Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(step, "step");
+        }
+
+        /** What a spawn exception draft step does. */
+        public enum Step {
+            /** Reads the current draft without ending the session. */
+            READ,
+            /** Ends the session and returns the draft. */
+            CLOSE
+        }
+
+        /** The blocks currently selected in the draft. */
+        public record Answer(List<SpawnExceptionBlock> entries) {
+
+            public Answer {
+                entries = List.copyOf(entries);
             }
         }
     }

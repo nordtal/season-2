@@ -159,8 +159,13 @@ public final class RailNetworks {
     }
 
     /** Whether {@code block} is a station rail, by its marker, which holds before the store answers. */
-    boolean isStation(final Block block) {
+    public boolean isStation(final Block block) {
         return marks.marked(block);
+    }
+
+    /** Whether {@code block} is a rail belonging to a connected rail network. */
+    public boolean isNetworkRail(final Block block) {
+        return org.bukkit.Tag.RAILS.isTagged(block.getType()) && ride(block).isPresent();
     }
 
     /** Returns the station at {@code block}, once the store answered. */

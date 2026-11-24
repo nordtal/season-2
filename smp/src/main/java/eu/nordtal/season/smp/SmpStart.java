@@ -17,7 +17,10 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.area.AreaEditor;
 import eu.nordtal.season.smp.aura.DeathPenalty;
 import eu.nordtal.season.smp.board.Boards;
+import eu.nordtal.season.smp.capture.CaptureFeedback;
+import eu.nordtal.season.smp.capture.CaptureSessions;
 import eu.nordtal.season.smp.config.DeathsSpec;
+import eu.nordtal.season.smp.config.WheelBlockSpec;
 import eu.nordtal.season.smp.duel.DuelListener;
 import eu.nordtal.season.smp.duel.DuelStakes;
 import eu.nordtal.season.smp.duel.Duels;
@@ -31,6 +34,7 @@ import eu.nordtal.season.smp.grave.Graves;
 import eu.nordtal.season.smp.npc.NpcNamePlates;
 import eu.nordtal.season.smp.npc.NpcTexts;
 import eu.nordtal.season.smp.npc.ObjectivesMenu;
+import eu.nordtal.season.smp.pack.PackSwap;
 import eu.nordtal.season.smp.pending.PendingItems;
 import eu.nordtal.season.smp.player.PlayerComposition;
 import eu.nordtal.season.smp.player.PlayerSurfaces;
@@ -40,6 +44,8 @@ import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
 import eu.nordtal.season.smp.progress.StatisticPoller;
 import eu.nordtal.season.smp.protect.ProtectionListener;
+import eu.nordtal.season.smp.protect.SpawnExceptionCapture;
+import eu.nordtal.season.smp.protect.SpawnExceptions;
 import eu.nordtal.season.smp.rail.ChunkTickets;
 import eu.nordtal.season.smp.rail.NetworkCarts;
 import eu.nordtal.season.smp.rail.RailNetworks;
@@ -51,6 +57,8 @@ import eu.nordtal.season.smp.rail.SpawnStation;
 import eu.nordtal.season.smp.rail.StationMenus;
 import eu.nordtal.season.smp.rail.StationRailListener;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
+import eu.nordtal.season.smp.takein.ItemTakeIn;
+import eu.nordtal.season.smp.takein.PositionTake;
 import eu.nordtal.season.smp.trader.PlantTrades;
 import eu.nordtal.season.smp.travel.PortalGate;
 import eu.nordtal.season.smp.wall.BorderWall;
@@ -316,7 +324,60 @@ final class SmpStart {
         return dialogues;
     }
 
-    static void restoreGravesAndRegisterWorld(final SmpPlugin plugin) {
+    /** Wires spawn protection, rails, portals, border wall, capture modes and the SMP inbox. */
+    static void wireCapturesAndProtect(final SmpPlugin plugin, final Surfaces wired) {
+        final CaptureSessions captureSessions = new CaptureSessions();
+        final CaptureFeedback captureFeedback =
+                new CaptureFeedback(plugin.identities(), plugin.renderer(), plugin.sounds);
+        final SpawnExceptions exceptions = wireSpawnExceptions(plugin);
+        plugin.spawnExceptions = exceptions;
+        restoreGravesAndRegisterWorld(plugin, exceptions);
+        plugin.rails = wireRails(plugin, wired.effects());
+        plugin.portals = wireMapPortals(plugin);
+        plugin.borderWall = wireBorderWall(plugin);
+        final AreaEditor editor =
+                wireAreaEditor(plugin, wired.effects(), plugin.worldsSpec().worldNordtal(), captureSessions);
+        plugin.areaEditor = editor;
+        final SpawnExceptionCapture exceptionCapture =
+                wireSpawnExceptionCapture(plugin, captureSessions, captureFeedback);
+        plugin.spawnExceptionCapture = exceptionCapture;
+        final ItemTakeIn takeIn = new ItemTakeIn(
+                plugin, plugin.pool(), plugin.renderer(), plugin.documents(), plugin.identities(), captureSessions);
+        takeIn.watch(plugin.hub());
+        ItemTakeIn.examples(plugin::example);
+        final PackSwap packSwap = new PackSwap(plugin, plugin.pool());
+        plugin.getServer().getPluginManager().registerEvents(packSwap, plugin);
+        plugin.answerRequests(
+                takeIn,
+                new PositionTake(plugin, plugin.pool(), captureSessions, captureFeedback),
+                packSwap,
+                editor,
+                exceptionCapture);
+    }
+
+    /** Starts spawn door and trapdoor exceptions, their display markers and their auto-reset tick. */
+    static SpawnExceptions wireSpawnExceptions(final SmpPlugin plugin) {
+        final SpawnExceptions exceptions = new SpawnExceptions(plugin, plugin.clock(), plugin.sounds);
+        plugin.getServer().getPluginManager().registerEvents(exceptions, plugin);
+        exceptions.start(plugin.spawnExceptionsSettings.get());
+        PaperScheduler.of(plugin).onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), exceptions::tick);
+        return exceptions;
+    }
+
+    /** Starts the in-game capture listener for spawn exception doors and trapdoors. */
+    static SpawnExceptionCapture wireSpawnExceptionCapture(
+            final SmpPlugin plugin, final CaptureSessions captureSessions, final CaptureFeedback feedback) {
+        final SpawnExceptionCapture capture = new SpawnExceptionCapture(
+                plugin,
+                Inbox.over(plugin.pool(), SmpRequest.TABLE),
+                () -> plugin.protectedAreas,
+                captureSessions,
+                feedback);
+        plugin.getServer().getPluginManager().registerEvents(capture, plugin);
+        return capture;
+    }
+
+    static void restoreGravesAndRegisterWorld(final SmpPlugin plugin, final SpawnExceptions exceptions) {
         plugin.graves.restore();
         final Duels duels = Objects.requireNonNull(plugin.duels, "the duels start before the world");
         duels.restoreLeftover();
@@ -328,7 +389,13 @@ final class SmpStart {
                                 duels,
                                 plugin.identities(),
                                 plugin.renderer(),
-                                plugin.sounds),
+                                plugin.sounds,
+                                block -> isWheelBlock(plugin, block),
+                                block -> plugin.rails != null
+                                        && plugin.rails.networks().isStation(block),
+                                block -> plugin.rails != null
+                                        && plugin.rails.networks().isNetworkRail(block),
+                                exceptions::isAllowed),
                         plugin);
         plugin.getServer()
                 .getPluginManager()
@@ -341,6 +408,19 @@ final class SmpStart {
                                 plugin.identities(),
                                 plugin.sounds),
                         plugin);
+    }
+
+    private static boolean isWheelBlock(final SmpPlugin plugin, final org.bukkit.block.Block block) {
+        final String world = block.getWorld().getName();
+        final int x = block.getX();
+        final int y = block.getY();
+        final int z = block.getZ();
+        for (final WheelBlockSpec entry : plugin.wheelSettings.get().wheelBlocks()) {
+            if (entry.world().equals(world) && entry.x() == x && entry.y() == y && entry.z() == z) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Scans the worlds for the map's End portals, to which every thrown eye of ender flies. */
@@ -379,14 +459,19 @@ final class SmpStart {
     }
 
     /** Starts the in-game area editor, its listener and its walk every tick. {@code overworld} names the overworld. */
-    static AreaEditor wireAreaEditor(final SmpPlugin plugin, final WorldEffects effects, final String overworld) {
+    static AreaEditor wireAreaEditor(
+            final SmpPlugin plugin,
+            final WorldEffects effects,
+            final String overworld,
+            final CaptureSessions captureSessions) {
         final AreaEditor editor = new AreaEditor(
                 plugin,
                 Inbox.over(plugin.pool(), SmpRequest.TABLE),
                 effects,
                 (player, document) -> Lines.joined(plugin.renderer()
                         .format(plugin.identities().languageOf(player.getUniqueId()), Sent.of(document))),
-                overworld::equals);
+                overworld::equals,
+                captureSessions);
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
         scheduler.onMainEvery(
                 PaperScheduler.TICK,

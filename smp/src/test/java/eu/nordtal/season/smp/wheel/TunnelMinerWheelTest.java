@@ -36,9 +36,9 @@ class TunnelMinerWheelTest {
                 .toList();
         final WheelPlan plan = new WheelPlan(WheelPlan.WAITING, new WheelPlan.Face(prizes, 0));
         final List<String> foilSprites = plan.foil(foil);
-        final List<String> plainSprites = plan.base(foil, "en");
+        final List<String> plainSprites = plan.base(foil);
         assertEquals(2 * WheelPlan.PLACES + 1, foilSprites.size());
-        assertEquals(2 * WheelPlan.PLACES + 3, plainSprites.size());
+        assertEquals(2 * WheelPlan.PLACES + 2, plainSprites.size());
         assertEquals("enchanted_book", foilSprites.get(0));
         assertEquals("diamond_pickaxe", foilSprites.get(1));
         assertEquals(WheelPlan.NONE, plainSprites.get(0));

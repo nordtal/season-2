@@ -40,17 +40,11 @@ public final class WheelLayout {
 
     static final int[] POINTER = {DISC / 2 - 8, -8};
 
-    /** The off plate's top-left on the disc canvas: 13 right of the disc, centred on its height. */
+    /** The Spin plate's top-left on the disc canvas: 13 right of the disc, centred on its height. */
     static final int[] PLATE = {DISC + 13, DISC / 2 - 8};
-
-    static final int PLATE_WIDTH = 75;
-    static final int PLATE_HEIGHT = 17;
 
     /** The rectangle every body spans on the disc canvas: the art with a margin. */
     static final int[] ANCHOR = {-2, -10, DISC + 2, DISC + 10};
-
-    /** The rectangle the base body spans, which takes in the plate. */
-    static final int[] OVERLAY_ANCHOR = {-2, -10, PLATE[0] + PLATE_WIDTH + 2, DISC + 10};
 
     private WheelLayout() {}
 

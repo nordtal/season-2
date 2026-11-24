@@ -18,8 +18,8 @@ final class WheelSpin {
     /** The disc's picture: a frame, with or without the winner's mark. */
     record DiscAt(int frame, boolean mark) {}
 
-    /** The overlay's picture: the pointer, each body's count where its prize shows, and the off plate. */
-    record OverlayAt(WheelTurn.Pointer pointer, List<Optional<PrizeAt>> counts, boolean plate) {}
+    /** The overlay's picture: the pointer and each body's count where its prize shows. */
+    record OverlayAt(WheelTurn.Pointer pointer, List<Optional<PrizeAt>> counts) {}
 
     /** A run of equal pictures, ending at tick {@code last}. */
     record Run<K>(int last, K picture) {}
@@ -76,7 +76,7 @@ final class WheelSpin {
         if (t >= turn.size()) {
             return overlayRest();
         }
-        return new OverlayAt(turn.get(t).pointer(), prizes(t), true);
+        return new OverlayAt(turn.get(t).pointer(), prizes(t));
     }
 
     OverlayAt overlayRest() {
@@ -84,7 +84,7 @@ final class WheelSpin {
         for (int b = 0; b < WheelLayout.PLACES; b++) {
             counts.add(Optional.of(prizeRest(b)));
         }
-        return new OverlayAt(WheelTurn.Pointer.REST, counts, false);
+        return new OverlayAt(WheelTurn.Pointer.REST, counts);
     }
 
     /** Body {@code body}'s prize at tick {@code t} of the pop-in: none before its pop, then lifted, then placed. */
@@ -127,7 +127,7 @@ final class WheelSpin {
         for (int b = 0; b < WheelLayout.PLACES; b++) {
             counts.add(popIn(b, t));
         }
-        return new OverlayAt(WheelTurn.Pointer.REST, counts, false);
+        return new OverlayAt(WheelTurn.Pointer.REST, counts);
     }
 
     static OverlayAt waitingOverlay() {
@@ -135,7 +135,7 @@ final class WheelSpin {
         for (int b = 0; b < WheelLayout.PLACES; b++) {
             counts.add(Optional.of(waiting(b)));
         }
-        return new OverlayAt(WheelTurn.Pointer.REST, counts, false);
+        return new OverlayAt(WheelTurn.Pointer.REST, counts);
     }
 
     static DiscAt waitingDisc(final int parity) {

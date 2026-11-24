@@ -65,10 +65,9 @@ class WheelPlanTest {
     void theWaitingWheelPlaysThePopInAndKeepsItsFace() {
         final WheelPlan plan = WheelPlan.waiting(face);
         final List<Boolean> plain = Collections.nCopies(WheelPlan.PLACES, false);
-        final List<String> base = plan.base(plain, "de");
+        final List<String> base = plan.base(plain);
         assertEquals("open", base.get(2 * WheelPlan.PLACES));
         assertEquals("1", base.get(2 * WheelPlan.PLACES + 1));
-        assertEquals("de", base.get(2 * WheelPlan.PLACES + 2));
         assertEquals("open", plan.foil(plain).get(2 * WheelPlan.PLACES));
         assertEquals(face, plan.after());
     }
@@ -79,9 +78,9 @@ class WheelPlanTest {
         final List<Boolean> foil = new ArrayList<>(Collections.nCopies(WheelPlan.PLACES, false));
         foil.set(0, true);
         foil.set(9, true);
-        final List<String> base = plan.base(foil, "de");
+        final List<String> base = plan.base(foil);
         final List<String> glinting = plan.foil(foil);
-        assertEquals(2 * WheelPlan.PLACES + 3, base.size());
+        assertEquals(2 * WheelPlan.PLACES + 2, base.size());
         assertEquals(2 * WheelPlan.PLACES + 1, glinting.size());
         assertEquals(WheelPlan.NONE, base.get(0));
         assertEquals(WheelPlan.NO_COUNT, base.get(WheelPlan.PLACES));
@@ -97,7 +96,6 @@ class WheelPlanTest {
         assertEquals("10", glinting.get(WheelPlan.PLACES + 9));
         assertEquals("3", base.get(2 * WheelPlan.PLACES));
         assertEquals("1", base.get(2 * WheelPlan.PLACES + 1));
-        assertEquals("de", base.get(2 * WheelPlan.PLACES + 2));
         assertEquals("3", glinting.get(2 * WheelPlan.PLACES));
     }
 

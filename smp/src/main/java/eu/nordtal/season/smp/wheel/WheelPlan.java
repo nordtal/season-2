@@ -130,15 +130,14 @@ record WheelPlan(int variant, Face face) {
     }
 
     /**
-     * The base body's strings: plain prize keys, plain prize counts, variant, grain parity and {@code language}.
+     * The base body's strings: plain prize keys, plain prize counts, variant and grain parity.
      * Glinting places hold {@link #NONE} and {@link #NO_COUNT} so the foil body draws them instead.
      */
-    List<String> base(final List<Boolean> foil, final String language) {
-        final List<String> out = new ArrayList<>(2 * PLACES + 3);
+    List<String> base(final List<Boolean> foil) {
+        final List<String> out = new ArrayList<>(2 * PLACES + 2);
         addPrizesAndCounts(out, foil, false);
         out.add(variantString());
         out.add(String.valueOf(face.parity()));
-        out.add(language);
         return out;
     }
 

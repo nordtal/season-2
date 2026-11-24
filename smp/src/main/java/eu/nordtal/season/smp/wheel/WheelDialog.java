@@ -114,7 +114,6 @@ final class WheelDialog {
             final @Nullable List<ItemStack> resting,
             final WheelTimetable.Rows rows,
             final Texts texts,
-            final String language,
             final boolean spinLeft,
             final @Nullable ClickEvent click,
             final DialogAction close) {
@@ -123,7 +122,7 @@ final class WheelDialog {
         final ItemStack shining = paper.clone();
         shining.setData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
         final List<DialogBody> bodies = List.of(
-                lone(stack(paper, "base", plan.base(foil, language)), rows),
+                lone(stack(paper, "base", plan.base(foil)), rows),
                 DialogBody.item(stack(shining, "foil", plan.foil(foil)))
                         .showDecorations(false)
                         .showTooltip(false)
@@ -142,7 +141,7 @@ final class WheelDialog {
 
     /**
      * The 17-line description: focus cover on line 0, all 12 prize hovers at rest, the Spin plate and the spins line.
-     * Every line advances to {@link #lineWidth}, so the client centres each line without shifting it.
+     * While turning ({@code resting == null}), the Spin plate stays disabled without a click callback or hover tooltip.
      */
     static Component description(
             final Texts texts,
@@ -150,8 +149,11 @@ final class WheelDialog {
             final @Nullable ClickEvent click,
             final WheelTimetable.Rows rows,
             final @Nullable List<ItemStack> resting) {
-        final Component hover =
-                spinLeft ? Tooltip.hover(texts.title(), texts.cost(), null) : Tooltip.hover(texts.none(), null, null);
+        final boolean active = spinLeft && resting != null;
+        final @Nullable ClickEvent activeClick = active ? click : null;
+        final @Nullable Component hover = resting == null
+                ? null
+                : (active ? Tooltip.hover(texts.title(), texts.cost(), null) : Tooltip.hover(texts.none(), null, null));
         final int plateLine = rows.plateY() / LINE_HEIGHT;
         final int spinsY = rows.plateY() + SPINS_OFFSET;
         final int spinsLine = spinsY / LINE_HEIGHT;
@@ -161,7 +163,8 @@ final class WheelDialog {
             if (line > 0) {
                 parts.add(Component.newline());
             }
-            parts.add(lineOf(line, plateLine, spinsLine, spinsY, spins, texts, spinLeft, click, hover, rows, resting));
+            parts.add(lineOf(
+                    line, plateLine, spinsLine, spinsY, spins, texts, active, activeClick, hover, rows, resting));
         }
         return Component.textOfChildren(parts.toArray(Component[]::new));
     }
@@ -173,9 +176,9 @@ final class WheelDialog {
             final int spinsY,
             final String spins,
             final Texts texts,
-            final boolean spinLeft,
+            final boolean active,
             final @Nullable ClickEvent click,
-            final Component hover,
+            final @Nullable Component hover,
             final WheelTimetable.Rows rows,
             final @Nullable List<ItemStack> resting) {
         final Pen pen = Pen.start();
@@ -195,7 +198,7 @@ final class WheelDialog {
                     .button(
                             new BodyLine.Press(click, hover),
                             button -> button.plate(
-                                    PLATE_WIDTH, null, texts.button(), spinLeft ? Look.PRIMARY : Look.DISABLED))
+                                    PLATE_WIDTH, null, texts.button(), active ? Look.PRIMARY : Look.DISABLED))
                     .build();
             pen.moveTo(rows.plateX()).append(plate, PLATE_WIDTH);
         } else if (lineTop <= rows.plateY() + PLATE_HEIGHT - 1 && lineBottom >= rows.plateY()) {
@@ -209,14 +212,17 @@ final class WheelDialog {
     }
 
     /** Transparent hit area for the lower text lines covered by the Spin plate. */
-    private static Component plateHit(final @Nullable ClickEvent click, final Component hover) {
+    private static Component plateHit(final @Nullable ClickEvent click, final @Nullable Component hover) {
         final Pen hit = Pen.start();
         final String font = Pen.artFont(HOVER_SHIFT);
         for (int x = 0; x + HOVER < PLATE_WIDTH; x += HOVER) {
             hit.moveTo(x).art(font, Glyphs.UI_HOVER_17, HOVER);
         }
         hit.moveTo(PLATE_WIDTH - HOVER).art(font, Glyphs.UI_HOVER_17, HOVER);
-        final Component area = hit.build(PLATE_WIDTH).hoverEvent(HoverEvent.showText(hover));
+        Component area = hit.build(PLATE_WIDTH);
+        if (hover != null) {
+            area = area.hoverEvent(HoverEvent.showText(hover));
+        }
         return click != null ? area.clickEvent(click) : area;
     }
 

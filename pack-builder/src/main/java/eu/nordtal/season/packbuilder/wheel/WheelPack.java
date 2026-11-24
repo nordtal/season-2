@@ -25,8 +25,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The wheel's pack files and the plugin's timetable.
- * They come from the prize list, the vanilla facts and the off plate's label in each language. {@link #items} and
- * {@link #statics} map each path in the pack to its bytes.
+ * They come from the prize list and the vanilla facts. {@link #items} and {@link #statics} map each path in the pack
+ * to its bytes.
  */
 public final class WheelPack {
 
@@ -39,7 +39,6 @@ public final class WheelPack {
     static final int COUNT_OFFSET = WheelLayout.PLACES;
     static final int VARIANT = 2 * WheelLayout.PLACES;
     static final int PARITY = VARIANT + 1;
-    static final int LANGUAGE = VARIANT + 2;
 
     private static final double ANCHOR_Z = -1.5;
     private static final double SHADOW_Z = -1.4;
@@ -53,7 +52,6 @@ public final class WheelPack {
     private static final System.Logger LOG = System.getLogger(WheelPack.class.getName());
 
     private final WheelVanilla vanilla;
-    private final Map<String, String> labels;
     private final List<Integer> amounts;
     private final List<Group> groups = new ArrayList<>();
     private final List<Member> mixed = new ArrayList<>();
@@ -85,7 +83,6 @@ public final class WheelPack {
 
     public WheelPack(final VanillaFacts facts, final List<Prize> prizes, final Map<String, String> labels) {
         this.vanilla = new WheelVanilla(facts);
-        this.labels = labels;
         this.amounts = amounts(prizes);
         final Map<String, Group> byDisplay = new LinkedHashMap<>();
         final LinkedHashSet<String> keys = new LinkedHashSet<>();
@@ -280,25 +277,6 @@ public final class WheelPack {
         models.add(
                 part(at.pointer().texture(), WheelLayout.POINTER[0], WheelLayout.POINTER[1], 16, 16, body, OVERLAY_Z));
         addCounts(models, body, at.counts());
-        if (at.plate()) {
-            final List<Map<String, Object>> plates = new ArrayList<>();
-            for (final String lang : labels.keySet()) {
-                plates.add(part(
-                        "plate_off_" + lang,
-                        WheelLayout.PLATE[0],
-                        WheelLayout.PLATE[1],
-                        WheelLayout.PLATE_WIDTH,
-                        WheelLayout.PLATE_HEIGHT,
-                        body,
-                        OVERLAY_Z));
-            }
-            final List<String> langs = List.copyOf(labels.keySet());
-            final List<Map<String, Object>> cases = new ArrayList<>();
-            for (int i = 1; i < langs.size(); i++) {
-                cases.add(map("when", langs.get(i), "model", plates.get(i)));
-            }
-            models.add(select(LANGUAGE, cases, plates.getFirst(), null));
-        }
         return Json.write(map("type", "minecraft:composite", "models", models));
     }
 
@@ -460,7 +438,7 @@ public final class WheelPack {
                 item(
                         WheelLayout.BASE_BODY,
                         List.of(disc, prizes(offsets, WheelLayout.BASE_BODY), overlay(offsets)),
-                        WheelLayout.OVERLAY_ANCHOR));
+                        WheelLayout.ANCHOR));
         out.put(
                 "assets/nordtal/items/wheel/foil.json",
                 item(
@@ -470,7 +448,7 @@ public final class WheelPack {
         return out;
     }
 
-    /** The flat models and the textures the pack draws: digits, counts, the placeholder, the off plates. */
+    /** The flat models and the textures the pack draws: digits, counts and the placeholder. */
     public Map<String, byte[]> statics() {
         final Map<String, byte[]> out = new LinkedHashMap<>();
         final List<String> flats = new ArrayList<>();
@@ -479,7 +457,6 @@ public final class WheelPack {
         }
         flats.addAll(
                 List.of("shadow", "stand", "winner", "pointer", "pointer_tick1", "pointer_tick2", "anchor", "unknown"));
-        labels.keySet().forEach(lang -> flats.add("plate_off_" + lang));
         for (final String name : flats) {
             out.put("assets/nordtal/models/item/wheel/" + name + ".json", flat(name.equals("anchor") ? "clear" : name));
         }
@@ -493,8 +470,6 @@ public final class WheelPack {
             out.put(textures + "digit_" + d + ".png", Png.png(WheelArt.digit(ascii, d)));
         }
         out.put(textures + "unknown.png", Png.png(WheelArt.unknown(ascii)));
-        labels.forEach((lang, label) ->
-                out.put(textures + "plate_off_" + lang + ".png", Png.png(WheelArt.offPlate(ascii, label))));
         return out;
     }
 

@@ -178,7 +178,8 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             Map.entry("0.137.0", "148"),
             Map.entry("0.138.0", "149"),
             Map.entry("0.139.0", "149"),
-            Map.entry("0.140.0", "149"));
+            Map.entry("0.140.0", "149"),
+            Map.entry("0.141.0", "149"));
 
     /** The privileges a release no longer uses, with that release. A grant may go in the release after it. */
     private static final Map<String, String> NO_LONGER_USED = noLongerUsed();

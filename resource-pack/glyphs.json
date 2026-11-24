@@ -472,7 +472,7 @@
         {
           "range": "FE040-FE05F",
           "title": "Frame",
-          "about": "Every line is centred in its cell, so the same edges serve as top and bottom.",
+          "about": "Vanilla bevel frame corners and edges drawn at build time from generic_54.png, plus the interior divider.",
           "height": 9,
           "ascent": 8,
           "status": "final candidate",
@@ -630,6 +630,62 @@
               "constant": "BOARD_DIVIDER_128",
               "texture": "nordtal:ui/board/divider_128.png",
               "about": "Divider, 128 pixels: a rule inside the board, apart from the edge so it can look different."
+            },
+            {
+              "code": "FE056",
+              "title": "Bottom edge 1 px",
+              "constant": "BOARD_EDGE_B_1",
+              "texture": "nordtal:ui/board/edge_b_1.png",
+              "about": "Bottom horizontal edge, 1 pixel."
+            },
+            {
+              "code": "FE057",
+              "title": "Bottom edge 2 px",
+              "constant": "BOARD_EDGE_B_2",
+              "texture": "nordtal:ui/board/edge_b_2.png",
+              "about": "Bottom horizontal edge, 2 pixels."
+            },
+            {
+              "code": "FE058",
+              "title": "Bottom edge 4 px",
+              "constant": "BOARD_EDGE_B_4",
+              "texture": "nordtal:ui/board/edge_b_4.png",
+              "about": "Bottom horizontal edge, 4 pixels."
+            },
+            {
+              "code": "FE059",
+              "title": "Bottom edge 8 px",
+              "constant": "BOARD_EDGE_B_8",
+              "texture": "nordtal:ui/board/edge_b_8.png",
+              "about": "Bottom horizontal edge, 8 pixels."
+            },
+            {
+              "code": "FE05A",
+              "title": "Bottom edge 16 px",
+              "constant": "BOARD_EDGE_B_16",
+              "texture": "nordtal:ui/board/edge_b_16.png",
+              "about": "Bottom horizontal edge, 16 pixels."
+            },
+            {
+              "code": "FE05B",
+              "title": "Bottom edge 32 px",
+              "constant": "BOARD_EDGE_B_32",
+              "texture": "nordtal:ui/board/edge_b_32.png",
+              "about": "Bottom horizontal edge, 32 pixels."
+            },
+            {
+              "code": "FE05C",
+              "title": "Bottom edge 64 px",
+              "constant": "BOARD_EDGE_B_64",
+              "texture": "nordtal:ui/board/edge_b_64.png",
+              "about": "Bottom horizontal edge, 64 pixels."
+            },
+            {
+              "code": "FE05D",
+              "title": "Bottom edge 128 px",
+              "constant": "BOARD_EDGE_B_128",
+              "texture": "nordtal:ui/board/edge_b_128.png",
+              "about": "Bottom horizontal edge, 128 pixels."
             }
           ]
         }

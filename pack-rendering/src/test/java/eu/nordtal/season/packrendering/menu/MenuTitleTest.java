@@ -294,9 +294,9 @@ class MenuTitleTest {
         }
     }
 
-    /** The rows at x = 8 where a slot recess (the palette's dark slot colour) begins. */
+    /** The rows at x = 8 where a slot recess (vanilla's dark slot border) begins. */
     private static List<Integer> recessTops(final BufferedImage image) {
-        final int slot = 0xFF000000 | (58 << 16) | (58 << 8) | 64; // PALETTE["slot"], verbatim
+        final int slot = 0xFF373737;
         final List<Integer> tops = new java.util.ArrayList<>();
         for (int y = 1; y < image.getHeight(); y++) {
             if (image.getRGB(8, y) == slot && image.getRGB(8, y - 1) != slot) {

@@ -55,6 +55,12 @@ public final class BoardFrame {
         Glyphs.BOARD_EDGE_H_2, Glyphs.BOARD_EDGE_H_1,
     };
 
+    private static final String[] EDGES_B = {
+        Glyphs.BOARD_EDGE_B_128, Glyphs.BOARD_EDGE_B_64, Glyphs.BOARD_EDGE_B_32,
+        Glyphs.BOARD_EDGE_B_16, Glyphs.BOARD_EDGE_B_8, Glyphs.BOARD_EDGE_B_4,
+        Glyphs.BOARD_EDGE_B_2, Glyphs.BOARD_EDGE_B_1,
+    };
+
     private static final String[] DIVIDERS = {
         Glyphs.BOARD_DIVIDER_128, Glyphs.BOARD_DIVIDER_64, Glyphs.BOARD_DIVIDER_32,
         Glyphs.BOARD_DIVIDER_16, Glyphs.BOARD_DIVIDER_8, Glyphs.BOARD_DIVIDER_4,
@@ -95,7 +101,8 @@ public final class BoardFrame {
 
     public static Component border(final int width, final String leftCorner, final String rightCorner) {
         checkWidth(width);
-        return frameText(glyph(leftCorner) + tile(width, EDGES_H) + glyph(rightCorner));
+        final String[] edges = Glyphs.BOARD_CORNER_BOTTOM_LEFT.equals(leftCorner) ? EDGES_B : EDGES_H;
+        return frameText(glyph(leftCorner) + tile(width, edges) + glyph(rightCorner));
     }
 
     /**

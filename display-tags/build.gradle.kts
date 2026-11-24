@@ -22,4 +22,5 @@ dependencies {
     compileOnly(libs.tab.api)
 
     testImplementation(libs.paper.api)
+    testImplementation(project(":paper-common"))
 }

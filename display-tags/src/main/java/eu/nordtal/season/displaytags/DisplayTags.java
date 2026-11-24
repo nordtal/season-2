@@ -72,7 +72,7 @@ public final class DisplayTags {
         this.removeAllNameTags();
         // A reload keeps them: they read the settings on every tick.
         for (final EntityNameTag tag : List.copyOf(this.nameTagManager.getAllEntityNameTags())) {
-            this.nameTagManager.removeEntityNameTag(tag.getEntity());
+            this.nameTagManager.removeEntityNameTag(tag.getEntityUuid());
         }
         running = null;
     }

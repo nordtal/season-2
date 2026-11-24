@@ -173,6 +173,27 @@ public final class SmpSettings {
                 .whileRunning();
     }
 
+    /** Throws {@link SettingRefused} when the Tunnel Miner time factor lies outside 0.01 to 1.0. */
+    public static void checkTunnelMiner(final TunnelMinerSpec config) {
+        final double factor = config.timeFactor();
+        if (Double.isNaN(factor)
+                || factor < TunnelMinerSpec.MIN_TIME_FACTOR
+                || factor > TunnelMinerSpec.MAX_TIME_FACTOR) {
+            throw new SettingRefused(
+                    "time-factor",
+                    SettingRule.VALID,
+                    "time-factor must be between " + TunnelMinerSpec.MIN_TIME_FACTOR + " and "
+                            + TunnelMinerSpec.MAX_TIME_FACTOR);
+        }
+    }
+
+    /** Returns the {@code tunnel-miner} group with its range check wired. */
+    public static Group<TunnelMinerSpec> tunnelMinerGroup() {
+        return Group.of("tunnel-miner", TunnelMinerSpec.class)
+                .checkedBy(SmpSettings::checkTunnelMiner)
+                .whileRunning();
+    }
+
     /** Returns a duel area as the area editor and its checks hold it. */
     public static AreaShape shapeOf(final DuelAreaSpec area) {
         return new AreaShape(

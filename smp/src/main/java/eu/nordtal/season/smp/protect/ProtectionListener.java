@@ -78,7 +78,7 @@ import org.jspecify.annotations.Nullable;
 public final class ProtectionListener implements Listener {
 
     /** On the action bar rather than in chat: it fires on a misclick as often as on an attempt. */
-    static final DocumentSpec<DocumentSpec.None> DENIED = DocumentSpec.game(
+    public static final DocumentSpec<DocumentSpec.None> DENIED = DocumentSpec.game(
                     "smp", "protect-denied", "Spawn", DocumentSpec.Shape.ACTION_BAR)
             .titled("Spawn protected");
 

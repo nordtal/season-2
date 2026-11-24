@@ -83,6 +83,30 @@ public final class RailNetworks {
         return item;
     }
 
+    /** Returns a fresh Station Rail item stack for admin handouts. */
+    public org.bukkit.inventory.ItemStack stationRailItem() {
+        return item.create();
+    }
+
+    /** Returns the refusal document if {@code block} is a protected station rail or support, else null. */
+    public eu.nordtal.season.messages.document.@Nullable DocumentSpec<
+                    eu.nordtal.season.messages.document.DocumentSpec.None>
+            stationBreakRefusal(final Block block, final UUID player, final boolean admin) {
+        final Block above = block.getRelative(org.bukkit.block.BlockFace.UP);
+        final Block station = isStation(block) ? block : isStation(above) ? above : null;
+        if (station == null) {
+            return null;
+        }
+        final Optional<StationRow> row = station(station);
+        final boolean allowed = row.map(r -> r.mayChange(player, admin)).orElse(admin);
+        return allowed ? null : StationRailListener.refusal(row);
+    }
+
+    /** Notifies the rail networks that a rail block was placed or modified outside a player place event. */
+    public void notifyRailChanged(final Block block) {
+        changed(block);
+    }
+
     /**
      * Adds the recipe and reads the stored networks, building them off the main thread.
      * Changes wait until they are back; then every network is read again once, as the store keeps no spur.

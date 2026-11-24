@@ -132,4 +132,5 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.rail.NetworkCarts")
     documentClasses.add("eu.nordtal.season.smp.rail.RideFeedback")
     documentClasses.add("eu.nordtal.season.smp.rail.StationRailListener")
+    documentClasses.add("eu.nordtal.season.smp.item.ItemsMenu")
 }

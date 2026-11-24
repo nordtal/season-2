@@ -262,6 +262,12 @@ public final class BorderWall implements Listener {
         walls = Map.of();
     }
 
+    /** Returns whether {@code block} lies outside the custom border for {@code player}. */
+    public boolean blocksEdit(final Player player, final Block block) {
+        final Walls.Drawn drawn = walls.get(block.getWorld().getName());
+        return drawn != null && !bypass(player) && !drawn.wall().inside(block.getX() + 0.5, block.getZ() + 0.5);
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void blockPlaced(final BlockPlaceEvent event) {
         final Block block = event.getBlock();

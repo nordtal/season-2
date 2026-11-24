@@ -141,7 +141,7 @@ public final class StationRailListener implements Listener {
     }
 
     /** Returns what a player who may not break the station rail of {@code row} is told. */
-    static DocumentSpec<DocumentSpec.None> refusal(final Optional<StationRow> row) {
+    public static DocumentSpec<DocumentSpec.None> refusal(final Optional<StationRow> row) {
         return row.filter(StationRow::spawn).isPresent() ? SPAWN_UNBREAKABLE : BREAK_REFUSED;
     }
 

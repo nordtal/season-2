@@ -248,8 +248,16 @@ final class WheelDialog {
 
     /** Whether {@code item} glints: by its override, the default its item has included, else by its enchantments. */
     static boolean glints(final ItemStack item) {
-        final Boolean override = item.getData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE);
-        return override != null ? override : !item.getEnchantments().isEmpty();
+        final var stored = item.getData(DataComponentTypes.STORED_ENCHANTMENTS);
+        return glints(
+                item.getData(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE),
+                !item.getEnchantments().isEmpty(),
+                stored != null && !stored.enchantments().isEmpty());
+    }
+
+    static boolean glints(
+            final @Nullable Boolean override, final boolean hasEnchantments, final boolean hasStoredEnchantments) {
+        return override != null ? override : (hasEnchantments || hasStoredEnchantments);
     }
 
     /** A paper named {@code name}, so the narrator reads the wheel's name instead of the paper's. */

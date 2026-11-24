@@ -135,4 +135,22 @@ describe("detailsOf", () => {
     })
     expect(detailsOf(book, names, TRANSLATIONS).enchantments).toEqual(["Efficiency 12"])
   })
+
+  it("displays Tunnel Miner on both pickaxes and enchanted books from the catalogue", async () => {
+    const pickaxe = await read("minecraft:diamond_pickaxe", {
+      "minecraft:enchantments": compound({ "nordtal:tunnel_miner": int(1), "minecraft:unbreaking": int(3) }),
+    })
+    const book = await read("minecraft:enchanted_book", {
+      "minecraft:stored_enchantments": compound({ "nordtal:tunnel_miner": int(1) }),
+    })
+    expect(detailsOf(pickaxe, namesWithTunnelMiner, TRANSLATIONS).enchantments).toEqual([
+      "Tunnel Miner",
+      "Unbreaking III",
+    ])
+    expect(detailsOf(book, namesWithTunnelMiner, TRANSLATIONS).enchantments).toEqual(["Tunnel Miner"])
+  })
 })
+
+function namesWithTunnelMiner(registry: string, id: string): string | undefined {
+  return registry === "enchantment" && id === "nordtal:tunnel_miner" ? "Tunnel Miner" : names(registry, id)
+}

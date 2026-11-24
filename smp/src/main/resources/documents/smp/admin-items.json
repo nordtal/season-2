@@ -1,0 +1,40 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Nordtal items",
+            "de": "Nordtal-Gegenstände"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "previous",
+      "lines": [
+        {
+          "text": {
+            "en": "Previous",
+            "de": "Zurück"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "next",
+      "lines": [
+        {
+          "text": {
+            "en": "Next",
+            "de": "Weiter"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -65,14 +65,13 @@ final class Band {
     private Band() {}
 
     /**
-     * The panels a player sees, each with its model, ground and placement.
+     * The panels a player sees, each with its model and ground.
      *
      * The player's feet are at {@code x}, {@code eyeY} minus their eye height, {@code z}.
      */
     static Map<Panel, Seen> seen(
             final Wall wall,
             final Look look,
-            final Placement placement,
             final double x,
             final double z,
             final double eyeY,
@@ -80,7 +79,7 @@ final class Band {
         final Map<Panel, Seen> seen = new HashMap<>();
         if (look != Look.FIELD) {
             for (final Panel panel : wall.near(x, z, RADIUS)) {
-                seen.put(panel, new Seen(look.model(panel.distance(x, z)), UNKNOWN, placement));
+                seen.put(panel, new Seen(look.model(panel.distance(x, z)), UNKNOWN));
             }
             return seen;
         }
@@ -88,7 +87,7 @@ final class Band {
         for (final Panel panel : wall.near(x, z, farthest)) {
             final int under = ground.applyAsInt(panel);
             if (panel.distance(x, z) <= reach(eyeY, under)) {
-                seen.put(panel, new Seen(look.model(panel.distance(x, z)), under, placement));
+                seen.put(panel, new Seen(look.model(panel.distance(x, z)), under));
             }
         }
         return seen;
@@ -145,20 +144,19 @@ final class Band {
     }
 
     /**
-     * The tint that carries a panel's ground and placement to the shader, as RGB.
-     * Ground plus 2048 uses 15 bits (five per channel); red's high bit selects the placement mode.
+     * The tint that carries a panel's ground to the shader, as RGB.
+     * Ground plus 2048 uses 15 bits (five per channel, each stored as 130 + 4 times its bits).
      */
-    static int tint(final int ground, final Placement placement) {
-        final int rBase = placement == Placement.PROXIMITY_WINDOW ? 2 : 130;
+    static int tint(final int ground) {
         if (ground == UNKNOWN) {
-            return (placement == Placement.PROXIMITY_WINDOW ? 0x7F : 0xFF) << 16 | 0xFFFF;
+            return 0xFFFFFF;
         }
         final int value = Math.clamp(ground, LOWEST, HIGHEST) - LOWEST;
-        return channel(rBase, value >> 10) << 16 | channel(130, value >> 5) << 8 | channel(130, value);
+        return channel(value >> 10) << 16 | channel(value >> 5) << 8 | channel(value);
     }
 
-    private static int channel(final int base, final int bits) {
-        return base + 4 * (bits & 31);
+    private static int channel(final int bits) {
+        return 130 + 4 * (bits & 31);
     }
 
     /** The height the pixel look's panels stand at for a player whose feet are at {@code feetY}. */
@@ -187,8 +185,8 @@ final class Band {
         return new Change(added, removed, remodelled);
     }
 
-    /** A panel as the player sees it: its item model, in the namespace {@code nordtal}, its ground and placement. */
-    record Seen(String model, int ground, Placement placement) {}
+    /** A panel as the player sees it: its item model, in the namespace {@code nordtal}, and its ground. */
+    record Seen(String model, int ground) {}
 
     /**
      * The height the field's entities stand at in a world whose blocks end below {@code maxHeight}.

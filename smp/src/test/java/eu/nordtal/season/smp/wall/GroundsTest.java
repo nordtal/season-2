@@ -29,4 +29,21 @@ class GroundsTest {
         assertEquals(128, Grounds.floorFrom(200, 0, 128, y -> y == 127));
         assertEquals(0, Grounds.floorFrom(-10, 0, 128, y -> false));
     }
+
+    @Test
+    void aPillarOneAndAHalfBlocksInsideRaisesThePanelGround() {
+        // Panel at z = 0.03 with yaw 0 points inward along +z.
+        final Panel panel = new Panel(10.5, 0.03, 0f);
+        final int ground = Grounds.surfaceAt(panel, (x, z) -> z >= 1.0 ? 80 : 64);
+
+        assertEquals(80, ground);
+    }
+
+    @Test
+    void anUnloadedChunkAtEitherSampleReturnsUnknown() {
+        final Panel panel = new Panel(10.5, 0.03, 0f);
+
+        assertEquals(Band.UNKNOWN, Grounds.surfaceAt(panel, (x, z) -> z < 1.0 ? Band.UNKNOWN : 80));
+        assertEquals(Band.UNKNOWN, Grounds.surfaceAt(panel, (x, z) -> z >= 1.0 ? Band.UNKNOWN : 64));
+    }
 }

@@ -388,7 +388,7 @@ class WallTest {
 
     /** Whether a player standing at 50, 0 on the wall's ground is sent the panel at {@code x} on its edge at z 0. */
     private static boolean seenAt(final Wall wall, final Look look, final double x) {
-        return Band.seen(wall, look, Placement.AIR_FOCUS, 50, 0, 64 + Band.EYE, panel -> 64).keySet().stream()
+        return Band.seen(wall, look, 50, 0, 64 + Band.EYE, panel -> 64).keySet().stream()
                 .anyMatch(panel -> Math.abs(panel.z() - Wall.INSET) < 1e-9 && Math.abs(panel.x() - x) < 1e-9);
     }
 
@@ -409,7 +409,7 @@ class WallTest {
                         gone,
                         seen("border/pixel"),
                         lower,
-                        new Band.Seen("border/field", 64, Placement.AIR_FOCUS)),
+                        new Band.Seen("border/field", 64)),
                 Map.of(
                         kept,
                         seen("border/pixel"),
@@ -418,21 +418,17 @@ class WallTest {
                         added,
                         seen("border/pixel"),
                         lower,
-                        new Band.Seen("border/field", 63, Placement.AIR_FOCUS)));
+                        new Band.Seen("border/field", 63)));
 
         assertEquals(Map.of(added, seen("border/pixel")), change.added());
         assertEquals(List.of(gone), change.removed());
         assertEquals(
-                Map.of(
-                        faded,
-                        seen("border/pixel_fade_1"),
-                        lower,
-                        new Band.Seen("border/field", 63, Placement.AIR_FOCUS)),
+                Map.of(faded, seen("border/pixel_fade_1"), lower, new Band.Seen("border/field", 63)),
                 change.remodelled());
     }
 
     private static Band.Seen seen(final String model) {
-        return new Band.Seen(model, Band.UNKNOWN, Placement.AIR_FOCUS);
+        return new Band.Seen(model, Band.UNKNOWN);
     }
 
     @Test

@@ -6,7 +6,6 @@ import eu.nordtal.season.papercommon.hud.Hud;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
-import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -120,14 +119,35 @@ final class DialogueSession {
     /** Puts back everything the session changed, at once. */
     void stopNow() {
         player.sendActionBar(Component.empty());
-        if (vignette > 0) {
-            ViewPackets.vignette(player, 0);
-            vignette = 0;
-        }
+        final boolean hadVignette = vignette > 0;
+        vignette = 0;
         zoom(0.0);
         releaseSlot();
-        showHands();
+        if (player.isOnline() && (hadVignette || handSlot >= 0)) {
+            ViewPackets.resyncInventory(player);
+        }
+        handSlot = -1;
         hud.release(player);
+    }
+
+    /** Hides all hotbar slots and off hand immediately for {@code slot}, such as after a slot change. */
+    void hideHandsNow(final int slot) {
+        ViewPackets.hideHands(player, slot);
+        handSlot = slot;
+        sinceHands = 0;
+    }
+
+    /** Re-sends the packet-only vignette, hidden hotbar and empty cursor to undo client-side inventory prediction. */
+    void resyncVisuals() {
+        if (!player.isOnline()) {
+            return;
+        }
+        ViewPackets.clearCursor(player);
+        if (vignette > 0) {
+            ViewPackets.vignette(player, vignette);
+            sinceVignette = 0;
+        }
+        hideHandsNow(player.getInventory().getHeldItemSlot());
     }
 
     private void draw(final Frame frame) {
@@ -151,32 +171,16 @@ final class DialogueSession {
     }
 
     /**
-     * Keeps the held slot and the off hand showing nothing, again after the slot moved and every so often.
-     * A creative client writes its slots back to the server and would keep the blank item, so its hands stay put.
+     * Keeps the entire hotbar and off hand hidden via packets in both Survival and Creative.
+     * Re-sends immediately when the active slot moves and periodically so client-side predictions never show items.
      */
     private void hideHands() {
-        if (player.getGameMode() == GameMode.CREATIVE) {
-            return;
-        }
         final int held = player.getInventory().getHeldItemSlot();
         sinceHands++;
         if (held == handSlot && sinceHands < VIGNETTE_EVERY) {
             return;
         }
-        if (handSlot >= 0 && held != handSlot) {
-            ViewPackets.showHands(player, handSlot);
-        }
-        ViewPackets.hideHands(player, held);
-        handSlot = held;
-        sinceHands = 0;
-    }
-
-    private void showHands() {
-        if (handSlot < 0) {
-            return;
-        }
-        ViewPackets.showHands(player, handSlot);
-        handSlot = -1;
+        hideHandsNow(held);
     }
 
     /** Narrows the view by {@code progress} of the zoom, through the walking speed the client widens its view by. */
@@ -202,6 +206,7 @@ final class DialogueSession {
         }
         heldSlot = player.getInventory().getHeldItemSlot();
         moveSlot(Hotbar.CHOICE_SLOT);
+        hideHandsNow(Hotbar.CHOICE_SLOT);
     }
 
     private void releaseSlot() {

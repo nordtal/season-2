@@ -1,16 +1,16 @@
 package eu.nordtal.season.smp.wall;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.DoublePredicate;
 import java.util.function.ToIntFunction;
 
 /**
- * The part of the wall a player sees: the panels near them, from below their feet to above their head.
- * The field reaches down to the ground under each panel when the feet are above it, so a player high up sees the
- * wall stand on the ground; the pack's item shader cuts that band out of the panels with these same numbers.
+ * The part of the wall a player sees: the panels near them, as a band on the ground or up to the build limit.
+ * The field's panels span the world's whole height, and the pack's item shader cuts the wall out of them with
+ * these same numbers: a band on the ground under each panel, which rises to the build limit while the player flies.
  */
 final class Band {
 
@@ -42,14 +42,23 @@ final class Band {
     /** How far a fast player moves before the server sends what changed, in blocks. */
     static final double LEAD = 4;
 
-    /** The room the panels keep above and below the band when they are reshaped, in blocks. */
-    static final double ROOM = 24;
+    /** How far above the world's highest block the field's panels end, in blocks, as the shader assumes. */
+    static final double TOP = 64;
 
-    /** The panels are reshaped once less room than this is left at either end, in blocks. */
-    static final double LEFT = 12;
+    /** The height of the field's panels while the wall is the band on the ground, in blocks, as the shader reads it. */
+    static final double GROUNDED = 512;
 
-    /** The panels are shrunk once either end has this much more room than it needs, in blocks. */
-    static final double SPARE = 64;
+    /** The height of the field's panels while the wall stands up to the build limit, in blocks. */
+    static final double SKYWARD = 1024;
+
+    /** The ticks the client takes to stretch a panel from one of the two heights to the other. */
+    static final int STRETCH_TICKS = 40;
+
+    /** The free blocks below a player from which the wall rises to the build limit. */
+    static final double RISE = 4;
+
+    /** The free blocks below a player up to which the risen wall stays, so it does not flicker at one height. */
+    static final double SINK = 3;
 
     /** How far above the world's highest block the field's entities stand, where the client skips its section check. */
     static final double OVER = 16;
@@ -113,34 +122,23 @@ final class Band {
         return (ground == UNKNOWN ? feetY : Math.min(ground, feetY)) - BELOW;
     }
 
-    /** The band's upper end for feet at {@code feetY}, before {@link #need} raises it to a ground above them. */
-    static double head(final double feetY, final Look look) {
-        return feetY - BELOW + look.height();
+    /**
+     * The heights the field's panels cover at {@code stretched}, from 0 for the ground band to 1 for the whole wall.
+     * The upper end stays and the lower end sinks, so the shader reads the build limit and the stretch from a panel.
+     */
+    static Range range(final int maxHeight, final double stretched) {
+        final double top = maxHeight + TOP;
+        return new Range(top - GROUNDED - (SKYWARD - GROUNDED) * stretched, top);
     }
 
-    /** The heights the panels must cover for a player whose eye is at {@code eyeY}, wherever the camera is. */
-    static Range need(final Collection<Seen> seen, final double eyeY, final Look look) {
-        final double low = eyeY - CAMERA - EYE;
-        final double high = eyeY + CAMERA - EYE;
-        double bottom = foot(UNKNOWN, low);
-        double top = head(high, look);
-        for (final Seen panel : seen) {
-            bottom = Math.min(bottom, foot(panel.ground(), low));
-            if (panel.ground() != UNKNOWN) {
-                top = Math.max(top, head(panel.ground(), look));
-            }
-        }
-        return new Range(bottom, top);
-    }
-
-    /** The heights the panels cover: {@code current} while it fits {@code need}, else {@code need} with room. */
-    static Range fit(final Range current, final Range need) {
-        final double below = need.bottom() - current.bottom();
-        final double above = current.top() - need.top();
-        if (below >= LEFT && above >= LEFT && below <= SPARE && above <= SPARE) {
-            return current;
-        }
-        return new Range(Math.floor(need.bottom() - ROOM), Math.ceil(need.top() + ROOM));
+    /**
+     * Whether a player sees the wall up to the build limit.
+     * One {@code flying} does, and one in the air whom nothing {@code held} (water, lava or a climb), from
+     * {@link #RISE} free blocks below until {@link #SINK} are no longer free.
+     */
+    static boolean skyward(
+            final boolean before, final boolean flying, final boolean held, final DoublePredicate freeBelow) {
+        return flying || (!held && freeBelow.test(before ? SINK : RISE));
     }
 
     /**

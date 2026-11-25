@@ -447,6 +447,7 @@ public final class BorderWall implements Listener {
         }
         pearls.removeIf(pearl -> !pearl.isValid());
         pearls.forEach(this::bounce);
+        players.forEach(this::stretch);
         final Set<UUID> seen = new HashSet<>();
         for (final Player player : players) {
             final Entity moving = Push.root(player);
@@ -663,28 +664,75 @@ public final class BorderWall implements Listener {
         packets.remove(id, viewer.forget(change.removed()));
         change.remodelled().forEach((panel, after) -> packets.remodel(id, viewer.remodel(panel, after), after));
         if (look == Look.FIELD) {
-            showField(id, viewer, change, Band.need(seen.values(), eye, look), at.getWorld());
+            showField(id, viewer, change, at.getWorld());
         } else {
             showPixel(id, viewer, change, Band.base(at.getY()));
         }
     }
 
-    /** Stretches the field's panels over the heights they must cover, and spawns the new ones. */
-    private void showField(
-            final UUID id, final Viewer viewer, final Band.Change change, final Band.Range need, final World world) {
-        final Band.Range before = viewer.range();
-        final Band.Range range = Band.fit(before == null ? need : before, need);
-        if (!range.equals(before)) {
-            viewer.reshape(range);
-            viewer.shown().forEach((panel, shown) -> packets.reshape(id, shown.id(), shown.y(), range));
+    /** Spawns the field's new panels as far stretched as the player's others are, and lets them finish with those. */
+    private void showField(final UUID id, final Viewer viewer, final Band.Change change, final World world) {
+        if (change.added().isEmpty()) {
+            return;
         }
         final double y = Band.anchor(world.getMaxHeight());
         final float viewRange = Band.viewRange(world.getMinHeight(), world.getMaxHeight());
+        final long now = clock.millis();
+        final Band.Range range = Band.range(world.getMaxHeight(), viewer.stretched(now));
+        final List<Integer> spawned = new ArrayList<>();
         change.added().forEach((panel, seen) -> {
             final int entity = packets.newId();
             viewer.add(panel, entity, y, seen);
             packets.spawnField(id, entity, panel, y, viewRange, range, seen);
+            spawned.add(entity);
         });
+        if (viewer.left(now) > 0) {
+            settle(id, viewer, world, spawned);
+        }
+    }
+
+    /** Sends the panels the stretch's target a tick later, as the client stretches only a panel it has ticked. */
+    private void settle(final UUID id, final Viewer viewer, final World world, final Collection<Integer> panels) {
+        nextTick.accept(() -> {
+            if (viewers.get(id) == viewer) {
+                final double y = Band.anchor(world.getMaxHeight());
+                final Band.Range target = Band.range(world.getMaxHeight(), viewer.skyward() ? 1 : 0);
+                final int ticks = viewer.left(clock.millis());
+                panels.forEach(entity -> packets.stretch(id, entity, y, target, ticks));
+            }
+        });
+    }
+
+    /** Stretches the field's panels up to the build limit once the player flies, and back once they are down. */
+    private void stretch(final Player player) {
+        final Viewer viewer = viewers.get(player.getUniqueId());
+        final Walls.Drawn drawn = walls.get(player.getWorld().getName());
+        if (viewer == null || drawn == null || drawn.look() != Look.FIELD) {
+            return;
+        }
+        final World world = player.getWorld();
+        final Entity moving = Push.root(player);
+        final BoundingBox body = moving.getBoundingBox();
+        final boolean skyward = Band.skyward(
+                viewer.skyward(),
+                player.isFlying() || player.isGliding(),
+                moving.isInWater() || moving.isInLava() || player.isClimbing(),
+                free -> !world.hasCollisionsIn(new BoundingBox(
+                        body.getMinX(),
+                        body.getMinY() - free,
+                        body.getMinZ(),
+                        body.getMaxX(),
+                        body.getMinY(),
+                        body.getMaxZ())));
+        if (skyward == viewer.skyward()) {
+            return;
+        }
+        viewer.turn(skyward, clock.millis());
+        settle(
+                player.getUniqueId(),
+                viewer,
+                world,
+                viewer.shown().values().stream().map(Viewer.Shown::id).toList());
     }
 
     /** Moves the pixel look's panels to the player's height, and spawns the new ones. */

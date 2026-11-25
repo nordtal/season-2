@@ -106,7 +106,8 @@ class PackChangeOfferTest {
     @Test
     void aChangeAfterAnEarlierOfferIsOfferedWithTheNewPack() {
         final FakePlayer early = online("Alex", "limbo", false);
-        assertEquals(1, station.packChanged(), "the first arrival is offered the old pack");
+        assertEquals(1, station.packChanged());
+        assertEquals(PackOffer.idOf(OLD), early.offers.getFirst().getId());
 
         spec.set(pack(NEW, true));
         final FakePlayer late = online("Kai", "limbo", false);

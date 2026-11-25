@@ -47,7 +47,7 @@ describe("the NPC's plate and dialogue preview", () => {
     const container = preview(npc({ artwork: ARTWORK, skin: "00000000-0000-0000-0000-0000000000bb" }))
     const pictures = [...container.querySelectorAll("image")].map((image) => image.getAttribute("href"))
     expect(pictures).toContain(`/api/npc-artworks/${ARTWORK}`)
-    expect(container.querySelector("svg[viewBox='0 0 40 40']"), "no bust drawn from the skin").toBeNull()
+    expect(container.querySelector("svg[viewBox='0 0 36 36']"), "no bust drawn from the skin").toBeNull()
   })
 
   it("lays the uploaded picture on an empty well, so no default bust shows through it", () => {
@@ -62,7 +62,7 @@ describe("the NPC's plate and dialogue preview", () => {
   it("draws a skin's own bust on an empty well, outlined as the game outlines it", () => {
     const container = preview(npc({ skin: "00000000-0000-0000-0000-0000000000bb" }))
     const well = container.querySelector("svg[aria-label] rect[fill='#8b8b8b']")
-    const bust = container.querySelector("svg[viewBox='0 0 40 40']")
+    const bust = container.querySelector("svg[viewBox='0 0 36 36']")
     expect(well).not.toBeNull()
     expect(bust).not.toBeNull()
     expect(well!.compareDocumentPosition(bust!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

@@ -13,7 +13,7 @@ const menus: NpcMenu[] = [
 function opened(): string[] {
   const npc = {
     ...blankNpc("00000000-0000-0000-0000-000000000001"),
-    dialogue: { start: "a", steps: [{ id: "a", x: 0, y: 0, text: { en: "Hello", de: "Hallo" }, answers: [] }] },
+    dialogue: { start: "a", steps: [{ id: "a", x: 0, y: 0, pages: [{ en: "Hello", de: "Hallo" }], answers: [] }] },
   }
   render(
     <ThenPicker

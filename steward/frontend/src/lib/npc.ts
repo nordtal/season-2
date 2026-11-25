@@ -1,4 +1,5 @@
-import type { Dialogue, Npc, NpcAnswer, NpcStep, Words } from "@/lib/api"
+import type { Dialogue, Npc, NpcAnswer, NpcStep, NpcTextMeasurement, Words } from "@/lib/api"
+import { measureKey } from "@/lib/queries-npcs"
 
 /**
  * An NPC's draft as the editor changes it: every edit answers a new NPC, and the canvas geometry follows from the steps alone.
@@ -11,6 +12,9 @@ export const LANGUAGES: readonly Language[] = ["de", "en"]
 
 /** The most answers a step offers, as the panel holds them. */
 export const MOST_ANSWERS = 3
+
+/** The most explicit pages a single step holds. */
+export const MOST_PAGES = 20
 
 /** The longest text the length check measures. */
 export const LONGEST_TEXT = 2000
@@ -46,7 +50,7 @@ export function blankNpc(id: string): Npc {
     pose: "STAND",
     pitch: 1,
     equipment: {},
-    dialogue: { start: "step-1", steps: [{ id: "step-1", x: MARGIN, y: MARGIN, text: NO_WORDS, answers: [] }] },
+    dialogue: { start: "step-1", steps: [{ id: "step-1", x: MARGIN, y: MARGIN, pages: [NO_WORDS], answers: [] }] },
     skinModel: "CLASSIC",
     plate: { colour: "BLUE" },
   }
@@ -81,8 +85,25 @@ export function stepOf(dialogue: Dialogue, id: string | undefined): NpcStep | un
   return dialogue.steps.find((step) => step.id === id)
 }
 
-export function setStepText(npc: Npc, id: string, language: Language, text: string): Npc {
-  return editStep(npc, id, (step) => ({ ...step, text: { ...step.text, [language]: text } }))
+export function setStepPageText(npc: Npc, id: string, pageIndex: number, language: Language, text: string): Npc {
+  return editStep(npc, id, (step) => ({
+    ...step,
+    pages: step.pages.map((page, at) => (at === pageIndex ? { ...page, [language]: text } : page)),
+  }))
+}
+
+/** Appends a blank explicit page to a step, up to `MOST_PAGES`. */
+export function addPage(npc: Npc, id: string): Npc {
+  return editStep(npc, id, (step) =>
+    step.pages.length >= MOST_PAGES ? step : { ...step, pages: [...step.pages, NO_WORDS] },
+  )
+}
+
+/** Removes an explicit page from a step; the last remaining page stays. */
+export function removePage(npc: Npc, id: string, pageIndex: number): Npc {
+  return editStep(npc, id, (step) =>
+    step.pages.length <= 1 ? step : { ...step, pages: step.pages.filter((_, at) => at !== pageIndex) },
+  )
 }
 
 /** Sets what follows a step's text. A step with answers keeps them, since its answers say what follows. */
@@ -175,7 +196,7 @@ export function addStep(
       }
     }
   }
-  const step: NpcStep = { id, x, y, text: NO_WORDS, answers: [] }
+  const step: NpcStep = { id, x, y, pages: [NO_WORDS], answers: [] }
   return { npc: withSteps(npc, [...npc.dialogue.steps, step]), id }
 }
 
@@ -229,20 +250,31 @@ export function ordered(dialogue: Dialogue): Ordered[] {
 export type Problem =
   | { problem: "name"; language: Language }
   | { problem: "place" }
-  | { problem: "step-text"; language: Language; step: string }
+  | { problem: "step-text"; language: Language; step: string; page: number }
+  | { problem: "step-tall"; language: Language; step: string; page: number }
   | { problem: "answer-text"; language: Language; step: string }
 
 /** The problems of a draft, the NPC's own first and then each step's in the order a player meets them. */
-export function problemsOf(npc: Npc): Problem[] {
+export function problemsOf(npc: Npc, measured?: Map<string, NpcTextMeasurement>): Problem[] {
   const problems: Problem[] = []
   for (const language of LANGUAGES) {
     if (npc.name[language].trim() === "") problems.push({ problem: "name", language })
   }
   if (npc.place.world.trim() === "") problems.push({ problem: "place" })
   for (const { step } of ordered(npc.dialogue)) {
-    for (const language of LANGUAGES) {
-      if (step.text[language].trim() === "") problems.push({ problem: "step-text", language, step: step.id })
-    }
+    step.pages.forEach((page, index) => {
+      const answers = index === step.pages.length - 1 ? step.answers.length : 0
+      for (const language of LANGUAGES) {
+        if (page[language].trim() === "") {
+          problems.push({ problem: "step-text", language, step: step.id, page: index })
+        } else {
+          const check = measured?.get(measureKey({ text: page[language], kind: "BODY", answers }))
+          if (check !== undefined && check.lines.length > check.lineLimit) {
+            problems.push({ problem: "step-tall", language, step: step.id, page: index })
+          }
+        }
+      }
+    })
     for (const answer of step.answers) {
       for (const language of LANGUAGES) {
         if (answer.text[language].trim() === "") problems.push({ problem: "answer-text", language, step: step.id })
@@ -252,17 +284,19 @@ export function problemsOf(npc: Npc): Problem[] {
   return problems
 }
 
-/** The languages in which a step lacks a text, its own or an answer's. */
+/** The languages in which a step lacks a text, on any of its pages or answers. */
 export function missingIn(step: NpcStep): Language[] {
   return LANGUAGES.filter(
     (language) =>
-      step.text[language].trim() === "" || step.answers.some((answer) => answer.text[language].trim() === ""),
+      step.pages.some((page) => page[language].trim() === "") ||
+      step.answers.some((answer) => answer.text[language].trim() === ""),
   )
 }
 
-/** A step's text as a short name for a picker: English, or German where there is no English. */
+/** A step's first page text as a short name for a picker: English, or German where there is no English. */
 export function labelOf(step: NpcStep): string {
-  return step.text.en.trim() || step.text.de.trim()
+  const first = step.pages[0]
+  return first ? first.en.trim() || first.de.trim() : ""
 }
 
 /** The canvas: every step is a box of one width, and its height follows from its answers. */

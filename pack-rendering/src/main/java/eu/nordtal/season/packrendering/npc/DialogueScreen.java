@@ -41,15 +41,12 @@ public final class DialogueScreen {
     /** The most answers a question shows. */
     public static final int ANSWERS = 3;
 
-    /** The columns the last line of a page that others follow leaves free for the page count. */
-    public static final int COUNT_ROOM = DialogueRoom.COUNT;
-
     /** The name tab's colour when the NPC names none. */
     public static final TextColor DEFAULT_TAB = TextColor.color(0x345AB4);
 
     static final int WIDTH = 300;
     static final int TEXT_X = 60;
-    static final int PORTRAIT_X = 7;
+    static final int PORTRAIT_X = 6;
     static final int TAB_X = 56;
     static final int STRIP_X = 56;
     static final int CHEVRON_X = 60;
@@ -67,16 +64,15 @@ public final class DialogueScreen {
     static final TextColor HINT = TextColor.color(0xD8D8D8);
 
     private static final int BOTTOM = 16;
-    private static final int BORDER = 3;
     private static final int TAB_CLEARANCE = 6;
-    private static final int LINE_CAP = 7;
+    private static final int TOP_PADDING = 6;
     private static final int LINE_STEP = 10;
-    private static final int ANSWER_LOWEST = 33;
+    private static final int ANSWER_LOWEST = 36;
     private static final int ANSWER_STEP = 12;
     private static final int TILE = 256;
     private static final int TILES = 12;
     private static final int BAND = TILE * TILES;
-    private static final int PORTRAIT = 46;
+    private static final int PORTRAIT = 48;
     private static final int STRIP = 239;
     private static final int CHEVRON = 4;
     private static final int MARK = 7;
@@ -87,13 +83,14 @@ public final class DialogueScreen {
     private static final int ICON_ADVANCE = 8;
     private static final int ICON_GAP = 4;
     private static final int HINT_SHIFT = 62;
-    private static final int COUNT_SHIFT = 43;
+    private static final int COUNT_SHIFT = 45;
     private static final int MARK_TO_WORD = 3;
     private static final int BETWEEN_HINTS = 9;
     private static final int SWITCH_GAP = 4;
 
     /** The panel heights in the order of the pack's panels and portraits. */
-    private static final List<Integer> HEIGHTS = List.of(43, 48, 53, 55, 58, 63, 65, 67, 75, 77, 87);
+    private static final List<Integer> HEIGHTS =
+            List.of(48, 51, 56, 58, 61, 66, 68, 70, 71, 76, 78, 80, 81, 88, 90, 100);
 
     private DialogueScreen() {}
 
@@ -181,7 +178,7 @@ public final class DialogueScreen {
     /**
      * The panel: the speaker, the lines typed so far, and {@code rows} answer rows that keep their room while typing.
      * {@code answers} fill them once typed; {@code selected} counts from 0. {@code more} draws the mark that the text
-     * waits, {@code page} the count on every page but the last.
+     * waits, {@code page} the count on speaking pages of a multi-page step.
      */
     public record Panel(
             Speaker speaker,
@@ -225,10 +222,11 @@ public final class DialogueScreen {
         }
 
         int height() {
+            final int count = Math.max(lines.size(), 1);
             if (rows == 0) {
-                return lines.size() <= 3 ? 48 : 58;
+                return Math.max(48, 31 + LINE_STEP * (count - 1));
             }
-            return 26 + 10 * (Math.max(lines.size(), 1) - 1) + 12 * (rows - 1) + 17;
+            return Math.max(48, 46 + LINE_STEP * (count - 1) + ANSWER_STEP * (rows - 1));
         }
     }
 
@@ -276,9 +274,9 @@ public final class DialogueScreen {
         return Letters.boldCut(text, room);
     }
 
-    /** Breaks {@code text} into pages as {@link DialogueRoom#pages} does, the last holding {@code lastHolds} lines. */
-    public static List<List<String>> pages(final String text, final int lastHolds) {
-        return DialogueRoom.pages(text, lastHolds);
+    /** Wraps one page into at most {@code limit} lines as {@link DialogueRoom#fit} does. */
+    public static List<String> fit(final String text, final int limit) {
+        return DialogueRoom.fit(text, limit);
     }
 
     private static void panel(final Pen pen, final Panel panel) {
@@ -298,7 +296,7 @@ public final class DialogueScreen {
         for (int answer = 0; answer < panel.answers().size(); answer++) {
             answer(pen, panel, answer);
         }
-        if (panel.page() != null && !panel.page().last()) {
+        if (panel.page() != null && panel.rows() == 0) {
             final String count = panel.page().number() + "/" + panel.page().count();
             pen.moveTo(COUNT_END - SmallFont.visibleWidth(count))
                     .draw(small(COUNT_SHIFT), count, FAINT, SmallFont.width(count));
@@ -309,15 +307,11 @@ public final class DialogueScreen {
     }
 
     /**
-     * Returns the first spoken line's top row above the screen's bottom, centred in the inner text area.
-     * The inner area runs from below the speaker name tab to the bottom border, or to the top answer strip.
+     * Returns the first spoken line's top row above the screen's bottom, anchored below the name tab.
      */
     static int firstLineBottom(final Panel panel) {
         final int top = BOTTOM + panel.height();
-        final int areaTop = top - TAB_CLEARANCE;
-        final int areaBottom = panel.rows() == 0 ? BOTTOM + BORDER : ANSWER_LOWEST + ANSWER_STEP * (panel.rows() - 1);
-        final int block = LINE_CAP + LINE_STEP * (Math.max(panel.lines().size(), 1) - 1);
-        return areaTop - (areaTop - areaBottom - block) / 2;
+        return top - TAB_CLEARANCE - TOP_PADDING;
     }
 
     private static void tab(final Pen pen, final Speaker speaker, final int top) {
@@ -340,7 +334,7 @@ public final class DialogueScreen {
 
     private static void answer(final Pen pen, final Panel panel, final int answer) {
         final int row = panel.answers().size() - 1 - answer;
-        final int top = 33 + 12 * row;
+        final int top = ANSWER_LOWEST + ANSWER_STEP * row;
         final boolean on = answer == panel.selected();
         final String label = boldCut(panel.answers().get(answer), LABEL_ROOM);
         if (on) {

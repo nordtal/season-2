@@ -19,7 +19,7 @@ export const GermanProvider = Sections.Provider
 /** The key of the German section of a step's text, of an answer's or of the name. */
 export const germanKey = {
   name: "name",
-  step: (step: string) => `step:${step}`,
+  step: (step: string, page = 0) => `step:${step}:${page}`,
   answer: (step: string, index: number) => `answer:${step}:${index}`,
 }
 

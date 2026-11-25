@@ -8,15 +8,18 @@ import {
   LANGUAGES,
   LONGEST_TEXT,
   MOST_ANSWERS,
+  MOST_PAGES,
   addAnswer,
+  addPage,
   addStep,
   deleteStep,
   labelOf,
   removeAnswer,
+  removePage,
   setAnswerText,
   setAnswerThen,
   setStart,
-  setStepText,
+  setStepPageText,
   setThen,
   stepOf,
   thenOf,
@@ -48,10 +51,11 @@ export function Heading({ children, actions }: { children: string; actions?: Rea
   )
 }
 
-/** How much of the panel's room a text takes, and the sentence that says what the panel cuts. */
+/** How much of the panel's room a text takes, and the sentence that says what the panel cuts or refuses. */
 export function Room({ measurement }: { measurement: NpcTextMeasurement | undefined }) {
   if (measurement === undefined) return <div className="h-1 rounded-full bg-muted" />
-  const share = Math.min(1, measurement.room === 0 ? 0 : measurement.width / measurement.room)
+  const tall = measurement.lines.length > measurement.lineLimit
+  const share = tall ? 1 : Math.min(1, measurement.room === 0 ? 0 : measurement.width / measurement.room)
   return (
     <>
       <div className="h-1 overflow-hidden rounded-full bg-muted">
@@ -60,7 +64,11 @@ export function Room({ measurement }: { measurement: NpcTextMeasurement | undefi
           style={{ width: `${share * 100}%` }}
         />
       </div>
-      {measurement.fits ? null : (
+      {tall ? (
+        <p role="status" className="text-xs text-warning">
+          {t("steward.npcs.too-tall", { limit: measurement.lineLimit })}
+        </p>
+      ) : measurement.fits ? null : (
         <p role="status" className="text-xs text-warning">
           {t("steward.npcs.cut-width")}
         </p>
@@ -79,22 +87,27 @@ export function useKept<T>(value: T | undefined, key: string): T | undefined {
   return kept.key === key ? (value ?? kept.value) : value
 }
 
-function StepText({
+function StepPageText({
   step,
+  pageIndex,
   language,
   measured,
   edit,
+  onFocus,
 }: {
   step: NpcStep
+  pageIndex: number
   language: Language
   measured: Measured
   edit: Edit
+  onFocus: () => void
 }) {
   const id = useId()
-  const text = step.text[language]
+  const text = step.pages[pageIndex]?.[language] ?? ""
+  const answers = pageIndex === step.pages.length - 1 ? step.answers.length : 0
   const measurement = useKept(
-    text === "" ? undefined : measured?.get(measureKey({ text, kind: "BODY", answers: step.answers.length })),
-    text === "" ? "" : `${step.id}:${step.answers.length}`,
+    text === "" ? undefined : measured?.get(measureKey({ text, kind: "BODY", answers })),
+    text === "" ? "" : `${step.id}:${pageIndex}:${answers}`,
   )
   return (
     <div className="flex flex-col gap-1.5">
@@ -103,11 +116,15 @@ function StepText({
           {t("steward.npcs.language", { language })}
         </Label>
         {measurement ? (
-          <span className="text-xs text-muted-foreground tnum">
+          <span
+            className={cn(
+              "text-xs tnum",
+              measurement.lines.length > measurement.lineLimit ? "text-warning" : "text-muted-foreground",
+            )}
+          >
             {t("steward.npcs.lines", {
               lines: measurement.lines.length,
               limit: measurement.lineLimit,
-              pages: measurement.pages.length,
             })}
           </span>
         ) : null}
@@ -118,7 +135,8 @@ function StepText({
         value={text}
         maxLength={LONGEST_TEXT}
         className={cn("min-h-10 resize-none", measurement && !measurement.fits && "border-warning")}
-        onChange={(event) => edit((npc) => setStepText(npc, step.id, language, event.target.value))}
+        onFocus={onFocus}
+        onChange={(event) => edit((npc) => setStepPageText(npc, step.id, pageIndex, language, event.target.value))}
       />
       <Room measurement={measurement} />
     </div>
@@ -339,6 +357,7 @@ export function StepPanel({
   menus,
   measured,
   edit,
+  onSelectPage,
   onDeleted,
 }: {
   npc: Npc
@@ -346,11 +365,13 @@ export function StepPanel({
   menus: NpcMenu[]
   measured: Measured
   edit: Edit
+  onSelectPage: (pageIndex: number) => void
   /** Called after the step is deleted, so the page picks another. */
   onDeleted: () => void
 }) {
   const start = npc.dialogue.start === step.id
   const only = npc.dialogue.steps.length <= 1
+  const multiPage = step.pages.length > 1
   return (
     <>
       <section className="flex flex-col gap-3">
@@ -386,17 +407,77 @@ export function StepPanel({
         >
           {t("steward.npcs.step")}
         </Heading>
-        <StepText step={step} language="en" measured={measured} edit={edit} />
-        <German
-          id={germanKey.step(step.id)}
-          missing={step.text.de.trim() === ""}
-          long={
-            measured?.get(measureKey({ text: step.text.de, kind: "BODY", answers: step.answers.length }))?.fits ===
-            false
-          }
-        >
-          <StepText step={step} language="de" measured={measured} edit={edit} />
-        </German>
+        {step.pages.map((page, pageIndex) => {
+          const answers = pageIndex === step.pages.length - 1 ? step.answers.length : 0
+          return (
+            <div
+              key={pageIndex}
+              className={cn("flex flex-col gap-2.5", multiPage && "rounded-lg border bg-card/50 p-3")}
+            >
+              {multiPage ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {t("steward.npcs.page", { number: pageIndex + 1 })}
+                  </span>
+                  <Hint tip={t("steward.npcs.remove-page", { index: pageIndex + 1 })}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="tap-target shrink-0"
+                      aria-label={t("steward.npcs.remove-page", { index: pageIndex + 1 })}
+                      onClick={() => edit((draft) => removePage(draft, step.id, pageIndex))}
+                    >
+                      <XIcon aria-hidden />
+                    </Button>
+                  </Hint>
+                </div>
+              ) : null}
+              <StepPageText
+                step={step}
+                pageIndex={pageIndex}
+                language="en"
+                measured={measured}
+                edit={edit}
+                onFocus={() => onSelectPage(pageIndex)}
+              />
+              <German
+                id={germanKey.step(step.id, pageIndex)}
+                missing={page.de.trim() === ""}
+                long={measured?.get(measureKey({ text: page.de, kind: "BODY", answers }))?.fits === false}
+              >
+                <StepPageText
+                  step={step}
+                  pageIndex={pageIndex}
+                  language="de"
+                  measured={measured}
+                  edit={edit}
+                  onFocus={() => onSelectPage(pageIndex)}
+                />
+              </German>
+            </div>
+          )
+        })}
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={step.pages.length >= MOST_PAGES}
+            onClick={() => {
+              edit((draft) => addPage(draft, step.id))
+              onSelectPage(step.pages.length)
+            }}
+          >
+            <PlusIcon aria-hidden />
+            {t("steward.npcs.add-page")}
+          </Button>
+          {multiPage ? (
+            <span className="text-xs text-muted-foreground tnum">
+              {t("steward.npcs.page-count", { count: step.pages.length })}
+            </span>
+          ) : null}
+        </div>
         {step.answers.length > 0 ? null : (
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-muted-foreground">{t("steward.npcs.then")}</span>

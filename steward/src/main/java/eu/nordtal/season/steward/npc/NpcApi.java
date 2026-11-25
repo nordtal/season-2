@@ -10,6 +10,7 @@ import eu.nordtal.season.database.npc.NpcMenu;
 import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcSkin;
 import eu.nordtal.season.database.npc.NpcStore;
+import eu.nordtal.season.messagerendering.text.DialogueRoom;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.auth.Gate;
@@ -319,6 +320,7 @@ public final class NpcApi {
         });
         final Set<String> offered = menus.menus().stream().map(NpcMenu::key).collect(Collectors.toSet());
         draft.dialogue().problems(offered).forEach(problem -> problems.add(ANSWER.npcDialogueRefused(problem)));
+        pageHeightProblems(draft.dialogue()).forEach(problem -> problems.add(ANSWER.npcDialogueRefused(problem)));
         final Optional<NpcSkin> skin =
                 draft.skin() == null ? Optional.empty() : store.skin(Objects.requireNonNull(draft.skin()));
         if (draft.skin() != null && skin.isEmpty()) {
@@ -341,6 +343,28 @@ public final class NpcApi {
                         draft.dialogue())
                 .withSkin(skin.orElse(null))
                 .withLook(draft.plate(), artwork);
+    }
+
+    private static List<String> pageHeightProblems(final Dialogue dialogue) {
+        final List<String> problems = new ArrayList<>();
+        for (final Dialogue.Step step : dialogue.steps()) {
+            final List<Dialogue.Words> pages = step.pages();
+            for (int i = 0; i < pages.size(); i++) {
+                final boolean lastWithAnswers =
+                        i == pages.size() - 1 && !step.answers().isEmpty();
+                final int limit = lastWithAnswers ? DialogueRoom.QUESTION_LINES : DialogueRoom.SPEAK_LINES;
+                final String label =
+                        pages.size() == 1 ? "Step " + step.id() : "Page " + (i + 1) + " of step " + step.id();
+                final Dialogue.Words page = pages.get(i);
+                if (DialogueRoom.wrap(page.en()).size() > limit) {
+                    problems.add(label + " exceeds " + limit + " lines in English.");
+                }
+                if (DialogueRoom.wrap(page.de()).size() > limit) {
+                    problems.add(label + " exceeds " + limit + " lines in German.");
+                }
+            }
+        }
+        return problems;
     }
 
     private static boolean readable(final Npc.Equipment item) {

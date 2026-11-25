@@ -82,10 +82,12 @@ function toTooLong(marks: string): TooLong {
   return new Map(isTooLong(parsed) ? parsed : [])
 }
 
-/** The German sections that hold the text a problem lacks: the name, a step's text, or each of its answers without one. */
+/** The German sections that hold the text a problem lacks: the name, a step's page, or each of its answers without one. */
 function germanOf(npc: Npc, problem: Problem): string[] {
   if (problem.problem === "name") return [germanKey.name]
-  if (problem.problem === "step-text") return [germanKey.step(problem.step)]
+  if (problem.problem === "step-text" || problem.problem === "step-tall") {
+    return [germanKey.step(problem.step, problem.page)]
+  }
   if (problem.problem !== "answer-text") return []
   const answers = stepOf(npc.dialogue, problem.step)?.answers ?? []
   return answers.flatMap((answer, index) =>
@@ -186,6 +188,7 @@ function Editor({
   const remove = useRemoveNpc()
   const [tab, setTab] = useState<Tab>(published === undefined ? "settings" : "dialogue")
   const [picked, setPicked] = useState(npc.dialogue.start)
+  const [previewPage, setPreviewPage] = useState(0)
   const [language, setLanguage] = useState<Language>("en")
   const [german, setGerman] = useState<ReadonlySet<string>>(() => new Set())
   const toggleGerman = (key: string, open: boolean) =>
@@ -257,6 +260,7 @@ function Editor({
     if ("step" in problem) {
       setTab("dialogue")
       setPicked(problem.step)
+      if ("page" in problem) setPreviewPage(problem.page)
     } else {
       setTab("settings")
     }
@@ -266,7 +270,7 @@ function Editor({
   }
 
   const send = (version: number) => {
-    const [problem] = problemsOf(npc)
+    const [problem] = problemsOf(npc, measured)
     if (problem) {
       refuse(t("steward.npcs.not-published-yet"), problem)
       return
@@ -306,7 +310,7 @@ function Editor({
     return true
   }
   const startPlaying = async () => {
-    const [problem] = problemsOf(npc)
+    const [problem] = problemsOf(npc, measured)
     if (problem) {
       refuse(t("steward.npcs.not-played"), problem)
       return
@@ -339,6 +343,7 @@ function Editor({
   /** Picks a step. Below the canvas's width the step's editor is under the list, so the page moves to it. */
   const pick = (id: string, fromList: boolean) => {
     setPicked(id)
+    setPreviewPage(0)
     if (fromList) requestAnimationFrame(() => panel.current?.scrollIntoView({ behavior: "smooth", block: "start" }))
   }
 
@@ -412,6 +417,7 @@ function Editor({
                     const added = addStep(npc, step.id)
                     edit(() => added.npc)
                     setPicked(added.id)
+                    setPreviewPage(0)
                   }}
                 >
                   <PlusIcon aria-hidden />
@@ -446,25 +452,51 @@ function Editor({
                 menus={menus.data ?? []}
                 measured={measured}
                 edit={edit}
-                onDeleted={() => setPicked("")}
+                onSelectPage={setPreviewPage}
+                onDeleted={() => {
+                  setPicked("")
+                  setPreviewPage(0)
+                }}
               />
               <section className="flex flex-col gap-3">
                 <Heading
                   actions={
-                    <Tabs value={language} onValueChange={(value) => setLanguage(value === "de" ? "de" : "en")}>
-                      <TabsList>
-                        {LANGUAGES.map((each) => (
-                          <TabsTrigger key={each} value={each} className="px-2.5 text-xs">
-                            {t("steward.npcs.language", { language: each })}
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                    </Tabs>
+                    <>
+                      {step.pages.length > 1 ? (
+                        <Tabs
+                          value={String(Math.min(previewPage, step.pages.length - 1))}
+                          onValueChange={(value) => setPreviewPage(Number(value))}
+                        >
+                          <TabsList>
+                            {step.pages.map((_, index) => (
+                              <TabsTrigger key={index} value={String(index)} className="px-2 text-xs tnum">
+                                {index + 1}
+                              </TabsTrigger>
+                            ))}
+                          </TabsList>
+                        </Tabs>
+                      ) : null}
+                      <Tabs value={language} onValueChange={(value) => setLanguage(value === "de" ? "de" : "en")}>
+                        <TabsList>
+                          {LANGUAGES.map((each) => (
+                            <TabsTrigger key={each} value={each} className="px-2.5 text-xs">
+                              {t("steward.npcs.language", { language: each })}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </Tabs>
+                    </>
                   }
                 >
                   {t("steward.npcs.preview")}
                 </Heading>
-                <DialoguePreview npc={npc} step={step} language={language} measured={measured} />
+                <DialoguePreview
+                  npc={npc}
+                  step={step}
+                  pageIndex={previewPage}
+                  language={language}
+                  measured={measured}
+                />
               </section>
             </div>
           </TabsContent>
@@ -495,6 +527,7 @@ function Editor({
               if (restored === undefined) return
               edit(() => restored)
               setPicked(restored.dialogue.start)
+              setPreviewPage(0)
               setVersions(false)
               toast.success(t("steward.npcs.loaded", { number: version.number }))
             }}

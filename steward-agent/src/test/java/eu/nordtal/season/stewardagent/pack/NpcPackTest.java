@@ -46,10 +46,10 @@ class NpcPackTest {
         assertTrue(java.util.Arrays.equals(png, Files.readAllBytes(textures.resolve("skin.png"))));
         final BufferedImage drawn =
                 ImageIO.read(textures.resolve("portrait.png").toFile());
-        assertEquals(46, drawn.getWidth());
+        assertEquals(48, drawn.getWidth());
         assertEquals(64, drawn.getHeight());
-        assertEquals(Color.RED.getRGB(), drawn.getRGB(23, 18), "the face in the middle of the well");
-        assertEquals(0, drawn.getRGB(23, 50), "the padding below the frame");
+        assertEquals(Color.RED.getRGB(), drawn.getRGB(24, 18), "the face in the middle of the well");
+        assertEquals(0, drawn.getRGB(24, 52), "the padding below the frame");
         final JsonObject font = JsonParser.parseString(
                         Files.readString(root.resolve("assets/nordtal/font/npc/" + NPC + ".json")))
                 .getAsJsonObject();
@@ -81,8 +81,8 @@ class NpcPackTest {
     void theHatLayerCoversTheFace() throws IOException {
         final BufferedImage bust = NpcPack.bust(skin(Color.RED, Color.BLUE), false);
 
-        assertEquals(Color.BLUE.getRGB(), bust.getRGB(20, 15));
-        assertEquals(Color.BLUE.getRGB(), bust.getRGB(9, 28));
+        assertEquals(Color.BLUE.getRGB(), bust.getRGB(18, 12));
+        assertEquals(Color.BLUE.getRGB(), bust.getRGB(7, 24));
     }
 
     @Test
@@ -92,31 +92,33 @@ class NpcPackTest {
 
         assertEquals(NpcPack.FRAME, own.getWidth());
         assertEquals(NpcPack.HEIGHT, own.getHeight());
-        for (int y = 0; y < 3; y++) {
-            for (int x = 0; x < 3; x++) {
+        for (int y = 0; y < NpcPack.VANILLA_EDGE; y++) {
+            for (int x = 0; x < NpcPack.VANILLA_EDGE; x++) {
                 assertEquals(vanilla.getRGB(x, y), own.getRGB(x, y), "TL (" + x + "," + y + ")");
                 assertEquals(
-                        vanilla.getRGB(NpcPack.VANILLA_WIDTH - 3 + x, y),
-                        own.getRGB(NpcPack.FRAME - 3 + x, y),
+                        vanilla.getRGB(NpcPack.VANILLA_WIDTH - NpcPack.VANILLA_EDGE + x, y),
+                        own.getRGB(NpcPack.FRAME - NpcPack.VANILLA_EDGE + x, y),
                         "TR (" + x + "," + y + ")");
                 assertEquals(
-                        vanilla.getRGB(x, NpcPack.VANILLA_HEIGHT - 3 + y),
-                        own.getRGB(x, NpcPack.FRAME - 3 + y),
+                        vanilla.getRGB(x, NpcPack.VANILLA_HEIGHT - NpcPack.VANILLA_EDGE + y),
+                        own.getRGB(x, NpcPack.FRAME - NpcPack.VANILLA_EDGE + y),
                         "BL (" + x + "," + y + ")");
                 assertEquals(
-                        vanilla.getRGB(NpcPack.VANILLA_WIDTH - 3 + x, NpcPack.VANILLA_HEIGHT - 3 + y),
-                        own.getRGB(NpcPack.FRAME - 3 + x, NpcPack.FRAME - 3 + y),
+                        vanilla.getRGB(
+                                NpcPack.VANILLA_WIDTH - NpcPack.VANILLA_EDGE + x,
+                                NpcPack.VANILLA_HEIGHT - NpcPack.VANILLA_EDGE + y),
+                        own.getRGB(NpcPack.FRAME - NpcPack.VANILLA_EDGE + x, NpcPack.FRAME - NpcPack.VANILLA_EDGE + y),
                         "BR (" + x + "," + y + ")");
             }
         }
-        assertEquals(0, own.getRGB(23, 50), "padding below frame stays transparent");
+        assertEquals(0, own.getRGB(24, 52), "padding below frame stays transparent");
     }
 
     @Test
     void anUploadedPictureIsTheWholeAvatarInsideTheUnchangedFrame() throws IOException {
-        final BufferedImage upload = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < 40; y++) {
-            for (int x = 0; x < 40; x++) {
+        final BufferedImage upload = new BufferedImage(NpcPack.PICTURE, NpcPack.PICTURE, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < NpcPack.PICTURE; y++) {
+            for (int x = 0; x < NpcPack.PICTURE; x++) {
                 upload.setRGB(x, y, 0xFF000000 | (x * 6) << 16 | (y * 6) << 8 | 0x40);
             }
         }
@@ -124,12 +126,15 @@ class NpcPackTest {
         final BufferedImage picture = NpcPack.artwork(png(upload));
 
         final BufferedImage own = NpcPack.portrait(picture, vanilla);
-        final BufferedImage empty = NpcPack.portrait(new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), vanilla);
+        final BufferedImage empty = NpcPack.portrait(
+                new BufferedImage(NpcPack.PICTURE, NpcPack.PICTURE, BufferedImage.TYPE_INT_ARGB), vanilla);
 
+        final int start = NpcPack.RIM + 1;
+        final int end = start + NpcPack.PICTURE;
         for (int y = 0; y < own.getHeight(); y++) {
             for (int x = 0; x < own.getWidth(); x++) {
-                final boolean well = x >= 3 && x < 43 && y >= 3 && y < 43;
-                final int expected = well ? upload.getRGB(x - 3, y - 3) : empty.getRGB(x, y);
+                final boolean inside = x >= start && x < end && y >= start && y < end;
+                final int expected = inside ? upload.getRGB(x - start, y - start) : empty.getRGB(x, y);
                 assertEquals(expected, own.getRGB(x, y), "at " + x + ", " + y);
             }
         }
@@ -142,17 +147,20 @@ class NpcPackTest {
         assertEquals(0, bust.getRGB(0, 0) >>> 24, "the bust leaves the well's corner clear");
 
         final BufferedImage own = NpcPack.portrait(bust, vanilla);
-        final BufferedImage blank = NpcPack.portrait(new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), vanilla);
+        final BufferedImage blank = NpcPack.portrait(
+                new BufferedImage(NpcPack.PICTURE, NpcPack.PICTURE, BufferedImage.TYPE_INT_ARGB), vanilla);
 
-        assertEquals(vanilla.getRGB(NpcPack.VANILLA_SLOT_X, NpcPack.VANILLA_SLOT_Y), own.getRGB(3, 3));
-        assertEquals(blank.getRGB(20, 3), own.getRGB(20, 3));
-        assertTrue(blank.getRGB(20, 3) != blank.getRGB(20, 4), "the top row is sunk");
+        final int rim = NpcPack.RIM;
+        final int wellEnd = rim + NpcPack.WELL - 1;
+        assertEquals(vanilla.getRGB(NpcPack.VANILLA_SLOT_X, NpcPack.VANILLA_SLOT_Y), own.getRGB(rim, rim));
+        assertEquals(blank.getRGB(24, rim), own.getRGB(24, rim));
+        assertTrue(blank.getRGB(24, rim) != blank.getRGB(24, rim + 1), "the top row is sunk");
         assertEquals(
                 vanilla.getRGB(
                         NpcPack.VANILLA_SLOT_X + NpcPack.VANILLA_SLOT_SIZE - 1,
                         NpcPack.VANILLA_SLOT_Y + NpcPack.VANILLA_SLOT_SIZE - 1),
-                blank.getRGB(42, 42),
-                "the bottom-right edge uses vanilla's slot highlight");
+                own.getRGB(wellEnd, wellEnd),
+                "the bottom-right edge uses vanilla's slot highlight and is never clipped by the bust");
     }
 
     @Test
@@ -196,9 +204,9 @@ class NpcPackTest {
 
     @Test
     void anArtworkTakesThePortraitsPlaceAveragedToItsSize() throws IOException {
-        final BufferedImage upload = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < 80; y++) {
-            for (int x = 0; x < 80; x++) {
+        final BufferedImage upload = new BufferedImage(72, 72, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 72; y++) {
+            for (int x = 0; x < 72; x++) {
                 upload.setRGB(x, y, (x + y) % 2 == 0 ? 0xFFFF0000 : 0xFF0000FF);
             }
         }
@@ -218,16 +226,20 @@ class NpcPackTest {
         assertTrue(Files.exists(textures.resolve("skin.png")), "the skin still dresses the figure");
         final BufferedImage drawn =
                 ImageIO.read(textures.resolve("portrait.png").toFile());
-        assertEquals(0xFF800080, drawn.getRGB(3 + 20, 3 + 20), "each pixel the average of the two by two below it");
-        assertEquals(0xFF000000, drawn.getRGB(3 + 1, 3) & 0xFF000000, "a clear upload pixel shows the well");
+        final int offset = NpcPack.RIM + 1;
+        assertEquals(
+                0xFF800080,
+                drawn.getRGB(offset + 18, offset + 18),
+                "each pixel the average of the two by two below it");
+        assertEquals(0xFF000000, drawn.getRGB(offset, offset) & 0xFF000000, "a clear upload pixel shows the well");
     }
 
     @Test
     void anArtworkWithoutSkinGetsAPortraitButNoBody() throws IOException {
-        final BufferedImage upload = new BufferedImage(10, 10, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < 10; y++) {
-            for (int x = 0; x < 10; x++) {
-                upload.setRGB(x, y, x < 5 ? 0xFF00FF00 : 0xFFFFFFFF);
+        final BufferedImage upload = new BufferedImage(12, 12, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 12; y++) {
+            for (int x = 0; x < 12; x++) {
+                upload.setRGB(x, y, x < 6 ? 0xFF00FF00 : 0xFFFFFFFF);
             }
         }
 
@@ -241,16 +253,17 @@ class NpcPackTest {
         assertTrue(Files.notExists(textures.resolve("skin.png")));
         final BufferedImage drawn =
                 ImageIO.read(textures.resolve("portrait.png").toFile());
-        assertEquals(0xFF00FF00, drawn.getRGB(3 + 19, 3 + 30), "a small upload grows in whole blocks");
-        assertEquals(0xFFFFFFFF, drawn.getRGB(3 + 20, 3 + 30));
+        final int offset = NpcPack.RIM + 1;
+        assertEquals(0xFF00FF00, drawn.getRGB(offset + 17, offset + 24), "a small upload grows in whole blocks");
+        assertEquals(0xFFFFFFFF, drawn.getRGB(offset + 18, offset + 24));
         assertTrue(Files.exists(root.resolve("assets/nordtal/font/npc/" + NPC + ".json")));
     }
 
     @Test
     void aClearPixelOfAnArtworkDoesNotDarkenItsEdge() throws IOException {
-        final BufferedImage upload = new BufferedImage(80, 80, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < 80; y++) {
-            for (int x = 0; x < 40; x += 2) {
+        final BufferedImage upload = new BufferedImage(72, 72, BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < 72; y++) {
+            for (int x = 0; x < 36; x += 2) {
                 upload.setRGB(x, y, 0xFFFF0000);
             }
         }
@@ -258,7 +271,7 @@ class NpcPackTest {
         final BufferedImage picture = NpcPack.artwork(png(upload));
 
         assertEquals(0x80FF0000, picture.getRGB(0, 0), "half red, half clear black stays red at half alpha");
-        assertEquals(0, picture.getRGB(39, 0), "a clear block stays clear");
+        assertEquals(0, picture.getRGB(35, 0), "a clear block stays clear");
     }
 
     @Test

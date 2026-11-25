@@ -6903,26 +6903,6 @@
           "glyphs": [
             {
               "code": "FE6A0",
-              "title": "Panel 43 high, left part",
-              "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_43_0.png",
-              "height": 43,
-              "ascent": -6,
-              "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 43, its top 59 above the screen's bottom."
-            },
-            {
-              "code": "FE6A1",
-              "title": "Panel 43 high, right part",
-              "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_43_1.png",
-              "height": 43,
-              "ascent": -6,
-              "status": "final candidate",
-              "about": "The panel's right 44 columns."
-            },
-            {
-              "code": "FE6A2",
               "title": "Panel 48 high, left part",
               "list": "NPC_PANELS_LEFT",
               "texture": "nordtal:npc/panel_48_0.png",
@@ -6932,7 +6912,7 @@
               "about": "The panel's left 256 columns, 300 x 48, its top 64 above the screen's bottom."
             },
             {
-              "code": "FE6A3",
+              "code": "FE6A1",
               "title": "Panel 48 high, right part",
               "list": "NPC_PANELS_RIGHT",
               "texture": "nordtal:npc/panel_48_1.png",
@@ -6942,47 +6922,47 @@
               "about": "The panel's right 44 columns."
             },
             {
-              "code": "FE6A4",
-              "title": "Panel 53 high, left part",
+              "code": "FE6A2",
+              "title": "Panel 51 high, left part",
               "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_53_0.png",
-              "height": 53,
-              "ascent": 4,
+              "texture": "nordtal:npc/panel_51_0.png",
+              "height": 51,
+              "ascent": 2,
               "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 53, its top 69 above the screen's bottom."
+              "about": "The panel's left 256 columns, 300 x 51, its top 67 above the screen's bottom."
+            },
+            {
+              "code": "FE6A3",
+              "title": "Panel 51 high, right part",
+              "list": "NPC_PANELS_RIGHT",
+              "texture": "nordtal:npc/panel_51_1.png",
+              "height": 51,
+              "ascent": 2,
+              "status": "final candidate",
+              "about": "The panel's right 44 columns."
+            },
+            {
+              "code": "FE6A4",
+              "title": "Panel 56 high, left part",
+              "list": "NPC_PANELS_LEFT",
+              "texture": "nordtal:npc/panel_56_0.png",
+              "height": 56,
+              "ascent": 7,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 300 x 56, its top 72 above the screen's bottom."
             },
             {
               "code": "FE6A5",
-              "title": "Panel 53 high, right part",
+              "title": "Panel 56 high, right part",
               "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_53_1.png",
-              "height": 53,
-              "ascent": 4,
+              "texture": "nordtal:npc/panel_56_1.png",
+              "height": 56,
+              "ascent": 7,
               "status": "final candidate",
               "about": "The panel's right 44 columns."
             },
             {
               "code": "FE6A6",
-              "title": "Panel 55 high, left part",
-              "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_55_0.png",
-              "height": 55,
-              "ascent": 6,
-              "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 55, its top 71 above the screen's bottom."
-            },
-            {
-              "code": "FE6A7",
-              "title": "Panel 55 high, right part",
-              "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_55_1.png",
-              "height": 55,
-              "ascent": 6,
-              "status": "final candidate",
-              "about": "The panel's right 44 columns."
-            },
-            {
-              "code": "FE6A8",
               "title": "Panel 58 high, left part",
               "list": "NPC_PANELS_LEFT",
               "texture": "nordtal:npc/panel_58_0.png",
@@ -6992,7 +6972,7 @@
               "about": "The panel's left 256 columns, 300 x 58, its top 74 above the screen's bottom."
             },
             {
-              "code": "FE6A9",
+              "code": "FE6A7",
               "title": "Panel 58 high, right part",
               "list": "NPC_PANELS_RIGHT",
               "texture": "nordtal:npc/panel_58_1.png",
@@ -7002,122 +6982,242 @@
               "about": "The panel's right 44 columns."
             },
             {
-              "code": "FE6AA",
-              "title": "Panel 63 high, left part",
+              "code": "FE6A8",
+              "title": "Panel 61 high, left part",
               "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_63_0.png",
-              "height": 63,
-              "ascent": 14,
+              "texture": "nordtal:npc/panel_61_0.png",
+              "height": 61,
+              "ascent": 12,
               "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 63, its top 79 above the screen's bottom."
+              "about": "The panel's left 256 columns, 300 x 61, its top 77 above the screen's bottom."
+            },
+            {
+              "code": "FE6A9",
+              "title": "Panel 61 high, right part",
+              "list": "NPC_PANELS_RIGHT",
+              "texture": "nordtal:npc/panel_61_1.png",
+              "height": 61,
+              "ascent": 12,
+              "status": "final candidate",
+              "about": "The panel's right 44 columns."
+            },
+            {
+              "code": "FE6AA",
+              "title": "Panel 66 high, left part",
+              "list": "NPC_PANELS_LEFT",
+              "texture": "nordtal:npc/panel_66_0.png",
+              "height": 66,
+              "ascent": 17,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 300 x 66, its top 82 above the screen's bottom."
             },
             {
               "code": "FE6AB",
-              "title": "Panel 63 high, right part",
+              "title": "Panel 66 high, right part",
               "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_63_1.png",
-              "height": 63,
-              "ascent": 14,
+              "texture": "nordtal:npc/panel_66_1.png",
+              "height": 66,
+              "ascent": 17,
               "status": "final candidate",
               "about": "The panel's right 44 columns."
             },
             {
               "code": "FE6AC",
-              "title": "Panel 65 high, left part",
+              "title": "Panel 68 high, left part",
               "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_65_0.png",
-              "height": 65,
-              "ascent": 16,
+              "texture": "nordtal:npc/panel_68_0.png",
+              "height": 68,
+              "ascent": 19,
               "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 65, its top 81 above the screen's bottom."
+              "about": "The panel's left 256 columns, 300 x 68, its top 84 above the screen's bottom."
             },
             {
               "code": "FE6AD",
-              "title": "Panel 65 high, right part",
+              "title": "Panel 68 high, right part",
               "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_65_1.png",
-              "height": 65,
-              "ascent": 16,
+              "texture": "nordtal:npc/panel_68_1.png",
+              "height": 68,
+              "ascent": 19,
               "status": "final candidate",
               "about": "The panel's right 44 columns."
             },
             {
               "code": "FE6AE",
-              "title": "Panel 67 high, left part",
+              "title": "Panel 70 high, left part",
               "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_67_0.png",
-              "height": 67,
-              "ascent": 18,
+              "texture": "nordtal:npc/panel_70_0.png",
+              "height": 70,
+              "ascent": 21,
               "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 67, its top 83 above the screen's bottom."
+              "about": "The panel's left 256 columns, 300 x 70, its top 86 above the screen's bottom."
             },
             {
               "code": "FE6AF",
-              "title": "Panel 67 high, right part",
+              "title": "Panel 70 high, right part",
               "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_67_1.png",
-              "height": 67,
-              "ascent": 18,
+              "texture": "nordtal:npc/panel_70_1.png",
+              "height": 70,
+              "ascent": 21,
               "status": "final candidate",
               "about": "The panel's right 44 columns."
             },
             {
               "code": "FE6B0",
-              "title": "Panel 75 high, left part",
+              "title": "Panel 71 high, left part",
               "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_75_0.png",
-              "height": 75,
-              "ascent": 26,
+              "texture": "nordtal:npc/panel_71_0.png",
+              "height": 71,
+              "ascent": 22,
               "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 75, its top 91 above the screen's bottom."
+              "about": "The panel's left 256 columns, 300 x 71, its top 87 above the screen's bottom."
             },
             {
               "code": "FE6B1",
-              "title": "Panel 75 high, right part",
+              "title": "Panel 71 high, right part",
               "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_75_1.png",
-              "height": 75,
-              "ascent": 26,
+              "texture": "nordtal:npc/panel_71_1.png",
+              "height": 71,
+              "ascent": 22,
               "status": "final candidate",
               "about": "The panel's right 44 columns."
             },
             {
               "code": "FE6B2",
-              "title": "Panel 77 high, left part",
+              "title": "Panel 76 high, left part",
               "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_77_0.png",
-              "height": 77,
-              "ascent": 28,
+              "texture": "nordtal:npc/panel_76_0.png",
+              "height": 76,
+              "ascent": 27,
               "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 77, its top 93 above the screen's bottom."
+              "about": "The panel's left 256 columns, 300 x 76, its top 92 above the screen's bottom."
             },
             {
               "code": "FE6B3",
-              "title": "Panel 77 high, right part",
+              "title": "Panel 76 high, right part",
               "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_77_1.png",
-              "height": 77,
-              "ascent": 28,
+              "texture": "nordtal:npc/panel_76_1.png",
+              "height": 76,
+              "ascent": 27,
               "status": "final candidate",
               "about": "The panel's right 44 columns."
             },
             {
               "code": "FE6B4",
-              "title": "Panel 87 high, left part",
+              "title": "Panel 78 high, left part",
               "list": "NPC_PANELS_LEFT",
-              "texture": "nordtal:npc/panel_87_0.png",
-              "height": 87,
-              "ascent": 38,
+              "texture": "nordtal:npc/panel_78_0.png",
+              "height": 78,
+              "ascent": 29,
               "status": "final candidate",
-              "about": "The panel's left 256 columns, 300 x 87, its top 103 above the screen's bottom."
+              "about": "The panel's left 256 columns, 300 x 78, its top 94 above the screen's bottom."
             },
             {
               "code": "FE6B5",
-              "title": "Panel 87 high, right part",
+              "title": "Panel 78 high, right part",
               "list": "NPC_PANELS_RIGHT",
-              "texture": "nordtal:npc/panel_87_1.png",
-              "height": 87,
-              "ascent": 38,
+              "texture": "nordtal:npc/panel_78_1.png",
+              "height": 78,
+              "ascent": 29,
+              "status": "final candidate",
+              "about": "The panel's right 44 columns."
+            },
+            {
+              "code": "FE6B6",
+              "title": "Panel 80 high, left part",
+              "list": "NPC_PANELS_LEFT",
+              "texture": "nordtal:npc/panel_80_0.png",
+              "height": 80,
+              "ascent": 31,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 300 x 80, its top 96 above the screen's bottom."
+            },
+            {
+              "code": "FE6B7",
+              "title": "Panel 80 high, right part",
+              "list": "NPC_PANELS_RIGHT",
+              "texture": "nordtal:npc/panel_80_1.png",
+              "height": 80,
+              "ascent": 31,
+              "status": "final candidate",
+              "about": "The panel's right 44 columns."
+            },
+            {
+              "code": "FE6B8",
+              "title": "Panel 81 high, left part",
+              "list": "NPC_PANELS_LEFT",
+              "texture": "nordtal:npc/panel_81_0.png",
+              "height": 81,
+              "ascent": 32,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 300 x 81, its top 97 above the screen's bottom."
+            },
+            {
+              "code": "FE6B9",
+              "title": "Panel 81 high, right part",
+              "list": "NPC_PANELS_RIGHT",
+              "texture": "nordtal:npc/panel_81_1.png",
+              "height": 81,
+              "ascent": 32,
+              "status": "final candidate",
+              "about": "The panel's right 44 columns."
+            },
+            {
+              "code": "FE6BA",
+              "title": "Panel 88 high, left part",
+              "list": "NPC_PANELS_LEFT",
+              "texture": "nordtal:npc/panel_88_0.png",
+              "height": 88,
+              "ascent": 39,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 300 x 88, its top 104 above the screen's bottom."
+            },
+            {
+              "code": "FE6BB",
+              "title": "Panel 88 high, right part",
+              "list": "NPC_PANELS_RIGHT",
+              "texture": "nordtal:npc/panel_88_1.png",
+              "height": 88,
+              "ascent": 39,
+              "status": "final candidate",
+              "about": "The panel's right 44 columns."
+            },
+            {
+              "code": "FE6BC",
+              "title": "Panel 90 high, left part",
+              "list": "NPC_PANELS_LEFT",
+              "texture": "nordtal:npc/panel_90_0.png",
+              "height": 90,
+              "ascent": 41,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 300 x 90, its top 106 above the screen's bottom."
+            },
+            {
+              "code": "FE6BD",
+              "title": "Panel 90 high, right part",
+              "list": "NPC_PANELS_RIGHT",
+              "texture": "nordtal:npc/panel_90_1.png",
+              "height": 90,
+              "ascent": 41,
+              "status": "final candidate",
+              "about": "The panel's right 44 columns."
+            },
+            {
+              "code": "FE6BE",
+              "title": "Panel 100 high, left part",
+              "list": "NPC_PANELS_LEFT",
+              "texture": "nordtal:npc/panel_100_0.png",
+              "height": 100,
+              "ascent": 51,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 300 x 100, its top 116 above the screen's bottom."
+            },
+            {
+              "code": "FE6BF",
+              "title": "Panel 100 high, right part",
+              "list": "NPC_PANELS_RIGHT",
+              "texture": "nordtal:npc/panel_100_1.png",
+              "height": 100,
+              "ascent": 51,
               "status": "final candidate",
               "about": "The panel's right 44 columns."
             }
@@ -7134,7 +7234,7 @@
               "constant": "NPC_MORE",
               "texture": "nordtal:npc/more.png",
               "height": 3,
-              "ascent": -38,
+              "ascent": -39,
               "status": "final candidate",
               "about": "The 5 x 3 triangle at the panel's bottom right: more follows."
             },
@@ -7254,113 +7354,163 @@
           "glyphs": [
             {
               "code": "FE6E0",
-              "title": "Portrait on the panel 43 high",
-              "list": "NPC_PORTRAITS",
-              "texture": "nordtal:npc/portrait.png",
-              "height": 64,
-              "ascent": 4,
-              "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 43 high, padded below."
-            },
-            {
-              "code": "FE6E1",
               "title": "Portrait on the panel 48 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
               "ascent": 9,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 48 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 48 high, padded below."
+            },
+            {
+              "code": "FE6E1",
+              "title": "Portrait on the panel 51 high",
+              "list": "NPC_PORTRAITS",
+              "texture": "nordtal:npc/portrait.png",
+              "height": 64,
+              "ascent": 12,
+              "status": "final candidate",
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 51 high, padded below."
             },
             {
               "code": "FE6E2",
-              "title": "Portrait on the panel 53 high",
+              "title": "Portrait on the panel 56 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
-              "ascent": 14,
+              "ascent": 17,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 53 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 56 high, padded below."
             },
             {
               "code": "FE6E3",
-              "title": "Portrait on the panel 55 high",
-              "list": "NPC_PORTRAITS",
-              "texture": "nordtal:npc/portrait.png",
-              "height": 64,
-              "ascent": 16,
-              "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 55 high, padded below."
-            },
-            {
-              "code": "FE6E4",
               "title": "Portrait on the panel 58 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
               "ascent": 19,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 58 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 58 high, padded below."
+            },
+            {
+              "code": "FE6E4",
+              "title": "Portrait on the panel 61 high",
+              "list": "NPC_PORTRAITS",
+              "texture": "nordtal:npc/portrait.png",
+              "height": 64,
+              "ascent": 22,
+              "status": "final candidate",
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 61 high, padded below."
             },
             {
               "code": "FE6E5",
-              "title": "Portrait on the panel 63 high",
+              "title": "Portrait on the panel 66 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
-              "ascent": 24,
+              "ascent": 27,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 63 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 66 high, padded below."
             },
             {
               "code": "FE6E6",
-              "title": "Portrait on the panel 65 high",
+              "title": "Portrait on the panel 68 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
-              "ascent": 26,
+              "ascent": 29,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 65 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 68 high, padded below."
             },
             {
               "code": "FE6E7",
-              "title": "Portrait on the panel 67 high",
+              "title": "Portrait on the panel 70 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
-              "ascent": 28,
+              "ascent": 31,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 67 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 70 high, padded below."
             },
             {
               "code": "FE6E8",
-              "title": "Portrait on the panel 75 high",
+              "title": "Portrait on the panel 71 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
-              "ascent": 36,
+              "ascent": 32,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 75 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 71 high, padded below."
             },
             {
               "code": "FE6E9",
-              "title": "Portrait on the panel 77 high",
+              "title": "Portrait on the panel 76 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
-              "ascent": 38,
+              "ascent": 37,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 77 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 76 high, padded below."
             },
             {
               "code": "FE6EA",
-              "title": "Portrait on the panel 87 high",
+              "title": "Portrait on the panel 78 high",
               "list": "NPC_PORTRAITS",
               "texture": "nordtal:npc/portrait.png",
               "height": 64,
-              "ascent": 48,
+              "ascent": 39,
               "status": "final candidate",
-              "about": "The 46 x 46 portrait frame, 10 rows above the top of the panel 87 high, padded below."
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 78 high, padded below."
+            },
+            {
+              "code": "FE6EB",
+              "title": "Portrait on the panel 80 high",
+              "list": "NPC_PORTRAITS",
+              "texture": "nordtal:npc/portrait.png",
+              "height": 64,
+              "ascent": 41,
+              "status": "final candidate",
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 80 high, padded below."
+            },
+            {
+              "code": "FE6EC",
+              "title": "Portrait on the panel 81 high",
+              "list": "NPC_PORTRAITS",
+              "texture": "nordtal:npc/portrait.png",
+              "height": 64,
+              "ascent": 42,
+              "status": "final candidate",
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 81 high, padded below."
+            },
+            {
+              "code": "FE6ED",
+              "title": "Portrait on the panel 88 high",
+              "list": "NPC_PORTRAITS",
+              "texture": "nordtal:npc/portrait.png",
+              "height": 64,
+              "ascent": 49,
+              "status": "final candidate",
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 88 high, padded below."
+            },
+            {
+              "code": "FE6EE",
+              "title": "Portrait on the panel 90 high",
+              "list": "NPC_PORTRAITS",
+              "texture": "nordtal:npc/portrait.png",
+              "height": 64,
+              "ascent": 51,
+              "status": "final candidate",
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 90 high, padded below."
+            },
+            {
+              "code": "FE6EF",
+              "title": "Portrait on the panel 100 high",
+              "list": "NPC_PORTRAITS",
+              "texture": "nordtal:npc/portrait.png",
+              "height": 64,
+              "ascent": 61,
+              "status": "final candidate",
+              "about": "The 48 x 48 portrait frame, 10 rows above the top of the panel 100 high, padded below."
             }
           ]
         }
@@ -7387,7 +7537,8 @@
     {
       "font": "nordtal:npc_text_{shift}",
       "shifts": [
-        -35, -25, -23, -19, -15, -13, -11, -9, -7, -6, -3, -1, 1, 3, 4, 5, 9, 10, 13, 15, 17, 20, 25, 29, 30, 35, 40, 41
+        -48, -38, -36, -32, -29, -28, -26, -24, -22, -20, -19, -18, -16, -14, -13, -12, -10, -9, -8, -6, -4, -3, -2, 0,
+        1, 2, 4, 7, 10, 12, 14, 17, 20, 22, 26, 27, 30, 37, 38
       ],
       "constant": "FONT_NPC_TEXT",
       "letters": true,
@@ -7499,7 +7650,7 @@
     },
     {
       "font": "nordtal:npc_art_{shift}",
-      "shifts": [-38, -28, -26, -18, -16, -14, -9, -6, -4, 1, 6, 15, 17, 27, 29, 39, 41],
+      "shifts": [-51, -41, -39, -32, -31, -29, -27, -22, -21, -19, -17, -12, -9, -7, -2, 1, 12, 14, 24, 26, 36, 38],
       "constant": "FONT_NPC_ART",
       "references": ["nordtal:ui_space"],
       "about": "Art on the NPC dialogue's line that moves with the panel's height: a glyph whose top stands b rows above the screen's bottom takes shift 72 minus b. Every texture is padded below to 64 rows, so a negative shift stays within its height.",
@@ -7730,7 +7881,7 @@
     },
     {
       "font": "nordtal:npc_small_{shift}",
-      "shifts": [0, 18, 30, 42, 43, 62],
+      "shifts": [0, 15, 27, 39, 45, 62],
       "constant": "FONT_NPC_SMALL",
       "references": ["nordtal:ui_space"],
       "spaces": [

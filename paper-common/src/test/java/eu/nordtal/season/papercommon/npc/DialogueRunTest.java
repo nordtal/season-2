@@ -332,14 +332,14 @@ class DialogueRunTest {
             + " be careful: things live down in the tunnels that do not like the light, and they are hungry.";
 
     @Test
-    void aLongTextShowsPageByPageWithItsCountAndTheMoreHint() {
-        final DialogueRun run = play(speaking("start", LONG, null));
+    void explicitPagesShowPageByPageWithTheirCountAndTheMoreHint() {
+        final DialogueRun run = play(multiPage("start", List.of("First page.", "Second page."), null));
         final Frame first = ticks(run, FIRST_TYPING_TICK).getLast();
 
         final DialogueScreen.Page page = first.panel().page();
         assertNotNull(page);
         assertEquals(1, page.number());
-        assertTrue(page.count() > 1);
+        assertEquals(2, page.count());
         assertEquals(List.of(new Hint(Mark.NEXT, "More")), first.hints());
         run.rightClick();
         ticks(run, DialogueRun.DEBOUNCE);
@@ -351,8 +351,17 @@ class DialogueRunTest {
     }
 
     @Test
-    void aPageTurnsByItselfAfterItsHold() {
+    void aSingleLongPageNeverSplitsAutomaticallyIntoMultiplePages() {
         final DialogueRun run = play(speaking("start", LONG, null));
+        final Frame first = ticks(run, FIRST_TYPING_TICK).getLast();
+
+        assertNull(first.panel().page());
+        assertEquals(List.of(new Hint(Mark.NEXT, "Next")), first.hints());
+    }
+
+    @Test
+    void anExplicitPageTurnsByItselfAfterItsHold() {
+        final DialogueRun run = play(multiPage("start", List.of("Page one.", "Page two."), null));
         for (int tick = 0; tick < 400; tick++) {
             final Frame frame = run.tick(Where.STILL);
             if (frame.panel() != null && frame.panel().page().number() == 2) {
@@ -390,11 +399,22 @@ class DialogueRunTest {
 
     /** A step whose German text is its English one with an exclamation mark. */
     private static Step speaking(final String id, final String text, final @Nullable String next) {
-        return new Step(id, 0, 0, new Words(text, text + "!"), List.of(), next, null);
+        return new Step(id, 0, 0, List.of(new Words(text, text + "!")), List.of(), next, null);
+    }
+
+    private static Step multiPage(final String id, final List<String> pages, final @Nullable String next) {
+        return new Step(
+                id,
+                0,
+                0,
+                pages.stream().map(text -> new Words(text, text + "!")).toList(),
+                List.of(),
+                next,
+                null);
     }
 
     private static Step question(final String id, final String text, final Answer... answers) {
-        return new Step(id, 0, 0, new Words(text, text), List.of(answers), null, null);
+        return new Step(id, 0, 0, List.of(new Words(text, text)), List.of(answers), null, null);
     }
 
     private static Answer answer(final String text, final @Nullable String next) {
@@ -402,7 +422,7 @@ class DialogueRunTest {
     }
 
     private static Step handOff(final String id, final String text) {
-        return new Step(id, 0, 0, new Words(text, text), List.of(), null, "objectives");
+        return new Step(id, 0, 0, List.of(new Words(text, text)), List.of(), null, "objectives");
     }
 
     private static List<Frame> ticks(final DialogueRun run, final int count) {

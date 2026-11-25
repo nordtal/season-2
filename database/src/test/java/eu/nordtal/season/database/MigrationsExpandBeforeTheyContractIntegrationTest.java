@@ -335,6 +335,8 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             // The season phase, which the launch date, maintenance and the game mode replaced.
             listed(unused, "0.74.0", role, "SELECT", "season_phase", "id", "phase", "updated", "launch");
             listed(unused, "0.74.0", role, "SELECT", "season_phase", "smp_start", "fresh_start");
+            // Every name plate is a pill, so no standing service reads plate_style.
+            listed(unused, "0.133.0", role, "SELECT", "npc", "plate_style");
         }
         return Map.copyOf(unused);
     }

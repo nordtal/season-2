@@ -51,6 +51,9 @@ class PackChangeOfferTest {
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-11-14T03:29:08Z"));
     private final AtomicReference<PackSpec> spec = new AtomicReference<>(pack(OLD, true));
+    /** The one instance the station reads, whose values change like those of a running setting. */
+    private final PackSpec live = live(spec);
+
     private final WaitingBook book = new WaitingBook(
             () -> spec.get().enabled(),
             () -> Duration.ofSeconds(180),
@@ -77,7 +80,7 @@ class PackChangeOfferTest {
                     (previous, current) -> {}),
             roster,
             new PackMessages(ProxyRenderer.RENDERER),
-            spec::get,
+            () -> live,
             book,
             new BackendHealth(clock));
 
@@ -98,6 +101,22 @@ class PackChangeOfferTest {
         station.onPackStatus(status(alex, NEW, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
         assertEquals(List.of(PackOffer.idOf(OLD)), alex.removed);
         assertEquals(0, alex.disconnects);
+    }
+
+    @Test
+    void aChangeAfterAnEarlierOfferIsOfferedWithTheNewPack() {
+        final FakePlayer early = online("Alex", "limbo", false);
+        assertEquals(1, station.packChanged());
+        assertEquals(PackOffer.idOf(OLD), early.offers.getFirst().getId());
+
+        spec.set(pack(NEW, true));
+        final FakePlayer late = online("Kai", "limbo", false);
+        assertEquals(2, station.packChanged());
+
+        assertEquals(PackOffer.idOf(NEW), early.offers.getLast().getId());
+        assertEquals(PackOffer.idOf(NEW), late.offers.getLast().getId());
+        assertEquals(
+                "https://pack.nordtal.eu/" + NEW + ".zip", late.offers.getLast().getUrl());
     }
 
     @Test
@@ -418,6 +437,45 @@ class PackChangeOfferTest {
     private static PlayerResourcePackStatusEvent status(
             final FakePlayer player, final String sha1, final PlayerResourcePackStatusEvent.Status status) {
         return new PlayerResourcePackStatusEvent(player.player(), PackOffer.idOf(sha1), status, null);
+    }
+
+    private static PackSpec live(final AtomicReference<PackSpec> current) {
+        return new PackSpec() {
+            @Override
+            public boolean enabled() {
+                return current.get().enabled();
+            }
+
+            @Override
+            public String url() {
+                return current.get().url();
+            }
+
+            @Override
+            public String sha1() {
+                return current.get().sha1();
+            }
+
+            @Override
+            public boolean force() {
+                return current.get().force();
+            }
+
+            @Override
+            public String mapUrl() {
+                return current.get().mapUrl();
+            }
+
+            @Override
+            public String mapSha1() {
+                return current.get().mapSha1();
+            }
+
+            @Override
+            public int applyTimeoutSeconds() {
+                return current.get().applyTimeoutSeconds();
+            }
+        };
     }
 
     private static PackSpec pack(final String sha1, final boolean enabled) {

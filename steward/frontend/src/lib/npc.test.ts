@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { Npc, NpcStep } from "@/lib/api"
 import {
   addAnswer,
+  addPage,
   addStep,
   arranged,
   blankNpc,
@@ -14,15 +15,18 @@ import {
   overlapping,
   problemsOf,
   removeAnswer,
+  removePage,
   sameNpc,
   setAnswerThen,
+  setStepPageText,
   setThen,
   tailOf,
 } from "@/lib/npc"
+import { measureKey } from "@/lib/queries-npcs"
 import { isSlim } from "@/lib/npc-skin"
 
 function step(id: string, change: Partial<NpcStep> = {}): NpcStep {
-  return { id, x: 0, y: 0, text: { de: `${id} de`, en: `${id} en` }, answers: [], ...change }
+  return { id, x: 0, y: 0, pages: [{ de: `${id} de`, en: `${id} en` }], answers: [], ...change }
 }
 
 function npcOf(steps: NpcStep[], start = steps[0].id): Npc {
@@ -145,16 +149,38 @@ describe("what the page refuses before it publishes", () => {
         start: "a",
         steps: [
           step("a", { next: "b" }),
-          step("b", { text: { de: "", en: "b" }, answers: [{ text: { de: "x", en: "" } }] }),
+          step("b", { pages: [{ de: "", en: "b" }], answers: [{ text: { de: "x", en: "" } }] }),
         ],
       },
     }
     expect(problemsOf(npc)).toEqual([
       { problem: "name", language: "en" },
       { problem: "place" },
-      { problem: "step-text", language: "de", step: "b" },
+      { problem: "step-text", language: "de", step: "b", page: 0 },
       { problem: "answer-text", language: "en", step: "b" },
     ])
+  })
+  it("adds, edits and removes explicit pages while keeping the last page", () => {
+    const start = npcOf([step("a")])
+    const two = setStepPageText(addPage(start, "a"), "a", 1, "en", "Page two")
+    expect(two.dialogue.steps[0].pages).toEqual([
+      { de: "a de", en: "a en" },
+      { de: "", en: "Page two" },
+    ])
+    const back = removePage(two, "a", 1)
+    expect(back.dialogue.steps[0].pages).toEqual([{ de: "a de", en: "a en" }])
+    expect(removePage(back, "a", 0).dialogue.steps[0].pages).toHaveLength(1)
+  })
+
+  it("refuses a page that exceeds its measured line limit", () => {
+    const npc = npcOf([step("a", { pages: [{ de: "kurz", en: "too tall" }] })])
+    const measured = new Map([
+      [
+        measureKey({ text: "too tall", kind: "BODY", answers: 0 }),
+        { lines: ["1", "2", "3", "4", "5", "6", "7"], width: 100, room: 226, lineLimit: 6, fits: false },
+      ],
+    ])
+    expect(problemsOf(npc, measured)).toEqual([{ problem: "step-tall", language: "en", step: "a", page: 0 }])
   })
 })
 

@@ -153,10 +153,22 @@ public interface NpcsPage {
     MessageRef step();
 
     @Name("Lines")
-    MessageRef lines(
-            @Arg("lines") @Example("6") int lines,
-            @Arg("limit") @Example("4") int limit,
-            @Arg("pages") @Example("2") int pages);
+    MessageRef lines(@Arg("lines") @Example("4") int lines, @Arg("limit") @Example("6") int limit);
+
+    @Name("Page heading")
+    MessageRef page(@Arg("number") @Example("1") int number);
+
+    @Name("Page count")
+    MessageRef pageCount(@Arg("count") @Example("2") int count);
+
+    @Name("Add a page")
+    MessageRef addPage();
+
+    @Name("Remove a page")
+    MessageRef removePage(@Arg("index") @Example("2") int index);
+
+    @Name("Page too tall")
+    MessageRef tooTall(@Arg("limit") @Example("6") int limit);
 
     @Name("Width cut")
     MessageRef cutWidth();
@@ -355,6 +367,7 @@ public interface NpcsPage {
         NAME,
         PLACE,
         STEP_TEXT,
+        STEP_TALL,
         ANSWER_TEXT
     }
 }

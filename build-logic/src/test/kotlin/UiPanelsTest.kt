@@ -122,33 +122,48 @@ class UiPanelsTest {
         val portrait = DrawUiPanels.npcPortrait(vanilla)
         assertEquals(UiPanelGeometry.NPC_PORTRAIT_FRAME, portrait.width)
         assertEquals(UiPanelGeometry.NPC_PORTRAIT_HEIGHT, portrait.height)
-        for (y in 0 until 3) {
-            for (x in 0 until 3) {
+        for (y in 0 until VanillaWindow.EDGE) {
+            for (x in 0 until VanillaWindow.EDGE) {
                 assertEquals(vanilla.getRGB(x, y), portrait.getRGB(x, y), "portrait TL ($x,$y)")
                 assertEquals(
-                    vanilla.getRGB(VanillaWindow.WIDTH - 3 + x, y),
-                    portrait.getRGB(UiPanelGeometry.NPC_PORTRAIT_FRAME - 3 + x, y),
+                    vanilla.getRGB(VanillaWindow.WIDTH - VanillaWindow.EDGE + x, y),
+                    portrait.getRGB(UiPanelGeometry.NPC_PORTRAIT_FRAME - VanillaWindow.EDGE + x, y),
                     "portrait TR ($x,$y)",
                 )
                 assertEquals(
-                    vanilla.getRGB(x, VanillaWindow.HEIGHT - 3 + y),
-                    portrait.getRGB(x, UiPanelGeometry.NPC_PORTRAIT_FRAME - 3 + y),
+                    vanilla.getRGB(x, VanillaWindow.HEIGHT - VanillaWindow.EDGE + y),
+                    portrait.getRGB(x, UiPanelGeometry.NPC_PORTRAIT_FRAME - VanillaWindow.EDGE + y),
                     "portrait BL ($x,$y)",
                 )
                 assertEquals(
-                    vanilla.getRGB(VanillaWindow.WIDTH - 3 + x, VanillaWindow.HEIGHT - 3 + y),
-                    portrait.getRGB(UiPanelGeometry.NPC_PORTRAIT_FRAME - 3 + x, UiPanelGeometry.NPC_PORTRAIT_FRAME - 3 + y),
+                    vanilla.getRGB(VanillaWindow.WIDTH - VanillaWindow.EDGE + x, VanillaWindow.HEIGHT - VanillaWindow.EDGE + y),
+                    portrait.getRGB(
+                        UiPanelGeometry.NPC_PORTRAIT_FRAME - VanillaWindow.EDGE + x,
+                        UiPanelGeometry.NPC_PORTRAIT_FRAME - VanillaWindow.EDGE + y,
+                    ),
                     "portrait BR ($x,$y)",
                 )
             }
         }
-        assertEquals(vanilla.getRGB(VanillaWindow.SLOT_X, VanillaWindow.SLOT_Y), portrait.getRGB(3, 3))
-        assertEquals(vanilla.getRGB(VanillaWindow.SLOT_X + 1, VanillaWindow.SLOT_Y + 1), portrait.getRGB(20, 20))
+        val rim = UiPanelGeometry.NPC_PORTRAIT_RIM
+        val wellEnd = rim + UiPanelGeometry.NPC_PORTRAIT_WELL - 1
+        assertEquals(vanilla.getRGB(VanillaWindow.SLOT_X, VanillaWindow.SLOT_Y), portrait.getRGB(rim, rim))
+        assertEquals(vanilla.getRGB(VanillaWindow.SLOT_X + 1, VanillaWindow.SLOT_Y + 1), portrait.getRGB(24, 24))
         assertEquals(
             vanilla.getRGB(VanillaWindow.SLOT_X + VanillaWindow.SLOT_SIZE - 1, VanillaWindow.SLOT_Y + VanillaWindow.SLOT_SIZE - 1),
-            portrait.getRGB(42, 42),
+            portrait.getRGB(wellEnd, wellEnd),
         )
-        assertEquals(0, portrait.getRGB(20, 50), "padding below portrait frame stays clear")
+        val solid = BufferedImage(UiPanelGeometry.NPC_PORTRAIT_PICTURE, UiPanelGeometry.NPC_PORTRAIT_PICTURE, BufferedImage.TYPE_INT_ARGB)
+        for (y in 0 until solid.height) for (x in 0 until solid.width) solid.setRGB(x, y, 0xFF112233.toInt())
+        val filled = DrawUiPanels.npcPortrait(vanilla, solid)
+        assertEquals(vanilla.getRGB(VanillaWindow.SLOT_X, VanillaWindow.SLOT_Y), filled.getRGB(rim, rim), "slot top-left bevel stays clear")
+        assertEquals(
+            vanilla.getRGB(VanillaWindow.SLOT_X + VanillaWindow.SLOT_SIZE - 1, VanillaWindow.SLOT_Y + VanillaWindow.SLOT_SIZE - 1),
+            filled.getRGB(wellEnd, wellEnd),
+            "slot bottom-right bevel stays clear",
+        )
+        assertEquals(0xFF112233.toInt(), filled.getRGB(rim + 1, rim + 1))
+        assertEquals(0, portrait.getRGB(24, 52), "padding below portrait frame stays clear")
     }
 
     @Test

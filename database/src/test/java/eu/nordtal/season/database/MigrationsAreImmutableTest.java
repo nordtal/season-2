@@ -435,6 +435,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V150__the_npc_table_drops_its_plate_style_column.sql",
                 "45ea6e888b2a592c3a62ab6fc8af43e979d3ff3919c8be4acf74c07a4e70e084");
+        FROZEN.put(
+                "V151__npc_dialogue_steps_hold_explicit_pages.sql",
+                "d1069255da98120fa94aed8e5d908dd850d60067e87996a303f2f730ed48ccab");
     }
 
     @Test

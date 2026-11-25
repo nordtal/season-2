@@ -15,9 +15,9 @@ class NpcTextMeasureTest {
     private static final String SENTENCE = "The wheel turns once a day, and every turn may bring a prize. ";
 
     @Test
-    void aBodyLongerThanAPageStillFitsBecauseItsPagesTurn() {
+    void aBodyOverThePageLineLimitDoesNotFit() {
         String text = "";
-        while (Letters.wrapVisible(text, DialogueRoom.BODY).size() < DialogueRoom.SPEAK_LINES + 1) {
+        while (DialogueRoom.wrap(text).size() < DialogueRoom.SPEAK_LINES + 1) {
             text += "turn ";
         }
         final NpcTextMeasure.Measurement alone =
@@ -28,13 +28,17 @@ class NpcTextMeasureTest {
                 DialogueRoom.SPEAK_LINES + 1,
                 alone.lines().size(),
                 alone.lines().toString());
-        assertTrue(alone.fits());
+        assertFalse(alone.fits());
         assertTrue(alone.width() <= DialogueRoom.BODY);
 
         final NpcTextMeasure.Measurement asking =
                 NpcTextMeasure.measure(new NpcTextMeasure.Request(text, NpcTextMeasure.Kind.BODY, 2));
         assertEquals(DialogueRoom.QUESTION_LINES, asking.lineLimit());
-        assertTrue(asking.fits(), "a question's text pages too, and its answers come with the last page");
+        assertFalse(asking.fits());
+
+        final NpcTextMeasure.Measurement shortText =
+                NpcTextMeasure.measure(new NpcTextMeasure.Request("Short greeting.", NpcTextMeasure.Kind.BODY, 2));
+        assertTrue(shortText.fits());
     }
 
     @Test

@@ -1695,6 +1695,7 @@ export type TextArgs = {
   }
   "steward.notifications.unnamed": Record<string, never>
   "steward.npcs.add-answer": Record<string, never>
+  "steward.npcs.add-page": Record<string, never>
   "steward.npcs.add-step": Record<string, never>
   "steward.npcs.answer-count": {
     count: Arg["number"]
@@ -1756,7 +1757,6 @@ export type TextArgs = {
   "steward.npcs.lines": {
     lines: Arg["number"]
     limit: Arg["number"]
-    pages: Arg["number"]
   }
   "steward.npcs.live": {
     version: Arg["number"]
@@ -1785,6 +1785,12 @@ export type TextArgs = {
     live: Arg["number"]
   }
   "steward.npcs.own-portrait": Record<string, never>
+  "steward.npcs.page": {
+    number: Arg["number"]
+  }
+  "steward.npcs.page-count": {
+    count: Arg["number"]
+  }
   "steward.npcs.pitch": Record<string, never>
   "steward.npcs.place": Record<string, never>
   "steward.npcs.plate": Record<string, never>
@@ -1829,6 +1835,9 @@ export type TextArgs = {
   "steward.npcs.remove-item": {
     slot: Arg["choice"]
   }
+  "steward.npcs.remove-page": {
+    index: Arg["number"]
+  }
   "steward.npcs.removed": Record<string, never>
   "steward.npcs.skin": Record<string, never>
   "steward.npcs.skin-model": {
@@ -1864,6 +1873,9 @@ export type TextArgs = {
   "steward.npcs.title": Record<string, never>
   "steward.npcs.too-long": {
     language: Arg["choice"]
+  }
+  "steward.npcs.too-tall": {
+    limit: Arg["number"]
   }
   "steward.npcs.unlinked": Record<string, never>
   "steward.npcs.unnamed": Record<string, never>

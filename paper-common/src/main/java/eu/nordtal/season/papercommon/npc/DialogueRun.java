@@ -362,8 +362,18 @@ public final class DialogueRun {
     }
 
     private List<List<String>> pages(final Step shown) {
-        final int room = shown.answers().isEmpty() ? DialogueScreen.SPEAK_LINES : DialogueScreen.QUESTION_LINES;
-        return DialogueScreen.pages(shown.text().in(locale), room);
+        final List<Dialogue.Words> explicit = shown.pages();
+        if (explicit.isEmpty()) {
+            return List.of(List.of());
+        }
+        final List<List<String>> wrapped = new ArrayList<>(explicit.size());
+        for (int i = 0; i < explicit.size(); i++) {
+            final boolean lastWithAnswers =
+                    i == explicit.size() - 1 && !shown.answers().isEmpty();
+            final int limit = lastWithAnswers ? DialogueScreen.QUESTION_LINES : DialogueScreen.SPEAK_LINES;
+            wrapped.add(DialogueScreen.fit(explicit.get(i).in(locale), limit));
+        }
+        return List.copyOf(wrapped);
     }
 
     private static long ticks(final long milliseconds) {

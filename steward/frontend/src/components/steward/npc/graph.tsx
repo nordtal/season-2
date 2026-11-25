@@ -74,6 +74,11 @@ function Badges({ step, linked, shared }: { step: NpcStep; linked: boolean; shar
           {t("steward.npcs.too-long", { language })}
         </StatusBadge>
       ))}
+      {step.pages.length > 1 ? (
+        <Badge variant="outline" className="px-1.5 text-badge">
+          {t("steward.npcs.page-count", { count: step.pages.length })}
+        </Badge>
+      ) : null}
       {shared.dialogue.start === step.id ? (
         <Badge variant="secondary">{t("steward.npcs.start")}</Badge>
       ) : linked ? null : (
@@ -129,7 +134,7 @@ function StepBox({
               lang={language}
               className={cn("h-5 truncate text-sm", language === "en" && "text-muted-foreground")}
             >
-              {step.text[language]}
+              {step.pages[0]?.[language] ?? ""}
             </span>
           ))
         )}

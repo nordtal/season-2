@@ -15,59 +15,34 @@ public final class DialogueRoom {
     /** The columns an answer's label takes, so it keeps clear of its number. */
     public static final int LABEL = 213;
 
-    /** The lines of text on a page while the NPC speaks; a longer text runs over further pages. */
-    public static final int SPEAK_LINES = 4;
+    /** The most lines a speaking page holds without answers. */
+    public static final int SPEAK_LINES = 6;
 
-    /** The lines of a question above its answers, on its last page. */
-    public static final int QUESTION_LINES = 3;
-
-    /** The columns the last line of a page that others follow leaves free for its count, "99/99" and a gap of 5. */
-    public static final int COUNT = 24;
+    /** The most lines a question's last page holds above its answers. */
+    public static final int QUESTION_LINES = 4;
 
     private DialogueRoom() {}
 
-    /**
-     * Breaks {@code text} into pages, without the spaces around it.
-     * The last page holds {@code lastHolds} lines, the others {@link #SPEAK_LINES}, and the last line of a page that
-     * others follow keeps {@link #COUNT} free.
-     */
-    public static List<List<String>> pages(final String text, final int lastHolds) {
-        if (lastHolds < 1 || lastHolds > SPEAK_LINES) {
-            throw new IllegalArgumentException("a last page holds 1 to " + SPEAK_LINES + " lines, not " + lastHolds);
-        }
-        final List<List<String>> pages = new ArrayList<>();
-        String rest = text.strip();
-        while (true) {
-            final List<String> rows = Letters.wrapVisible(rest, BODY);
-            if (rows.size() <= lastHolds) {
-                pages.add(rows);
-                return List.copyOf(pages);
-            }
-            final int whole = Math.min(SPEAK_LINES, rows.size() - 1) - 1;
-            final List<String> page = new ArrayList<>(rows.subList(0, whole));
-            rest = after(rest, page);
-            final String tail = Letters.wrapVisible(rest, BODY - COUNT).getFirst();
-            page.add(tail);
-            rest = after(rest, List.of(tail));
-            pages.add(List.copyOf(page));
-        }
+    /** Wraps one page at spaces into lines inking at most {@link #BODY} columns, without outer spaces. */
+    public static List<String> wrap(final String text) {
+        return Letters.wrapVisible(text.strip(), BODY);
     }
 
-    /** Returns what of {@code text} follows {@code rows}, which wrapping it began with. */
-    private static String after(final String text, final List<String> rows) {
-        int at = 0;
-        for (final String row : rows) {
-            while (!text.startsWith(row, at) && at < text.length() && text.charAt(at) == ' ') {
-                at++;
-            }
-            if (!text.startsWith(row, at)) {
-                throw new IllegalStateException("'" + row + "' does not follow in '" + text + "'");
-            }
-            at += row.length();
+    /**
+     * Wraps {@code text} into at most {@code limit} lines of {@link #BODY} columns.
+     * Overflow beyond {@code limit} lines is cut on the last kept line with an ellipsis instead of adding pages.
+     */
+    public static List<String> fit(final String text, final int limit) {
+        if (limit < 1 || limit > SPEAK_LINES) {
+            throw new IllegalArgumentException("a page holds 1 to " + SPEAK_LINES + " lines, not " + limit);
         }
-        while (at < text.length() && text.charAt(at) == ' ') {
-            at++;
+        final List<String> rows = wrap(text);
+        if (rows.size() <= limit) {
+            return rows;
         }
-        return text.substring(at);
+        final List<String> kept = new ArrayList<>(rows.subList(0, limit - 1));
+        final String tail = String.join(" ", rows.subList(limit - 1, rows.size()));
+        kept.add(Letters.cut(tail, BODY));
+        return List.copyOf(kept);
     }
 }

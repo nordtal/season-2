@@ -2,7 +2,6 @@ package eu.nordtal.season.smp.wall;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -16,19 +15,16 @@ class BandTest {
     @Test
     void onTheWallsGroundTheBandStandsWhereItStoodBefore() {
         assertEquals(Band.base(64), Band.foot(64, 64));
-        assertEquals(Band.base(64) + Look.FIELD.height(), Band.head(64, Look.FIELD));
     }
 
     @Test
     void highAboveTheWallTheBandReachesFromItsGroundToAboveTheFeet() {
         assertEquals(61, Band.foot(64, 144));
-        assertEquals(151, Band.head(144, Look.FIELD));
     }
 
     @Test
     void onHighGroundBesideTheWallTheBandStillReachesDownToTheWallsGround() {
         assertEquals(61, Band.foot(64, 90));
-        assertEquals(97, Band.head(90, Look.FIELD));
     }
 
     @Test
@@ -37,22 +33,43 @@ class BandTest {
     }
 
     @Test
-    void inACaveBelowTheWallsGroundTheBandCoversBothFeetAndGround() {
-        final Band.Range need = Band.need(List.of(new Band.Seen("border/field", 64)), 30 + Band.EYE, Look.FIELD);
+    void onTheGroundThePanelsCoverEveryHeightABandCanStandAt() {
+        for (final int[] world : new int[][] {{-64, 320}, {0, 256}}) {
+            final Band.Range range = Band.range(world[1], 0);
 
-        assertEquals(Band.foot(Band.UNKNOWN, 30 - Band.CAMERA), need.bottom(), 1e-9);
-        assertEquals(Band.head(64, Look.FIELD), need.top(), 1e-9);
+            assertEquals(Band.GROUNDED, range.top() - range.bottom());
+            assertTrue(range.bottom() <= Band.foot(Band.UNKNOWN, world[0] - Band.CAMERA - Band.EYE));
+            assertTrue(range.top() >= world[1] + Band.CAMERA + Look.FIELD.height());
+        }
     }
 
     @Test
-    void inAValleyBesideAHillTheRangeCoversTheHillsTerrainBand() {
-        final Band.Range need = Band.need(
-                List.of(new Band.Seen("border/field", 64), new Band.Seen("border/field", 85)),
-                64 + Band.EYE,
-                Look.FIELD);
+    void aStretchKeepsThePanelsUpperEndAndSinksTheirLowerEnd() {
+        assertEquals(new Band.Range(320 + Band.TOP - Band.SKYWARD, 320 + Band.TOP), Band.range(320, 1));
+        assertEquals(Band.range(320, 0).top(), Band.range(320, 0.5).top());
+        assertEquals(
+                (Band.GROUNDED + Band.SKYWARD) / 2,
+                Band.range(320, 0.5).top() - Band.range(320, 0.5).bottom());
+    }
 
-        assertEquals(Band.foot(64, 64 - Band.CAMERA), need.bottom(), 1e-9);
-        assertEquals(Band.head(85, Look.FIELD), need.top(), 1e-9);
+    @Test
+    void theWallRisesForAFlyingPlayerAtEveryHeight() {
+        assertTrue(Band.skyward(false, true, false, free -> false));
+        assertTrue(Band.skyward(false, true, true, free -> false));
+    }
+
+    @Test
+    void theWallRisesOnceFourBlocksBelowAreFreeAndSinksOnceThreeAreNot() {
+        assertFalse(Band.skyward(false, false, false, free -> free <= 3.5));
+        assertTrue(Band.skyward(false, false, false, free -> free <= 4));
+        assertTrue(Band.skyward(true, false, false, free -> free <= 3.5));
+        assertFalse(Band.skyward(true, false, false, free -> free <= 2.5));
+    }
+
+    @Test
+    void theWallStaysOnTheGroundForAPlayerInWaterOrOnAClimb() {
+        assertFalse(Band.skyward(false, false, true, free -> true));
+        assertFalse(Band.skyward(true, false, true, free -> true));
     }
 
     @Test
@@ -79,28 +96,6 @@ class BandTest {
     void theFieldReachesNoFartherThanAtItsDeepest() {
         assertEquals(Band.fadeEnd(Band.LEVEL + Band.DEPTH), Band.fadeEnd(500));
         assertEquals(Band.RADIUS, Band.fadeEnd(Band.LEVEL));
-    }
-
-    @Test
-    void thePanelsKeepTheirHeightsWhileTheyCoverTheBandWithRoom() {
-        final Band.Range current = new Band.Range(30, 100);
-
-        assertSame(current, Band.fit(current, new Band.Range(50, 80)));
-        assertSame(current, Band.fit(current, new Band.Range(42, 88)));
-    }
-
-    @Test
-    void thePanelsAreStretchedBeforeTheBandReachesTheirEnd() {
-        final Band.Range current = new Band.Range(30, 100);
-
-        assertEquals(new Band.Range(17, 113), Band.fit(current, new Band.Range(41, 89)));
-    }
-
-    @Test
-    void thePanelsShrinkOnceTheyCoverFarMoreThanTheBand() {
-        final Band.Range current = new Band.Range(0, 200);
-
-        assertEquals(new Band.Range(26, 104), Band.fit(current, new Band.Range(50, 80)));
     }
 
     @Test

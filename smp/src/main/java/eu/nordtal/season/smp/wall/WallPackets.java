@@ -29,6 +29,8 @@ import org.bukkit.Material;
 /** Sends the panels to one player each, as item displays that exist only in that player's client. */
 final class WallPackets {
 
+    private static final int STRETCH_DELAY = 8;
+    private static final int STRETCH_DURATION = 9;
     private static final int POSITION_INTERPOLATION = 10;
     private static final int TRANSLATION = 11;
     private static final int SCALE = 12;
@@ -75,7 +77,7 @@ final class WallPackets {
     /**
      * Spawns a field panel whose entity stands at {@code y}, drawn within {@code viewRange}, covering {@code range}.
      *
-     * The entity never moves: a reshape changes only its transformation, which the client applies at once.
+     * The entity never moves: a stretch changes only its transformation.
      */
     void spawnField(
             final UUID viewer,
@@ -101,13 +103,16 @@ final class WallPackets {
                                 new EntityData<>(ITEM, EntityDataTypes.ITEMSTACK, item(seen)))));
     }
 
-    /** Stretches a field panel whose entity stands at {@code y} over {@code range}. */
-    void reshape(final UUID viewer, final int id, final double y, final Band.Range range) {
+    /** Stretches a field panel whose entity stands at {@code y} over {@code range} within {@code ticks}. */
+    void stretch(final UUID viewer, final int id, final double y, final Band.Range range, final int ticks) {
         send(
                 viewer,
                 new WrapperPlayServerEntityMetadata(
                         id,
                         List.of(
+                                // The client starts a stretch only when the packet carries the delay.
+                                new EntityData<>(STRETCH_DELAY, EntityDataTypes.INT, 0),
+                                new EntityData<>(STRETCH_DURATION, EntityDataTypes.INT, ticks),
                                 new EntityData<>(TRANSLATION, EntityDataTypes.VECTOR3F, translation(y, range)),
                                 new EntityData<>(SCALE, EntityDataTypes.VECTOR3F, scale(range)))));
     }

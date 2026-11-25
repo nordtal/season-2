@@ -21,10 +21,11 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The furnish command: allays for outposts, and loot for suspicious blocks and the chests of outposts and villages.
+ * The furnish command: allays for outposts, golems and cats for villages, and loot for chests and suspicious blocks.
  * The module's README lists the rules.
  */
 public final class Furnish {
@@ -60,6 +61,8 @@ public final class Furnish {
             int villages,
             int chests,
             int allays,
+            int golems,
+            int cats,
             int missing,
             Map<String, Integer> suspicious) {
 
@@ -67,7 +70,7 @@ public final class Furnish {
         public String toString() {
             final StringBuilder text = new StringBuilder("region_files=" + regionFiles + " entity_files=" + entityFiles
                     + " outposts=" + outposts + " villages=" + villages + " chests=" + chests + " allays=" + allays
-                    + " missing=" + missing + " suspicious="
+                    + " golems=" + golems + " cats=" + cats + " missing=" + missing + " suspicious="
                     + suspicious.values().stream().mapToInt(Integer::intValue).sum());
             suspicious.forEach((table, count) -> text.append(' ')
                     .append(table.substring(table.lastIndexOf('/') + 1))
@@ -99,6 +102,8 @@ public final class Furnish {
     private final Map<String, Integer> suspicious = new TreeMap<>();
     private int chests;
     private int allays;
+    private int golems;
+    private int cats;
     private int missing;
 
     private Furnish(final Path world, final Path out, final Finds finds, final long seed, final List<int[]> regions) {
@@ -128,6 +133,7 @@ public final class Furnish {
         for (final Place village : villages) {
             chests(village, TAIGA_LOOT);
         }
+        villageMobs();
         suspicious();
         for (final Map.Entry<String, Map<Integer, List<Change>>> file : files.entrySet()) {
             versions(file.getKey(), file.getValue().keySet());
@@ -149,15 +155,52 @@ public final class Furnish {
         Files.createDirectories(out);
         Files.write(out.resolve(REPORT), lines, StandardCharsets.UTF_8);
         return new Summary(
-                regionFiles, entityFiles, outposts.size(), villages.size(), chests, allays, missing, suspicious);
+                regionFiles,
+                entityFiles,
+                outposts.size(),
+                villages.size(),
+                chests,
+                allays,
+                golems,
+                cats,
+                missing,
+                suspicious);
+    }
+
+    private void villageMobs() throws IOException {
+        final VillageMobs mobs = new VillageMobs(world, area, random);
+        for (final Place village :
+                places(finds.starts, start -> start.id().startsWith(VillageMobs.VILLAGE_PREFIX), "minecraft:village")) {
+            mobs.populate(
+                    village,
+                    entity -> {
+                        final NbtList pos = Nbt.list(entity, "Pos");
+                        final int chunkX = (int) Math.floor((double) pos.get(0)) >> 4;
+                        final int chunkZ = (int) Math.floor((double) pos.get(2)) >> 4;
+                        final boolean golem = Nbt.text(entity, "id").equals(VillageMobs.IRON_GOLEM);
+                        add(ENTITIES, chunkX, chunkZ, chunk -> {
+                            entities(chunk, chunkX, chunkZ).add(entity);
+                            if (golem) {
+                                golems++;
+                            } else {
+                                cats++;
+                            }
+                            return true;
+                        });
+                    },
+                    this::report);
+        }
     }
 
     /** Joins the starts of a structure whose boxes touch into places, as a wide place has several starts. */
     static List<Place> places(final List<Finds.Start> starts, final String structure) {
-        final List<Box> boxes = new ArrayList<>(starts.stream()
-                .filter(start -> start.id().equals(structure))
-                .map(Finds.Start::box)
-                .toList());
+        return places(starts, start -> start.id().equals(structure), structure);
+    }
+
+    /** Joins matching starts whose boxes touch into places. */
+    static List<Place> places(final List<Finds.Start> starts, final Predicate<Finds.Start> match, final String label) {
+        final List<Box> boxes = new ArrayList<>(
+                starts.stream().filter(match).map(Finds.Start::box).toList());
         boolean joined = true;
         while (joined) {
             joined = false;
@@ -171,7 +214,7 @@ public final class Furnish {
             }
         }
         boxes.sort(Comparator.comparingInt(Box::minX).thenComparingInt(Box::minZ));
-        return boxes.stream().map(box -> new Place(structure, box)).toList();
+        return boxes.stream().map(box -> new Place(label, box)).toList();
     }
 
     /**

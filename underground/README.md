@@ -111,7 +111,7 @@ ring by ring, and the wider sets of the game would answer first with a place far
 `furnish --world <world> --seed <seed> --out <dir> --regions 0,0,19,19` runs after `structures`, on
 the world that holds its starts, and writes the region and entity files it changes into `<dir>`, with
 `furnish-report.tsv`, one line per place, per chest with the table it rolled before, per pair of
-allays and per chunk of suspicious blocks. It changes no chunk outside `--regions`, and stops before
+allays, per village for golems and cats, and per chunk of suspicious blocks. It changes no chunk outside `--regions`, and stops before
 it writes anything when a chunk to change is at another data version. A second run on its own output
 writes nothing.
 
@@ -126,6 +126,12 @@ writes nothing.
   and rolls no table, and in a village every chest that rolls the house table of another kind of
   village. A place left with no chest of its table gets it on one chest that holds nothing, of the
   table most of its chests roll, nearest its middle. A chest that holds items is never changed.
+- **Every populated village gets starting iron golems and cats**, which never despawn. A village
+  with 2 to 9 villagers gets 1 iron golem, a village with 10 or more villagers gets 2 iron golems,
+  and every village with at least 1 villager gets 2 to 3 cats of random vanilla variants. Golems
+  prefer sky-open 3x3x3 floor spots near the villagers, falling back to covered or 2x3x2 spots.
+  Cats take open floor spots nearby. Villages that already hold their golems and cats stay as they
+  are.
 - **Every suspicious sand and gravel block gets an archaeology table of the game**, chosen per block:
   under water (water above it before open air) sand rolls the warm ocean ruins' table and gravel the
   cold ones'; on land gravel rolls the trail ruins', one block in eight the rare one, and sand the

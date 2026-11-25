@@ -1,18 +1,21 @@
 import { describe, expect, it } from "vitest"
 
-import type { Npc, NpcStep } from "@/lib/api"
+import type { Npc, NpcMenu, NpcStep } from "@/lib/api"
 import {
   addAnswer,
   addPage,
   addStep,
+  addStepAt,
   arranged,
   blankNpc,
-  boxHeight,
   deleteStep,
-  edgesOf,
+  missingCount,
+  moveStep,
   NODE_WIDTH,
+  nodeHeight,
   ordered,
   overlapping,
+  placeStep,
   problemsOf,
   removeAnswer,
   removePage,
@@ -20,7 +23,8 @@ import {
   setAnswerThen,
   setStepPageText,
   setThen,
-  tailOf,
+  stepNumbers,
+  warningsOf,
 } from "@/lib/npc"
 import { measureKey } from "@/lib/queries-npcs"
 import { isSlim } from "@/lib/npc-skin"
@@ -39,18 +43,14 @@ function npcOf(steps: NpcStep[], start = steps[0].id): Npc {
 }
 
 const said = { de: "ja", en: "yes" }
+const menus: NpcMenu[] = [{ key: "wheel", hint: { en: "Open wheel", de: "Rad" } }]
 
 describe("what follows a step", () => {
-  it("draws an end under a text nothing follows, a menu under one that opens it, and nothing under answers", () => {
-    expect(tailOf(step("a"))).toBe("end")
-    expect(tailOf(step("a", { menu: "objectives" }))).toBe("menu")
-    expect(tailOf(step("a", { next: "b" }))).toBeUndefined()
-    expect(tailOf(step("a", { answers: [{ text: said }] }))).toBeUndefined()
-  })
-
-  it("replaces the next step by a menu and the menu by the end", () => {
+  it("replaces the next step by a menu, the menu by a step, and the menu by the end", () => {
     const opened = setThen(npcOf([step("a", { next: "b" }), step("b")]), "a", { to: "menu", menu: "wheel" })
     expect(opened.dialogue.steps[0]).toEqual(step("a", { menu: "wheel" }))
+    const relinked = setThen(opened, "a", { to: "step", step: "b" })
+    expect(relinked.dialogue.steps[0]).toEqual(step("a", { next: "b" }))
     expect(setThen(opened, "a", { to: "end" }).dialogue.steps[0]).toEqual(step("a"))
   })
 
@@ -74,13 +74,34 @@ describe("what follows a step", () => {
   })
 })
 
-describe("adding and deleting steps", () => {
-  it("puts a new step where it covers no other", () => {
+describe("adding, moving, placing and deleting steps", () => {
+  it("puts a new step to the right where it covers no other", () => {
     const first = addStep(npcOf([step("a")]), "a")
     const second = addStep(first.npc, "a")
     expect(first.id).not.toBe(second.id)
     expect(overlapping(second.npc.dialogue)).toBe(false)
     expect(second.npc.dialogue.steps[2].x).toBe(second.npc.dialogue.steps[1].x)
+  })
+
+  it("allows negative integer coordinates and nudges only the dropped step on overlap", () => {
+    const moved = moveStep(npcOf([step("a")]), "a", -120.4, -45.7)
+    expect(moved.dialogue.steps[0].x).toBe(-120)
+    expect(moved.dialogue.steps[0].y).toBe(-46)
+
+    const two = npcOf([step("a", { x: 100, y: 100 }), step("b", { x: 500, y: 100 })])
+    const nudged = placeStep(two, "b", 110, 110)
+    expect(nudged.dialogue.steps[0].x).toBe(100)
+    expect(nudged.dialogue.steps[0].y).toBe(100)
+    expect(overlapping(nudged.dialogue)).toBe(false)
+  })
+
+  it("adds a step at given coordinates without overlapping existing steps", () => {
+    const base = npcOf([step("a", { x: 0, y: 0 })])
+    const added = addStepAt(base, -400.2, 20.6)
+    expect(added.npc.dialogue.steps[1].x).toBe(-400)
+    expect(added.npc.dialogue.steps[1].y).toBe(21)
+    const onTop = addStepAt(base, 10, 10)
+    expect(overlapping(onTop.npc.dialogue)).toBe(false)
   })
 
   it("ends whatever led to a deleted step and moves the start off it", () => {
@@ -96,7 +117,7 @@ describe("adding and deleting steps", () => {
   })
 })
 
-describe("the order of the steps", () => {
+describe("the order and arrangement of the steps", () => {
   const npc = npcOf(
     [
       step("lost"),
@@ -108,13 +129,20 @@ describe("the order of the steps", () => {
     "hello",
   )
 
-  it("follows the dialogue from its start, an answer's step before the next answer's, and lists the rest last", () => {
+  it("follows the dialogue from its start, numbers steps in reading order, and lists unlinked steps last", () => {
     expect(ordered(npc.dialogue).map((entry) => [entry.step.id, entry.linked])).toEqual([
       ["hello", true],
       ["ask", true],
       ["work", true],
       ["valley", true],
       ["lost", false],
+    ])
+    expect([...stepNumbers(npc.dialogue).entries()]).toEqual([
+      ["hello", 1],
+      ["ask", 2],
+      ["work", 3],
+      ["valley", 4],
+      ["lost", 5],
     ])
   })
 
@@ -124,24 +152,16 @@ describe("the order of the steps", () => {
     expect(overlapping(tidy.dialogue)).toBe(false)
     const at = (id: string) => tidy.dialogue.steps.find((each) => each.id === id)!
     expect(at("ask").x).toBeGreaterThan(at("hello").x + NODE_WIDTH)
-    expect(at("valley").y).toBeGreaterThanOrEqual(at("work").y + boxHeight(at("work")))
-  })
-
-  it("draws one line per answer that leads somewhere, one per next step and one per menu or end", () => {
-    expect(
-      edgesOf(arranged(npc).dialogue)
-        .map((edge) => edge.key)
-        .toSorted(),
-    ).toEqual(["ask:0", "ask:1", "hello:next", "lost:tail", "valley:next", "work:tail"].toSorted())
+    expect(at("valley").y).toBeGreaterThanOrEqual(at("work").y + nodeHeight(at("work")))
   })
 })
 
-describe("what the page refuses before it publishes", () => {
+describe("problems, warnings and missing text counts", () => {
   it("accepts a named, placed NPC whose texts are all there", () => {
-    expect(problemsOf(npcOf([step("a")]))).toEqual([])
+    expect(problemsOf(npcOf([step("a")]), undefined, menus)).toEqual([])
   })
 
-  it("names the missing name, the missing position and the step that lacks a text, in that order", () => {
+  it("lists missing name, position, step text and answer text in English-first order", () => {
     const npc = {
       ...blankNpc("00000000-0000-0000-0000-000000000001"),
       name: { de: "Runa", en: " " },
@@ -157,9 +177,32 @@ describe("what the page refuses before it publishes", () => {
       { problem: "name", language: "en" },
       { problem: "place" },
       { problem: "step-text", language: "de", step: "b", page: 0 },
-      { problem: "answer-text", language: "en", step: "b" },
+      { problem: "answer-text", language: "en", step: "b", answer: 0 },
+    ])
+    expect(missingCount(npc.dialogue.steps[1])).toBe(2)
+  })
+
+  it("flags an unregistered menu only once menus have loaded", () => {
+    const npc = npcOf([step("a", { menu: "missing-menu" })])
+    expect(problemsOf(npc, undefined, undefined)).toEqual([])
+    expect(problemsOf(npc, undefined, menus)).toEqual([{ problem: "menu-unknown", step: "a", menu: "missing-menu" }])
+  })
+
+  it("reports unlinked steps and width-cut texts as non-blocking warnings", () => {
+    const npc = npcOf([step("a", { pages: [{ en: "wide", de: "ok" }] }), step("orphan")])
+    const measured = new Map([
+      [
+        measureKey({ text: "wide", kind: "BODY", answers: 0 }),
+        { lines: ["wide"], width: 300, room: 226, lineLimit: 6, fits: false },
+      ],
+    ])
+    expect(problemsOf(npc, measured, menus)).toEqual([])
+    expect(warningsOf(npc, measured)).toEqual([
+      { warning: "step-wide", language: "en", step: "a", page: 0 },
+      { warning: "unlinked", step: "orphan" },
     ])
   })
+
   it("adds, edits and removes explicit pages while keeping the last page", () => {
     const start = npcOf([step("a")])
     const two = setStepPageText(addPage(start, "a"), "a", 1, "en", "Page two")
@@ -180,7 +223,7 @@ describe("what the page refuses before it publishes", () => {
         { lines: ["1", "2", "3", "4", "5", "6", "7"], width: 100, room: 226, lineLimit: 6, fits: false },
       ],
     ])
-    expect(problemsOf(npc, measured)).toEqual([{ problem: "step-tall", language: "en", step: "a", page: 0 }])
+    expect(problemsOf(npc, measured)).toEqual([{ problem: "step-tall", language: "en", step: "a", page: 0, limit: 6 }])
   })
 })
 

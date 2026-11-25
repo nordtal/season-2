@@ -1695,11 +1695,15 @@ export type TextArgs = {
   }
   "steward.notifications.unnamed": Record<string, never>
   "steward.npcs.add-answer": Record<string, never>
+  "steward.npcs.add-linked-step": Record<string, never>
   "steward.npcs.add-page": Record<string, never>
   "steward.npcs.add-step": Record<string, never>
   "steward.npcs.answer-count": {
     count: Arg["number"]
     most: Arg["number"]
+  }
+  "steward.npcs.answer-number": {
+    index: Arg["number"]
   }
   "steward.npcs.answer-text": {
     index: Arg["number"]
@@ -1712,6 +1716,7 @@ export type TextArgs = {
   "steward.npcs.arrange": Record<string, never>
   "steward.npcs.back": Record<string, never>
   "steward.npcs.cancel-play": Record<string, never>
+  "steward.npcs.canvas-language": Record<string, never>
   "steward.npcs.changed": Record<string, never>
   "steward.npcs.conflict": {
     name: Arg["text"]
@@ -1742,18 +1747,19 @@ export type TextArgs = {
   "steward.npcs.discard-note": {
     version: Arg["number"]
   }
+  "steward.npcs.draft-unpublished": Record<string, never>
+  "steward.npcs.drag-start": Record<string, never>
   "steward.npcs.empty-slot": Record<string, never>
   "steward.npcs.end": Record<string, never>
   "steward.npcs.facing": Record<string, never>
+  "steward.npcs.fit": Record<string, never>
   "steward.npcs.graph": Record<string, never>
   "steward.npcs.is-live": Record<string, never>
   "steward.npcs.items": Record<string, never>
-  "steward.npcs.kind": {
-    kind: Arg["choice"]
-  }
   "steward.npcs.language": {
     language: Arg["choice"]
   }
+  "steward.npcs.leads-to": Record<string, never>
   "steward.npcs.lines": {
     lines: Arg["number"]
     limit: Arg["number"]
@@ -1768,8 +1774,8 @@ export type TextArgs = {
   "steward.npcs.loaded": {
     number: Arg["number"]
   }
-  "steward.npcs.missing": {
-    language: Arg["choice"]
+  "steward.npcs.missing-count": {
+    count: Arg["number"]
   }
   "steward.npcs.name": Record<string, never>
   "steward.npcs.name-in": {
@@ -1819,16 +1825,50 @@ export type TextArgs = {
     pose: Arg["choice"]
   }
   "steward.npcs.preview": Record<string, never>
-  "steward.npcs.problem": {
-    problem: Arg["choice"]
+  "steward.npcs.problem-answer-text": {
+    number: Arg["number"]
+    index: Arg["number"]
     language: Arg["choice"]
   }
+  "steward.npcs.problem-menu-unknown": {
+    number: Arg["number"]
+    menu: Arg["text"]
+  }
+  "steward.npcs.problem-name": {
+    language: Arg["choice"]
+  }
+  "steward.npcs.problem-place": Record<string, never>
+  "steward.npcs.problem-step-page-tall": {
+    number: Arg["number"]
+    page: Arg["number"]
+    language: Arg["choice"]
+    limit: Arg["number"]
+  }
+  "steward.npcs.problem-step-page-text": {
+    number: Arg["number"]
+    page: Arg["number"]
+    language: Arg["choice"]
+  }
+  "steward.npcs.problem-step-tall": {
+    number: Arg["number"]
+    language: Arg["choice"]
+    limit: Arg["number"]
+  }
+  "steward.npcs.problem-step-text": {
+    number: Arg["number"]
+    language: Arg["choice"]
+  }
+  "steward.npcs.problems": {
+    count: Arg["number"]
+  }
+  "steward.npcs.problems-heading": Record<string, never>
   "steward.npcs.publish": Record<string, never>
   "steward.npcs.published": {
     name: Arg["text"]
     version: Arg["number"]
   }
   "steward.npcs.publishing": Record<string, never>
+  "steward.npcs.redo": Record<string, never>
   "steward.npcs.remove-answer": {
     index: Arg["number"]
   }
@@ -1856,11 +1896,26 @@ export type TextArgs = {
   }
   "steward.npcs.start": Record<string, never>
   "steward.npcs.start-here": Record<string, never>
-  "steward.npcs.step": Record<string, never>
   "steward.npcs.step-count": {
     count: Arg["number"]
   }
+  "steward.npcs.step-deleted": {
+    number: Arg["number"]
+  }
+  "steward.npcs.step-deleted-start": {
+    number: Arg["number"]
+    start: Arg["number"]
+  }
+  "steward.npcs.step-named": {
+    number: Arg["number"]
+    text: Arg["text"]
+  }
+  "steward.npcs.step-number": {
+    number: Arg["number"]
+  }
   "steward.npcs.steps": Record<string, never>
+  "steward.npcs.summary-missing": Record<string, never>
+  "steward.npcs.summary-unlinked": Record<string, never>
   "steward.npcs.tab": {
     tab: Arg["choice"]
   }
@@ -1871,12 +1926,12 @@ export type TextArgs = {
     step: Arg["text"]
   }
   "steward.npcs.title": Record<string, never>
-  "steward.npcs.too-long": {
-    language: Arg["choice"]
-  }
+  "steward.npcs.toggle-preview": Record<string, never>
+  "steward.npcs.too-long-short": Record<string, never>
   "steward.npcs.too-tall": {
     limit: Arg["number"]
   }
+  "steward.npcs.undo": Record<string, never>
   "steward.npcs.unlinked": Record<string, never>
   "steward.npcs.unnamed": Record<string, never>
   "steward.npcs.upload-portrait": Record<string, never>
@@ -1890,7 +1945,25 @@ export type TextArgs = {
   "steward.npcs.versions-of": {
     name: Arg["text"]
   }
+  "steward.npcs.warning-answer-wide": {
+    number: Arg["number"]
+    index: Arg["number"]
+    language: Arg["choice"]
+  }
+  "steward.npcs.warning-step-wide": {
+    number: Arg["number"]
+    language: Arg["choice"]
+  }
+  "steward.npcs.warning-unlinked": {
+    number: Arg["number"]
+  }
+  "steward.npcs.warnings": {
+    count: Arg["number"]
+  }
+  "steward.npcs.warnings-heading": Record<string, never>
   "steward.npcs.world": Record<string, never>
+  "steward.npcs.zoom-in": Record<string, never>
+  "steward.npcs.zoom-out": Record<string, never>
   "steward.operations.a-run": Record<string, never>
   "steward.operations.added": {
     size: Arg["text"]

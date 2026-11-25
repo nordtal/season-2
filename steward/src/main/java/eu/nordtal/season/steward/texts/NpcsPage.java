@@ -47,6 +47,9 @@ public interface NpcsPage {
     @Name("Not published")
     MessageRef notPublished();
 
+    @Name("Unpublished draft")
+    MessageRef draftUnpublished();
+
     @Name("Draft changed")
     MessageRef changed();
 
@@ -92,8 +95,66 @@ public interface NpcsPage {
     @Name("Not published, as a heading")
     MessageRef notPublishedYet();
 
-    @Name("What keeps a draft from playing")
-    MessageRef problem(@Arg("problem") Problem problem, @Arg("language") Language language);
+    @Name("Problem count")
+    MessageRef problems(@Arg("count") @Example("2") int count);
+
+    @Name("Warning count")
+    MessageRef warnings(@Arg("count") @Example("1") int count);
+
+    @Name("Problems heading")
+    MessageRef problemsHeading();
+
+    @Name("Warnings heading")
+    MessageRef warningsHeading();
+
+    @Name("Missing name problem")
+    MessageRef problemName(@Arg("language") Language language);
+
+    @Name("Missing position problem")
+    MessageRef problemPlace();
+
+    @Name("Missing step text problem")
+    MessageRef problemStepText(@Arg("number") @Example("2") int number, @Arg("language") Language language);
+
+    @Name("Missing step page text problem")
+    MessageRef problemStepPageText(
+            @Arg("number") @Example("2") int number,
+            @Arg("page") @Example("2") int page,
+            @Arg("language") Language language);
+
+    @Name("Too many lines problem")
+    MessageRef problemStepTall(
+            @Arg("number") @Example("2") int number,
+            @Arg("language") Language language,
+            @Arg("limit") @Example("6") int limit);
+
+    @Name("Too many lines on page problem")
+    MessageRef problemStepPageTall(
+            @Arg("number") @Example("2") int number,
+            @Arg("page") @Example("2") int page,
+            @Arg("language") Language language,
+            @Arg("limit") @Example("6") int limit);
+
+    @Name("Missing answer text problem")
+    MessageRef problemAnswerText(
+            @Arg("number") @Example("2") int number,
+            @Arg("index") @Example("1") int index,
+            @Arg("language") Language language);
+
+    @Name("Unknown menu problem")
+    MessageRef problemMenuUnknown(@Arg("number") @Example("2") int number, @Arg("menu") @Example("wheel") String menu);
+
+    @Name("Unlinked step warning")
+    MessageRef warningUnlinked(@Arg("number") @Example("3") int number);
+
+    @Name("Width-cut step warning")
+    MessageRef warningStepWide(@Arg("number") @Example("2") int number, @Arg("language") Language language);
+
+    @Name("Width-cut answer warning")
+    MessageRef warningAnswerWide(
+            @Arg("number") @Example("2") int number,
+            @Arg("index") @Example("1") int index,
+            @Arg("language") Language language);
 
     @Name("Discard")
     MessageRef discard();
@@ -122,9 +183,6 @@ public interface NpcsPage {
     @Name("Language")
     MessageRef language(@Arg("language") Language language);
 
-    @Name("Step kind")
-    MessageRef kind(@Arg("kind") Kind kind);
-
     @Name("Start")
     MessageRef start();
 
@@ -134,11 +192,11 @@ public interface NpcsPage {
     @Name("No text")
     MessageRef noText();
 
-    @Name("Text missing")
-    MessageRef missing(@Arg("language") Language language);
+    @Name("Missing text count")
+    MessageRef missingCount(@Arg("count") @Example("2") int count);
 
-    @Name("Text too long")
-    MessageRef tooLong(@Arg("language") Language language);
+    @Name("Too long badge")
+    MessageRef tooLongShort();
 
     @Name("Add a step")
     MessageRef addStep();
@@ -146,11 +204,50 @@ public interface NpcsPage {
     @Name("Arrange the steps")
     MessageRef arrange();
 
+    @Name("Undo")
+    MessageRef undo();
+
+    @Name("Redo")
+    MessageRef redo();
+
+    @Name("Zoom in")
+    MessageRef zoomIn();
+
+    @Name("Zoom out")
+    MessageRef zoomOut();
+
+    @Name("Fit canvas")
+    MessageRef fit();
+
+    @Name("Canvas language")
+    MessageRef canvasLanguage();
+
+    @Name("Add linked step")
+    MessageRef addLinkedStep();
+
+    @Name("Drag start flag")
+    MessageRef dragStart();
+
     @Name("Dialogue steps")
     MessageRef graph();
 
-    @Name("Step")
-    MessageRef step();
+    @Name("Step number")
+    MessageRef stepNumber(@Arg("number") @Example("1") int number);
+
+    @Name("Step number with text")
+    MessageRef stepNamed(@Arg("number") @Example("2") int number, @Arg("text") @Example("Welcome") String text);
+
+    @Name("Step deleted")
+    MessageRef stepDeleted(@Arg("number") @Example("2") int number);
+
+    @Name("Start step deleted")
+    MessageRef stepDeletedStart(@Arg("number") @Example("1") int number, @Arg("start") @Example("2") int start);
+
+    @Name("Missing texts summary")
+    MessageRef summaryMissing();
+
+    @Name("Unlinked steps summary")
+    MessageRef summaryUnlinked();
 
     @Name("Lines")
     MessageRef lines(@Arg("lines") @Example("4") int lines, @Arg("limit") @Example("6") int limit);
@@ -176,6 +273,9 @@ public interface NpcsPage {
     @Name("Then")
     MessageRef then();
 
+    @Name("Leads to")
+    MessageRef leadsTo();
+
     @Name("Then for an answer")
     MessageRef answerThen(@Arg("index") @Example("2") int index);
 
@@ -193,6 +293,9 @@ public interface NpcsPage {
 
     @Name("Answers")
     MessageRef answers();
+
+    @Name("Answer number")
+    MessageRef answerNumber(@Arg("index") @Example("1") int index);
 
     @Name("Add an answer")
     MessageRef addAnswer();
@@ -214,6 +317,9 @@ public interface NpcsPage {
 
     @Name("Preview")
     MessageRef preview();
+
+    @Name("Toggle preview")
+    MessageRef togglePreview();
 
     @Name("Name in a language")
     MessageRef nameIn(@Arg("language") Language language);
@@ -352,22 +458,5 @@ public interface NpcsPage {
     enum Language {
         DE,
         EN
-    }
-
-    /** What a step is drawn as: a text, a text with answers, the menu it opens or the end after it. */
-    enum Kind {
-        TEXT,
-        ANSWERS,
-        MENU,
-        END
-    }
-
-    /** What the page finds in a draft before it sends it. */
-    enum Problem {
-        NAME,
-        PLACE,
-        STEP_TEXT,
-        STEP_TALL,
-        ANSWER_TEXT
     }
 }

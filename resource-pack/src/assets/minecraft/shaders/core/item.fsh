@@ -32,7 +32,7 @@ layout(location = 6) in vec2 texCoordGlint;
 #endif
 layout(location = 7) in vec4 wallCoord; // nordtal, from item.vsh
 layout(location = 8) in vec3 wallView;  // nordtal, from item.vsh
-layout(location = 9) flat in float wallGround; // nordtal, from item.vsh
+layout(location = 9) flat in vec2 wallGround; // nordtal, from item.vsh
 layout(location = 10) in vec3 wallSpan; // nordtal, from item.vsh
 
 #ifndef OIT_ALPHA_ONLY
@@ -42,18 +42,18 @@ layout(location = 0) out vec4 fragColor;
 // BEGIN nordtal wall field
 
 const float WALL_EYE = 1.62;        // blocks from the feet up to the camera, for a player standing
-const float WALL_ABOVE = 7.0;       // blocks: the band's upper end above the feet
-const float WALL_BELOW = 3.0;       // and its lower end below the ground, or below the feet when they are lower
-const float WALL_ROOM = 2.0;        // blocks at the band's upper end where only the flakes are, above the wall
+const float WALL_ABOVE = 13.0;      // blocks: the band's upper end above the ground
+const float WALL_BELOW = 3.0;       // and its lower end below the ground
+const float WALL_ROOM = 8.0;        // blocks at the band's upper end where only the flakes are, above the wall
 const float WALL_TOP = 5.0;         // blocks over which the wall fades in below its upper end
 const float WALL_BOTTOM = 1.75;     // blocks over which it fades out above the band's lower end
-const float WALL_SNOW_IN = 1.0;     // blocks below the band's upper end where a flake has come in whole: half the room
+const float WALL_SNOW_IN = 6.0;     // blocks below the band's upper end where a flake has come in whole
 const float WALL_SNOW_OUT = 0.25;   // blocks above the band's lower end where a flake starts to go
-const float WALL_FADE_START = 0.8;  // of the distance where the wall has faded out, where it starts to fade
-const float WALL_FADE_END = 30.0;   // blocks from the camera where the wall has faded out along its length, at the camera's height
-const float WALL_SLOPE = 0.75;      // blocks farther it reaches for each block it lies below the camera
-const float WALL_LEVEL = 6.0;       // blocks below the camera where it starts to reach farther
-const float WALL_DEPTH = 96.0;      // blocks below that where it reaches no farther
+const float WALL_FADE_START = 0.7;  // of the distance where the wall has faded out, where it starts to fade
+const float WALL_FADE_END = 128.0;  // blocks from the camera where the wall has faded out
+const float WALL_PALE_START = 6.0;  // blocks from the camera where the wall starts to pale
+const float WALL_PALE_END = 40.0;   // and from where it is as pale as it gets
+const float WALL_PALE = 0.4;        // how much of its strength the wall keeps there
 const float WALL_NEAR_START = 1.5;  // closer than this the wall shows its full strength
 const float WALL_NEAR_END = 6.0;    // farther than this it shows its normal one
 
@@ -111,9 +111,9 @@ float wallDepth(float fromTop, float fromBottom) {
 }
 
 // How much of a flake shows at this depth below the band's upper end: none at the band's upper end,
-// all of it WALL_SNOW_IN blocks below, half way down the room above the wall, and all of it from
-// there until the last WALL_SNOW_OUT blocks of the band. So the snow fades in from the top and no
-// flake fades on its way down.
+// all of it WALL_SNOW_IN blocks below, still in the room above the wall, and all of it from there
+// until the last WALL_SNOW_OUT blocks of the band. So the snow fades in from the top and no flake
+// fades on its way down.
 float wallSnowShows(float fromTop, float fromBottom) {
     return wallEase(0.0, WALL_SNOW_IN, fromTop) * wallEase(0.0, WALL_SNOW_OUT, fromBottom);
 }
@@ -350,7 +350,10 @@ vec4 wallField(vec4 coord, vec3 view, float fromTop, float fromBottom, float fad
     colour = mix(colour, WALL_FLAKE, min(1.0, 2.0 * snow));
     alpha = mix(alpha, WALL_FLAKE_ALPHA, snow);
 
-    float reach = 1.0 - smoothstep(WALL_FADE_START * fadeEnd, fadeEnd, length(coord.zw));
+    // Strong near the camera only: the wall pales with its distance and then fades out, both softly.
+    float away = length(coord.zw);
+    float reach = mix(1.0, WALL_PALE, wallEase(WALL_PALE_START, WALL_PALE_END, away))
+                * (1.0 - wallEase(WALL_FADE_START * fadeEnd, fadeEnd, away));
     return vec4(colour, min(alpha * (1.0 + 0.2 * close), 0.97) * reach);
 }
 
@@ -360,20 +363,21 @@ const float WALL_SKYWARD = 1024.0;  // and while the wall stands up to the build
 const float WALL_SKY_FADE = 48.0;   // blocks below the build limit over which the standing wall fades in
 
 // The wall's contour: a steady band on the ground under the panel, anchored down to under - WALL_BELOW.
+// ground: x = the ground, y = blocks the band's upper end rises over what stands on that ground.
 // The server stretches a panel downwards while the player flies, and the client interpolates that, so
 // the panel's height says how far the wall's upper end has risen from the band to the build limit.
 // span: x = 1 at the panel's upper end and 0 at its lower end, y = x times the upper end's height,
 // z = 1 - x times the lower end's. Underground (feet < under - 2.0), a local band stays at the
 // player's height without stretching through rock.
 // Returns the field's colour, or a negative alpha where nothing is drawn.
-vec4 wallBand(vec4 coord, vec3 view, float ground, vec3 span, float gameTime) {
+vec4 wallBand(vec4 coord, vec3 view, vec2 ground, vec3 span, float gameTime) {
     float camera = coord.y - view.y;
     float feet = camera - WALL_EYE;
-    float under = ground > -100000.0 ? ground : feet;
+    float under = ground.x > -100000.0 ? ground.x : feet;
 
-    float groundTop = under + WALL_ABOVE;
+    float groundTop = under + WALL_ABOVE + ground.y;
     float groundBottom = under - WALL_BELOW;
-    float fadeEnd = WALL_FADE_END + WALL_SLOPE * clamp(camera - coord.y - WALL_LEVEL, 0.0, WALL_DEPTH);
+    float fadeEnd = WALL_FADE_END;
 
     float upperEnd = span.y / max(span.x, 0.0001);
     float lowerEnd = span.z / max(1.0 - span.x, 0.0001);

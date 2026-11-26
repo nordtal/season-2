@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.DoublePredicate;
-import java.util.function.ToIntFunction;
+import java.util.function.Function;
 
 /**
  * The part of the wall a player sees: the panels near them, as a band on the ground or up to the build limit.
@@ -14,30 +14,17 @@ import java.util.function.ToIntFunction;
  */
 final class Band {
 
-    /**
-     * Where the wall has faded out, in blocks along it, at the camera's own height.
-     *
-     * The field's shader fades it by the camera's distance, and the pixel look's last three panels fade.
-     */
+    /** Where the pixel look has faded out, in blocks along the wall: its last three panels fade. */
     static final double RADIUS = 30;
+
+    /** Where the field has faded out, in blocks from the camera, as the shader fades it. */
+    static final double FAR = 128;
 
     /** How far the camera can be from the eye, in blocks: a third-person camera stands up to 4 blocks away. */
     static final double CAMERA = 4;
 
     /** How far the band reaches below the feet or the ground, in blocks. */
     static final double BELOW = 3;
-
-    /** The eye above the feet of a player standing, in blocks, as the shader assumes from the camera. */
-    static final double EYE = 1.62;
-
-    /** The field reaches this many blocks farther along the wall for each block it lies below the camera. */
-    static final double SLOPE = 0.75;
-
-    /** The field starts to reach farther this many blocks below the camera. */
-    static final double LEVEL = 6;
-
-    /** Below this many blocks under the camera, plus {@link #LEVEL}, the field reaches no farther. */
-    static final double DEPTH = 96;
 
     /** How far a fast player moves before the server sends what changed, in blocks. */
     static final double LEAD = 4;
@@ -63,63 +50,37 @@ final class Band {
     /** How far above the world's highest block the field's entities stand, where the client skips its section check. */
     static final double OVER = 16;
 
-    /** A panel whose ground is not known: its chunk is not loaded. The shader then follows the feet. */
-    static final int UNKNOWN = Integer.MIN_VALUE;
+    /** The lowest and the highest foot the tint carries. */
+    static final int LOWEST = -64;
 
-    /** The lowest and the highest ground the tint carries. */
-    static final int LOWEST = -2048;
+    static final int HIGHEST = LOWEST + (1 << 9) - 1;
 
-    static final int HIGHEST = LOWEST + (1 << 15) - 2;
+    /** The highest rise the tint carries: one more with the highest foot is the tint of an unknown ground. */
+    static final int HIGHEST_RISE = (1 << 6) - 2;
 
     private Band() {}
 
-    /**
-     * The panels a player sees, each with its model and ground.
-     *
-     * The player's feet are at {@code x}, {@code eyeY} minus their eye height, {@code z}.
-     */
+    /** The panels a player at {@code x}, {@code z} sees, each with its model and ground. */
     static Map<Panel, Seen> seen(
-            final Wall wall,
-            final Look look,
-            final double x,
-            final double z,
-            final double eyeY,
-            final ToIntFunction<Panel> ground) {
+            final Wall wall, final Look look, final double x, final double z, final Function<Panel, Ground> ground) {
         final Map<Panel, Seen> seen = new HashMap<>();
-        if (look != Look.FIELD) {
-            for (final Panel panel : wall.near(x, z, RADIUS)) {
-                seen.put(panel, new Seen(look.model(panel.distance(x, z)), UNKNOWN));
-            }
-            return seen;
-        }
-        final double farthest = fadeEnd(DEPTH + LEVEL) + CAMERA + LEAD;
-        for (final Panel panel : wall.near(x, z, farthest)) {
-            final int under = ground.applyAsInt(panel);
-            if (panel.distance(x, z) <= reach(eyeY, under)) {
-                seen.put(panel, new Seen(look.model(panel.distance(x, z)), under));
-            }
+        for (final Panel panel : wall.near(x, z, reach(look))) {
+            seen.put(
+                    panel,
+                    new Seen(
+                            look.model(panel.distance(x, z)),
+                            look == Look.FIELD ? ground.apply(panel) : Ground.UNKNOWN));
         }
         return seen;
-    }
-
-    /** Where the field has faded out along the wall, in blocks from the camera, at {@code below} under it. */
-    static double fadeEnd(final double below) {
-        return RADIUS + SLOPE * Math.clamp(below - LEVEL, 0, DEPTH);
     }
 
     /**
      * How far from the player a panel is sent, in blocks.
      *
-     * The field's reach at the band's foot, from a camera up to {@link #CAMERA} above the eye and beside it.
+     * The field's reach from a camera up to {@link #CAMERA} beside the eye, for a player {@link #LEAD} farther on.
      */
-    static double reach(final double eyeY, final int ground) {
-        final double camera = eyeY + CAMERA;
-        return fadeEnd(camera - foot(ground, eyeY - CAMERA - EYE)) + CAMERA + LEAD;
-    }
-
-    /** The band's lower end over this ground for feet at {@code feetY}. */
-    static double foot(final int ground, final double feetY) {
-        return (ground == UNKNOWN ? feetY : Math.min(ground, feetY)) - BELOW;
+    static double reach(final Look look) {
+        return look == Look.FIELD ? FAR + CAMERA + LEAD : RADIUS;
     }
 
     /**
@@ -143,13 +104,15 @@ final class Band {
 
     /**
      * The tint that carries a panel's ground to the shader, as RGB.
-     * Ground plus 2048 uses 15 bits (five per channel, each stored as 130 + 4 times its bits).
+     * The foot above {@link #LOWEST} uses 9 bits and the rise 6 (five per channel, each stored as 130 + 4 times its
+     * bits).
      */
-    static int tint(final int ground) {
-        if (ground == UNKNOWN) {
+    static int tint(final Ground ground) {
+        if (ground.equals(Ground.UNKNOWN)) {
             return 0xFFFFFF;
         }
-        final int value = Math.clamp(ground, LOWEST, HIGHEST) - LOWEST;
+        final int value =
+                (Math.clamp(ground.foot(), LOWEST, HIGHEST) - LOWEST) << 6 | Math.clamp(ground.rise(), 0, HIGHEST_RISE);
         return channel(value >> 10) << 16 | channel(value >> 5) << 8 | channel(value);
     }
 
@@ -184,7 +147,17 @@ final class Band {
     }
 
     /** A panel as the player sees it: its item model, in the namespace {@code nordtal}, and its ground. */
-    record Seen(String model, int ground) {}
+    record Seen(String model, Ground ground) {}
+
+    /**
+     * The ground under a panel, where the band's foot stands.
+     * The band's upper end is {@code rise} blocks higher than over open ground.
+     */
+    record Ground(int foot, int rise) {
+
+        /** A panel whose ground is not known: its chunk is not loaded. The shader then follows the feet. */
+        static final Ground UNKNOWN = new Ground(Integer.MIN_VALUE, 0);
+    }
 
     /**
      * The height the field's entities stand at in a world whose blocks end below {@code maxHeight}.
@@ -198,7 +171,7 @@ final class Band {
     /** The view range that reaches from the anchor to the farthest camera below it, at the lowest entity distance. */
     static float viewRange(final int minHeight, final int maxHeight) {
         final double down = anchor(maxHeight) - minHeight + CAMERA;
-        final double along = fadeEnd(DEPTH + LEVEL) + CAMERA + LEAD;
+        final double along = reach(Look.FIELD);
         // The client draws an entity up to its view range times 64 blocks, times the entity distance of at least half.
         return (float) Math.ceil(Math.hypot(down, along) / 32);
     }

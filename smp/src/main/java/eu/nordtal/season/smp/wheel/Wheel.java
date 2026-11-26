@@ -324,7 +324,8 @@ public final class Wheel {
             if (turn.ended()) {
                 return;
             }
-            plan = WheelPlan.turning(face, face.draw(pool, timetable.variants(), random));
+            final int variant = face.draw(pool, timetable.variants(), random);
+            plan = WheelPlan.turning(face, variant, WheelPlan.drawRebound(random));
             final WheelPrizeSpec prize = plan.winner();
             final ItemStack item = itemOf(prize);
             if (item == null) {
@@ -487,6 +488,7 @@ public final class Wheel {
             clicks[0] = turn(
                     player,
                     plan.variant(),
+                    plan.rebound(),
                     () -> {
                         end.run();
                         rest.run();
@@ -517,11 +519,15 @@ public final class Wheel {
 
     /** Plays the clicks of {@code variant}'s turn, then {@code end} once the wheel rests. */
     private Scheduler.Task turn(
-            final Player player, final int variant, final Runnable end, final Consumer<Runnable> guard) {
-        final Set<Integer> clicks = Set.copyOf(timetable.clicks().getOrDefault(variant, List.of()));
+            final Player player,
+            final int variant,
+            final boolean rebound,
+            final Runnable end,
+            final Consumer<Runnable> guard) {
+        final Set<Integer> clicks = Set.copyOf(timetable.clicks(variant, rebound));
         return play(
                 player,
-                timetable.end(variant),
+                timetable.end(variant, rebound),
                 tick -> {
                     if (clicks.contains(tick)) {
                         sounds.play(player, Feedback.COUNTDOWN_TICK);

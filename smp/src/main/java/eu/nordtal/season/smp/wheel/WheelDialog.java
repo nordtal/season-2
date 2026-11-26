@@ -33,7 +33,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The wooden wheel as a dialog of 2 item bodies: a lone base art body, then glinting prizes with a 17-line description.
+ * The wooden wheel as a dialog of 2 item bodies: a lone base art body, then glinting prizes with a 12-line description.
  * The description's focus cover hides every client focus outline while carrying the Spin plate and prize hovers.
  */
 final class WheelDialog {
@@ -64,7 +64,7 @@ final class WheelDialog {
     private static final int FOIL_BODY = 1;
 
     /** The panel's top, which the header draws from. */
-    private static final int TOP = 43;
+    private static final int TOP = 46;
 
     /** The panel's one margin around the header, the wheel and the plate. */
     private static final int MARGIN = 7;
@@ -131,7 +131,7 @@ final class WheelDialog {
                         .description(DialogBody.plainMessage(
                                 description(texts, spinLeft, click, rows, resting), textWidth(rows)))
                         .build());
-        final Component title = DialogTitle.of(DialogPanel.WHEEL_197, TOP)
+        final Component title = DialogTitle.of(DialogPanel.WHEEL_158, TOP)
                 .header(Symbol.WHEEL, texts.name(), List.of(), MARGIN)
                 .build();
         return Dialog.create(builder -> builder.empty()
@@ -140,7 +140,7 @@ final class WheelDialog {
     }
 
     /**
-     * The 17-line description: focus cover on line 0, all 12 prize hovers at rest, the Spin plate and the spins line.
+     * The 12-line description: focus cover on line 0, all 12 prize hovers at rest, the Spin plate and the spins line.
      * While turning ({@code resting == null}), the Spin plate stays disabled without a click callback or hover tooltip.
      */
     static Component description(

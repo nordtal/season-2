@@ -36,9 +36,10 @@ class WheelDialogTest {
             "Close");
 
     @Test
-    void descriptionHasSeventeenLinesWithFocusCoverOnLineZero() {
+    void descriptionHasTwelveLinesWithFocusCoverOnLineZero() {
         final Component desc = WheelDialog.description(TEXTS, false, null, ROWS, null);
         final List<Component> lines = splitLines(desc);
+        assertEquals(12, ROWS.lines());
         assertEquals(ROWS.lines(), lines.size());
         final String line0 = plainGlyphs(lines.getFirst());
         assertTrue(line0.contains(Glyphs.UI_WHEEL_RING_LEFT));
@@ -51,9 +52,8 @@ class WheelDialogTest {
         final Component desc = WheelDialog.description(TEXTS, true, click, ROWS, null);
         final List<Component> lines = splitLines(desc);
         assertFalse(hasClickEvent(desc));
-        assertFalse(hasHoverEvent(lines.get(7)));
-        assertFalse(hasHoverEvent(lines.get(8)));
-        assertFalse(hasHoverEvent(lines.get(9)));
+        assertFalse(hasHoverEvent(lines.get(5)));
+        assertFalse(hasHoverEvent(lines.get(6)));
     }
 
     @Test
@@ -61,13 +61,11 @@ class WheelDialogTest {
         final ClickEvent click = ClickEvent.suggestCommand("/spin");
         final Component desc = WheelDialog.description(TEXTS, true, click, NO_HOVERS, List.of());
         final List<Component> lines = splitLines(desc);
-        assertTrue(hasClickEvent(lines.get(7)));
-        assertTrue(hasClickEvent(lines.get(8)));
-        assertTrue(hasClickEvent(lines.get(9)));
-        assertTrue(hasHoverEvent(lines.get(7)));
-        assertTrue(hasHoverEvent(lines.get(8)));
-        assertTrue(hasHoverEvent(lines.get(9)));
-        assertFalse(hasClickEvent(lines.get(10)));
+        assertTrue(hasClickEvent(lines.get(5)));
+        assertTrue(hasClickEvent(lines.get(6)));
+        assertTrue(hasHoverEvent(lines.get(5)));
+        assertTrue(hasHoverEvent(lines.get(6)));
+        assertFalse(hasClickEvent(lines.get(7)));
     }
 
     @Test
@@ -75,9 +73,8 @@ class WheelDialogTest {
         final Component desc = WheelDialog.description(TEXTS, false, null, NO_HOVERS, List.of());
         final List<Component> lines = splitLines(desc);
         assertFalse(hasClickEvent(desc));
-        assertTrue(hasHoverEvent(lines.get(7)));
-        assertTrue(hasHoverEvent(lines.get(8)));
-        assertTrue(hasHoverEvent(lines.get(9)));
+        assertTrue(hasHoverEvent(lines.get(5)));
+        assertTrue(hasHoverEvent(lines.get(6)));
     }
 
     private static List<Component> splitLines(final Component root) {

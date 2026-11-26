@@ -81,6 +81,33 @@ class WheelPackTest {
         assertTrue(prize.contains("nordtal:item/wheel/unknown"), prize);
     }
 
+    @Test
+    void itemsAndTimetableIncludeDirectAndReboundEndings(@TempDir final Path dir) throws IOException {
+        final Path facts = dir.resolve("facts.zip");
+        Files.write(
+                facts,
+                ReproducibleZip.write(Map.of(
+                        VanillaFacts.ITEMS + "dirt.json",
+                        bytes("{\"model\":{\"type\":\"minecraft:model\",\"model\":\"minecraft:item/dirt\"}}"),
+                        "assets/minecraft/models/item/dirt.json",
+                        bytes("{\"display\":{\"gui\":{\"scale\":[0.5,0.5,0.5]}}}"))));
+        final WheelPack pack =
+                new WheelPack(VanillaFacts.read(facts), List.of(new WheelPack.Prize("dirt", 2)), Map.of("de", "Aus"));
+
+        final String base = new String(
+                pack.items(List.of(0, 3)).get("assets/nordtal/items/wheel/base.json"), StandardCharsets.UTF_8);
+        assertTrue(base.contains("\"when\":[\"3\",\"3r\"]"), base);
+        assertTrue(base.contains("\"when\":\"0r\""), base);
+        assertTrue(base.contains("\"when\":\"3r\""), base);
+
+        final String table = WheelPack.timetable(List.of(0, 3));
+        assertTrue(table.contains("clicks.0="), table);
+        assertTrue(table.contains("clicks.0.rebound="), table);
+        assertTrue(table.contains("end.0="), table);
+        assertTrue(table.contains("end.0.rebound="), table);
+        assertTrue(table.contains("lines=12"), table);
+    }
+
     private static byte[] bytes(final String text) {
         return text.getBytes(StandardCharsets.UTF_8);
     }

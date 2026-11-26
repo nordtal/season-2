@@ -9,8 +9,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The wheel's turn, tick by tick, in degrees clockwise from where the turn starts.
- * Every variant shares the first {@link #SHARED} ticks: from two frames a tick it speeds up to {@link #TOP_SPEED},
- * holds it and slows against a drag that grows with its speed. Then each eases onto its pin, rests and springs back.
+ * Every variant shares the first {@link #SHARED} ticks, then either stops directly on its winner or eases onto the
+ * far pin, rests and rocks back.
  */
 public final class WheelTurn {
 
@@ -52,6 +52,9 @@ public final class WheelTurn {
     /** The ticks of the prizes' pop-in when the dialog opens. */
     public static final int OPEN_TICKS = (PLACES - 1) * POP_STEP + POP_HOP.size();
 
+    /** How far before the winning field the direct ending parts from the rebound approach. */
+    private static final double SPLIT_BEFORE = 60.0;
+
     private static final double DIP_FROM = 120.0;
     private static final double DIP_B = 0.8;
     private static final double DIP_AT = -2.0;
@@ -76,15 +79,23 @@ public final class WheelTurn {
             * -Math.log(Math.cos(Math.atan(TOP_SPEED / DRAG_SPEED)))
             / (distance(PLACES / 2) + PIN - ACCELERATED);
 
-    private static final Map<Integer, Motion> MOTIONS = new ConcurrentHashMap<>();
+    private static final Map<Key, Motion> MOTIONS = new ConcurrentHashMap<>();
 
     /** The ticks of the longest variant, which every turn's cooldown lasts so the variants can share their start. */
     public static final int COOLDOWN = cooldown();
 
     private WheelTurn() {}
 
+    /** How a turn ends on its winning field: stopping directly or overshooting onto the far pin and rocking back. */
+    public enum Ending {
+        DIRECT,
+        REBOUND
+    }
+
     /** What one tick shows: the disc and its prizes at their angle, and the pointer. */
     public record Tick(double angle, Pointer pointer) {}
+
+    private record Key(int e, Ending ending) {}
 
     /** The pointer's drawn textures: straight, and bent by a pin under it. */
     public enum Pointer {
@@ -107,37 +118,40 @@ public final class WheelTurn {
         return 360.0 * TURNS + 30.0 * e;
     }
 
-    /** The ticks of variant {@code e} until it rests, from tick 0; tick {@link #length} would be the rest. */
-    public static List<Tick> ticks(final int e) {
-        final int length = length(e);
+    /** The ticks of variant {@code e} with {@code ending} until it rests, from tick 0. */
+    public static List<Tick> ticks(final int e, final Ending ending) {
+        final int length = length(e, ending);
         final List<Tick> out = new ArrayList<>(length);
         for (int t = 0; t < length; t++) {
-            final double angle = snapped(angle(e, t));
+            final double angle = snapped(angle(e, ending, t));
             out.add(new Tick(angle, pointerAt(angle)));
         }
         return out;
     }
 
-    /** The ticks variant {@code e} moves, from the start to the end of the rock back. */
-    public static int length(final int e) {
-        return (int) Math.ceil(motion(e).end() + HOLD + SETTLE);
+    /** The ticks variant {@code e} moves with {@code ending} until it rests on the winning field. */
+    public static int length(final int e, final Ending ending) {
+        final double end = motion(e, ending).end();
+        return ending == Ending.REBOUND ? (int) Math.ceil(end + HOLD + SETTLE) : (int) Math.ceil(end);
     }
 
     private static int cooldown() {
         int max = 0;
         for (int e = 0; e < PLACES; e++) {
-            max = Math.max(max, length(e));
+            for (final Ending ending : Ending.values()) {
+                max = Math.max(max, length(e, ending));
+            }
         }
         return max;
     }
 
-    /** The ticks at which a peg passes the pointer, and the one at which the far pin first bends it. */
-    public static List<Integer> clicks(final int e) {
-        final double pin = distance(e) + PIN;
-        final int length = length(e);
+    /** The ticks at which an ordinary peg passes the pointer, without a far-pin contact click on rebound. */
+    public static List<Integer> clicks(final int e, final Ending ending) {
+        final double limit = distance(e) + PIN - 1e-6;
+        final int length = length(e, ending);
         final double[] a = new double[length + 1];
         for (int t = 0; t <= length; t++) {
-            a[t] = Math.min(angle(e, t), pin - 1e-6);
+            a[t] = Math.min(angle(e, ending, t), limit);
         }
         final TreeSet<Integer> out = new TreeSet<>();
         for (int n = 1; n <= length; n++) {
@@ -145,13 +159,7 @@ public final class WheelTurn {
                 out.add(n);
             }
         }
-        for (int t = 0; t < length; t++) {
-            if (snapped(angle(e, t)) >= pin - 1e-9) {
-                out.add(t);
-                return List.copyOf(out);
-            }
-        }
-        throw new IllegalStateException("variant " + e + " never reaches its pin");
+        return List.copyOf(out);
     }
 
     /** The disc frame of 16 that shows {@code angle}: the disc's art repeats every 60 degrees. */
@@ -172,16 +180,19 @@ public final class WheelTurn {
         };
     }
 
-    /** The angle variant {@code e} has turned at tick {@code t}. */
-    public static double angle(final int e, final double t) {
-        final Motion m = motion(e);
-        final double pin = distance(e) + PIN;
+    /** The angle variant {@code e} with {@code ending} has turned at tick {@code t}. */
+    public static double angle(final int e, final Ending ending, final double t) {
+        final Motion m = motion(e, ending);
         if (t <= SHARED) {
             return shared(t);
         }
         if (t <= m.end()) {
             return interpolate(m.times(), m.angles(), t);
         }
+        if (ending == Ending.DIRECT) {
+            return distance(e);
+        }
+        final double pin = distance(e) + PIN;
         if (t <= m.end() + HOLD) {
             return pin;
         }
@@ -219,34 +230,65 @@ public final class WheelTurn {
         return DRAG_SPEED * Math.tan(Math.atan(TOP_SPEED / DRAG_SPEED) - k * (t - ACCELERATION - CRUISE));
     }
 
-    /** The speed in degrees a tick that variant {@code e} has at tick {@code t}. */
-    public static double speed(final int e, final double t) {
-        return angle(e, t + 0.5) - angle(e, t - 0.5);
+    /** The speed in degrees a tick that variant {@code e} with {@code ending} has at tick {@code t}. */
+    public static double speed(final int e, final Ending ending, final double t) {
+        return angle(e, ending, t + 0.5) - angle(e, ending, t - 0.5);
     }
 
-    /** Variant e's own part: times and angles from the end of the shared start onto the pin. */
-    private record Motion(List<Double> times, List<Double> angles) {
+    /** The tick where variant {@code e}'s direct and rebound endings part, both sharing every tick before it. */
+    public static int split(final int e) {
+        return motion(e, Ending.DIRECT).splitTick();
+    }
+
+    /** Variant e's own part: times and angles from the end of the shared start onto its stopping angle. */
+    private record Motion(List<Double> times, List<Double> angles, int splitTick) {
 
         double end() {
             return times.getLast();
         }
     }
 
-    private static Motion motion(final int e) {
-        return MOTIONS.computeIfAbsent(e, WheelTurn::compute);
+    private static Motion motion(final int e, final Ending ending) {
+        return MOTIONS.computeIfAbsent(new Key(e, ending), WheelTurn::compute);
     }
 
     /**
-     * From the end of the shared start, the wheel slows down onto the pin.
-     * Its slowing moves from the shared one to the variant's own multiple of it over {@link #RAMP} ticks. Each peg
-     * over the last 120 degrees takes the disc to a little over half its speed, which lengthens the approach.
+     * From the end of the shared start, the wheel slows down onto its target angle.
+     * Rebound runs the full approach onto the far pin; direct shares that approach until {@link #SPLIT_BEFORE}
+     * degrees before the winning field, then slows directly onto it with no backward motion.
      */
-    private static Motion compute(final int e) {
-        final double start = SHARED;
-        final double from = shared(start);
-        final double speed = sharedSpeed(start);
-        final double pin = distance(e) + PIN;
-        final double rest = pin - from;
+    private static Motion compute(final Key key) {
+        if (key.ending() == Ending.REBOUND) {
+            return computeFrom(SHARED, shared(SHARED), sharedSpeed(SHARED), distance(key.e()) + PIN, SHARED);
+        }
+        final Motion rebound = motion(key.e(), Ending.REBOUND);
+        final double target = distance(key.e());
+        final double splitAngle = target - SPLIT_BEFORE;
+        int splitTick = SHARED;
+        while (splitTick + 1 < (int) Math.floor(rebound.end())
+                && interpolate(rebound.times(), rebound.angles(), splitTick) < splitAngle) {
+            splitTick++;
+        }
+        final double from = interpolate(rebound.times(), rebound.angles(), splitTick);
+        final double speed = (interpolate(rebound.times(), rebound.angles(), splitTick + 0.5)
+                - interpolate(rebound.times(), rebound.angles(), splitTick - 0.5));
+        final Motion tail = computeFrom(splitTick, from, speed, target, splitTick);
+        final List<Double> times = new ArrayList<>();
+        final List<Double> angles = new ArrayList<>();
+        for (int i = 0; i < rebound.times().size(); i++) {
+            if (rebound.times().get(i) < splitTick) {
+                times.add(rebound.times().get(i));
+                angles.add(rebound.angles().get(i));
+            }
+        }
+        times.addAll(tail.times());
+        angles.addAll(tail.angles());
+        return new Motion(List.copyOf(times), List.copyOf(angles), splitTick);
+    }
+
+    private static Motion computeFrom(
+            final double start, final double from, final double speed, final double target, final int splitTick) {
+        final double rest = target - from;
         double lo = 0.25;
         double hi = 4.0;
         for (int i = 0; i < 60; i++) {
@@ -268,14 +310,14 @@ public final class WheelTurn {
         }
         final double[] warped = new double[ts.length];
         for (int k = 1; k < ts.length; k++) {
-            warped[k] = warped[k - 1] + (dip(a[k], pin) + dip(a[k - 1], pin)) / 2 * (ts[k] - ts[k - 1]);
+            warped[k] = warped[k - 1] + (dip(a[k], target) + dip(a[k - 1], target)) / 2 * (ts[k] - ts[k - 1]);
         }
         final double[] times = new double[ts.length];
         for (int k = 0; k < ts.length; k++) {
             times[k] = start + warped[k];
         }
         return new Motion(
-                Arrays.stream(times).boxed().toList(), Arrays.stream(a).boxed().toList());
+                Arrays.stream(times).boxed().toList(), Arrays.stream(a).boxed().toList(), splitTick);
     }
 
     /** The times and distances of a wheel at {@code speed} that slows, ramping to {@code scale} times the shared. */
@@ -313,10 +355,10 @@ public final class WheelTurn {
         return out;
     }
 
-    private static double dip(final double alpha, final double pin) {
+    private static double dip(final double alpha, final double target) {
         final double delta = mod(alpha, 30.0) - 15.0;
         final double g = Math.exp(-Math.pow((delta - DIP_AT) / DIP_W, 2));
-        final double r = Math.clamp((alpha - (pin - DIP_FROM)) / 10.0, 0.0, 1.0);
+        final double r = Math.clamp((alpha - (target - DIP_FROM)) / 10.0, 0.0, 1.0);
         final double w = r * r * (3 - 2 * r);
         return 1 + w * DIP_B * g;
     }

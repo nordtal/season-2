@@ -2980,18 +2980,10 @@
             },
             {
               "code": "FE3DE",
-              "title": "Wheel, 197 high, left",
-              "list": "UI_DIALOG_WHEEL_197",
-              "texture": "nordtal:ui/kit/dialog_wheel_197_0.png",
-              "height": 197,
-              "ascent": 20
-            },
-            {
-              "code": "FE3DF",
-              "title": "Wheel, 197 high, right",
-              "list": "UI_DIALOG_WHEEL_197",
-              "texture": "nordtal:ui/kit/dialog_wheel_197_1.png",
-              "height": 197,
+              "title": "Wheel, 158 high",
+              "list": "UI_DIALOG_WHEEL_158",
+              "texture": "nordtal:ui/kit/dialog_wheel_158_0.png",
+              "height": 158,
               "ascent": 20
             },
             {
@@ -3084,7 +3076,7 @@
           "constant": "UI_DIALOG_DUEL_124"
         },
         {
-          "constant": "UI_DIALOG_WHEEL_197"
+          "constant": "UI_DIALOG_WHEEL_158"
         },
         {
           "constant": "UI_DIALOG_WIDE_161"
@@ -6304,8 +6296,8 @@
         {
           "range": "FE7D0-FE7D7",
           "title": "Wheel focus cover",
-          "about": "Covers the wheel's two item outlines and its 161 px description ring in panel grey, pointer row 3, shadow, stand and disc row 155 so Tab and click focus show no white outline.",
-          "height": 172,
+          "about": "Covers the wheel's two item outlines and its 116 px description ring in panel grey, static pointer row, shadow, stand and bottom disc row so Tab and click focus show no white outline.",
+          "height": 127,
           "ascent": 22,
           "glyphs": [
             {

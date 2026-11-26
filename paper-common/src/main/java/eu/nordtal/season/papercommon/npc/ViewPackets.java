@@ -1,6 +1,7 @@
 package eu.nordtal.season.papercommon.npc;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.netty.channel.ChannelHelper;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerRotation;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetSlot;
@@ -70,12 +71,11 @@ final class ViewPackets {
         return new MaskItems(hand, stages);
     }
 
-    /** Runs {@code task} inline on {@code player}'s Netty event loop when available, so chat replay stays ordered. */
+    /** Runs {@code task} on {@code player}'s Netty event loop when available, so chat replay stays ordered. */
     static void runOnNetty(final Player player, final Runnable task) {
         final Object channel = PacketEvents.getAPI().getPlayerManager().getChannel(player);
-        if (channel instanceof final io.netty.channel.Channel netty
-                && !netty.eventLoop().inEventLoop()) {
-            netty.eventLoop().execute(task);
+        if (channel != null) {
+            ChannelHelper.runInEventLoop(channel, task);
         } else {
             task.run();
         }

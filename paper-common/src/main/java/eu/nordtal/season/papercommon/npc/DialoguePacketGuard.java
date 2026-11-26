@@ -301,6 +301,9 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     }
 
     private static void suppressSystemChat(final PacketSendEvent event, final State state) {
+        if (event.isCancelled()) {
+            return;
+        }
         final WrapperPlayServerSystemChatMessage packet = new WrapperPlayServerSystemChatMessage(event);
         if (shouldSuppressSystemChat(packet.isOverlay())
                 && state.queuedChat.add(new WrapperPlayServerSystemChatMessage(false, packet.getMessage()), false)) {
@@ -309,6 +312,9 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     }
 
     private static void suppressDisguisedChat(final PacketSendEvent event, final State state) {
+        if (event.isCancelled()) {
+            return;
+        }
         final WrapperPlayServerDisguisedChat packet = new WrapperPlayServerDisguisedChat(event);
         if (state.queuedChat.add(
                 new WrapperPlayServerDisguisedChat(packet.getMessage(), packet.getChatFormatting()), false)) {
@@ -317,6 +323,9 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     }
 
     private static void suppressPlayerChat(final PacketSendEvent event, final State state) {
+        if (event.isCancelled()) {
+            return;
+        }
         final WrapperPlayServerChatMessage packet = new WrapperPlayServerChatMessage(event);
         if (state.queuedChat.add(new WrapperPlayServerChatMessage(packet.getMessage()), true)) {
             event.setCancelled(true);

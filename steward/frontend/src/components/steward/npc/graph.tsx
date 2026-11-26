@@ -1,15 +1,18 @@
-import { ArrowCounterClockwiseIcon, LayoutIcon, MinusIcon, PlusIcon } from "@/components/ui/icons"
 import {
   Background,
   BackgroundVariant,
   type Connection,
+  type CoordinateExtent,
   MarkerType,
+  NodeChangeset,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  useReactFlowStoreApi,
   useViewport,
 } from "@xyflow/react"
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -20,170 +23,54 @@ import {
 } from "react"
 
 import type { Dialogue, NpcMenu } from "@/lib/api"
-import { type Language, LANGUAGES, NODE_WIDTH, missingCount, nodeHeight, ordered, stepNumbers, stepOf } from "@/lib/npc"
-import { t } from "@/lib/texts"
-import { cn } from "@/lib/utils"
 import {
+  type Language,
+  NODE_WIDTH,
+  type NodeSize,
+  type NodeSizes,
+  missingCount,
+  nodeHeight,
+  ordered,
+  stepNumbers,
+  stepOf,
+} from "@/lib/npc"
+import { t } from "@/lib/texts"
+import {
+  CanvasToolbar,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  eventPoint,
+  parseEdgeId,
+  parseSourcePort,
+  prefersReducedMotion,
+} from "@/components/steward/npc/canvas-toolbar"
+import {
+  CanvasInteractionContext,
   type SourcePort,
   StepEdge,
   type StepFlowEdge,
   type StepFlowNode,
   StepNode,
 } from "@/components/steward/npc/step-node"
-import { Hint } from "@/components/steward/status"
-import { Button } from "@/components/ui/button"
+import { stepOptionLabel } from "@/components/steward/npc/step-panel"
+import { TERM_ICON } from "@/components/steward/term-icons"
 
 /**
  * The dialogue steps on a pan/zoom React Flow canvas on desktop (`xl` and up) and as an indented list below `xl`.
  */
 
-const MIN_ZOOM = 0.4
-const MAX_ZOOM = 1
+const FIT_MIN_ZOOM = 0.75
 const INSPECTOR_WIDTH = 400
-const TOOLBAR_CLEARANCE = 64
+const DEFAULT_TOOLBAR_CLEARANCE = 56
+const FREE_MARGIN = 16
+const MIN_PORT_DRAG_PX = 8
 
 export type TooLong = Set<string>
+export { parseEdgeId }
 export type { SourcePort }
 
 const NODE_TYPES = { step: StepNode }
 const EDGE_TYPES = { step: StepEdge }
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-}
-
-function parseSourcePort(handleId: string | null | undefined): SourcePort {
-  if (handleId && handleId.startsWith("answer-")) {
-    const index = Number(handleId.slice(7))
-    if (Number.isInteger(index) && index >= 0) return index
-  }
-  return "then"
-}
-
-export function parseEdgeId(edgeId: string): { stepId: string; port: SourcePort } | undefined {
-  const sep = edgeId.lastIndexOf(":")
-  if (sep <= 0) return undefined
-  const stepId = edgeId.slice(0, sep)
-  const raw = edgeId.slice(sep + 1)
-  if (raw === "then") return { stepId, port: "then" }
-  const index = Number(raw)
-  return Number.isInteger(index) && index >= 0 ? { stepId, port: index } : undefined
-}
-
-type CanvasToolbarProps = {
-  language: Language
-  canUndo: boolean
-  canRedo: boolean
-  onAddStep: () => void
-  onArrange: () => void
-  onUndo: () => void
-  onRedo: () => void
-  onLanguage: (language: Language) => void
-  onFit: () => void
-}
-
-function CanvasToolbar({
-  language,
-  canUndo,
-  canRedo,
-  onAddStep,
-  onArrange,
-  onUndo,
-  onRedo,
-  onLanguage,
-  onFit,
-}: CanvasToolbarProps) {
-  const { zoomIn, zoomOut } = useReactFlow()
-  const { zoom } = useViewport()
-  const duration = prefersReducedMotion() ? 0 : 150
-  return (
-    <div className="absolute top-3 left-3 z-10 flex max-w-[calc(100%-var(--spacing-npc-inspector)-(--spacing(6)))] flex-wrap items-center gap-1 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md">
-      <Button type="button" variant="ghost" size="sm" onClick={onAddStep}>
-        <PlusIcon aria-hidden />
-        {t("steward.npcs.add-step")}
-      </Button>
-      <Button type="button" variant="ghost" size="sm" onClick={onArrange}>
-        <LayoutIcon aria-hidden />
-        {t("steward.npcs.arrange")}
-      </Button>
-      <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
-      <Hint tip={t("steward.npcs.undo")}>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          disabled={!canUndo}
-          aria-label={t("steward.npcs.undo")}
-          onClick={onUndo}
-        >
-          <ArrowCounterClockwiseIcon aria-hidden />
-        </Button>
-      </Hint>
-      <Hint tip={t("steward.npcs.redo")}>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          disabled={!canRedo}
-          aria-label={t("steward.npcs.redo")}
-          onClick={onRedo}
-        >
-          <ArrowCounterClockwiseIcon aria-hidden className="-scale-x-100" />
-        </Button>
-      </Hint>
-      <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
-      <div
-        role="group"
-        aria-label={t("steward.npcs.canvas-language")}
-        className="flex items-center rounded-md bg-muted p-0.5"
-      >
-        {LANGUAGES.map((code) => (
-          <button
-            key={code}
-            type="button"
-            aria-pressed={language === code}
-            className={cn(
-              "rounded-sm px-2 py-1 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-              language === code ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
-            )}
-            onClick={() => onLanguage(code)}
-          >
-            {t("steward.npcs.language", { language: code })}
-          </button>
-        ))}
-      </div>
-      <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
-      <Hint tip={t("steward.npcs.zoom-out")}>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          disabled={zoom <= MIN_ZOOM + 0.01}
-          aria-label={t("steward.npcs.zoom-out")}
-          onClick={() => void zoomOut({ duration })}
-        >
-          <MinusIcon aria-hidden />
-        </Button>
-      </Hint>
-      <span className="w-10 text-center text-xs text-muted-foreground tnum">{Math.round(zoom * 100)}%</span>
-      <Hint tip={t("steward.npcs.zoom-in")}>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          disabled={zoom >= MAX_ZOOM - 0.01}
-          aria-label={t("steward.npcs.zoom-in")}
-          onClick={() => void zoomIn({ duration })}
-        >
-          <PlusIcon aria-hidden />
-        </Button>
-      </Hint>
-      <Button type="button" variant="ghost" size="sm" onClick={onFit}>
-        {t("steward.npcs.fit")}
-      </Button>
-    </div>
-  )
-}
 
 export type StepCanvasProps = {
   dialogue: Dialogue
@@ -198,14 +85,15 @@ export type StepCanvasProps = {
   panSignal: number
   onSelect: (id: string | null) => void
   onSelectEdge: (edgeId: string | null) => void
-  onPlace: (id: string, x: number, y: number) => void
+  onFocusSelectedText: (stepId: string) => void
+  onPlace: (id: string, x: number, y: number, sizes: NodeSizes) => void
   onLink: (sourceId: string, port: SourcePort, targetId: string) => void
-  onCreateFromPort: (sourceId: string, port: SourcePort, x: number, y: number) => void
+  onCreateFromPort: (sourceId: string, port: SourcePort, x: number, y: number, sizes: NodeSizes) => void
   onAddLinked: (sourceId: string, port: SourcePort) => void
-  onCreateAt: (x: number, y: number) => void
+  onCreateAt: (x: number, y: number, sizes: NodeSizes) => void
   onMoveStart: (targetId: string) => void
   onAddStep: () => void
-  onArrange: () => void
+  onArrange: (sizes: NodeSizes) => void
   onUndo: () => void
   onRedo: () => void
   onLanguage: (language: Language) => void
@@ -224,6 +112,7 @@ function StepCanvasInner({
   panSignal,
   onSelect,
   onSelectEdge,
+  onFocusSelectedText,
   onPlace,
   onLink,
   onCreateFromPort,
@@ -237,15 +126,61 @@ function StepCanvasInner({
   onLanguage,
 }: StepCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
   const { setViewport, getViewport, screenToFlowPosition } = useReactFlow()
-  const [draggingPositions, setDraggingPositions] = useState<Map<string, { x: number; y: number }>>(new Map())
+  const store = useReactFlowStoreApi()
+  const { zoom } = useViewport()
+
+  const [toolbarClearance, setToolbarClearance] = useState(DEFAULT_TOOLBAR_CLEARANCE)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [hoverTarget, setHoverTarget] = useState<string | null>(null)
-  const connectingRef = useRef<{ nodeId: string; handleId: string | null } | null>(null)
+  const [connectingFrom, setConnectingFrom] = useState<string | null>(null)
+  const [startGhost, setStartGhost] = useState<{ x: number; y: number } | null>(null)
+
+  const hoverTargetRef = useRef<string | null>(null)
+  const connectingRef = useRef<{
+    nodeId: string
+    handleId: string | null
+    startX: number
+    startY: number
+    cancelled: boolean
+    cleanup: () => void
+  } | null>(null)
   const didConnectRef = useRef(false)
   const fittedOnceRef = useRef(false)
+  const measuredSizesRef = useRef<Map<string, NodeSize>>(new Map())
+
+  const setHover = useCallback((id: string | null) => {
+    hoverTargetRef.current = id
+    setHoverTarget((prev) => (prev === id ? prev : id))
+  }, [])
 
   const numbers = useMemo(() => stepNumbers(dialogue), [dialogue])
   const linkedMap = useMemo(() => new Map(ordered(dialogue).map((entry) => [entry.step.id, entry.linked])), [dialogue])
+
+  useEffect(() => {
+    const updateSizes = () => {
+      const container = containerRef.current
+      if (container) {
+        const rect = container.getBoundingClientRect()
+        setContainerSize((prev) =>
+          prev.width === rect.width && prev.height === rect.height ? prev : { width: rect.width, height: rect.height },
+        )
+      }
+      const toolbar = toolbarRef.current
+      if (toolbar && container) {
+        const cRect = container.getBoundingClientRect()
+        const tRect = toolbar.getBoundingClientRect()
+        const clearance = Math.ceil(tRect.bottom - cRect.top)
+        if (clearance > 0) setToolbarClearance((prev) => (prev === clearance ? prev : clearance))
+      }
+    }
+    updateSizes()
+    const observer = new ResizeObserver(updateSizes)
+    if (containerRef.current) observer.observe(containerRef.current)
+    if (toolbarRef.current) observer.observe(toolbarRef.current)
+    return () => observer.disconnect()
+  }, [])
 
   const findStepAtPoint = useCallback((clientX: number, clientY: number): string | null => {
     const element = document.elementFromPoint(clientX, clientY)
@@ -253,29 +188,262 @@ function StepCanvasInner({
     return card?.dataset.step ?? null
   }, [])
 
+  const isInsideFreeCanvas = useCallback((clientX: number, clientY: number): boolean => {
+    const box = containerRef.current?.getBoundingClientRect()
+    if (!box) return false
+    if (clientX < box.left || clientX > box.right || clientY < box.top || clientY > box.bottom) return false
+    if (clientX >= box.right - INSPECTOR_WIDTH) return false
+    const toolbarBox = toolbarRef.current?.getBoundingClientRect()
+    if (
+      toolbarBox &&
+      clientX >= toolbarBox.left &&
+      clientX <= toolbarBox.right &&
+      clientY >= toolbarBox.top &&
+      clientY <= toolbarBox.bottom
+    ) {
+      return false
+    }
+    const element = document.elementFromPoint(clientX, clientY)
+    if (element?.closest("[data-canvas-toolbar], aside")) return false
+    return true
+  }, [])
+
   const onStartDrag = useCallback(
     (stepId: string, event: ReactPointerEvent<HTMLDivElement>) => {
       if (event.button !== 0) return
       event.stopPropagation()
       event.preventDefault()
-      const onMove = (moveEvent: PointerEvent) => {
-        const over = findStepAtPoint(moveEvent.clientX, moveEvent.clientY)
-        setHoverTarget(over && over !== stepId ? over : null)
+      const container = containerRef.current
+      const previousCursor = document.body.style.cursor
+      document.body.style.cursor = "grabbing"
+      const toLocal = (clientX: number, clientY: number) => {
+        const rect = container?.getBoundingClientRect()
+        return rect ? { x: clientX - rect.left, y: clientY - rect.top } : { x: clientX, y: clientY }
       }
-      const onUp = (upEvent: PointerEvent) => {
+      setStartGhost(toLocal(event.clientX, event.clientY))
+
+      let cancelled = false
+      const stop = () => {
         window.removeEventListener("pointermove", onMove)
         window.removeEventListener("pointerup", onUp)
-        window.removeEventListener("pointercancel", onUp)
-        const target = findStepAtPoint(upEvent.clientX, upEvent.clientY)
-        setHoverTarget(null)
-        if (target && target !== stepId) onMoveStart(target)
+        window.removeEventListener("pointercancel", onCancel)
+        window.removeEventListener("keydown", onKeyDown, true)
+        document.body.style.cursor = previousCursor
+        setStartGhost(null)
+        setHover(null)
+      }
+      const onMove = (moveEvent: PointerEvent) => {
+        setStartGhost(toLocal(moveEvent.clientX, moveEvent.clientY))
+        const over = findStepAtPoint(moveEvent.clientX, moveEvent.clientY)
+        setHover(over && over !== stepId ? over : null)
+      }
+      const onKeyDown = (keyEvent: KeyboardEvent) => {
+        if (keyEvent.key !== "Escape") return
+        keyEvent.preventDefault()
+        keyEvent.stopPropagation()
+        cancelled = true
+        stop()
+      }
+      const onCancel = () => {
+        cancelled = true
+        stop()
+      }
+      const onUp = (upEvent: PointerEvent) => {
+        const target = hoverTargetRef.current ?? findStepAtPoint(upEvent.clientX, upEvent.clientY)
+        stop()
+        if (!cancelled && target && target !== stepId) onMoveStart(target)
       }
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", onUp)
-      window.addEventListener("pointercancel", onUp)
+      window.addEventListener("pointercancel", onCancel)
+      window.addEventListener("keydown", onKeyDown, true)
     },
-    [findStepAtPoint, onMoveStart],
+    [findStepAtPoint, onMoveStart, setHover],
   )
+
+  const [flowNodes, setFlowNodes] = useState<StepFlowNode[]>(() =>
+    dialogue.steps.map((step) => {
+      const number = numbers.get(step.id) ?? 1
+      return {
+        id: step.id,
+        type: "step",
+        position: { x: step.x, y: step.y },
+        selected: selected === step.id,
+        ariaLabel: stepOptionLabel(step, number),
+        data: {
+          step,
+          number,
+          isStart: dialogue.start === step.id,
+          linked: linkedMap.get(step.id) ?? false,
+          missing: missingCount(step),
+          tooLong: tooLong.has(step.id),
+          language,
+          menus,
+          thenTargetNumber: step.next !== undefined ? numbers.get(step.next) : undefined,
+          onAddLinked,
+          onStartDrag,
+        },
+      }
+    }),
+  )
+
+  // Keep React Flow node identity and `measured` state intact across edits, selection and hover.
+  useEffect(() => {
+    setFlowNodes((prev) => {
+      const byId = new Map(prev.map((node) => [node.id, node]))
+      let changed = prev.length !== dialogue.steps.length
+      const nextNodes = dialogue.steps.map((step, index) => {
+        const existing = byId.get(step.id)
+        const number = numbers.get(step.id) ?? 1
+        const isStart = dialogue.start === step.id
+        const linked = linkedMap.get(step.id) ?? false
+        const missing = missingCount(step)
+        const stepTooLong = tooLong.has(step.id)
+        const isSelected = selected === step.id
+        const thenTargetNumber = step.next !== undefined ? numbers.get(step.next) : undefined
+        const ariaLabel = stepOptionLabel(step, number)
+
+        if (existing) {
+          const samePosition = existing.dragging || (existing.position.x === step.x && existing.position.y === step.y)
+          const prevData = existing.data
+          const sameData =
+            prevData.step === step &&
+            prevData.number === number &&
+            prevData.isStart === isStart &&
+            prevData.linked === linked &&
+            prevData.missing === missing &&
+            prevData.tooLong === stepTooLong &&
+            prevData.language === language &&
+            prevData.menus === menus &&
+            prevData.thenTargetNumber === thenTargetNumber &&
+            prevData.onAddLinked === onAddLinked &&
+            prevData.onStartDrag === onStartDrag
+          if (samePosition && sameData && existing.selected === isSelected && existing.ariaLabel === ariaLabel) {
+            if (prev[index] !== existing) changed = true
+            return existing
+          }
+          changed = true
+          return {
+            ...existing,
+            position: existing.dragging ? existing.position : { x: step.x, y: step.y },
+            selected: isSelected,
+            ariaLabel,
+            data: sameData
+              ? prevData
+              : {
+                  step,
+                  number,
+                  isStart,
+                  linked,
+                  missing,
+                  tooLong: stepTooLong,
+                  language,
+                  menus,
+                  thenTargetNumber,
+                  onAddLinked,
+                  onStartDrag,
+                },
+          }
+        }
+        changed = true
+        return {
+          id: step.id,
+          type: "step" as const,
+          position: { x: step.x, y: step.y },
+          selected: isSelected,
+          ariaLabel,
+          data: {
+            step,
+            number,
+            isStart,
+            linked,
+            missing,
+            tooLong: stepTooLong,
+            language,
+            menus,
+            thenTargetNumber,
+            onAddLinked,
+            onStartDrag,
+          },
+        }
+      })
+      return changed ? nextNodes : prev
+    })
+  }, [dialogue.start, dialogue.steps, language, linkedMap, menus, numbers, onAddLinked, onStartDrag, selected, tooLong])
+
+  const getNodeSize = useCallback((stepId: string, fallbackStep?: Dialogue["steps"][number]): NodeSize => {
+    const measured = measuredSizesRef.current.get(stepId)
+    if (measured && measured.width > 0 && measured.height > 0) return measured
+    return { width: NODE_WIDTH, height: fallbackStep ? nodeHeight(fallbackStep) : 124 }
+  }, [])
+
+  const handleNodesChange = useCallback((changes: NodeChangeset<StepFlowNode>) => {
+    for (const change of changes.getByType("dimensions")) {
+      if (change.dimensions) {
+        measuredSizesRef.current.set(change.id, {
+          width: change.dimensions.width,
+          height: change.dimensions.height,
+        })
+      }
+    }
+    const allowed = changes.toArray().filter((change) => change.type !== "remove")
+    if (allowed.length === 0) return
+    setFlowNodes((prev) => new NodeChangeset(allowed).applyTo(prev))
+  }, [])
+
+  const edges = useMemo<StepFlowEdge[]>(() => {
+    const list: StepFlowEdge[] = []
+    for (const step of dialogue.steps) {
+      const fromNum = numbers.get(step.id) ?? 1
+      if (step.answers.length === 0) {
+        if (step.next !== undefined && stepOf(dialogue, step.next) !== undefined) {
+          const id = `${step.id}:then`
+          const highlighted = selectedEdge === id || selected === step.id || selected === step.next
+          const toNum = numbers.get(step.next) ?? 1
+          list.push({
+            id,
+            type: "step",
+            source: step.id,
+            sourceHandle: "then",
+            target: step.next,
+            selected: selectedEdge === id,
+            ariaLabel: t("steward.npcs.edge-label", { from: fromNum, to: toNum }),
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: highlighted ? "var(--primary)" : "var(--muted-foreground)",
+              width: 16,
+              height: 16,
+            },
+            data: { highlighted },
+          })
+        }
+      } else {
+        step.answers.forEach((answer, index) => {
+          if (answer.next === undefined || stepOf(dialogue, answer.next) === undefined) return
+          const id = `${step.id}:${index}`
+          const highlighted = selectedEdge === id || selected === step.id || selected === answer.next
+          const toNum = numbers.get(answer.next) ?? 1
+          list.push({
+            id,
+            type: "step",
+            source: step.id,
+            sourceHandle: `answer-${index}`,
+            target: answer.next,
+            selected: selectedEdge === id,
+            ariaLabel: t("steward.npcs.edge-label", { from: fromNum, to: toNum }),
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: highlighted ? "var(--primary)" : "var(--muted-foreground)",
+              width: 16,
+              height: 16,
+            },
+            data: { highlighted },
+          })
+        })
+      }
+    }
+    return list
+  }, [dialogue, numbers, selected, selectedEdge])
 
   const fitFreeArea = useCallback(
     (animate = true) => {
@@ -286,22 +454,36 @@ function StepCanvasInner({
       let maxX = -Infinity
       let maxY = -Infinity
       for (const step of dialogue.steps) {
+        const size = getNodeSize(step.id, step)
         minX = Math.min(minX, step.x)
         minY = Math.min(minY, step.y)
-        maxX = Math.max(maxX, step.x + NODE_WIDTH)
-        maxY = Math.max(maxY, step.y + nodeHeight(step))
+        maxX = Math.max(maxX, step.x + size.width)
+        maxY = Math.max(maxY, step.y + size.height)
       }
-      const pad = 32
+      // Reserve 28px above the highest node so compact back-link and self-link lanes stay below the toolbar.
+      const edgeTopAllowance = 28
+      const boundsMinY = minY - edgeTopAllowance
+      const pad = 24
       const freeW = Math.max(240, box.width - INSPECTOR_WIDTH - pad * 2)
-      const freeH = Math.max(200, box.height - TOOLBAR_CLEARANCE - pad * 2)
+      const freeH = Math.max(200, box.height - toolbarClearance - pad * 2)
       const contentW = Math.max(NODE_WIDTH, maxX - minX)
-      const contentH = Math.max(120, maxY - minY)
-      const zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.min(freeW / contentW, freeH / contentH)))
-      const x = pad + (freeW - contentW * zoom) / 2 - minX * zoom
-      const y = TOOLBAR_CLEARANCE + pad + (freeH - contentH * zoom) / 2 - minY * zoom
-      void setViewport({ x, y, zoom }, { duration: animate && !prefersReducedMotion() ? 200 : 0 })
+      const contentH = Math.max(120, maxY - boundsMinY)
+      const rawZoom = Math.min(MAX_ZOOM, Math.min(freeW / contentW, freeH / contentH))
+      const duration = animate && !prefersReducedMotion() ? 200 : 0
+
+      if (rawZoom >= FIT_MIN_ZOOM) {
+        const fitZoom = Math.max(MIN_ZOOM, rawZoom)
+        const x = pad + (freeW - contentW * fitZoom) / 2 - minX * fitZoom
+        const y = toolbarClearance + pad + (freeH - contentH * fitZoom) / 2 - boundsMinY * fitZoom
+        void setViewport({ x, y, zoom: fitZoom }, { duration })
+        return
+      }
+      const startStep = stepOf(dialogue, dialogue.start) ?? dialogue.steps[0]
+      const x = pad - startStep.x * FIT_MIN_ZOOM
+      const y = toolbarClearance + pad - (startStep.y - edgeTopAllowance) * FIT_MIN_ZOOM
+      void setViewport({ x, y, zoom: FIT_MIN_ZOOM }, { duration })
     },
-    [dialogue.steps, setViewport],
+    [dialogue, getNodeSize, setViewport, toolbarClearance],
   )
 
   useEffect(() => {
@@ -319,116 +501,67 @@ function StepCanvasInner({
     const target = stepOf(dialogue, selected)
     const box = containerRef.current?.getBoundingClientRect()
     if (!target || !box || box.width === 0 || box.height === 0) return
+    const size = getNodeSize(target.id, target)
     const vp = getViewport()
     const left = target.x * vp.zoom + vp.x
     const top = target.y * vp.zoom + vp.y
-    const right = (target.x + NODE_WIDTH) * vp.zoom + vp.x
-    const bottom = (target.y + nodeHeight(target)) * vp.zoom + vp.y
-    const freeLeft = 24
-    const freeRight = Math.max(freeLeft + 200, box.width - INSPECTOR_WIDTH - 24)
-    const freeTop = TOOLBAR_CLEARANCE + 12
-    const freeBottom = box.height - 24
+    const right = (target.x + size.width) * vp.zoom + vp.x
+    const bottom = (target.y + size.height) * vp.zoom + vp.y
+    const freeLeft = FREE_MARGIN
+    const freeRight = Math.max(freeLeft + 160, box.width - INSPECTOR_WIDTH - FREE_MARGIN)
+    const freeTop = toolbarClearance + FREE_MARGIN
+    const freeBottom = box.height - FREE_MARGIN
     if (left >= freeLeft && right <= freeRight && top >= freeTop && bottom <= freeBottom) return
     let dx = 0
-    if (left < freeLeft) dx = freeLeft - left
-    else if (right > freeRight) dx = freeRight - right
+    if (right - left <= freeRight - freeLeft) {
+      if (left < freeLeft) dx = freeLeft - left
+      else if (right > freeRight) dx = freeRight - right
+    } else if (left < freeLeft) {
+      dx = freeLeft - left
+    }
     let dy = 0
-    if (top < freeTop) dy = freeTop - top
-    else if (bottom > freeBottom) dy = freeBottom - bottom
+    if (bottom - top <= freeBottom - freeTop) {
+      if (top < freeTop) dy = freeTop - top
+      else if (bottom > freeBottom) dy = freeBottom - bottom
+    } else if (top < freeTop) {
+      dy = freeTop - top
+    }
+    if (dx === 0 && dy === 0) return
     void setViewport({ x: vp.x + dx, y: vp.y + dy, zoom: vp.zoom }, { duration: prefersReducedMotion() ? 0 : 200 })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panSignal])
 
-  const nodes = useMemo<StepFlowNode[]>(() => {
-    return dialogue.steps.map((step) => {
-      const livePos = draggingPositions.get(step.id)
-      return {
-        id: step.id,
-        type: "step",
-        position: livePos ?? { x: step.x, y: step.y },
-        selected: selected === step.id,
-        data: {
-          step,
-          number: numbers.get(step.id) ?? 1,
-          isStart: dialogue.start === step.id,
-          linked: linkedMap.get(step.id) ?? false,
-          missing: missingCount(step),
-          tooLong: tooLong.has(step.id),
-          language,
-          menus,
-          dropTarget: hoverTarget === step.id,
-          onAddLinked,
-          onStartDrag,
-        },
-      }
-    })
-  }, [
-    dialogue.start,
-    dialogue.steps,
-    draggingPositions,
-    hoverTarget,
-    language,
-    linkedMap,
-    menus,
-    numbers,
-    onAddLinked,
-    onStartDrag,
-    selected,
-    tooLong,
-  ])
-
-  const edges = useMemo<StepFlowEdge[]>(() => {
-    const list: StepFlowEdge[] = []
+  const translateExtent = useMemo<CoordinateExtent | undefined>(() => {
+    if (dialogue.steps.length === 0 || containerSize.width === 0 || containerSize.height === 0) return undefined
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
     for (const step of dialogue.steps) {
-      if (step.answers.length === 0) {
-        if (step.next !== undefined && stepOf(dialogue, step.next) !== undefined) {
-          const id = `${step.id}:then`
-          const highlighted = selectedEdge === id || selected === step.id || selected === step.next
-          list.push({
-            id,
-            type: "step",
-            source: step.id,
-            sourceHandle: "then",
-            target: step.next,
-            selected: selectedEdge === id,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: highlighted ? "var(--primary)" : "var(--muted-foreground)",
-              width: 16,
-              height: 16,
-            },
-            data: { highlighted },
-          })
-        }
-      } else {
-        step.answers.forEach((answer, index) => {
-          if (answer.next === undefined || stepOf(dialogue, answer.next) === undefined) return
-          const id = `${step.id}:${index}`
-          const highlighted = selectedEdge === id || selected === step.id || selected === answer.next
-          list.push({
-            id,
-            type: "step",
-            source: step.id,
-            sourceHandle: `answer-${index}`,
-            target: answer.next,
-            selected: selectedEdge === id,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: highlighted ? "var(--primary)" : "var(--muted-foreground)",
-              width: 16,
-              height: 16,
-            },
-            data: { highlighted },
-          })
-        })
-      }
+      const size = getNodeSize(step.id, step)
+      minX = Math.min(minX, step.x)
+      minY = Math.min(minY, step.y)
+      maxX = Math.max(maxX, step.x + size.width)
+      maxY = Math.max(maxY, step.y + size.height)
     }
-    return list
-  }, [dialogue, selected, selectedEdge])
+    const z = Math.max(MIN_ZOOM, zoom)
+    const visibleW = Math.max(160, containerSize.width - INSPECTOR_WIDTH)
+    const visibleH = Math.max(160, containerSize.height - toolbarClearance)
+    const keepVisible = 96
+    const padLeft = Math.max(80, (visibleW - keepVisible) / z)
+    const padRight = Math.max(80, (containerSize.width - keepVisible) / z)
+    const padTop = Math.max(80, (containerSize.height - keepVisible) / z)
+    const padBottom = Math.max(80, (visibleH - keepVisible) / z)
+    return [
+      [minX - padLeft, minY - padTop],
+      [maxX + padRight, maxY + padBottom],
+    ]
+  }, [containerSize.height, containerSize.width, dialogue.steps, getNodeSize, toolbarClearance, zoom])
 
   const handleConnect = useCallback(
     (connection: Connection) => {
-      if (!connection.source || !connection.target) return
+      if (connectingRef.current?.cancelled) return
+      if (!connection.source || !connection.target || connection.source === connection.target) return
       didConnectRef.current = true
       onLink(connection.source, parseSourcePort(connection.sourceHandle), connection.target)
     },
@@ -436,51 +569,99 @@ function StepCanvasInner({
   )
 
   const handleConnectStart = useCallback(
-    (_event: MouseEvent | TouchEvent, params: { nodeId: string | null; handleId: string | null }) => {
+    (event: MouseEvent | TouchEvent, params: { nodeId: string | null; handleId: string | null }) => {
       if (!params.nodeId) return
+      const start = eventPoint(event) ?? { x: 0, y: 0 }
       didConnectRef.current = false
-      connectingRef.current = { nodeId: params.nodeId, handleId: params.handleId }
+      setConnectingFrom(params.nodeId)
+
       const onPointerMove = (moveEvent: PointerEvent) => {
-        setHoverTarget(findStepAtPoint(moveEvent.clientX, moveEvent.clientY))
+        const over = findStepAtPoint(moveEvent.clientX, moveEvent.clientY)
+        setHover(over && over !== params.nodeId ? over : null)
+      }
+      const onKeyDown = (keyEvent: KeyboardEvent) => {
+        if (keyEvent.key !== "Escape") return
+        keyEvent.preventDefault()
+        keyEvent.stopPropagation()
+        if (connectingRef.current) {
+          connectingRef.current.cancelled = true
+          connectingRef.current.cleanup()
+        }
+        setConnectingFrom(null)
+        setHover(null)
+        store.optionsStore.getState().cancelConnection()
       }
       const cleanup = () => {
         window.removeEventListener("pointermove", onPointerMove)
-        window.removeEventListener("pointerup", cleanup)
-        window.removeEventListener("pointercancel", cleanup)
-        setHoverTarget(null)
+        window.removeEventListener("keydown", onKeyDown, true)
+      }
+      connectingRef.current = {
+        nodeId: params.nodeId,
+        handleId: params.handleId,
+        startX: start.x,
+        startY: start.y,
+        cancelled: false,
+        cleanup,
       }
       window.addEventListener("pointermove", onPointerMove)
-      window.addEventListener("pointerup", cleanup)
-      window.addEventListener("pointercancel", cleanup)
+      window.addEventListener("keydown", onKeyDown, true)
     },
-    [findStepAtPoint],
+    [findStepAtPoint, setHover, store],
   )
 
   const handleConnectEnd = useCallback(
     (event: MouseEvent | TouchEvent) => {
       const started = connectingRef.current
       connectingRef.current = null
-      setHoverTarget(null)
-      if (!started || didConnectRef.current) return
-      const client = "changedTouches" in event ? event.changedTouches[0] : event
+      started?.cleanup()
+      const trackedHover = hoverTargetRef.current
+      setHover(null)
+      setConnectingFrom(null)
+      if (!started || started.cancelled || didConnectRef.current) return
+      const client = eventPoint(event)
       if (!client) return
-      const targetStep = findStepAtPoint(client.clientX, client.clientY)
+      if (Math.hypot(client.x - started.startX, client.y - started.startY) < MIN_PORT_DRAG_PX) return
+      if (!isInsideFreeCanvas(client.x, client.y)) return
+      const directStep = findStepAtPoint(client.x, client.y)
+      if (directStep === started.nodeId) return
+      const pos = screenToFlowPosition({ x: client.x, y: client.y })
+      const sourceStep = stepOf(dialogue, started.nodeId)
+      if (sourceStep) {
+        const sourceSize = getNodeSize(sourceStep.id, sourceStep)
+        if (
+          pos.x >= sourceStep.x &&
+          pos.x <= sourceStep.x + sourceSize.width &&
+          pos.y >= sourceStep.y &&
+          pos.y <= sourceStep.y + sourceSize.height
+        ) {
+          return
+        }
+      }
+      const targetStep = directStep ?? trackedHover
       const port = parseSourcePort(started.handleId)
-      if (targetStep) {
+      if (targetStep && targetStep !== started.nodeId) {
         onLink(started.nodeId, port, targetStep)
         return
       }
-      const pos = screenToFlowPosition({ x: client.clientX, y: client.clientY })
-      onCreateFromPort(started.nodeId, port, pos.x, pos.y)
+      onCreateFromPort(started.nodeId, port, pos.x, pos.y, measuredSizesRef.current)
     },
-    [findStepAtPoint, onCreateFromPort, onLink, screenToFlowPosition],
+    [
+      dialogue,
+      findStepAtPoint,
+      getNodeSize,
+      isInsideFreeCanvas,
+      onCreateFromPort,
+      onLink,
+      screenToFlowPosition,
+      setHover,
+    ],
   )
 
   const handlePaneClick = useCallback(
     (event: ReactMouseEvent) => {
       if (event.detail === 2) {
         const pos = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-        onCreateAt(pos.x, pos.y)
+        onCreateAt(pos.x, pos.y, measuredSizesRef.current)
         return
       }
       onSelect(null)
@@ -489,73 +670,122 @@ function StepCanvasInner({
     [onCreateAt, onSelect, onSelectEdge, screenToFlowPosition],
   )
 
+  const handleCanvasKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) return
+      if (target.closest("button, a[href], input, textarea, select, [role='button']")) return
+      const nodeEl = target.closest<HTMLElement>(".react-flow__node")
+      const nodeId = nodeEl?.dataset.id
+      if (!nodeId) return
+      if (
+        event.key === "ArrowUp" ||
+        event.key === "ArrowDown" ||
+        event.key === "ArrowLeft" ||
+        event.key === "ArrowRight"
+      ) {
+        event.stopPropagation()
+        return
+      }
+      if (event.key !== "Enter" && event.key !== " ") return
+      event.preventDefault()
+      event.stopPropagation()
+      if (selected !== nodeId) {
+        onSelectEdge(null)
+        onSelect(nodeId)
+      } else if (event.key === "Enter") {
+        onFocusSelectedText(nodeId)
+      }
+    },
+    [onFocusSelectedText, onSelect, onSelectEdge, selected],
+  )
+
+  const interactionValue = useMemo(() => ({ hoverTarget, connectingFrom }), [connectingFrom, hoverTarget])
+  const ariaLabelConfig = useMemo(
+    () => ({
+      "node.a11yDescription.default": t("steward.npcs.node-hint"),
+      "node.a11yDescription.keyboardDisabled": t("steward.npcs.node-hint"),
+    }),
+    [],
+  )
+
   return (
-    <div ref={containerRef} className="npc-flow relative size-full" role="group" aria-label={t("steward.npcs.graph")}>
-      <CanvasToolbar
-        language={language}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onAddStep={onAddStep}
-        onArrange={onArrange}
-        onUndo={onUndo}
-        onRedo={onRedo}
-        onLanguage={onLanguage}
-        onFit={() => fitFreeArea(true)}
-      />
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        edgeTypes={EDGE_TYPES}
-        minZoom={MIN_ZOOM}
-        maxZoom={MAX_ZOOM}
-        panOnDrag
-        panOnScroll
-        zoomOnScroll={false}
-        zoomOnPinch
-        zoomOnDoubleClick={false}
-        nodesDraggable
-        nodesConnectable
-        elementsSelectable
-        deleteKeyCode={null}
-        proOptions={{ hideAttribution: true }}
-        onNodesChange={(changes) => {
-          setDraggingPositions((prev) => {
-            let next: Map<string, { x: number; y: number }> | undefined
-            for (const change of changes) {
-              if (change.type === "position" && change.dragging && change.position) {
-                next ??= new Map(prev)
-                next.set(change.id, change.position)
-              }
-            }
-            return next ?? prev
-          })
-        }}
-        onNodeClick={(_event, node) => {
-          onSelectEdge(null)
-          onSelect(node.id)
-        }}
-        onNodeDragStop={(_event, node) => {
-          setDraggingPositions((prev) => {
-            if (!prev.has(node.id)) return prev
-            const next = new Map(prev)
-            next.delete(node.id)
-            return next
-          })
-          onPlace(node.id, node.position.x, node.position.y)
-        }}
-        onEdgeClick={(_event, edge) => {
-          onSelect(null)
-          onSelectEdge(edge.id)
-        }}
-        onConnect={handleConnect}
-        onConnectStart={handleConnectStart}
-        onConnectEnd={handleConnectEnd}
-        onPaneClick={handlePaneClick}
+    <CanvasInteractionContext.Provider value={interactionValue}>
+      <div
+        ref={containerRef}
+        tabIndex={-1}
+        className="npc-flow relative size-full outline-none"
+        role="group"
+        aria-label={t("steward.npcs.graph")}
+        onKeyDown={handleCanvasKeyDown}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
-      </ReactFlow>
-    </div>
+        <CanvasToolbar
+          toolbarRef={toolbarRef}
+          language={language}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onAddStep={onAddStep}
+          onArrange={() => onArrange(measuredSizesRef.current)}
+          onUndo={onUndo}
+          onRedo={onRedo}
+          onLanguage={onLanguage}
+          onFit={() => fitFreeArea(true)}
+        />
+        <ReactFlow
+          nodes={flowNodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          edgeTypes={EDGE_TYPES}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
+          translateExtent={translateExtent}
+          panOnDrag
+          panOnScroll
+          zoomOnScroll={false}
+          zoomOnPinch
+          zoomOnDoubleClick={false}
+          nodesDraggable
+          nodesConnectable
+          elementsSelectable
+          edgesFocusable={false}
+          ariaLabelConfig={ariaLabelConfig}
+          deleteKeyCode={null}
+          connectionLineStyle={{ stroke: "var(--primary)", strokeWidth: 2 }}
+          proOptions={{ hideAttribution: true }}
+          onNodesChange={handleNodesChange}
+          onNodeClick={(_event, node) => {
+            onSelectEdge(null)
+            onSelect(node.id)
+          }}
+          onNodeDragStop={(_event, node) => {
+            onPlace(node.id, node.position.x, node.position.y, measuredSizesRef.current)
+            onSelectEdge(null)
+            onSelect(node.id)
+          }}
+          onEdgeClick={(_event, edge) => {
+            onSelect(null)
+            onSelectEdge(edge.id)
+          }}
+          onConnect={handleConnect}
+          onConnectStart={handleConnectStart}
+          onConnectEnd={handleConnectEnd}
+          onPaneClick={handlePaneClick}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
+        </ReactFlow>
+        {startGhost ? (
+          <div
+            data-start-ghost
+            aria-hidden="true"
+            className="pointer-events-none absolute z-20 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-sm border border-primary bg-popover px-2 py-1 text-xs font-medium text-popover-foreground shadow-md"
+            style={{ left: startGhost.x, top: startGhost.y }}
+          >
+            <TERM_ICON.start aria-hidden className="size-3 shrink-0 text-primary" />
+            {t("steward.npcs.start")}
+          </div>
+        ) : null}
+      </div>
+    </CanvasInteractionContext.Provider>
   )
 }
 

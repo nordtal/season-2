@@ -152,13 +152,15 @@ export function setStart(npc: Npc, id: string): Npc {
 }
 
 export type Point = { x: number; y: number }
+export type NodeSize = { width: number; height: number }
+export type NodeSizes = ReadonlyMap<string, NodeSize>
 
-/** The canvas: every step is a card of one width, and its height follows from its rows. */
+/** The canvas: every step is a card of one width, and its height follows from its rows when unmeasured. */
 export const NODE_WIDTH = 280
 export const MARGIN = 24
 export const GAP_X = 80
 export const GAP_Y = 24
-const HEADER_BODY_HEIGHT = 112
+const HEADER_BODY_HEIGHT = 76
 const ROW_HEIGHT = 36
 const ROW_GAP = 4
 
@@ -167,16 +169,45 @@ export function nodeHeight(step: NpcStep): number {
   return HEADER_BODY_HEIGHT + rows * (ROW_HEIGHT + ROW_GAP) + 8
 }
 
-function rectsOverlap(ax: number, ay: number, ah: number, bx: number, by: number, bh: number, pad = 0): boolean {
-  return ax < bx + NODE_WIDTH + pad && bx < ax + NODE_WIDTH + pad && ay < by + bh + pad && by < ay + ah + pad
+export function sizeOf(step: NpcStep, sizes?: NodeSizes): NodeSize {
+  const measured = sizes?.get(step.id)
+  if (measured && measured.width > 0 && measured.height > 0) return measured
+  return { width: NODE_WIDTH, height: nodeHeight(step) }
+}
+
+function rectsOverlap(
+  ax: number,
+  ay: number,
+  aw: number,
+  ah: number,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  pad = 0,
+): boolean {
+  return ax < bx + bw + pad && bx < ax + aw + pad && ay < by + bh + pad && by < ay + ah + pad
 }
 
 /** Nudges a single box to the nearest free integer position when it overlaps another step. */
-function freePlace(others: NpcStep[], x: number, y: number, height: number): Point {
+function freePlace(others: NpcStep[], x: number, y: number, size: NodeSize, sizes?: NodeSizes): Point {
   const startX = Math.round(x)
   const startY = Math.round(y)
   const clear = (cx: number, cy: number) =>
-    others.every((other) => !rectsOverlap(cx, cy, height, other.x, other.y, nodeHeight(other), GAP_Y / 2))
+    others.every((other) => {
+      const otherSize = sizeOf(other, sizes)
+      return !rectsOverlap(
+        cx,
+        cy,
+        size.width,
+        size.height,
+        other.x,
+        other.y,
+        otherSize.width,
+        otherSize.height,
+        GAP_Y / 2,
+      )
+    })
   if (clear(startX, startY)) return { x: startX, y: startY }
   const step = 24
   for (let ring = 1; ring <= 40; ring++) {
@@ -206,11 +237,11 @@ export function moveStep(npc: Npc, id: string, x: number, y: number): Npc {
 }
 
 /** Places a dropped step at integer coordinates, nudging only the dropped step if it overlaps another. */
-export function placeStep(npc: Npc, id: string, x: number, y: number): Npc {
+export function placeStep(npc: Npc, id: string, x: number, y: number, sizes?: NodeSizes): Npc {
   const target = stepOf(npc.dialogue, id)
   if (target === undefined) return npc
   const others = npc.dialogue.steps.filter((each) => each.id !== id)
-  const placed = freePlace(others, x, y, nodeHeight(target))
+  const placed = freePlace(others, x, y, sizeOf(target, sizes), sizes)
   return editStep(npc, id, (step) => ({ ...step, x: placed.x, y: placed.y }))
 }
 
@@ -224,17 +255,18 @@ function freeId(dialogue: Dialogue): string {
 /**
  * Adds an empty step to the right of `from` (or at the margin) and moves it down until it covers no other step.
  */
-export function addStep(npc: Npc, from: string | undefined): { npc: Npc; id: string } {
+export function addStep(npc: Npc, from: string | undefined, sizes?: NodeSizes): { npc: Npc; id: string } {
   const id = freeId(npc.dialogue)
   const origin = stepOf(npc.dialogue, from)
-  const x = origin === undefined ? MARGIN : origin.x + NODE_WIDTH + GAP_X
+  const x = origin === undefined ? MARGIN : origin.x + sizeOf(origin, sizes).width + GAP_X
   let y = origin === undefined ? MARGIN : origin.y
   const height = nodeHeight({ id, x, y, pages: [NO_WORDS], answers: [] })
   for (let moved = true; moved;) {
     moved = false
     for (const other of npc.dialogue.steps) {
-      if (rectsOverlap(x, y, height, other.x, other.y, nodeHeight(other), GAP_Y / 2)) {
-        y = other.y + nodeHeight(other) + GAP_Y
+      const otherSize = sizeOf(other, sizes)
+      if (rectsOverlap(x, y, NODE_WIDTH, height, other.x, other.y, otherSize.width, otherSize.height, GAP_Y / 2)) {
+        y = other.y + otherSize.height + GAP_Y
         moved = true
       }
     }
@@ -244,10 +276,10 @@ export function addStep(npc: Npc, from: string | undefined): { npc: Npc; id: str
 }
 
 /** Adds an empty step at canvas coordinates `(x, y)`, nudging if it overlaps an existing step. */
-export function addStepAt(npc: Npc, x: number, y: number): { npc: Npc; id: string } {
+export function addStepAt(npc: Npc, x: number, y: number, sizes?: NodeSizes): { npc: Npc; id: string } {
   const id = freeId(npc.dialogue)
   const blank: NpcStep = { id, x: 0, y: 0, pages: [NO_WORDS], answers: [] }
-  const placed = freePlace(npc.dialogue.steps, x, y, nodeHeight(blank))
+  const placed = freePlace(npc.dialogue.steps, x, y, { width: NODE_WIDTH, height: nodeHeight(blank) }, sizes)
   const step: NpcStep = { ...blank, x: placed.x, y: placed.y }
   return { npc: withSteps(npc, [...npc.dialogue.steps, step]), id }
 }
@@ -408,23 +440,27 @@ export function labelOf(step: NpcStep): string {
 }
 
 /** Whether two steps cover each other on the canvas, as steps saved without a place do. */
-export function overlapping(dialogue: Dialogue): boolean {
-  return dialogue.steps.some((a, index) =>
-    dialogue.steps.slice(index + 1).some((b) => rectsOverlap(a.x, a.y, nodeHeight(a), b.x, b.y, nodeHeight(b))),
-  )
+export function overlapping(dialogue: Dialogue, sizes?: NodeSizes): boolean {
+  return dialogue.steps.some((a, index) => {
+    const aSize = sizeOf(a, sizes)
+    return dialogue.steps.slice(index + 1).some((b) => {
+      const bSize = sizeOf(b, sizes)
+      return rectsOverlap(a.x, a.y, aSize.width, aSize.height, b.x, b.y, bSize.width, bSize.height)
+    })
+  })
 }
 
 /**
  * Arranges every step: a column per number of steps from the start, each column from the top in the order a player
  * meets its steps. The steps nothing leads to stand in the first column, under the start.
  */
-export function arranged(npc: Npc): Npc {
+export function arranged(npc: Npc, sizes?: NodeSizes): Npc {
   const bottoms = new Map<number, number>()
   const places = new Map<string, Point>()
   for (const { step, depth } of ordered(npc.dialogue)) {
     const y = bottoms.get(depth) ?? MARGIN
     places.set(step.id, { x: MARGIN + depth * (NODE_WIDTH + GAP_X), y })
-    bottoms.set(depth, y + nodeHeight(step) + GAP_Y)
+    bottoms.set(depth, y + sizeOf(step, sizes).height + GAP_Y)
   }
   return withSteps(
     npc,

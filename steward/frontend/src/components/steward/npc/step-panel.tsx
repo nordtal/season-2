@@ -1,4 +1,12 @@
-import { CaretDownIcon, CaretUpIcon, PlusIcon, TrashIcon, XIcon } from "@/components/ui/icons"
+import {
+  CaretDownIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  CaretUpIcon,
+  PlusIcon,
+  TrashIcon,
+  XIcon,
+} from "@/components/ui/icons"
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react"
 
 import type { Npc, NpcAnswer, NpcMenu, NpcStep, NpcTextMeasurement } from "@/lib/api"
@@ -52,7 +60,7 @@ export function menuName(menus: NpcMenu[], key: string): string {
 /** A heading of a section, with the actions that belong to it. */
 export function Heading({ children, actions }: { children: string; actions?: ReactNode }) {
   return (
-    <div className="flex min-h-8 flex-wrap items-center justify-between gap-2">
+    <div className="flex min-h-6 flex-wrap items-center justify-between gap-2">
       <h2 className="text-sm font-medium font-heading text-muted-foreground">{children}</h2>
       {actions ? <div className="flex flex-wrap items-center gap-1">{actions}</div> : null}
     </div>
@@ -126,7 +134,7 @@ function StepPageText({
     }
   }
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
         <Label htmlFor={id} className="text-xs font-normal text-muted-foreground">
           {t("steward.npcs.language", { language })}
@@ -148,10 +156,14 @@ function StepPageText({
       <Textarea
         id={id}
         lang={language}
+        rows={2}
         data-focus-field={`step-text:${step.id}:${pageIndex}:${language}`}
         value={text}
         maxLength={LONGEST_TEXT}
-        className={cn("min-h-10 resize-none", measurement && !measurement.fits && "border-warning")}
+        className={cn(
+          "min-h-10 resize-none py-1 text-sm max-md:text-base",
+          measurement && !measurement.fits && "border-warning",
+        )}
         onFocus={onFocus}
         onKeyDown={onKeyDown}
         onChange={(event) =>
@@ -300,7 +312,7 @@ function AnswerInput({
         aria-label={t("steward.npcs.answer-text", { index: index + 1, language })}
         value={answer.text[language]}
         maxLength={LONGEST_TEXT}
-        className={cn(wide && "border-warning")}
+        className={cn("h-8", wide && "border-warning")}
         onKeyDown={onKeyDown}
         onChange={(event) =>
           edit((draft) => setAnswerText(draft, step.id, index, language, event.target.value), {
@@ -339,7 +351,7 @@ function AnswerCard({
   const wideEn = useKept(fitsEn, `${step.id}:${index}:en`) === false
   const wideDe = useKept(fitsDe, `${step.id}:${index}:de`) === false
   return (
-    <div className="flex flex-col gap-2 rounded-md bg-secondary/50 p-3">
+    <div className="flex flex-col gap-1 rounded-md bg-secondary/50 p-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium font-heading text-muted-foreground tnum">
           {t("steward.npcs.answer-number", { index: index + 1 })}
@@ -357,30 +369,33 @@ function AnswerCard({
           </Button>
         </Hint>
       </div>
-      <AnswerInput
-        step={step}
-        answer={answer}
-        index={index}
-        language="en"
-        wide={wideEn}
-        edit={edit}
-        onQuickNext={onQuickNext}
-      />
-      <AnswerInput
-        step={step}
-        answer={answer}
-        index={index}
-        language="de"
-        wide={wideDe}
-        edit={edit}
-        onQuickNext={onQuickNext}
-      />
-      <div className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">{t("steward.npcs.leads-to")}</span>
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        <AnswerInput
+          step={step}
+          answer={answer}
+          index={index}
+          language="en"
+          wide={wideEn}
+          edit={edit}
+          onQuickNext={onQuickNext}
+        />
+        <AnswerInput
+          step={step}
+          answer={answer}
+          index={index}
+          language="de"
+          wide={wideDe}
+          edit={edit}
+          onQuickNext={onQuickNext}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 text-xs text-muted-foreground">{t("steward.npcs.leads-to")}</span>
         <ThenPicker
           label={t("steward.npcs.answer-then", { index: index + 1 })}
           then={answer.next === undefined ? { to: "end" } : { to: "step", step: answer.next }}
           npc={npc}
+          className="h-8"
           onThen={(then) => edit((draft) => setAnswerThen(draft, step.id, index, then))}
           onNew={() => {
             let createdId = ""
@@ -409,6 +424,7 @@ function Answers({
   edit,
   onQuickNext,
   onCreatedStep,
+  onFocusField,
 }: {
   npc: Npc
   step: NpcStep
@@ -416,10 +432,11 @@ function Answers({
   edit: Edit
   onQuickNext?: () => void
   onCreatedStep?: (id: string) => void
+  onFocusField?: (selectorKey: string) => void
 }) {
   const full = step.answers.length >= MOST_ANSWERS
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-2">
       <Heading>{t("steward.npcs.answers")}</Heading>
       {step.answers.map((answer, index) => (
         <AnswerCard
@@ -440,7 +457,11 @@ function Answers({
           variant="ghost"
           size="sm"
           disabled={full}
-          onClick={() => edit((draft) => addAnswer(draft, step.id))}
+          onClick={() => {
+            const newIndex = step.answers.length
+            edit((draft) => addAnswer(draft, step.id))
+            onFocusField?.(`answer-text:${step.id}:${newIndex}:en`)
+          }}
         >
           <PlusIcon aria-hidden />
           {t("steward.npcs.add-answer")}
@@ -463,6 +484,7 @@ export function StepPanel({
   onDeleteStep,
   onQuickNext,
   onCreatedStep,
+  onFocusField,
 }: {
   npc: Npc
   step: NpcStep
@@ -473,6 +495,7 @@ export function StepPanel({
   onDeleteStep: (id: string) => void
   onQuickNext?: () => void
   onCreatedStep?: (id: string) => void
+  onFocusField?: (selectorKey: string) => void
 }) {
   const numbers = stepNumbers(npc.dialogue)
   const number = numbers.get(step.id) ?? 1
@@ -480,8 +503,8 @@ export function StepPanel({
   const only = npc.dialogue.steps.length <= 1
   const multiPage = step.pages.length > 1
   return (
-    <div className="flex flex-col gap-5">
-      <section className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
+      <section className="flex flex-col gap-2">
         <Heading
           actions={
             <>
@@ -527,18 +550,20 @@ export function StepPanel({
                 </Hint>
               </div>
             ) : null}
-            {LANGUAGES.map((language) => (
-              <StepPageText
-                key={language}
-                step={step}
-                pageIndex={pageIndex}
-                language={language}
-                measured={measured}
-                edit={edit}
-                onFocus={() => onSelectPage(pageIndex)}
-                onQuickNext={onQuickNext}
-              />
-            ))}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {LANGUAGES.map((language) => (
+                <StepPageText
+                  key={language}
+                  step={step}
+                  pageIndex={pageIndex}
+                  language={language}
+                  measured={measured}
+                  edit={edit}
+                  onFocus={() => onSelectPage(pageIndex)}
+                  onQuickNext={onQuickNext}
+                />
+              ))}
+            </div>
           </div>
         ))}
         <div className="flex items-center gap-3">
@@ -592,6 +617,7 @@ export function StepPanel({
         edit={edit}
         onQuickNext={onQuickNext}
         onCreatedStep={onCreatedStep}
+        onFocusField={onFocusField}
       />
     </div>
   )
@@ -644,38 +670,67 @@ export function InspectorPreview({
   onSelectPage: (pageIndex: number) => void
 }) {
   const Caret = open ? CaretDownIcon : CaretUpIcon
+  const clampedPage = Math.min(pageIndex, step.pages.length - 1)
   return (
-    <section className="shrink-0 border-t bg-popover px-4 py-2.5">
+    <section className="shrink-0 border-t bg-popover px-3 py-1.5">
       <div className="flex items-center justify-between gap-2">
         <Button
           type="button"
           variant="ghost"
-          size="sm"
-          className="-ml-2 text-muted-foreground"
+          size="xs"
+          className="-ml-1.5 text-muted-foreground"
           aria-expanded={open}
-          aria-label={t("steward.npcs.toggle-preview")}
           onClick={onToggle}
         >
           <Caret aria-hidden />
           {t("steward.npcs.preview")}
         </Button>
         {open && step.pages.length > 1 ? (
-          <Tabs
-            value={String(Math.min(pageIndex, step.pages.length - 1))}
-            onValueChange={(value) => onSelectPage(Number(value))}
-          >
-            <TabsList>
-              {step.pages.map((_, index) => (
-                <TabsTrigger key={index} value={String(index)} className="px-2 text-xs tnum">
-                  {index + 1}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          step.pages.length > 8 ? (
+            <div className="flex items-center gap-1">
+              <Hint tip={t("steward.npcs.previous-page")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  disabled={clampedPage <= 0}
+                  aria-label={t("steward.npcs.previous-page")}
+                  onClick={() => onSelectPage(Math.max(0, clampedPage - 1))}
+                >
+                  <CaretLeftIcon aria-hidden />
+                </Button>
+              </Hint>
+              <span className="min-w-10 text-center text-xs text-muted-foreground tnum">
+                {t("steward.npcs.page-of", { current: clampedPage + 1, total: step.pages.length })}
+              </span>
+              <Hint tip={t("steward.npcs.next-page")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  disabled={clampedPage >= step.pages.length - 1}
+                  aria-label={t("steward.npcs.next-page")}
+                  onClick={() => onSelectPage(Math.min(step.pages.length - 1, clampedPage + 1))}
+                >
+                  <CaretRightIcon aria-hidden />
+                </Button>
+              </Hint>
+            </div>
+          ) : (
+            <Tabs value={String(clampedPage)} onValueChange={(value) => onSelectPage(Number(value))}>
+              <TabsList>
+                {step.pages.map((_, index) => (
+                  <TabsTrigger key={index} value={String(index)} className="px-2 text-xs tnum">
+                    {index + 1}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )
         ) : null}
       </div>
       {open ? (
-        <div className="mt-2">
+        <div className="mt-1.5">
           <DialoguePreview npc={npc} step={step} pageIndex={pageIndex} language={language} measured={measured} />
         </div>
       ) : null}

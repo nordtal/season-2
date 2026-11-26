@@ -1,17 +1,19 @@
-import { ArrowLeftIcon, ClockCounterClockwiseIcon, SpinnerIcon, XIcon } from "@/components/ui/icons"
+import { ClockCounterClockwiseIcon, SpinnerIcon, XIcon } from "@/components/ui/icons"
 import { useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate } from "@tanstack/react-router"
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { api, ApiError, errorMessage, type CommandAsked, type Npc, type NpcView } from "@/lib/api"
 import {
   type Language,
   LANGUAGES,
+  type NodeSizes,
   addStep,
   addStepAt,
   arranged,
   deleteStep,
+  ordered,
   overlapping,
   placeStep,
   problemsOf,
@@ -24,7 +26,14 @@ import {
   warningsOf,
 } from "@/lib/npc"
 import { readNpcDraft, setNpcDraft, useNpcDraft } from "@/lib/npc-drafts"
-import { everyNpcText, isEditableElement, useIsDesktopCanvas, useNpcHistory } from "@/lib/npc-history"
+import {
+  everyNpcText,
+  isCanvasShortcutTarget,
+  isEditableElement,
+  useIsDesktopCanvas,
+  useNpcHistory,
+  usePreviewOpen,
+} from "@/lib/npc-history"
 import { NPCS_PATH } from "@/lib/npc-paths"
 import { finalRun } from "@/lib/queries-commands"
 import { keys } from "@/lib/query-keys"
@@ -32,6 +41,7 @@ import { measureKey, useNpc, useNpcMeasurements, useNpcMenus, usePublishNpc, use
 import { message, t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
 import { AskThenAct } from "@/components/steward/ask-then-act"
+import { EditorHead } from "@/components/steward/npc/editor-head"
 import { type SourcePort, StepCanvas, type TooLong, parseEdgeId } from "@/components/steward/npc/graph"
 import { requestsOf } from "@/components/steward/npc/preview"
 import { type IssueTarget, ProblemsPopover } from "@/components/steward/npc/problems"
@@ -40,7 +50,7 @@ import { NarrowDialogueView } from "@/components/steward/npc/step-list"
 import { InspectorEmpty, InspectorPreview, StepPanel } from "@/components/steward/npc/step-panel"
 import { NpcVersions } from "@/components/steward/npc/versions"
 import { QueryState, Skeleton } from "@/components/steward/query-state"
-import { StatusBadge } from "@/components/steward/status"
+import { Hint, StatusBadge } from "@/components/steward/status"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -95,23 +105,6 @@ export function NpcEditor({ id }: { id: string }) {
   )
 }
 
-/** The editor's head: back link, NPC title, and actions. */
-function EditorHead({ title, actions }: { title: string; actions?: ReactNode }) {
-  return (
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <div className="-ml-2 flex min-w-0 items-center gap-1">
-        <Button asChild variant="ghost" size="icon-sm">
-          <Link {...NPCS_PATH} aria-label={t("steward.npcs.back")}>
-            <ArrowLeftIcon aria-hidden />
-          </Link>
-        </Button>
-        <h2 className="truncate text-xl font-semibold font-heading tracking-tight">{title}</h2>
-      </div>
-      {actions ? <div className="flex max-w-full flex-wrap items-center justify-end gap-2">{actions}</div> : null}
-    </header>
-  )
-}
-
 /** The editor before its NPC is read: title, tabs, then canvas placeholder. */
 function Waiting() {
   return (
@@ -147,7 +140,7 @@ function Editor({
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null)
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false)
   const [previewPage, setPreviewPage] = useState(0)
-  const [previewOpen, setPreviewOpen] = useState(true)
+  const [previewOpen, togglePreview] = usePreviewOpen(isDesktop)
   const [language, setLanguage] = useState<Language>("en")
   const [problemsOpen, setProblemsOpen] = useState(false)
   const [versions, setVersions] = useState(false)
@@ -228,21 +221,19 @@ function Editor({
     (id: string) => {
       const current = npcRef.current
       if (current.dialogue.steps.length <= 1) return
+      const beforeOrder = ordered(current.dialogue).map((entry) => entry.step.id)
+      const deletedIndex = beforeOrder.indexOf(id)
+      const fallbackId = deletedIndex > 0 ? beforeOrder[deletedIndex - 1] : (beforeOrder[1] ?? null)
       const numbersBefore = stepNumbers(current.dialogue)
       const deletedNumber = numbersBefore.get(id) ?? 1
       const wasStart = current.dialogue.start === id
-      const after = deleteStep(current, id)
-      const numbersAfter = stepNumbers(after.dialogue)
-      const newStartNumber = numbersAfter.get(after.dialogue.start) ?? 1
       edit((draft) => deleteStep(draft, id))
-      setPicked((prev) => (prev === id ? null : prev))
+      setPicked((prev) => (prev === id ? fallbackId : prev))
       setSelectedEdge(null)
       setMobileInspectorOpen(false)
       setPreviewPage(0)
       toast(
-        wasStart
-          ? t("steward.npcs.step-deleted-start", { number: deletedNumber, start: newStartNumber })
-          : t("steward.npcs.step-deleted", { number: deletedNumber }),
+        wasStart ? t("steward.npcs.step-deleted-start") : t("steward.npcs.step-deleted", { number: deletedNumber }),
         {
           action: {
             label: t("steward.npcs.undo"),
@@ -264,8 +255,14 @@ function Editor({
           : setAnswerThen(draft, parsed.stepId, parsed.port, { to: "end" }),
       )
       setSelectedEdge(null)
+      toast(t("steward.npcs.link-removed"), {
+        action: {
+          label: t("steward.npcs.undo"),
+          onClick: () => undo(),
+        },
+      })
     },
-    [edit],
+    [edit, undo],
   )
 
   const handleLinkPort = useCallback(
@@ -280,17 +277,17 @@ function Editor({
   )
 
   const handleCreateFromPort = useCallback(
-    (sourceId: string, port: SourcePort, x: number, y: number) => {
+    (sourceId: string, port: SourcePort, x: number, y: number, sizes?: NodeSizes) => {
       let createdId = ""
       edit((draft) => {
-        const baseDraft = overlapping(draft.dialogue) ? arranged(draft) : draft
-        const added = addStepAt(baseDraft, x, y)
+        const baseDraft = overlapping(draft.dialogue, sizes) ? arranged(draft, sizes) : draft
+        const added = addStepAt(baseDraft, x, y, sizes)
         createdId = added.id
         return port === "then"
           ? setThen(added.npc, sourceId, { to: "step", step: added.id })
           : setAnswerThen(added.npc, sourceId, port, { to: "step", step: added.id })
       })
-      if (createdId) selectAndFocusStep(createdId, `step-text:${createdId}:0:en`, false)
+      if (createdId) selectAndFocusStep(createdId, `step-text:${createdId}:0:en`, true)
     },
     [edit, selectAndFocusStep],
   )
@@ -312,15 +309,15 @@ function Editor({
   )
 
   const handleCreateAt = useCallback(
-    (x: number, y: number) => {
+    (x: number, y: number, sizes?: NodeSizes) => {
       let createdId = ""
       edit((draft) => {
-        const baseDraft = overlapping(draft.dialogue) ? arranged(draft) : draft
-        const added = addStepAt(baseDraft, x, y)
+        const baseDraft = overlapping(draft.dialogue, sizes) ? arranged(draft, sizes) : draft
+        const added = addStepAt(baseDraft, x, y, sizes)
         createdId = added.id
         return added.npc
       })
-      if (createdId) selectAndFocusStep(createdId, `step-text:${createdId}:0:en`, false)
+      if (createdId) selectAndFocusStep(createdId, `step-text:${createdId}:0:en`, true)
     },
     [edit, selectAndFocusStep],
   )
@@ -367,6 +364,7 @@ function Editor({
         return
       }
       if (tab !== "dialogue") return
+      if (!isCanvasShortcutTarget(event.target)) return
       if (event.key === "Escape") {
         if (event.defaultPrevented || problemsOpen || versions || conflict) return
         setPicked(null)
@@ -524,7 +522,7 @@ function Editor({
   const inspectorBody = selectedStep ? (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <ScrollArea className="min-h-0 flex-1">
-        <div className="p-4">
+        <div className="px-3 py-2">
           <StepPanel
             npc={npc}
             step={selectedStep}
@@ -535,6 +533,7 @@ function Editor({
             onDeleteStep={handleDeleteStep}
             onQuickNext={handleQuickNext}
             onCreatedStep={(id) => selectAndFocusStep(id, `step-text:${id}:0:en`, true)}
+            onFocusField={focusField}
           />
         </div>
       </ScrollArea>
@@ -545,7 +544,7 @@ function Editor({
         language={language}
         measured={measured}
         open={previewOpen}
-        onToggle={() => setPreviewOpen((open) => !open)}
+        onToggle={togglePreview}
         onSelectPage={setPreviewPage}
       />
     </div>
@@ -553,23 +552,26 @@ function Editor({
     <InspectorEmpty npc={npc} />
   )
 
+  const statusBadge =
+    live === 0 ? (
+      <StatusBadge tone="warn">{t("steward.npcs.draft-unpublished")}</StatusBadge>
+    ) : dirty ? (
+      <StatusBadge tone="warn">{t("steward.npcs.changed")}</StatusBadge>
+    ) : (
+      <Badge variant="secondary">{t("steward.npcs.live", { version: live })}</Badge>
+    )
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2 sm:gap-3">
       <EditorHead
         title={title}
+        status={statusBadge}
         actions={
           <>
-            {live === 0 ? (
-              <StatusBadge tone="warn">{t("steward.npcs.draft-unpublished")}</StatusBadge>
-            ) : dirty ? (
-              <StatusBadge tone="warn">{t("steward.npcs.changed")}</StatusBadge>
-            ) : (
-              <Badge variant="secondary">{t("steward.npcs.live", { version: live })}</Badge>
-            )}
             {dirty ? (
               <AskThenAct
                 trigger={
-                  <Button type="button" variant="ghost" size="sm">
+                  <Button type="button" variant="ghost" size="sm" className="shrink-0">
                     {t("steward.npcs.discard")}
                   </Button>
                 }
@@ -585,10 +587,19 @@ function Editor({
               />
             ) : null}
             {live > 0 ? (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setVersions(true)}>
-                <ClockCounterClockwiseIcon aria-hidden />
-                {t("steward.npcs.versions")}
-              </Button>
+              <Hint tip={t("steward.npcs.versions")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t("steward.npcs.versions")}
+                  className="shrink-0 max-sm:px-2"
+                  onClick={() => setVersions(true)}
+                >
+                  <ClockCounterClockwiseIcon aria-hidden />
+                  <span className="max-sm:sr-only">{t("steward.npcs.versions")}</span>
+                </Button>
+              </Hint>
             ) : null}
             {playing === null ? (
               <Button
@@ -596,13 +607,14 @@ function Editor({
                 variant="secondary"
                 size="sm"
                 disabled={starting}
+                className="shrink-0"
                 onClick={() => void startPlaying()}
               >
                 <TERM_ICON.start aria-hidden />
                 {t("steward.npcs.play")}
               </Button>
             ) : (
-              <Button type="button" variant="destructive" size="sm" onClick={cancelPlaying}>
+              <Button type="button" variant="destructive" size="sm" className="shrink-0" onClick={cancelPlaying}>
                 <XIcon aria-hidden />
                 {t("steward.npcs.cancel-play")}
               </Button>
@@ -615,7 +627,13 @@ function Editor({
               onOpenChange={setProblemsOpen}
               onSelect={handleSelectIssue}
             />
-            <Button type="button" size="sm" disabled={!dirty || publish.isPending} onClick={() => send(base)}>
+            <Button
+              type="button"
+              size="sm"
+              className="shrink-0"
+              disabled={!dirty || publish.isPending}
+              onClick={() => send(base)}
+            >
               {publish.isPending ? <SpinnerIcon aria-hidden className="animate-spin" /> : null}
               {publish.isPending ? t("steward.npcs.publishing") : t("steward.npcs.publish")}
             </Button>
@@ -629,9 +647,9 @@ function Editor({
           <TabsTrigger value="settings">{t("steward.npcs.tab", { tab: "settings" })}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dialogue" className="mt-3">
+        <TabsContent value="dialogue" className="mt-2 sm:mt-3">
           {isDesktop ? (
-            <div className="relative h-npc-canvas min-h-96 w-full overflow-hidden rounded-lg border bg-card">
+            <div className="relative h-npc-canvas min-h-96 w-full overflow-hidden rounded-lg border bg-background">
               <StepCanvas
                 dialogue={displayDialogue}
                 menus={menus.data ?? []}
@@ -646,10 +664,14 @@ function Editor({
                 onSelect={(id) => {
                   setPicked(id)
                   setPreviewPage(0)
+                  if (id !== null) setPanSignal((n) => n + 1)
                 }}
                 onSelectEdge={setSelectedEdge}
-                onPlace={(id, x, y) =>
-                  edit((draft) => placeStep(overlapping(draft.dialogue) ? arranged(draft) : draft, id, x, y))
+                onFocusSelectedText={(id) => focusField(`step-text:${id}:0:en`)}
+                onPlace={(id, x, y, sizes) =>
+                  edit((draft) =>
+                    placeStep(overlapping(draft.dialogue, sizes) ? arranged(draft, sizes) : draft, id, x, y, sizes),
+                  )
                 }
                 onLink={handleLinkPort}
                 onCreateFromPort={handleCreateFromPort}
@@ -657,8 +679,8 @@ function Editor({
                 onCreateAt={handleCreateAt}
                 onMoveStart={(targetId) => edit((draft) => setStart(draft, targetId))}
                 onAddStep={handleAddStepToolbar}
-                onArrange={() => {
-                  edit((draft) => arranged(draft))
+                onArrange={(sizes) => {
+                  edit((draft) => arranged(draft, sizes))
                   setFitSignal((n) => n + 1)
                 }}
                 onUndo={undo}
@@ -666,7 +688,9 @@ function Editor({
                 onLanguage={setLanguage}
               />
               <aside
-                aria-label={t("steward.npcs.step-number", { number: selectedNumber })}
+                aria-label={
+                  selectedStep ? t("steward.npcs.step-number", { number: selectedNumber }) : t("steward.npcs.graph")
+                }
                 className="absolute inset-y-0 right-0 z-10 flex w-npc-inspector max-w-full flex-col border-l bg-popover text-popover-foreground shadow-lg"
               >
                 {inspectorBody}

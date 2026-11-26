@@ -241,7 +241,25 @@ public interface NpcsPage {
     MessageRef stepDeleted(@Arg("number") @Example("2") int number);
 
     @Name("Start step deleted")
-    MessageRef stepDeletedStart(@Arg("number") @Example("1") int number, @Arg("start") @Example("2") int start);
+    MessageRef stepDeletedStart();
+
+    @Name("Link removed")
+    MessageRef linkRemoved();
+
+    @Name("Step card keyboard hint")
+    MessageRef nodeHint();
+
+    @Name("Link accessible label")
+    MessageRef edgeLabel(@Arg("from") @Example("1") int from, @Arg("to") @Example("2") int to);
+
+    @Name("Previous page")
+    MessageRef previousPage();
+
+    @Name("Next page")
+    MessageRef nextPage();
+
+    @Name("Page position")
+    MessageRef pageOf(@Arg("current") @Example("3") int current, @Arg("total") @Example("20") int total);
 
     @Name("Missing texts summary")
     MessageRef summaryMissing();
@@ -317,9 +335,6 @@ public interface NpcsPage {
 
     @Name("Preview")
     MessageRef preview();
-
-    @Name("Toggle preview")
-    MessageRef togglePreview();
 
     @Name("Name in a language")
     MessageRef nameIn(@Arg("language") Language language);

@@ -1749,6 +1749,10 @@ export type TextArgs = {
   }
   "steward.npcs.draft-unpublished": Record<string, never>
   "steward.npcs.drag-start": Record<string, never>
+  "steward.npcs.edge-label": {
+    from: Arg["number"]
+    to: Arg["number"]
+  }
   "steward.npcs.empty-slot": Record<string, never>
   "steward.npcs.end": Record<string, never>
   "steward.npcs.facing": Record<string, never>
@@ -1764,6 +1768,7 @@ export type TextArgs = {
     lines: Arg["number"]
     limit: Arg["number"]
   }
+  "steward.npcs.link-removed": Record<string, never>
   "steward.npcs.live": {
     version: Arg["number"]
   }
@@ -1781,8 +1786,10 @@ export type TextArgs = {
   "steward.npcs.name-in": {
     language: Arg["choice"]
   }
+  "steward.npcs.next-page": Record<string, never>
   "steward.npcs.no-icon": Record<string, never>
   "steward.npcs.no-text": Record<string, never>
+  "steward.npcs.node-hint": Record<string, never>
   "steward.npcs.none": Record<string, never>
   "steward.npcs.not-played": Record<string, never>
   "steward.npcs.not-published": Record<string, never>
@@ -1796,6 +1803,10 @@ export type TextArgs = {
   }
   "steward.npcs.page-count": {
     count: Arg["number"]
+  }
+  "steward.npcs.page-of": {
+    current: Arg["number"]
+    total: Arg["number"]
   }
   "steward.npcs.pitch": Record<string, never>
   "steward.npcs.place": Record<string, never>
@@ -1825,6 +1836,7 @@ export type TextArgs = {
     pose: Arg["choice"]
   }
   "steward.npcs.preview": Record<string, never>
+  "steward.npcs.previous-page": Record<string, never>
   "steward.npcs.problem-answer-text": {
     number: Arg["number"]
     index: Arg["number"]
@@ -1902,10 +1914,7 @@ export type TextArgs = {
   "steward.npcs.step-deleted": {
     number: Arg["number"]
   }
-  "steward.npcs.step-deleted-start": {
-    number: Arg["number"]
-    start: Arg["number"]
-  }
+  "steward.npcs.step-deleted-start": Record<string, never>
   "steward.npcs.step-named": {
     number: Arg["number"]
     text: Arg["text"]
@@ -1926,7 +1935,6 @@ export type TextArgs = {
     step: Arg["text"]
   }
   "steward.npcs.title": Record<string, never>
-  "steward.npcs.toggle-preview": Record<string, never>
   "steward.npcs.too-long-short": Record<string, never>
   "steward.npcs.too-tall": {
     limit: Arg["number"]

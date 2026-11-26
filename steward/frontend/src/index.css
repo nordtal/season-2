@@ -323,20 +323,22 @@
   }
 
   /* React Flow theme overrides: Steward tokens only, no foreign colours. */
-  .npc-flow {
-    --xy-background-color-default: var(--card);
-    --xy-background-pattern-dots-color-default: var(--border);
-    --xy-edge-stroke-default: var(--muted-foreground);
-    --xy-edge-stroke-selected-default: var(--primary);
-    --xy-connectionline-stroke-default: var(--primary);
-    --xy-node-background-color-default: transparent;
-    --xy-node-border-default: none;
-    --xy-node-boxshadow-hover-default: none;
-    --xy-node-boxshadow-selected-default: none;
-    --xy-handle-background-color-default: var(--card);
-    --xy-handle-border-color-default: var(--muted-foreground);
-    --xy-selection-background-color-default: transparent;
-    --xy-selection-border-default: none;
+  .npc-flow,
+  .npc-flow .react-flow {
+    --xy-background-color: var(--background);
+    --xy-background-pattern-dots-color: var(--border);
+    --xy-edge-stroke: var(--muted-foreground);
+    --xy-edge-stroke-selected: var(--primary);
+    --xy-connectionline-stroke: var(--primary);
+    --xy-connectionline-stroke-width: 2;
+    --xy-node-background-color: transparent;
+    --xy-node-border: none;
+    --xy-node-boxshadow-hover: none;
+    --xy-node-boxshadow-selected: none;
+    --xy-handle-background-color: var(--card);
+    --xy-handle-border-color: var(--muted-foreground);
+    --xy-selection-background-color: transparent;
+    --xy-selection-border: none;
   }
 
   .npc-flow .react-flow__node {
@@ -344,6 +346,12 @@
     border: none;
     background: transparent;
     box-shadow: none;
+  }
+
+  .npc-flow .react-flow__node:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-lg);
   }
 
   .npc-flow .react-flow__handle {

@@ -93,6 +93,15 @@ describe("adding, moving, placing and deleting steps", () => {
     expect(nudged.dialogue.steps[0].x).toBe(100)
     expect(nudged.dialogue.steps[0].y).toBe(100)
     expect(overlapping(nudged.dialogue)).toBe(false)
+
+    // Measured heights govern nudging: a drop leaving a 12px gap stays at the dropped position.
+    const sizes = new Map([
+      ["a", { width: NODE_WIDTH, height: 120 }],
+      ["b", { width: NODE_WIDTH, height: 120 }],
+    ])
+    const kept = placeStep(two, "b", 100, 232, sizes)
+    expect(kept.dialogue.steps[1].x).toBe(100)
+    expect(kept.dialogue.steps[1].y).toBe(232)
   })
 
   it("adds a step at given coordinates without overlapping existing steps", () => {

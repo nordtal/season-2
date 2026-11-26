@@ -165,7 +165,7 @@ export function NarrowDialogueView({
   onLanguage: (language: Language) => void
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2 sm:gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onAddStep}>
           <PlusIcon aria-hidden />

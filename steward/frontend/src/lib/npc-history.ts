@@ -24,10 +24,51 @@ export function useIsDesktopCanvas(): boolean {
   return desktop
 }
 
+/** Preview open state: persisted on desktop, collapsed by default in narrow dialogs and sheets. */
+export function usePreviewOpen(isDesktop: boolean): [boolean, () => void] {
+  const [desktopOpen, setDesktopOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem("steward.npc.preview-open") !== "false"
+    } catch {
+      return true
+    }
+  })
+  const [narrowOpen, setNarrowOpen] = useState(false)
+  const toggle = useCallback(() => {
+    if (isDesktop) {
+      setDesktopOpen((open) => {
+        const next = !open
+        try {
+          window.localStorage.setItem("steward.npc.preview-open", String(next))
+        } catch {
+          // Storage may be unavailable in private browsing.
+        }
+        return next
+      })
+    } else {
+      setNarrowOpen((open) => !open)
+    }
+  }, [isDesktop])
+  return [isDesktop ? desktopOpen : narrowOpen, toggle]
+}
+
 export function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   const tag = target.tagName
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable
+}
+
+const INTERACTIVE_CONTROL =
+  "button, a[href], input, textarea, select, [contenteditable='true'], [role='button'], [role='link'], [role='tab'], [role='combobox'], [role='menuitem'], [role='option'], [role='dialog'], [role='alertdialog'], [data-canvas-toolbar], aside"
+
+/** Whether a keyboard event target belongs to the canvas frame, a node, an edge or document body. */
+export function isCanvasShortcutTarget(target: EventTarget | null): boolean {
+  if (target === null) return false
+  if (target === document.body || target === document.documentElement) return true
+  if (!(target instanceof Element)) return false
+  if (target.closest(".react-flow__edge") !== null) return true
+  if (target.closest(INTERACTIVE_CONTROL) !== null) return false
+  return target.closest(".npc-flow") !== null
 }
 
 /** Every text of the NPC as the panel measures it: the names, and each step's text and answers, in both languages. */

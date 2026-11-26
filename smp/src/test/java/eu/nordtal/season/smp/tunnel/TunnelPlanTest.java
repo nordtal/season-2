@@ -14,11 +14,36 @@ import org.junit.jupiter.api.Test;
 class TunnelPlanTest {
 
     @Test
-    void startOriginAlignsToGroundWhenTargetLiesWithinFiveRows() {
-        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 66, 20), true, 64));
-        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 68, 20), true, 64));
-        assertEquals(new BlockPos(10, 68, 20), TunnelFrame.startOrigin(new BlockPos(10, 70, 20), true, 64));
-        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 66, 20), false, 64));
+    void startOriginAlignsToGroundWithinFiveRowsAcrossFullBlocksSlabsStairsAndElevatedPositions() {
+        // Full block at y=63 (playerY = 64.0): inclusive band [64, 68].
+        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 64, 20), true, 64.0));
+        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 66, 20), true, 64.0));
+        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 68, 20), true, 64.0));
+        assertNull(TunnelFrame.startOrigin(new BlockPos(10, 63, 20), true, 64.0));
+        assertNull(TunnelFrame.startOrigin(new BlockPos(10, 69, 20), true, 64.0));
+
+        // Bottom slab or lower stair step at y=64 (playerY = 64.5): floor is 64, band [64, 68].
+        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 64, 20), true, 64.5));
+        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 68, 20), true, 64.5));
+        assertNull(TunnelFrame.startOrigin(new BlockPos(10, 63, 20), true, 64.5));
+        assertNull(TunnelFrame.startOrigin(new BlockPos(10, 69, 20), true, 64.5));
+
+        // Top slab or upper stair step at y=64 (playerY = 65.0): floor is 65, band [65, 69].
+        assertEquals(new BlockPos(10, 65, 20), TunnelFrame.startOrigin(new BlockPos(10, 65, 20), true, 65.0));
+        assertNull(TunnelFrame.startOrigin(new BlockPos(10, 64, 20), true, 65.0));
+
+        // Negative Y bottom slab (playerY = -10.5): floor is -11, band [-11, -7].
+        assertEquals(new BlockPos(10, -11, 20), TunnelFrame.startOrigin(new BlockPos(10, -11, 20), true, -10.5));
+        assertNull(TunnelFrame.startOrigin(new BlockPos(10, -12, 20), true, -10.5));
+
+        // Elevated player standing above a candidate and looking down through a gap gets no preview.
+        assertEquals(new BlockPos(10, 72, 20), TunnelFrame.startOrigin(new BlockPos(10, 72, 20), true, 72.0));
+        assertNull(TunnelFrame.startOrigin(new BlockPos(10, 68, 20), true, 72.0));
+        assertNull(TunnelFrame.startOrigin(new BlockPos(10, 71, 20), true, 72.0));
+
+        // Airborne placement remains target-centred regardless of player Y.
+        assertEquals(new BlockPos(10, 64, 20), TunnelFrame.startOrigin(new BlockPos(10, 66, 20), false, 72.0));
+        assertEquals(new BlockPos(10, 68, 20), TunnelFrame.startOrigin(new BlockPos(10, 70, 20), false, 64.0));
     }
 
     @Test

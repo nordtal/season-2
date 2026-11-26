@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
@@ -101,22 +102,35 @@ public final class TunnelMiner implements Listener {
             return;
         }
         final @Nullable RayTraceResult hit = rayTrace(player);
-        if (active != null) {
-            tickActive(player, active, hit);
+        final @Nullable Block target = hit == null ? null : hit.getHitBlock();
+        if (active != null
+                && target != null
+                && active.world().equals(target.getWorld().getName())
+                && active.isFrontFace(posOf(target))) {
+            lastStartCandidates.remove(id);
+            tickActive(player, active, target);
         } else {
             tickStartPreview(player, hit);
         }
     }
 
-    private void tickActive(final Player player, final TunnelFrame active, final @Nullable RayTraceResult hit) {
-        final @Nullable Block target = hit == null ? null : hit.getHitBlock();
-        final @Nullable TunnelZone aimed = target == null ? null : active.zoneAt(posOf(target));
-        showActiveOverlay(player, active, aimed);
-        if (aimed == null || target == null || isSingleBlockOnly(target)) {
+    private void tickActive(final Player player, final TunnelFrame active, final Block target) {
+        final World world = target.getWorld();
+        final TunnelAvailability.ActiveFace face = TunnelAvailability.evaluateActiveFace(
+                active, breakablePredicate(world), fp -> protections.check(player, world, fp, false));
+        if (!face.anyAvailable()) {
+            hideOverlay(player);
             clearSpeedModifier(player);
             return;
         }
-        applySpeed(player, target, TunnelPlan.planZone(active, aimed));
+        final @Nullable TunnelZone aimed = active.zoneAt(posOf(target));
+        final @Nullable TunnelZone effectiveAim = aimed != null && face.isAvailable(aimed) ? aimed : null;
+        showActiveOverlay(player, active, effectiveAim, face.disabledZones());
+        if (effectiveAim == null || isSingleBlockOnly(target)) {
+            clearSpeedModifier(player);
+            return;
+        }
+        applySpeed(player, target, TunnelPlan.planZone(active, effectiveAim));
     }
 
     private void tickStartPreview(final Player player, final @Nullable RayTraceResult hit) {
@@ -127,8 +141,11 @@ public final class TunnelMiner implements Listener {
             clearSpeedModifier(player);
             return;
         }
+        final World world = player.getWorld();
         final TunnelPlan.StepPlan plan = TunnelPlan.planStart(candidate);
-        if (!protections.check(player, player.getWorld(), plan.protectionFootprint(), false)) {
+        final TunnelAvailability.Status status = TunnelAvailability.evaluateStart(
+                plan, breakablePredicate(world), fp -> protections.check(player, world, fp, false));
+        if (!status.isAvailable()) {
             lastStartCandidates.remove(player.getUniqueId());
             hideOverlay(player);
             clearSpeedModifier(player);
@@ -159,46 +176,67 @@ public final class TunnelMiner implements Listener {
             return;
         }
         final UUID id = player.getUniqueId();
+        final World world = block.getWorld();
         final TunnelFrame active = activeTunnels.get(id);
-        final TunnelPlan.StepPlan plan;
-        final @Nullable TunnelZone zone;
-        if (active != null) {
-            if (!active.world().equals(block.getWorld().getName())) {
-                cancelTunnel(player);
-                return;
-            }
-            zone = active.zoneAt(posOf(block));
-            if (zone == null) {
-                return;
-            }
-            plan = TunnelPlan.planZone(active, zone);
-        } else {
-            final @Nullable RayTraceResult hit = rayTrace(player);
-            final @Nullable TunnelFrame candidate = startCandidateForBreak(player, block, hit);
-            if (candidate == null) {
-                return;
-            }
-            zone = null;
-            plan = TunnelPlan.planStart(candidate);
-        }
-
-        if (!protections.check(player, block.getWorld(), plan.protectionFootprint(), true)) {
-            event.setCancelled(true);
-            return;
-        }
-
-        event.setCancelled(true);
-        executor.execute(player, block.getWorld(), tool, plan, active, zone);
-        if (player.getGameMode() == GameMode.SURVIVAL) {
-            player.damageItemStack(EquipmentSlot.HAND, 1);
-        }
-        if (!TunnelMinerItems.hasTunnelMiner(player.getInventory().getItemInMainHand())) {
+        if (active != null && !active.world().equals(world.getName())) {
             cancelTunnel(player);
             return;
         }
-        activeTunnels.put(id, plan.nextFrame());
-        clearSpeedModifier(player);
-        showActiveOverlay(player, plan.nextFrame(), null);
+        if (active != null && active.isFrontFace(posOf(block))) {
+            final @Nullable TunnelZone zone = active.zoneAt(posOf(block));
+            if (zone == null) {
+                return;
+            }
+            final TunnelPlan.StepPlan plan = TunnelPlan.planZone(active, zone);
+            final TunnelAvailability.Status status = TunnelAvailability.evaluateZone(
+                    active, zone, plan, breakablePredicate(world), fp -> protections.check(player, world, fp, true));
+            executeValidated(event, player, world, tool, active, zone, plan, status);
+            return;
+        }
+        final @Nullable TunnelFrame candidate = startCandidateForBreak(player, block, rayTrace(player));
+        if (candidate == null) {
+            return;
+        }
+        final TunnelPlan.StepPlan plan = TunnelPlan.planStart(candidate);
+        final TunnelAvailability.Status status = TunnelAvailability.evaluateStart(
+                plan, breakablePredicate(world), fp -> protections.check(player, world, fp, true));
+        executeValidated(event, player, world, tool, null, null, plan, status);
+    }
+
+    private void executeValidated(
+            final BlockBreakEvent event,
+            final Player player,
+            final World world,
+            final ItemStack tool,
+            final @Nullable TunnelFrame previousFrame,
+            final @Nullable TunnelZone zone,
+            final TunnelPlan.StepPlan plan,
+            final TunnelAvailability.Status status) {
+        switch (TunnelAvailability.executionOutcome(status)) {
+            case FALLBACK_SINGLE_BLOCK -> {
+                return;
+            }
+            case CANCEL_PROTECTED -> {
+                event.setCancelled(true);
+                return;
+            }
+            case EXECUTE -> {
+                event.setCancelled(true);
+                executor.execute(player, world, tool, plan, previousFrame, zone);
+                if (player.getGameMode() == GameMode.SURVIVAL) {
+                    player.damageItemStack(EquipmentSlot.HAND, 1);
+                }
+                if (!TunnelMinerItems.hasTunnelMiner(player.getInventory().getItemInMainHand())) {
+                    cancelTunnel(player);
+                    return;
+                }
+                lastStartCandidates.remove(player.getUniqueId());
+                activeTunnels.put(player.getUniqueId(), plan.nextFrame());
+                clearSpeedModifier(player);
+                hideOverlay(player);
+                tickPlayer(player);
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.NORMAL)
@@ -287,11 +325,7 @@ public final class TunnelMiner implements Listener {
         if (preview == null || !preview.world().equals(broken.getWorld().getName())) {
             return null;
         }
-        final TunnelFrame.Local local = preview.locate(posOf(broken));
-        if (local.depth() != 1 || local.col() < -2 || local.col() > 2 || local.row() < 0 || local.row() > 4) {
-            return null;
-        }
-        return allFrontBlocksSolid(broken.getWorld(), preview) ? preview : null;
+        return preview.isFrontFace(posOf(broken)) ? preview : null;
     }
 
     private @Nullable TunnelFrame buildStartFrame(final Player player, final Block target, final BlockFace face) {
@@ -301,25 +335,23 @@ public final class TunnelMiner implements Listener {
         }
         final TunnelHeading heading = outward.opposite();
         final Location loc = Objects.requireNonNull(player.getLocation());
-        final BlockPos origin = TunnelFrame.startOrigin(posOf(target), player.isOnGround(), loc.getBlockY());
-        final TunnelFrame frame = new TunnelFrame(target.getWorld().getName(), origin, heading, 0);
-        if (!allFrontBlocksSolid(target.getWorld(), frame)) {
+        final @Nullable BlockPos origin = TunnelFrame.startOrigin(posOf(target), player.isOnGround(), loc.getY());
+        if (origin == null) {
             return null;
         }
-        return frame;
+        return new TunnelFrame(target.getWorld().getName(), origin, heading, 0);
     }
 
-    private static boolean allFrontBlocksSolid(final World world, final TunnelFrame frame) {
-        for (int row = 0; row <= 4; row++) {
-            for (int col = -2; col <= 2; col++) {
-                final BlockPos pos = frame.at(col, row, 1);
-                final Block b = world.getBlockAt(pos.x(), pos.y(), pos.z());
-                if (!b.isSolid() || b.isLiquid()) {
-                    return false;
-                }
-            }
-        }
-        return true;
+    private static Predicate<BlockPos> breakablePredicate(final World world) {
+        final Map<BlockPos, Boolean> cache = new HashMap<>();
+        return pos -> cache.computeIfAbsent(pos, p -> isBreakable(world.getBlockAt(p.x(), p.y(), p.z())));
+    }
+
+    private static boolean isBreakable(final Block block) {
+        return !block.getType().isAir()
+                && block.isSolid()
+                && !block.isLiquid()
+                && !TunnelExecutor.isSkippedBlock(block);
     }
 
     private void applySpeed(final Player player, final Block target, final TunnelPlan.StepPlan plan) {
@@ -395,17 +427,21 @@ public final class TunnelMiner implements Listener {
         shownOverlays.put(id, overlays.spawnStart(id, frame));
     }
 
-    private void showActiveOverlay(final Player player, final TunnelFrame frame, final @Nullable TunnelZone aimed) {
+    private void showActiveOverlay(
+            final Player player,
+            final TunnelFrame frame,
+            final @Nullable TunnelZone aimed,
+            final Set<TunnelZone> disabled) {
         final UUID id = player.getUniqueId();
         final TunnelOverlayPackets.@Nullable Shown current = shownOverlays.get(id);
         if (current != null) {
             if (current.sameActive(frame)) {
-                overlays.updateAim(id, current, aimed);
+                overlays.updateActive(id, current, aimed, disabled);
                 return;
             }
             overlays.remove(id, current);
         }
-        shownOverlays.put(id, overlays.spawnActive(id, frame, aimed));
+        shownOverlays.put(id, overlays.spawnActive(id, frame, aimed, disabled));
     }
 
     private void hideOverlay(final Player player) {

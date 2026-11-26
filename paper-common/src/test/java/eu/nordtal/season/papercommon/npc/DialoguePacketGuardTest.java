@@ -12,6 +12,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.papercommon.npc.DialoguePacketGuard.ChatBuffer;
 import eu.nordtal.season.papercommon.npc.DialoguePacketGuard.SlotMask;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -70,15 +71,15 @@ class DialoguePacketGuardTest {
         assertFalse(DialoguePacketGuard.shouldSuppressSystemChat(true));
 
         final ChatBuffer<String> buffer = new ChatBuffer<>(3);
+        assertTrue(buffer.add("signed-1", true));
         assertTrue(buffer.add("first", false));
         assertTrue(buffer.add("second", false));
         assertTrue(buffer.add("third", false));
         assertTrue(buffer.add("fourth", false));
-        assertTrue(buffer.add("signed", true));
 
-        final List<String> replayed = new java.util.ArrayList<>();
-        assertEquals(List.of("second", "third", "fourth", "signed"), buffer.closeAndDrain(replayed::add));
-        assertEquals(List.of("second", "third", "fourth", "signed"), replayed);
+        final List<String> replayed = new ArrayList<>();
+        assertEquals(List.of("signed-1", "third", "fourth"), buffer.closeAndDrain(replayed::add));
+        assertEquals(List.of("signed-1", "third", "fourth"), replayed);
         assertFalse(buffer.add("after-close", false));
     }
 
@@ -94,11 +95,11 @@ class DialoguePacketGuardTest {
         assertTrue(guard.isActive(player));
         assertTrue(guard.isInventoryMasked(player));
 
-        guard.releaseInventory(player);
+        final DialoguePacketGuard.State closing = guard.releaseInventory(player);
         assertTrue(guard.isActive(player));
         assertFalse(guard.isInventoryMasked(player));
 
-        guard.deactivateAndFlush(player, packet -> {});
+        guard.deactivateAndFlush(player, closing, packet -> {});
         assertFalse(guard.isActive(player));
         assertFalse(guard.isInventoryMasked(player));
     }

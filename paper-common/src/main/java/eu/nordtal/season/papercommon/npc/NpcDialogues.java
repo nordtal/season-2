@@ -407,7 +407,7 @@ public final class NpcDialogues implements Listener {
     }
 
     private void end(final UUID player) {
-        packetGuard.releaseInventory(player);
+        final DialoguePacketGuard.@Nullable State closing = packetGuard.releaseInventory(player);
         final DialogueSession session = sessions.remove(player);
         if (session != null) {
             session.stopNow();
@@ -417,10 +417,13 @@ public final class NpcDialogues implements Listener {
             figures.removePreview(preview);
         }
         final Player online = Bukkit.getPlayer(player);
-        packetGuard.deactivateAndFlush(player, packet -> {
-            if (online != null && online.isOnline()) {
-                ViewPackets.sendSilently(online, packet);
-            }
-        });
+        if (online != null && online.isOnline()) {
+            ViewPackets.runOnNetty(
+                    online,
+                    () -> packetGuard.deactivateAndFlush(
+                            player, closing, packet -> ViewPackets.sendSilently(online, packet)));
+        } else {
+            packetGuard.deactivateAndFlush(player, closing, packet -> {});
+        }
     }
 }

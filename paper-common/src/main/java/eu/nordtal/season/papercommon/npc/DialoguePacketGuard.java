@@ -21,6 +21,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSy
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowItems;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,8 +47,10 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
 
     /** Bounded FIFO queue for chat packets suppressed while a dialogue runs. */
     static final class ChatBuffer<T> {
+        private record Entry<T>(T item, boolean protectedEntry) {}
+
         private final int limit;
-        private final Deque<T> items = new ArrayDeque<>();
+        private final Deque<Entry<T>> items = new ArrayDeque<>();
         private boolean closed;
 
         ChatBuffer(final int limit) {
@@ -59,26 +62,37 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
                 return false;
             }
             if (!protectFromEviction) {
-                while (items.size() >= limit) {
-                    items.removeFirst();
+                while (items.size() >= limit && evictOldestUnprotected()) {
+                    // Drop the oldest non-protected entry until within limit.
                 }
             }
-            items.addLast(item);
+            items.addLast(new Entry<>(item, protectFromEviction));
             return true;
         }
 
         synchronized List<T> closeAndDrain(final Consumer<T> onItem) {
             closed = true;
-            final List<T> drained = List.copyOf(items);
+            final List<T> drained = items.stream().map(Entry::item).toList();
             items.clear();
             for (final T item : drained) {
                 onItem.accept(item);
             }
             return drained;
         }
+
+        private boolean evictOldestUnprotected() {
+            final Iterator<Entry<T>> it = items.iterator();
+            while (it.hasNext()) {
+                if (!it.next().protectedEntry()) {
+                    it.remove();
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
-    private static final class State {
+    static final class State {
         final ViewPackets.@Nullable MaskItems masks;
         final ChatBuffer<PacketWrapper<?>> queuedChat = new ChatBuffer<>(MAX_QUEUED_CHAT);
         volatile boolean inventoryMasked = true;
@@ -127,16 +141,17 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     }
 
     /** Unmasks outbound inventory packets so real inventory resyncs reach the client while chat stays ordered. */
-    void releaseInventory(final UUID player) {
+    @Nullable
+    State releaseInventory(final UUID player) {
         final State state = active.get(player);
         if (state != null) {
             state.inventoryMasked = false;
         }
+        return state;
     }
 
-    /** Flushes buffered chat in order under the queue lock, then removes all packet guards for {@code player}. */
-    void deactivateAndFlush(final UUID player, final Consumer<PacketWrapper<?>> sender) {
-        final State state = active.get(player);
+    /** Flushes buffered chat in order under the queue lock, then removes {@code state} if still current. */
+    void deactivateAndFlush(final UUID player, final @Nullable State state, final Consumer<PacketWrapper<?>> sender) {
         if (state == null) {
             return;
         }

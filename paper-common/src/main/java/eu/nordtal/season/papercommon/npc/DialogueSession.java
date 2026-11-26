@@ -111,7 +111,7 @@ final class DialogueSession {
             switch (effect) {
                 case Effect.Sound sound -> sounds.play(player, sound.cue(), npc.pitch() * (float) feel.tickPitch());
                 case Effect.HoldSlot _ -> holdSlot();
-                case Effect.ReleaseSlot _ -> releaseSlot();
+                case Effect.ReleaseSlot _ -> releaseSlot(true);
                 case Effect.HandOff handOff -> left.add(handOff);
                 case Effect.End end -> left.add(end);
             }
@@ -122,11 +122,10 @@ final class DialogueSession {
     /** Puts back everything the session changed, at once. */
     void stopNow() {
         player.sendActionBar(Component.empty());
-        final boolean hadVignette = vignette > 0;
         vignette = 0;
         zoom(0.0);
-        releaseSlot();
-        if (player.isOnline() && (hadVignette || handSlot >= 0)) {
+        releaseSlot(false);
+        if (player.isOnline()) {
             ViewPackets.resyncInventory(player);
         }
         handSlot = -1;
@@ -217,13 +216,16 @@ final class DialogueSession {
         hideHandsNow(Hotbar.CHOICE_SLOT);
     }
 
-    private void releaseSlot() {
+    private void releaseSlot(final boolean keepHidden) {
         if (heldSlot < 0) {
             return;
         }
         final int back = heldSlot;
         heldSlot = -1;
         moveSlot(back);
+        if (keepHidden) {
+            hideHandsNow(back);
+        }
     }
 
     private void moveSlot(final int slot) {

@@ -70,25 +70,37 @@ class DialoguePacketGuardTest {
         assertFalse(DialoguePacketGuard.shouldSuppressSystemChat(true));
 
         final ChatBuffer<String> buffer = new ChatBuffer<>(3);
-        buffer.add("first");
-        buffer.add("second");
-        buffer.add("third");
-        buffer.add("fourth");
+        assertTrue(buffer.add("first", false));
+        assertTrue(buffer.add("second", false));
+        assertTrue(buffer.add("third", false));
+        assertTrue(buffer.add("fourth", false));
+        assertTrue(buffer.add("signed", true));
 
-        assertEquals(List.of("second", "third", "fourth"), buffer.drain());
-        assertTrue(buffer.drain().isEmpty());
+        final List<String> replayed = new java.util.ArrayList<>();
+        assertEquals(List.of("second", "third", "fourth", "signed"), buffer.closeAndDrain(replayed::add));
+        assertEquals(List.of("second", "third", "fourth", "signed"), replayed);
+        assertFalse(buffer.add("after-close", false));
     }
 
     @Test
-    void activatesAndDeactivatesPerPlayer() {
+    void releasesInventoryMaskBeforeFlushingChatAndDeactivating() {
         final DialoguePacketGuard guard = new DialoguePacketGuard(id -> {}, id -> {});
         final UUID player = UUID.randomUUID();
 
         assertFalse(guard.isActive(player));
-        guard.activate(player, 0, null);
+        assertFalse(guard.isInventoryMasked(player));
+
+        guard.activate(player, 2, null);
         assertTrue(guard.isActive(player));
-        assertTrue(guard.deactivate(player).isEmpty());
+        assertTrue(guard.isInventoryMasked(player));
+
+        guard.releaseInventory(player);
+        assertTrue(guard.isActive(player));
+        assertFalse(guard.isInventoryMasked(player));
+
+        guard.deactivateAndFlush(player, packet -> {});
         assertFalse(guard.isActive(player));
+        assertFalse(guard.isInventoryMasked(player));
     }
 
     @Test

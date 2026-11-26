@@ -18,6 +18,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What a dialogue sends one player's client alone: a turn of the view, the vignette and empty hands.
@@ -48,7 +49,10 @@ final class ViewPackets {
             com.github.retrooper.packetevents.protocol.item.ItemStack hiddenHand,
             List<com.github.retrooper.packetevents.protocol.item.ItemStack> overlays) {
 
-        com.github.retrooper.packetevents.protocol.item.ItemStack overlay(final int stage) {
+        com.github.retrooper.packetevents.protocol.item.@Nullable ItemStack overlay(final int stage) {
+            if (stage < 1 || stage > overlays.size()) {
+                return null;
+            }
             return overlays.get(stage - 1).copy();
         }
     }

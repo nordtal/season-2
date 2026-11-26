@@ -1,6 +1,5 @@
 package eu.nordtal.season.papercommon.npc;
 
-import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.npc.Npc;
 import eu.nordtal.season.database.npc.NpcStore;
@@ -408,7 +407,7 @@ public final class NpcDialogues implements Listener {
     }
 
     private void end(final UUID player) {
-        final List<PacketWrapper<?>> queuedChat = packetGuard.deactivate(player);
+        packetGuard.releaseInventory(player);
         final DialogueSession session = sessions.remove(player);
         if (session != null) {
             session.stopNow();
@@ -417,13 +416,11 @@ public final class NpcDialogues implements Listener {
         if (preview != null) {
             figures.removePreview(preview);
         }
-        if (!queuedChat.isEmpty()) {
-            final Player online = Bukkit.getPlayer(player);
+        final Player online = Bukkit.getPlayer(player);
+        packetGuard.deactivateAndFlush(player, packet -> {
             if (online != null && online.isOnline()) {
-                for (final PacketWrapper<?> packet : queuedChat) {
-                    ViewPackets.sendSilently(online, packet);
-                }
+                ViewPackets.sendSilently(online, packet);
             }
-        }
+        });
     }
 }

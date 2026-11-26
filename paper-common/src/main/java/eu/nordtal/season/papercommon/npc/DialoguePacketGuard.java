@@ -48,21 +48,32 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     static final class ChatBuffer<T> {
         private final int limit;
         private final Deque<T> items = new ArrayDeque<>();
+        private boolean closed;
 
         ChatBuffer(final int limit) {
             this.limit = limit;
         }
 
-        synchronized void add(final T item) {
-            while (items.size() >= limit) {
-                items.removeFirst();
+        synchronized boolean add(final T item, final boolean protectFromEviction) {
+            if (closed) {
+                return false;
+            }
+            if (!protectFromEviction) {
+                while (items.size() >= limit) {
+                    items.removeFirst();
+                }
             }
             items.addLast(item);
+            return true;
         }
 
-        synchronized List<T> drain() {
+        synchronized List<T> closeAndDrain(final Consumer<T> onItem) {
+            closed = true;
             final List<T> drained = List.copyOf(items);
             items.clear();
+            for (final T item : drained) {
+                onItem.accept(item);
+            }
             return drained;
         }
     }
@@ -70,6 +81,7 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     private static final class State {
         final ViewPackets.@Nullable MaskItems masks;
         final ChatBuffer<PacketWrapper<?>> queuedChat = new ChatBuffer<>(MAX_QUEUED_CHAT);
+        volatile boolean inventoryMasked = true;
         volatile int heldSlot;
         volatile int vignetteStage;
 
@@ -114,10 +126,25 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
         }
     }
 
-    /** Stops guarding packets for {@code player} and returns any chat packets buffered during the dialogue. */
-    List<PacketWrapper<?>> deactivate(final UUID player) {
-        final State state = active.remove(player);
-        return state == null ? List.of() : state.queuedChat.drain();
+    /** Unmasks outbound inventory packets so real inventory resyncs reach the client while chat stays ordered. */
+    void releaseInventory(final UUID player) {
+        final State state = active.get(player);
+        if (state != null) {
+            state.inventoryMasked = false;
+        }
+    }
+
+    /** Flushes buffered chat in order under the queue lock, then removes all packet guards for {@code player}. */
+    void deactivateAndFlush(final UUID player, final Consumer<PacketWrapper<?>> sender) {
+        final State state = active.get(player);
+        if (state == null) {
+            return;
+        }
+        try {
+            state.queuedChat.closeAndDrain(sender);
+        } finally {
+            active.remove(player, state);
+        }
     }
 
     /** Returns whether {@code player} currently has dialogue packet guards active. */
@@ -125,10 +152,20 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
         return active.containsKey(player);
     }
 
+    /** Returns whether outbound inventory packets are currently masked for {@code player}. */
+    boolean isInventoryMasked(final UUID player) {
+        final State state = active.get(player);
+        return state != null && state.inventoryMasked;
+    }
+
     @Override
     public void onPacketReceive(final PacketReceiveEvent event) {
         final UUID player = event.getUser().getUUID();
-        if (player == null || !active.containsKey(player)) {
+        if (player == null) {
+            return;
+        }
+        final State state = active.get(player);
+        if (state == null || !state.inventoryMasked) {
             return;
         }
         if (!(event.getPacketType() instanceof final PacketType.Play.Client type)) {
@@ -181,12 +218,17 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     }
 
     private static void maskSetSlot(final PacketSendEvent event, final State state) {
+        if (!state.inventoryMasked) {
+            return;
+        }
         final WrapperPlayServerSetSlot packet = new WrapperPlayServerSetSlot(event);
         if (packet.getWindowId() != 0) {
             return;
         }
+        final int heldSlot = state.heldSlot;
+        final int vignetteStage = state.vignetteStage;
         final @Nullable ItemStack masked =
-                applyMask(windowSlotMask(packet.getSlot(), state.heldSlot, state.vignetteStage), state);
+                applyMask(windowSlotMask(packet.getSlot(), heldSlot, vignetteStage), vignetteStage, state.masks);
         if (masked != null) {
             packet.setItem(masked);
             event.markForReEncode(true);
@@ -194,9 +236,14 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     }
 
     private static void maskPlayerInventory(final PacketSendEvent event, final State state) {
+        if (!state.inventoryMasked) {
+            return;
+        }
         final WrapperPlayServerSetPlayerInventory packet = new WrapperPlayServerSetPlayerInventory(event);
-        final @Nullable ItemStack masked =
-                applyMask(playerInventorySlotMask(packet.getSlot(), state.heldSlot, state.vignetteStage), state);
+        final int heldSlot = state.heldSlot;
+        final int vignetteStage = state.vignetteStage;
+        final @Nullable ItemStack masked = applyMask(
+                playerInventorySlotMask(packet.getSlot(), heldSlot, vignetteStage), vignetteStage, state.masks);
         if (masked != null) {
             packet.setStack(masked);
             event.markForReEncode(true);
@@ -204,15 +251,20 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
     }
 
     private static void maskWindowItems(final PacketSendEvent event, final State state) {
+        if (!state.inventoryMasked) {
+            return;
+        }
         final WrapperPlayServerWindowItems packet = new WrapperPlayServerWindowItems(event);
         if (packet.getWindowId() != 0) {
             return;
         }
+        final int heldSlot = state.heldSlot;
+        final int vignetteStage = state.vignetteStage;
         final List<ItemStack> items = packet.getItems();
         boolean changed = false;
         for (int slot = 0; slot < items.size(); slot++) {
             final @Nullable ItemStack masked =
-                    applyMask(windowSlotMask(slot, state.heldSlot, state.vignetteStage), state);
+                    applyMask(windowSlotMask(slot, heldSlot, vignetteStage), vignetteStage, state.masks);
             if (masked != null) {
                 items.set(slot, masked);
                 changed = true;
@@ -223,34 +275,37 @@ final class DialoguePacketGuard extends PacketListenerAbstract {
         }
     }
 
-    private static @Nullable ItemStack applyMask(final SlotMask mask, final State state) {
-        final ViewPackets.@Nullable MaskItems masks = state.masks;
+    private static @Nullable ItemStack applyMask(
+            final SlotMask mask, final int vignetteStage, final ViewPackets.@Nullable MaskItems masks) {
         return switch (mask) {
             case KEEP -> null;
             case EMPTY -> ItemStack.EMPTY;
             case HIDDEN_HAND -> masks == null ? null : masks.hiddenHand().copy();
-            case VIGNETTE -> masks == null ? null : masks.overlay(state.vignetteStage);
+            case VIGNETTE -> masks == null ? null : masks.overlay(vignetteStage);
         };
     }
 
     private static void suppressSystemChat(final PacketSendEvent event, final State state) {
         final WrapperPlayServerSystemChatMessage packet = new WrapperPlayServerSystemChatMessage(event);
-        if (shouldSuppressSystemChat(packet.isOverlay())) {
+        if (shouldSuppressSystemChat(packet.isOverlay())
+                && state.queuedChat.add(new WrapperPlayServerSystemChatMessage(false, packet.getMessage()), false)) {
             event.setCancelled(true);
-            state.queuedChat.add(new WrapperPlayServerSystemChatMessage(false, packet.getMessage()));
         }
     }
 
     private static void suppressDisguisedChat(final PacketSendEvent event, final State state) {
         final WrapperPlayServerDisguisedChat packet = new WrapperPlayServerDisguisedChat(event);
-        event.setCancelled(true);
-        state.queuedChat.add(new WrapperPlayServerDisguisedChat(packet.getMessage(), packet.getChatFormatting()));
+        if (state.queuedChat.add(
+                new WrapperPlayServerDisguisedChat(packet.getMessage(), packet.getChatFormatting()), false)) {
+            event.setCancelled(true);
+        }
     }
 
     private static void suppressPlayerChat(final PacketSendEvent event, final State state) {
         final WrapperPlayServerChatMessage packet = new WrapperPlayServerChatMessage(event);
-        event.setCancelled(true);
-        state.queuedChat.add(new WrapperPlayServerChatMessage(packet.getMessage()));
+        if (state.queuedChat.add(new WrapperPlayServerChatMessage(packet.getMessage()), true)) {
+            event.setCancelled(true);
+        }
     }
 
     /** Returns whether an inbound client packet of {@code type} and optional digging {@code action} must be blocked. */

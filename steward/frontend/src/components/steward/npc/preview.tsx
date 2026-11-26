@@ -5,15 +5,20 @@ import { artworkAddress, measureKey } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 
 /**
- * A step as the game draws it: the dialogue panel's own art from the pack, the selected page of its text as Steward
- * measured it, and the NPC behind it in its skin. Every number is a pixel of the game's interface, as `DialogueScreen`
- * places it.
+ * A step as the game draws it: the dialogue panel's own art from the pack and the selected page of its text as Steward
+ * measured and fitted it. Every number is a pixel of the game's interface, as `DialogueScreen` places it.
  */
 
-/** The smallest screen the game scales its interface to. */
-const SCREEN = { width: 480, height: 270 }
 /** The panel: its width, its bottom above the screen's, and where the portrait, the tab and the text stand in it. */
 const PANEL = { width: 300, bottom: 16, portrait: 6, tab: 56, text: 60, mark: 288 }
+/** Even padding around the cropped panel, portrait overhang and bottom input hint marks, in game pixels. */
+const FRAME_PADDING = 8
+/** How far the portrait overhangs above the panel's top edge. */
+const PORTRAIT_OVERHANG = 10
+/** Bottom row of the input hint marks above the screen's bottom (top at 11, height 8). */
+const HINT_BOTTOM = 3
+/** The dark backdrop behind the cropped panel, matching the lower game screen above the bottom band. */
+const BACKDROP = "#181a20"
 /** The width of the panel art's first piece; a second piece draws the rest of the panel. */
 const TILE = 256
 /** The answers' rows: the strip, the chevron of the selected answer, its label and its number. */
@@ -71,10 +76,10 @@ export function requestsOf(npc: Npc, step: NpcStep, language: Language): NpcText
   ]
 }
 
-/** The lines the panel shows for one page: the measured ones capped to its limit, or the raw text until they arrive. */
+/** The lines the panel shows for one page: the fitted ones from Steward, or the raw text until they arrive. */
 function linesOf(measurement: NpcTextMeasurement | undefined, text: string, limit: number): string[] {
   if (measurement === undefined) return text === "" ? [] : [text]
-  return measurement.lines.slice(0, limit)
+  return measurement.fitted.slice(0, limit)
 }
 
 /** A line in the game's face. It is pressed into `room` when the browser's face sets it wider than the game's does. */
@@ -394,38 +399,33 @@ export function DialoguePreview({
   const limit = rows === 0 ? 6 : 4
   const lines = linesOf(measured?.get(measureKey(body)), body.text, limit)
   const height = heightOf(lines.length, rows)
-  const left = (SCREEN.width - PANEL.width) / 2
+  const left = FRAME_PADDING
+  const viewWidth = PANEL.width + 2 * FRAME_PADDING
   const top = PANEL.bottom + height
-  /** The screen's row of a row `b` above its bottom. */
-  const row = (b: number) => SCREEN.height - b
+  const topEdge = top + PORTRAIT_OVERHANG + FRAME_PADDING
+  const viewHeight = topEdge - (HINT_BOTTOM - FRAME_PADDING)
+  /** The cropped frame's row of a row `b` above the screen's bottom. */
+  const row = (b: number) => topEdge - b
   const skin = skinAddress(npc)
-  const scale = 6
   // The tab takes the plate's colour and icon and fits the bold name; letters stand in until it is measured.
   const colour = PLATE_RGB[npc.plate.colour]
   const icon = npc.plate.icon === undefined ? 0 : ICON.width + ICON.gap
-  const nameWidth = Math.min(NAME_ROOM, measured?.get(measureKey(name))?.width ?? name.text.length * (ADVANCE + 1))
+  const nameMeasurement = measured?.get(measureKey(name))
+  const shownName = nameMeasurement?.fitted[0] ?? name.text
+  const nameWidth = Math.min(NAME_ROOM, nameMeasurement?.width ?? name.text.length * (ADVANCE + 1))
   const tab = TAB.padding + icon + nameWidth + TAB.padding
   return (
     <svg
-      viewBox={`0 0 ${SCREEN.width} ${SCREEN.height}`}
+      viewBox={`0 0 ${viewWidth} ${viewHeight}`}
       role="img"
       aria-label={t("steward.npcs.preview")}
       className="block w-full rounded-lg border"
     >
-      <defs>
-        <linearGradient id="npc-preview-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#6f9be0" />
-          <stop offset="1" stopColor="#c3d6f2" />
-        </linearGradient>
-      </defs>
-      <rect width={SCREEN.width} height={SCREEN.height * 0.62} fill="url(#npc-preview-sky)" />
-      <rect y={SCREEN.height * 0.62} width={SCREEN.width} height={SCREEN.height * 0.38} fill="#5d8f3f" />
-      <Figure skin={skin} slim={npc.skinModel === "SLIM"} x={SCREEN.width / 2 - 4 * scale} y={20} scale={scale} />
-      <Art name="vignette_4" x={0} y={0} width={SCREEN.width} height={SCREEN.height} />
+      <rect width={viewWidth} height={viewHeight} fill={BACKDROP} />
       {[0, TILE].map((x) => (
-        <Art key={x} name="band_4" x={x} y={row(BAND)} width={TILE} height={BAND} />
+        <Art key={x} name="band_4" x={x} y={viewHeight - BAND} width={x === 0 ? TILE + 0.5 : TILE} height={BAND} />
       ))}
-      <Art name={`panel_${height}_0`} x={left} y={row(top)} width={TILE} height={height} />
+      <Art name={`panel_${height}_0`} x={left} y={row(top)} width={TILE + 0.5} height={height} />
       <Art name={`panel_${height}_1`} x={left + TILE} y={row(top)} width={PANEL.width - TILE} height={height} />
       <Art name="portrait" x={left + PANEL.portrait} y={row(top + 10)} width={48} height={64} />
       {npc.artwork !== undefined ? (
@@ -465,8 +465,14 @@ export function DialoguePreview({
         {npc.plate.icon === undefined ? null : (
           <PlateSymbol icon={npc.plate.icon} x={left + PANEL.tab + TAB.padding} y={row(top + 4)} colour="#ffffff" />
         )}
-        <Line x={left + PANEL.tab + TAB.padding + icon} y={row(top + 4)} room={NAME_ROOM} fill="#ffffff" bold>
-          {name.text}
+        <Line
+          x={left + PANEL.tab + TAB.padding + icon}
+          y={row(top + 4)}
+          room={Math.max(1, nameWidth)}
+          fill="#ffffff"
+          bold
+        >
+          {shownName}
         </Line>
       </g>
       {lines.map((line, index) => (
@@ -477,6 +483,7 @@ export function DialoguePreview({
       {answers.slice(0, rows).map((answer, index) => {
         const b = ANSWER.lowest + ANSWER.step * (rows - 1 - index)
         const on = index === 0
+        const label = measured?.get(measureKey(answer))?.fitted[0] ?? answer.text
         return (
           <g key={index}>
             {on ? (
@@ -486,7 +493,7 @@ export function DialoguePreview({
               </>
             ) : null}
             <Line x={left + ANSWER.label} y={row(b - 2)} room={213} fill={on ? ACCENT : SOFT} bold={on}>
-              {answer.text}
+              {label}
             </Line>
             <Line x={left + ANSWER.numberEnd} y={row(b - 3)} room={8} fill={on ? ACCENT : FAINT} end small>
               {String(index + 1)}

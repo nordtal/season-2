@@ -202,7 +202,7 @@ describe("problems, warnings and missing text counts", () => {
     const measured = new Map([
       [
         measureKey({ text: "wide", kind: "BODY", answers: 0 }),
-        { lines: ["wide"], width: 300, room: 226, lineLimit: 6, fits: false },
+        { lines: ["wide"], fitted: ["wide"], width: 300, room: 226, lineLimit: 6, fits: false },
       ],
     ])
     expect(problemsOf(npc, measured, menus)).toEqual([])
@@ -229,7 +229,14 @@ describe("problems, warnings and missing text counts", () => {
     const measured = new Map([
       [
         measureKey({ text: "too tall", kind: "BODY", answers: 0 }),
-        { lines: ["1", "2", "3", "4", "5", "6", "7"], width: 100, room: 226, lineLimit: 6, fits: false },
+        {
+          lines: ["1", "2", "3", "4", "5", "6", "7"],
+          fitted: ["1", "2", "3", "4", "5", "6…"],
+          width: 100,
+          room: 226,
+          lineLimit: 6,
+          fits: false,
+        },
       ],
     ])
     expect(problemsOf(npc, measured)).toEqual([{ problem: "step-tall", language: "en", step: "a", page: 0, limit: 6 }])

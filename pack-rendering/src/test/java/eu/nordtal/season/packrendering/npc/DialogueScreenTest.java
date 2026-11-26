@@ -229,9 +229,9 @@ class DialogueScreenTest {
         final Placed.Ink answer = placed.only("Answer");
         assertEquals(new Placed.Ink(small(62), DialogueScreen.HINT, answer.x(), "Answer", false), answer);
         assertEquals(298, answer.x() + SmallFont.visibleWidth("Answer"));
-        assertEquals(answer.x() - 3 - 7, placed.only(Glyphs.NPC_MOUSE_LEFT).x());
+        assertEquals(answer.x() - 3 - 7, placed.only(Glyphs.NPC_MOUSE_RIGHT).x());
         final Placed.Ink choose = placed.only("Choose");
-        assertEquals(placed.only(Glyphs.NPC_MOUSE_LEFT).x() - 9, choose.x() + SmallFont.visibleWidth("Choose"));
+        assertEquals(placed.only(Glyphs.NPC_MOUSE_RIGHT).x() - 9, choose.x() + SmallFont.visibleWidth("Choose"));
         assertEquals(choose.x() - 10, placed.only(Glyphs.NPC_MOUSE_WHEEL).x());
     }
 

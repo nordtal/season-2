@@ -1,19 +1,25 @@
 package eu.nordtal.season.papercommon.npc;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.netty.channel.ChannelHelper;
+import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerRotation;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetSlot;
+import eu.nordtal.season.packrendering.npc.DialogueScreen;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.Equippable;
 import io.papermc.paper.datacomponent.item.TooltipDisplay;
+import java.util.List;
+import java.util.stream.IntStream;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What a dialogue sends one player's client alone: a turn of the view, the vignette and empty hands.
@@ -33,15 +39,56 @@ final class ViewPackets {
     /** The off hand's slot in the player's own inventory window. */
     static final int OFF_HAND_SLOT = 45;
 
+    /** The helmet's slot in a player-inventory packet. */
+    static final int PLAYER_INV_HELMET = 39;
+
+    /** The off hand's slot in a player-inventory packet. */
+    static final int PLAYER_INV_OFF_HAND = 40;
+
+    /** Prebuilt protocol item stacks used on the Netty thread to mask outbound inventory packets. */
+    record MaskItems(
+            com.github.retrooper.packetevents.protocol.item.ItemStack hiddenHand,
+            List<com.github.retrooper.packetevents.protocol.item.ItemStack> overlays) {
+
+        com.github.retrooper.packetevents.protocol.item.@Nullable ItemStack overlay(final int stage) {
+            if (stage < 1 || stage > overlays.size()) {
+                return null;
+            }
+            return overlays.get(stage - 1).copy();
+        }
+    }
+
     private ViewPackets() {}
+
+    /** Builds protocol-level hidden hand and vignette stacks on the main thread for packet masking. */
+    static MaskItems maskItems() {
+        final com.github.retrooper.packetevents.protocol.item.ItemStack hand =
+                SpigotConversionUtil.fromBukkitItemStack(hiddenHand());
+        final List<com.github.retrooper.packetevents.protocol.item.ItemStack> stages = IntStream.rangeClosed(
+                        1, DialogueScreen.STAGES)
+                .mapToObj(stage -> SpigotConversionUtil.fromBukkitItemStack(overlay(stage)))
+                .toList();
+        return new MaskItems(hand, stages);
+    }
+
+    /** Runs {@code task} on {@code player}'s Netty event loop when available, so chat replay stays ordered. */
+    static void runOnNetty(final Player player, final Runnable task) {
+        final Object channel = PacketEvents.getAPI().getPlayerManager().getChannel(player);
+        if (channel != null) {
+            ChannelHelper.runInEventLoop(channel, task);
+        } else {
+            task.run();
+        }
+    }
+
+    /** Sends {@code packet} to {@code player} without triggering outbound PacketEvents listeners. */
+    static void sendSilently(final Player player, final PacketWrapper<?> packet) {
+        PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, packet);
+    }
 
     /** Turns the view by the angles, on top of what the mouse does. */
     static void turn(final Player player, final CameraEase.Turn turn) {
-        PacketEvents.getAPI()
-                .getPlayerManager()
-                .sendPacket(
-                        player,
-                        new WrapperPlayServerPlayerRotation((float) turn.yaw(), true, (float) turn.pitch(), true));
+        sendSilently(player, new WrapperPlayServerPlayerRotation((float) turn.yaw(), true, (float) turn.pitch(), true));
     }
 
     /** Shows vignette {@code stage} from 1 to 4 over the screen; 0 shows the helmet the player really wears. */
@@ -70,12 +117,9 @@ final class ViewPackets {
 
     /** Clears any client-predicted item on the cursor without touching server inventory. */
     static void clearCursor(final Player player) {
-        PacketEvents.getAPI()
-                .getPlayerManager()
-                .sendPacket(
-                        player,
-                        new WrapperPlayServerSetSlot(
-                                -1, 0, -1, SpigotConversionUtil.fromBukkitItemStack(ItemStack.empty())));
+        sendSilently(
+                player,
+                new WrapperPlayServerSetSlot(-1, 0, -1, SpigotConversionUtil.fromBukkitItemStack(ItemStack.empty())));
     }
 
     /** Resyncs the player's real hotbar, off hand, helmet and full inventory back to the client. */
@@ -90,11 +134,7 @@ final class ViewPackets {
     }
 
     private static void slot(final Player player, final int slot, final ItemStack shown) {
-        PacketEvents.getAPI()
-                .getPlayerManager()
-                .sendPacket(
-                        player,
-                        new WrapperPlayServerSetSlot(0, 0, slot, SpigotConversionUtil.fromBukkitItemStack(shown)));
+        sendSilently(player, new WrapperPlayServerSetSlot(0, 0, slot, SpigotConversionUtil.fromBukkitItemStack(shown)));
     }
 
     private static ItemStack helmet(final Player player) {

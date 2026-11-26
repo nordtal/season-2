@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -249,6 +250,9 @@ public final class WheelTurn {
     }
 
     private static Motion motion(final int e, final Ending ending) {
+        if (ending == Ending.DIRECT) {
+            motion(e, Ending.REBOUND);
+        }
         return MOTIONS.computeIfAbsent(new Key(e, ending), WheelTurn::compute);
     }
 
@@ -261,7 +265,7 @@ public final class WheelTurn {
         if (key.ending() == Ending.REBOUND) {
             return computeFrom(SHARED, shared(SHARED), sharedSpeed(SHARED), distance(key.e()) + PIN, SHARED);
         }
-        final Motion rebound = motion(key.e(), Ending.REBOUND);
+        final Motion rebound = Objects.requireNonNull(MOTIONS.get(new Key(key.e(), Ending.REBOUND)));
         final double target = distance(key.e());
         final double splitAngle = target - SPLIT_BEFORE;
         int splitTick = SHARED;

@@ -8,8 +8,17 @@ import {
   type NodeProps,
   Position,
   getBezierPath,
+  useUpdateNodeInternals,
 } from "@xyflow/react"
-import { createContext, memo, useContext, type PointerEvent as ReactPointerEvent } from "react"
+import {
+  createContext,
+  memo,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react"
 
 import type { NpcMenu, NpcStep } from "@/lib/api"
 import type { Language } from "@/lib/npc"
@@ -117,6 +126,40 @@ function OutputPort({ id, open, onAdd }: { id: string; open: boolean; onAdd?: ()
   )
 }
 
+/** Single-line label that shows its full text in a tooltip only when it actually truncates. */
+function TruncatedLabel({
+  text,
+  tip,
+  lang,
+  className,
+}: {
+  text: string
+  tip?: string
+  lang?: Language
+  className?: string
+}) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [truncated, setTruncated] = useState(false)
+  const check = () => {
+    const el = ref.current
+    const over = el !== null && el.scrollWidth > el.clientWidth
+    setTruncated((prev) => (prev === over ? prev : over))
+  }
+  return (
+    <Hint tip={truncated && tip ? tip : undefined}>
+      <span
+        ref={ref}
+        lang={lang}
+        className={cn("min-w-0 flex-1 truncate", className)}
+        onPointerEnter={check}
+        onFocus={check}
+      >
+        {text}
+      </span>
+    </Hint>
+  )
+}
+
 export const StepNode = memo(function StepNode({ data, selected }: NodeProps<StepFlowNode>) {
   const {
     step,
@@ -131,6 +174,7 @@ export const StepNode = memo(function StepNode({ data, selected }: NodeProps<Ste
     onAddLinked,
     onStartDrag,
   } = data
+  const updateNodeInternals = useUpdateNodeInternals()
   const { hoverTarget, connectingFrom } = useContext(CanvasInteractionContext)
   const dropTarget = hoverTarget === step.id
   const showTargetHandle = connectingFrom !== null && connectingFrom !== step.id
@@ -143,6 +187,13 @@ export const StepNode = memo(function StepNode({ data, selected }: NodeProps<Ste
       : step.next !== undefined
         ? t("steward.npcs.step-number", { number: thenTargetNumber ?? 1 })
         : t("steward.npcs.end")
+
+  const prevAnswersRef = useRef(step.answers.length)
+  useLayoutEffect(() => {
+    if (prevAnswersRef.current === step.answers.length) return
+    prevAnswersRef.current = step.answers.length
+    updateNodeInternals(step.id)
+  }, [step.answers.length, step.id, updateNodeInternals])
 
   return (
     <div
@@ -201,17 +252,17 @@ export const StepNode = memo(function StepNode({ data, selected }: NodeProps<Ste
           step.answers.map((answer, index) => {
             const text = answer.text[language].trim()
             const open = answer.next === undefined
-            const labelEl = (
-              <span lang={language} className={cn("min-w-0 flex-1 truncate", text === "" && "text-muted-foreground")}>
-                {text || t("steward.npcs.no-text")}
-              </span>
-            )
             return (
               <div
                 key={index}
                 className="flex min-h-8 items-center justify-between gap-2 rounded-md bg-muted/50 pr-1 pl-2.5 text-sm"
               >
-                {text ? <Hint tip={text}>{labelEl}</Hint> : labelEl}
+                <TruncatedLabel
+                  text={text || t("steward.npcs.no-text")}
+                  tip={text || undefined}
+                  lang={language}
+                  className={cn(text === "" && "text-muted-foreground")}
+                />
                 {open ? (
                   <>
                     <span className="sr-only">, </span>
@@ -224,11 +275,11 @@ export const StepNode = memo(function StepNode({ data, selected }: NodeProps<Ste
           })
         ) : (
           <div className="flex min-h-8 items-center justify-between gap-2 rounded-md bg-muted/40 pr-1 pl-2.5 text-xs">
-            <Hint tip={thenLabel}>
-              <span className={cn("min-w-0 flex-1 truncate tnum", thenOpen && "text-muted-foreground")}>
-                {thenLabel}
-              </span>
-            </Hint>
+            <TruncatedLabel
+              text={thenLabel}
+              tip={thenLabel}
+              className={cn("tnum", thenOpen && "text-muted-foreground")}
+            />
             <OutputPort id="then" open={thenOpen} onAdd={() => onAddLinked(step.id, "then")} />
           </div>
         )}

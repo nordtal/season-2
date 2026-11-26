@@ -348,12 +348,6 @@
     box-shadow: none;
   }
 
-  .npc-flow .react-flow__node:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-    border-radius: var(--radius-lg);
-  }
-
   .npc-flow .react-flow__handle {
     min-width: 0;
     min-height: 0;
@@ -365,6 +359,13 @@
    * A cell sits on line `--phone-line`, at its start, its end or across it (`data-phone`); `action` stands beside every line,
    * `off` is left out. A `data-labelled` cell keeps its column's name before the value. `DataTable` writes these attributes.
    */
+}
+
+/* Unlayered, so it beats React Flow's unlayered `.react-flow__node:focus-visible { outline: none }`. */
+.npc-flow .react-flow__node:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
 }
 
 /* Unlayered, so it beats shadcn's utility classes on the cells that it overrides. */

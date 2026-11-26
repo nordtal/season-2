@@ -161,7 +161,7 @@ function StepPageText({
         value={text}
         maxLength={LONGEST_TEXT}
         className={cn(
-          "min-h-10 resize-none py-1 text-sm max-md:text-base",
+          "min-h-10 flex-1 resize-none py-1 text-sm max-md:text-base",
           measurement && !measurement.fits && "border-warning",
         )}
         onFocus={onFocus}
@@ -301,7 +301,7 @@ function AnswerInput({
     }
   }
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-0.5">
       <Label htmlFor={id} className="text-xs font-normal text-muted-foreground">
         {t("steward.npcs.language", { language })}
       </Label>
@@ -351,7 +351,7 @@ function AnswerCard({
   const wideEn = useKept(fitsEn, `${step.id}:${index}:en`) === false
   const wideDe = useKept(fitsDe, `${step.id}:${index}:de`) === false
   return (
-    <div className="flex flex-col gap-1 rounded-md bg-secondary/50 p-2">
+    <div className="flex flex-col gap-1 rounded-md bg-secondary/50 px-2 py-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium font-heading text-muted-foreground tnum">
           {t("steward.npcs.answer-number", { index: index + 1 })}
@@ -436,7 +436,7 @@ function Answers({
 }) {
   const full = step.answers.length >= MOST_ANSWERS
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-1.5">
       <Heading>{t("steward.npcs.answers")}</Heading>
       {step.answers.map((answer, index) => (
         <AnswerCard
@@ -503,8 +503,8 @@ export function StepPanel({
   const only = npc.dialogue.steps.length <= 1
   const multiPage = step.pages.length > 1
   return (
-    <div className="flex flex-col gap-2">
-      <section className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
+      <section className="flex flex-col gap-1.5">
         <Heading
           actions={
             <>
@@ -672,7 +672,7 @@ export function InspectorPreview({
   const Caret = open ? CaretDownIcon : CaretUpIcon
   const clampedPage = Math.min(pageIndex, step.pages.length - 1)
   return (
-    <section className="shrink-0 border-t bg-popover px-3 py-1.5">
+    <section className="shrink-0 border-t bg-popover px-3 py-1">
       <div className="flex items-center justify-between gap-2">
         <Button
           type="button"
@@ -730,7 +730,7 @@ export function InspectorPreview({
         ) : null}
       </div>
       {open ? (
-        <div className="mt-1.5">
+        <div className="mt-1">
           <DialoguePreview npc={npc} step={step} pageIndex={pageIndex} language={language} measured={measured} />
         </div>
       ) : null}

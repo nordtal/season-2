@@ -22,9 +22,11 @@ export function EditorHead({ title, status, actions }: { title: string; status?:
         {status ? <div className="shrink-0 sm:hidden">{status}</div> : null}
       </div>
       {actions ? (
-        <div className="flex max-w-full flex-nowrap items-center justify-end gap-1.5 overflow-x-auto sm:flex-wrap sm:gap-2">
-          {status ? <div className="hidden shrink-0 sm:flex">{status}</div> : null}
-          {actions}
+        <div className="flex max-w-full overflow-x-auto sm:overflow-visible">
+          <div className="ml-auto flex flex-nowrap items-center gap-1.5 sm:flex-wrap sm:justify-end sm:gap-2">
+            {status ? <div className="hidden shrink-0 sm:flex">{status}</div> : null}
+            {actions}
+          </div>
         </div>
       ) : null}
     </header>

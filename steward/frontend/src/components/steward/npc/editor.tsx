@@ -376,6 +376,9 @@ function Editor({
           event.preventDefault()
           handleUnlinkEdge(selectedEdge)
         } else if (picked && npcRef.current.dialogue.steps.length > 1) {
+          const focusedNode =
+            event.target instanceof Element ? event.target.closest<HTMLElement>(".react-flow__node") : null
+          if (focusedNode && focusedNode.dataset.id !== picked) return
           event.preventDefault()
           handleDeleteStep(picked)
         }
@@ -522,7 +525,7 @@ function Editor({
   const inspectorBody = selectedStep ? (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <ScrollArea className="min-h-0 flex-1">
-        <div className="px-3 py-2">
+        <div className="px-3 py-1.5">
           <StepPanel
             npc={npc}
             step={selectedStep}

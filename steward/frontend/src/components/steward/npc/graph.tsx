@@ -2,11 +2,10 @@ import {
   Background,
   BackgroundVariant,
   type Connection,
-  type CoordinateExtent,
-  MarkerType,
   NodeChangeset,
   ReactFlow,
   ReactFlowProvider,
+  useNodesStore,
   useReactFlow,
   useReactFlowStoreApi,
   useViewport,
@@ -17,6 +16,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -39,6 +39,9 @@ import {
   CanvasToolbar,
   MAX_ZOOM,
   MIN_ZOOM,
+  buildFlowEdges,
+  clampViewportToNodes,
+  computeTranslateExtent,
   eventPoint,
   parseEdgeId,
   parseSourcePort,
@@ -48,7 +51,6 @@ import {
   CanvasInteractionContext,
   type SourcePort,
   StepEdge,
-  type StepFlowEdge,
   type StepFlowNode,
   StepNode,
 } from "@/components/steward/npc/step-node"
@@ -129,7 +131,7 @@ function StepCanvasInner({
   const toolbarRef = useRef<HTMLDivElement>(null)
   const { setViewport, getViewport, screenToFlowPosition } = useReactFlow()
   const store = useReactFlowStoreApi()
-  const { zoom } = useViewport()
+  const { x: viewportX, y: viewportY, zoom } = useViewport()
 
   const [toolbarClearance, setToolbarClearance] = useState(DEFAULT_TOOLBAR_CLEARANCE)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
@@ -391,59 +393,30 @@ function StepCanvasInner({
     setFlowNodes((prev) => new NodeChangeset(allowed).applyTo(prev))
   }, [])
 
-  const edges = useMemo<StepFlowEdge[]>(() => {
-    const list: StepFlowEdge[] = []
-    for (const step of dialogue.steps) {
-      const fromNum = numbers.get(step.id) ?? 1
-      if (step.answers.length === 0) {
-        if (step.next !== undefined && stepOf(dialogue, step.next) !== undefined) {
-          const id = `${step.id}:then`
-          const highlighted = selectedEdge === id || selected === step.id || selected === step.next
-          const toNum = numbers.get(step.next) ?? 1
-          list.push({
-            id,
-            type: "step",
-            source: step.id,
-            sourceHandle: "then",
-            target: step.next,
-            selected: selectedEdge === id,
-            ariaLabel: t("steward.npcs.edge-label", { from: fromNum, to: toNum }),
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: highlighted ? "var(--primary)" : "var(--muted-foreground)",
-              width: 16,
-              height: 16,
-            },
-            data: { highlighted },
-          })
-        }
-      } else {
-        step.answers.forEach((answer, index) => {
-          if (answer.next === undefined || stepOf(dialogue, answer.next) === undefined) return
-          const id = `${step.id}:${index}`
-          const highlighted = selectedEdge === id || selected === step.id || selected === answer.next
-          const toNum = numbers.get(answer.next) ?? 1
-          list.push({
-            id,
-            type: "step",
-            source: step.id,
-            sourceHandle: `answer-${index}`,
-            target: answer.next,
-            selected: selectedEdge === id,
-            ariaLabel: t("steward.npcs.edge-label", { from: fromNum, to: toNum }),
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: highlighted ? "var(--primary)" : "var(--muted-foreground)",
-              width: 16,
-              height: 16,
-            },
-            data: { highlighted },
-          })
-        })
-      }
+  const edges = useMemo(
+    () => buildFlowEdges(dialogue, numbers, selected, selectedEdge),
+    [dialogue, numbers, selected, selectedEdge],
+  )
+
+  const sourceHandleSignature = useNodesStore((state) => {
+    const parts: string[] = []
+    for (const [id, node] of state.nodeLookup) {
+      const source = node.internals.handleBounds?.source
+      if (source) parts.push(`${id}:${source.map((handle) => handle.id ?? "").join(",")}`)
     }
-    return list
-  }, [dialogue, numbers, selected, selectedEdge])
+    return parts.join("|")
+  })
+
+  // Withhold an edge only while its node's measured handle set has not yet refreshed after a Then/Answers switch.
+  const readyEdges = useMemo(() => {
+    void sourceHandleSignature
+    const { nodeLookup } = store.nodesStore.getState()
+    return edges.filter((edge) => {
+      const bounds = nodeLookup.get(edge.source)?.internals.handleBounds?.source
+      if (!bounds || bounds.length === 0) return true
+      return bounds.some((handle) => handle.id === edge.sourceHandle)
+    })
+  }, [edges, sourceHandleSignature, store])
 
   const fitFreeArea = useCallback(
     (animate = true) => {
@@ -531,32 +504,10 @@ function StepCanvasInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panSignal])
 
-  const translateExtent = useMemo<CoordinateExtent | undefined>(() => {
-    if (dialogue.steps.length === 0 || containerSize.width === 0 || containerSize.height === 0) return undefined
-    let minX = Infinity
-    let minY = Infinity
-    let maxX = -Infinity
-    let maxY = -Infinity
-    for (const step of dialogue.steps) {
-      const size = getNodeSize(step.id, step)
-      minX = Math.min(minX, step.x)
-      minY = Math.min(minY, step.y)
-      maxX = Math.max(maxX, step.x + size.width)
-      maxY = Math.max(maxY, step.y + size.height)
-    }
-    const z = Math.max(MIN_ZOOM, zoom)
-    const visibleW = Math.max(160, containerSize.width - INSPECTOR_WIDTH)
-    const visibleH = Math.max(160, containerSize.height - toolbarClearance)
-    const keepVisible = 96
-    const padLeft = Math.max(80, (visibleW - keepVisible) / z)
-    const padRight = Math.max(80, (containerSize.width - keepVisible) / z)
-    const padTop = Math.max(80, (containerSize.height - keepVisible) / z)
-    const padBottom = Math.max(80, (visibleH - keepVisible) / z)
-    return [
-      [minX - padLeft, minY - padTop],
-      [maxX + padRight, maxY + padBottom],
-    ]
-  }, [containerSize.height, containerSize.width, dialogue.steps, getNodeSize, toolbarClearance, zoom])
+  const translateExtent = useMemo(
+    () => computeTranslateExtent(dialogue, containerSize, INSPECTOR_WIDTH, toolbarClearance, zoom, getNodeSize),
+    [containerSize, dialogue, getNodeSize, toolbarClearance, zoom],
+  )
 
   const handleConnect = useCallback(
     (connection: Connection) => {
@@ -670,6 +621,48 @@ function StepCanvasInner({
     [onCreateAt, onSelect, onSelectEdge, screenToFlowPosition],
   )
 
+  useLayoutEffect(() => {
+    if (dialogue.steps.length === 0 || containerSize.width === 0 || containerSize.height === 0) return
+    const rects = dialogue.steps.map((step) => {
+      const size = getNodeSize(step.id, step)
+      return { x: step.x, y: step.y, width: size.width, height: size.height }
+    })
+    const clamped = clampViewportToNodes({ x: viewportX, y: viewportY, zoom }, rects, {
+      left: 0,
+      right: Math.max(160, containerSize.width - INSPECTOR_WIDTH),
+      top: toolbarClearance,
+      bottom: Math.max(toolbarClearance + 120, containerSize.height),
+    })
+    if (clamped) void setViewport(clamped, { duration: 0 })
+  }, [
+    containerSize.height,
+    containerSize.width,
+    dialogue.steps,
+    getNodeSize,
+    setViewport,
+    toolbarClearance,
+    viewportX,
+    viewportY,
+    zoom,
+  ])
+
+  const handleCanvasKeyDownCapture = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.key !== "ArrowUp" &&
+      event.key !== "ArrowDown" &&
+      event.key !== "ArrowLeft" &&
+      event.key !== "ArrowRight"
+    ) {
+      return
+    }
+    const target = event.target
+    if (!(target instanceof HTMLElement)) return
+    if (target.closest("button, a[href], input, textarea, select, [role='button']")) return
+    if (!target.closest(".react-flow__node")) return
+    event.preventDefault()
+    event.stopPropagation()
+  }, [])
+
   const handleCanvasKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       const target = event.target
@@ -678,15 +671,6 @@ function StepCanvasInner({
       const nodeEl = target.closest<HTMLElement>(".react-flow__node")
       const nodeId = nodeEl?.dataset.id
       if (!nodeId) return
-      if (
-        event.key === "ArrowUp" ||
-        event.key === "ArrowDown" ||
-        event.key === "ArrowLeft" ||
-        event.key === "ArrowRight"
-      ) {
-        event.stopPropagation()
-        return
-      }
       if (event.key !== "Enter" && event.key !== " ") return
       event.preventDefault()
       event.stopPropagation()
@@ -717,6 +701,7 @@ function StepCanvasInner({
         className="npc-flow relative size-full outline-none"
         role="group"
         aria-label={t("steward.npcs.graph")}
+        onKeyDownCapture={handleCanvasKeyDownCapture}
         onKeyDown={handleCanvasKeyDown}
       >
         <CanvasToolbar
@@ -733,12 +718,13 @@ function StepCanvasInner({
         />
         <ReactFlow
           nodes={flowNodes}
-          edges={edges}
+          edges={readyEdges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           minZoom={MIN_ZOOM}
           maxZoom={MAX_ZOOM}
           translateExtent={translateExtent}
+          autoPanOnConnect={false}
           panOnDrag
           panOnScroll
           zoomOnScroll={false}

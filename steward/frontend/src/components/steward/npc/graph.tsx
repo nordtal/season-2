@@ -465,7 +465,8 @@ function StepCanvasInner({
       fittedOnceRef.current = true
     })
     return () => cancelAnimationFrame(id)
-    // Fit runs on open, after Arrange, and after loading a version via fitSignal.
+    // Fit on open, after Arrange, and after version loads through fitSignal.
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitSignal])
 

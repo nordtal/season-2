@@ -24,6 +24,8 @@ public final class TunnelPlan {
 
     /** Complete, self-contained plan for one tunnel step. */
     public record StepPlan(
+            List<BlockPos> frontFloor,
+            List<BlockPos> frontFace,
             List<BlockPos> carveBlocks,
             List<RailPlacement> rails,
             List<StairPlacement> stairs,
@@ -31,6 +33,7 @@ public final class TunnelPlan {
             List<StairRotation> rotateStairs,
             List<LanternPlacement> lanterns,
             List<BlockPos> slopeEditBlocks,
+            boolean turn,
             TunnelFrame nextFrame) {
 
         /** All block positions touched by carving, support placement, slope edits, or 90-degree stair edits. */
@@ -70,6 +73,8 @@ public final class TunnelPlan {
         final BlockPos shiftedOrigin = baseFrame.at(shiftCol, shiftRow, 1);
         final TunnelFrame shifted =
                 new TunnelFrame(baseFrame.world(), shiftedOrigin, baseFrame.heading(), baseFrame.length());
+        final List<BlockPos> frontFloor = frontFloorOf(shifted);
+        final List<BlockPos> frontFace = frontFaceOf(shifted);
         final List<BlockPos> carve = new ArrayList<>(50);
         for (int depth = 1; depth <= 2; depth++) {
             for (int row = 0; row <= 4; row++) {
@@ -88,9 +93,11 @@ public final class TunnelPlan {
             }
         }
         final List<BlockPos> slopeEdits = !isStart && shiftRow > 0 ? List.of(baseFrame.at(0, 0, 0)) : List.of();
-        final TunnelFrame next =
-                new TunnelFrame(baseFrame.world(), shifted.at(0, 0, 3), shifted.heading(), baseFrame.length() + 2);
+        final TunnelFrame next = new TunnelFrame(
+                baseFrame.world(), shifted.at(0, 0, 3), shifted.heading(), baseFrame.length() + 2, false);
         return new StepPlan(
+                frontFloor,
+                frontFace,
                 List.copyOf(carve),
                 List.copyOf(rails),
                 List.copyOf(stairs),
@@ -98,6 +105,7 @@ public final class TunnelPlan {
                 List.of(),
                 List.copyOf(lanterns),
                 slopeEdits,
+                false,
                 next);
     }
 
@@ -145,6 +153,8 @@ public final class TunnelPlan {
         final int turnCol = 2 * turnSign;
         final int outerCol = -turnCol;
 
+        final List<BlockPos> frontFloor = frontFloorOf(frame);
+        final List<BlockPos> frontFace = frontFaceOf(frame);
         final List<BlockPos> carve = new ArrayList<>(75);
         for (int depth = 1; depth <= 3; depth++) {
             for (int row = 0; row <= 4; row++) {
@@ -161,8 +171,37 @@ public final class TunnelPlan {
         final List<StairPlacement> stairs = buildTurnStairs(frame, oldHeading, newHeading, turnSign, outerCol);
         final List<LanternPlacement> lanterns = buildTurnLanterns(frame, rails);
         final TunnelFrame next =
-                new TunnelFrame(frame.world(), frame.at(3 * turnSign, 0, 1), newHeading, frame.length() + 3);
-        return new StepPlan(List.copyOf(carve), rails, stairs, remove, rotate, lanterns, List.of(), next);
+                new TunnelFrame(frame.world(), frame.at(3 * turnSign, 0, 1), newHeading, frame.length() + 3, true);
+        return new StepPlan(
+                frontFloor,
+                frontFace,
+                List.copyOf(carve),
+                rails,
+                stairs,
+                remove,
+                rotate,
+                lanterns,
+                List.of(),
+                true,
+                next);
+    }
+
+    private static List<BlockPos> frontFloorOf(final TunnelFrame frame) {
+        final List<BlockPos> floor = new ArrayList<>(5);
+        for (int col = -2; col <= 2; col++) {
+            floor.add(frame.at(col, 0, 1));
+        }
+        return List.copyOf(floor);
+    }
+
+    private static List<BlockPos> frontFaceOf(final TunnelFrame frame) {
+        final List<BlockPos> face = new ArrayList<>(25);
+        for (int row = 0; row <= 4; row++) {
+            for (int col = -2; col <= 2; col++) {
+                face.add(frame.at(col, row, 1));
+            }
+        }
+        return List.copyOf(face);
     }
 
     private static List<RailPlacement> buildTurnRails(

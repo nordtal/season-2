@@ -98,8 +98,8 @@ public final class DialogueScreen {
     public enum Mark {
         /** A right-click: on to the next text or page. */
         NEXT(Glyphs.NPC_MOUSE_RIGHT),
-        /** A left-click: take the selected answer. */
-        ANSWER(Glyphs.NPC_MOUSE_LEFT),
+        /** A right-click: take the selected answer. */
+        ANSWER(Glyphs.NPC_MOUSE_RIGHT),
         /** The wheel: move the selection. */
         CHOOSE(Glyphs.NPC_MOUSE_WHEEL);
 

@@ -6,16 +6,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.DiggingAction;
+import com.github.retrooper.packetevents.protocol.player.InteractionHand;
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.papercommon.npc.DialoguePacketGuard.ChatBuffer;
+import eu.nordtal.season.papercommon.npc.DialoguePacketGuard.SlotMask;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 
-/** Tests inbound packet guards and localized skip texts for NPC dialogues. */
+/** Tests inbound and outbound packet guards, chat buffering and localized skip texts for NPC dialogues. */
 class DialoguePacketGuardTest {
 
     @Test
@@ -35,15 +40,68 @@ class DialoguePacketGuardTest {
     }
 
     @Test
-    void activatesAndDeactivatesPerPlayer() {
-        final DialoguePacketGuard guard = new DialoguePacketGuard(id -> {});
+    void mainHandUseItemConfirmsDialogueWhileOffHandDoesNot() {
+        assertTrue(DialoguePacketGuard.isConfirmUseItem(PacketType.Play.Client.USE_ITEM, InteractionHand.MAIN_HAND));
+        assertFalse(DialoguePacketGuard.isConfirmUseItem(PacketType.Play.Client.USE_ITEM, InteractionHand.OFF_HAND));
+        assertFalse(DialoguePacketGuard.isConfirmUseItem(PacketType.Play.Client.ANIMATION, InteractionHand.MAIN_HAND));
+    }
+
+    @Test
+    void masksHotbarOffHandAndVignetteSlotsWithoutTouchingOtherSlots() {
+        assertEquals(SlotMask.HIDDEN_HAND, DialoguePacketGuard.windowSlotMask(ViewPackets.HOTBAR_SLOT + 4, 4, 3));
+        assertEquals(SlotMask.EMPTY, DialoguePacketGuard.windowSlotMask(ViewPackets.HOTBAR_SLOT + 1, 4, 3));
+        assertEquals(SlotMask.EMPTY, DialoguePacketGuard.windowSlotMask(ViewPackets.OFF_HAND_SLOT, 4, 3));
+        assertEquals(SlotMask.VIGNETTE, DialoguePacketGuard.windowSlotMask(ViewPackets.HELMET_SLOT, 4, 3));
+        assertEquals(SlotMask.KEEP, DialoguePacketGuard.windowSlotMask(ViewPackets.HELMET_SLOT, 4, 0));
+        assertEquals(SlotMask.KEEP, DialoguePacketGuard.windowSlotMask(12, 4, 3));
+
+        assertEquals(SlotMask.HIDDEN_HAND, DialoguePacketGuard.playerInventorySlotMask(4, 4, 2));
+        assertEquals(SlotMask.EMPTY, DialoguePacketGuard.playerInventorySlotMask(0, 4, 2));
+        assertEquals(
+                SlotMask.EMPTY, DialoguePacketGuard.playerInventorySlotMask(ViewPackets.PLAYER_INV_OFF_HAND, 4, 2));
+        assertEquals(
+                SlotMask.VIGNETTE, DialoguePacketGuard.playerInventorySlotMask(ViewPackets.PLAYER_INV_HELMET, 4, 2));
+        assertEquals(SlotMask.KEEP, DialoguePacketGuard.playerInventorySlotMask(ViewPackets.PLAYER_INV_HELMET, 4, 0));
+        assertEquals(SlotMask.KEEP, DialoguePacketGuard.playerInventorySlotMask(20, 4, 2));
+    }
+
+    @Test
+    void suppressesNonOverlayChatAndBuffersMessagesInOrderUpToLimit() {
+        assertTrue(DialoguePacketGuard.shouldSuppressSystemChat(false));
+        assertFalse(DialoguePacketGuard.shouldSuppressSystemChat(true));
+
+        final ChatBuffer<String> buffer = new ChatBuffer<>(3);
+        assertTrue(buffer.add("signed-1", true));
+        assertTrue(buffer.add("first", false));
+        assertTrue(buffer.add("second", false));
+        assertTrue(buffer.add("third", false));
+        assertTrue(buffer.add("fourth", false));
+
+        final List<String> replayed = new ArrayList<>();
+        assertEquals(List.of("signed-1", "third", "fourth"), buffer.closeAndDrain(replayed::add));
+        assertEquals(List.of("signed-1", "third", "fourth"), replayed);
+        assertFalse(buffer.add("after-close", false));
+    }
+
+    @Test
+    void releasesInventoryMaskBeforeFlushingChatAndDeactivating() {
+        final DialoguePacketGuard guard = new DialoguePacketGuard(id -> {}, id -> {});
         final UUID player = UUID.randomUUID();
 
         assertFalse(guard.isActive(player));
-        guard.activate(player);
+        assertFalse(guard.isInventoryMasked(player));
+
+        guard.activate(player, 2, null);
         assertTrue(guard.isActive(player));
-        guard.deactivate(player);
+        assertTrue(guard.isInventoryMasked(player));
+
+        final DialoguePacketGuard.State closing = guard.releaseInventory(player);
+        assertTrue(guard.isActive(player));
+        assertFalse(guard.isInventoryMasked(player));
+
+        guard.deactivateAndFlush(player, closing, packet -> {});
         assertFalse(guard.isActive(player));
+        assertFalse(guard.isInventoryMasked(player));
     }
 
     @Test

@@ -3,9 +3,9 @@ package eu.nordtal.season.packbuilder.wheel;
 import java.util.List;
 
 /**
- * Where the wheel's parts sit, in GUI pixels of a 480 x 270 screen, each from its body's origin.
+ * Where the wheel's parts sit, in GUI pixels, each from its body's origin.
  * The column holds {@link #BODIES} item bodies 10 apart: a lone base art body first, then the glinting prizes with
- * a 17-line description (161 high) whose focus ring lies only on static pixels.
+ * a 12-line description (116 high) whose focus ring lies only on static pixels and fits every GUI scale.
  */
 public final class WheelLayout {
 
@@ -13,21 +13,24 @@ public final class WheelLayout {
     public static final int BASE_BODY = 0;
     public static final int FOIL_BODY = 1;
 
-    static final int DISC = 156;
+    static final int DISC = 112;
+    static final double SCALE = DISC / 156.0;
+    static final int POINTER_SIZE = 12;
+    static final int STAND_HEIGHT = 119;
     static final int PLACES = WheelTurn.PLACES;
-    private static final double RADIUS = DISC / 2.0 - 20;
+    private static final double RADIUS = (156.0 / 2.0 - 20.0) * SCALE;
 
     /** The row tops from the column's top, with a 10-pixel gap after each row. */
     private static final int[] ROWS = {0, 11};
 
-    /** The text lines of the description body: 9 * 17 + 8 = 161 high. */
-    public static final int LINES = 17;
+    /** The text lines of the description body: 9 * 12 + 8 = 116 high, keeping contents at y 63 on 240 px screens. */
+    public static final int LINES = 12;
 
-    /** The rows' heights: 1 for the lone base art body, 161 for the 17-line description body. */
+    /** The rows' heights: 1 for the lone base art body, 116 for the 12-line description body. */
     public static final List<Integer> HEIGHTS = List.of(1, 9 * LINES + 8);
 
     /** The width of the description row, from its item's left to its text's right. */
-    public static final int ROW_WIDTH = 254;
+    public static final int ROW_WIDTH = 216;
 
     /** The item's width in the description row, even so the description text width is even. */
     public static final int ITEM_WIDTH = 2;
@@ -36,15 +39,15 @@ public final class WheelLayout {
     public static final int LONE_ITEM = 2;
 
     /** The disc canvas's top-left from the column's top-middle. */
-    private static final int[] CANVAS = {-122, 16};
+    private static final int[] CANVAS = {-100, 15};
 
-    static final int[] POINTER = {DISC / 2 - 8, -8};
+    static final int[] POINTER = {DISC / 2 - POINTER_SIZE / 2, -POINTER_SIZE / 2};
 
-    /** The Spin plate's top-left on the disc canvas: 13 right of the disc, centred on its height. */
-    static final int[] PLATE = {DISC + 13, DISC / 2 - 8};
+    /** The Spin plate's top-left on the disc canvas: 12 right of the disc, centred beside it. */
+    static final int[] PLATE = {DISC + 12, 45};
 
     /** The rectangle every body spans on the disc canvas: the art with a margin. */
-    static final int[] ANCHOR = {-2, -10, DISC + 2, DISC + 10};
+    static final int[] ANCHOR = {-2, -8, DISC + 2, STAND_HEIGHT + 1};
 
     private WheelLayout() {}
 

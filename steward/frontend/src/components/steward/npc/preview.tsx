@@ -546,11 +546,11 @@ export function DialoguePreview({
   )
 }
 
-/** The marks of the inputs the game asks for under the panel: the wheel and a left-click with answers, a right-click without. */
+/** The marks of the inputs the game asks for under the panel: the wheel and a right-click with answers, a right-click without. */
 function HintMarks({ answers, right, y }: { answers: boolean; right: number; y: number }) {
   return answers ? (
     <>
-      <Art name="mouse_left" x={right - 7} y={y} width={7} height={8} />
+      <Art name="mouse_right" x={right - 7} y={y} width={7} height={8} />
       <Art name="mouse_wheel" x={right - 7 - 9 - 7} y={y} width={7} height={8} />
     </>
   ) : (

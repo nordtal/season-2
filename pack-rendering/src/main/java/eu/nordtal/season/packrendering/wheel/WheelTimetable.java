@@ -13,13 +13,15 @@ import java.util.Properties;
 
 /**
  * The wooden wheel's timetable in cooldown ticks of the item group {@code nordtal:wheel}.
- * The build writes it with the pack's turn. A variant {@code e} stops the wheel {@code e} places past whole turns.
+ * The build writes it with the pack's turn. Each variant {@code e} has a direct and a rebound ending.
  *
  * @param cooldown the turn's cooldown, as long as the longest variant's turn
  * @param open the cooldown of the prizes' pop-in when the dialog opens
  * @param pops the tick of each place's pop in the pop-in, place 0 first
- * @param clicks per variant, in the pack's order, its peg clicks
- * @param ends per variant, the tick at which its wheel rests
+ * @param clicks per variant, in the pack's order, its direct-ending peg clicks
+ * @param ends per variant, the tick at which its direct-ending wheel rests
+ * @param reboundClicks per variant, in the pack's order, its rebound-ending peg clicks
+ * @param reboundEnds per variant, the tick at which its rebound-ending wheel rests
  * @param rows the dialog's rows, which the pack's art is drawn for
  */
 public record WheelTimetable(
@@ -28,6 +30,8 @@ public record WheelTimetable(
         List<Integer> pops,
         Map<Integer, List<Integer>> clicks,
         Map<Integer, Integer> ends,
+        Map<Integer, List<Integer>> reboundClicks,
+        Map<Integer, Integer> reboundEnds,
         Rows rows) {
 
     /**
@@ -66,10 +70,16 @@ public record WheelTimetable(
 
     public WheelTimetable {
         pops = List.copyOf(pops);
-        final Map<Integer, List<Integer>> copy = new LinkedHashMap<>();
-        clicks.forEach((variant, ticks) -> copy.put(variant, List.copyOf(ticks)));
-        clicks = Collections.unmodifiableMap(copy);
+        clicks = copyClickMap(clicks);
         ends = Map.copyOf(ends);
+        reboundClicks = copyClickMap(reboundClicks);
+        reboundEnds = Map.copyOf(reboundEnds);
+    }
+
+    private static Map<Integer, List<Integer>> copyClickMap(final Map<Integer, List<Integer>> source) {
+        final Map<Integer, List<Integer>> copy = new LinkedHashMap<>();
+        source.forEach((variant, ticks) -> copy.put(variant, List.copyOf(ticks)));
+        return Collections.unmodifiableMap(copy);
     }
 
     /** The timetable the build wrote for the pack this module ships with. */
@@ -87,14 +97,25 @@ public record WheelTimetable(
         }
     }
 
-    /** Reads the timetable: cooldown, open, pops, variants, and clicks and end per variant. */
+    /** Reads the timetable: cooldown, open, pops, variants, and direct and rebound clicks and ends per variant. */
     static WheelTimetable parse(final Properties properties) {
         final Map<Integer, List<Integer>> clicks = new LinkedHashMap<>();
         final Map<Integer, Integer> ends = new LinkedHashMap<>();
+        final Map<Integer, List<Integer>> reboundClicks = new LinkedHashMap<>();
+        final Map<Integer, Integer> reboundEnds = new LinkedHashMap<>();
         final int cooldown = Integer.parseInt(required(properties, "cooldown"));
         for (final int variant : numbers(required(properties, "variants"))) {
             clicks.put(variant, numbers(properties.getProperty("clicks." + variant, "")));
             ends.put(variant, Integer.parseInt(properties.getProperty("end." + variant, String.valueOf(cooldown))));
+            reboundClicks.put(
+                    variant,
+                    numbers(properties.getProperty(
+                            "clicks." + variant + ".rebound", properties.getProperty("clicks." + variant, ""))));
+            reboundEnds.put(
+                    variant,
+                    Integer.parseInt(properties.getProperty(
+                            "end." + variant + ".rebound",
+                            properties.getProperty("end." + variant, String.valueOf(cooldown)))));
         }
         final Map<Integer, Hover> hovers = new LinkedHashMap<>();
         properties.stringPropertyNames().stream()
@@ -114,16 +135,28 @@ public record WheelTimetable(
                 number(properties, "plate-y"),
                 hovers);
         return new WheelTimetable(
-                cooldown, number(properties, "open"), numbers(required(properties, "pops")), clicks, ends, rows);
+                cooldown,
+                number(properties, "open"),
+                numbers(required(properties, "pops")),
+                clicks,
+                ends,
+                reboundClicks,
+                reboundEnds,
+                rows);
     }
 
     private static int number(final Properties properties, final String key) {
         return Integer.parseInt(required(properties, key).trim());
     }
 
-    /** The tick at which variant {@code variant}'s wheel rests, so its prize is paid. */
-    public int end(final int variant) {
-        return ends.getOrDefault(variant, cooldown);
+    /** The peg-pass clicks for {@code variant} with the direct or rebound ending. */
+    public List<Integer> clicks(final int variant, final boolean rebound) {
+        return (rebound ? reboundClicks : clicks).getOrDefault(variant, List.of());
+    }
+
+    /** The tick at which {@code variant}'s wheel rests for the direct or rebound ending, so its prize is paid. */
+    public int end(final int variant, final boolean rebound) {
+        return (rebound ? reboundEnds : ends).getOrDefault(variant, cooldown);
     }
 
     /** The turn variants the pack holds. */

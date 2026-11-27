@@ -75,7 +75,7 @@ object UiPanelGeometry {
             DialogSpec("objectives_124", 262, 124),
             DialogSpec("objectives_33", 262, 33),
             DialogSpec("duel_124", 206, 124),
-            DialogSpec("wheel_197", 262, 197),
+            DialogSpec("wheel_158", 224, 158),
         )
 }
 

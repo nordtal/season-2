@@ -66,6 +66,7 @@ public final class NpcDialogues implements Listener {
     private final Map<UUID, DialogueSession> sessions = new HashMap<>();
     private final Map<UUID, Mannequin> previews = new HashMap<>();
     private final Map<UUID, PendingNotice> pendingNotices = new HashMap<>();
+    private ViewPackets.@Nullable MaskItems maskItems;
     private Scheduler.@Nullable Task task;
 
     /** The parts a server hands in; {@code labels} gives the words of each language, {@code feel} the settings. */
@@ -88,7 +89,7 @@ public final class NpcDialogues implements Listener {
         this.skipNotice = parts.skipNotice();
         this.menus = parts.menus();
         this.feel = parts.feel();
-        this.packetGuard = new DialoguePacketGuard(this::scheduleResync);
+        this.packetGuard = new DialoguePacketGuard(this::scheduleResync, this::scheduleConfirm);
         this.zoomKey = new NamespacedKey(plugin, "npc_zoom");
     }
 
@@ -137,7 +138,7 @@ public final class NpcDialogues implements Listener {
             return;
         }
         if (session != null) {
-            session.run().rightClick();
+            session.run().confirm();
         } else if (figure) {
             figures.npcOf(event.getRightClicked()).ifPresent(npc -> begin(event.getPlayer(), npc));
         }
@@ -150,13 +151,9 @@ public final class NpcDialogues implements Listener {
             return;
         }
         switch (Click.of(event.getAction())) {
-            case RIGHT -> {
+            case RIGHT, LEFT -> {
                 event.setCancelled(true);
-                session.run().rightClick();
-            }
-            case LEFT -> {
-                event.setCancelled(true);
-                session.run().leftClick();
+                session.run().confirm();
             }
             case NONE -> {}
         }
@@ -167,7 +164,7 @@ public final class NpcDialogues implements Listener {
         final DialogueSession session = sessions.get(event.getPlayer().getUniqueId());
         if (session != null) {
             event.setCancelled(true);
-            session.run().leftClick();
+            session.run().confirm();
         } else if (figures.is(event.getAttacked())) {
             event.setCancelled(true);
         }
@@ -234,6 +231,25 @@ public final class NpcDialogues implements Listener {
         });
     }
 
+    private void scheduleConfirm(final UUID player) {
+        if (!plugin.isEnabled()) {
+            return;
+        }
+        PaperScheduler.of(plugin).onMain(() -> {
+            final DialogueSession session = sessions.get(player);
+            if (session != null) {
+                session.run().confirm();
+            }
+        });
+    }
+
+    private ViewPackets.MaskItems maskItems() {
+        if (maskItems == null) {
+            maskItems = ViewPackets.maskItems();
+        }
+        return maskItems;
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onInventoryClose(final InventoryCloseEvent event) {
         if (Menus.isMenuClose(event)) {
@@ -297,8 +313,10 @@ public final class NpcDialogues implements Listener {
                 skipped,
                 start == SkipChoice.Start.REPLAY,
                 player.isSneaking());
-        packetGuard.activate(player.getUniqueId());
-        sessions.put(player.getUniqueId(), new DialogueSession(player, npc, figure, run, now, hud, sounds, zoomKey));
+        packetGuard.activate(player.getUniqueId(), player.getInventory().getHeldItemSlot(), maskItems());
+        sessions.put(
+                player.getUniqueId(),
+                new DialogueSession(player, npc, figure, run, now, hud, sounds, packetGuard, zoomKey));
     }
 
     /**
@@ -322,8 +340,10 @@ public final class NpcDialogues implements Listener {
                 false,
                 player.isSneaking());
         previews.put(player.getUniqueId(), figure);
-        packetGuard.activate(player.getUniqueId());
-        sessions.put(player.getUniqueId(), new DialogueSession(player, npc, figure, run, now, hud, sounds, zoomKey));
+        packetGuard.activate(player.getUniqueId(), player.getInventory().getHeldItemSlot(), maskItems());
+        sessions.put(
+                player.getUniqueId(),
+                new DialogueSession(player, npc, figure, run, now, hud, sounds, packetGuard, zoomKey));
         return true;
     }
 
@@ -387,7 +407,7 @@ public final class NpcDialogues implements Listener {
     }
 
     private void end(final UUID player) {
-        packetGuard.deactivate(player);
+        final DialoguePacketGuard.@Nullable State closing = packetGuard.releaseInventory(player);
         final DialogueSession session = sessions.remove(player);
         if (session != null) {
             session.stopNow();
@@ -395,6 +415,15 @@ public final class NpcDialogues implements Listener {
         final Mannequin preview = previews.remove(player);
         if (preview != null) {
             figures.removePreview(preview);
+        }
+        final Player online = Bukkit.getPlayer(player);
+        if (online != null && online.isOnline()) {
+            ViewPackets.runOnNetty(
+                    online,
+                    () -> packetGuard.deactivateAndFlush(
+                            player, closing, packet -> ViewPackets.sendSilently(online, packet)));
+        } else {
+            packetGuard.deactivateAndFlush(player, closing, packet -> {});
         }
     }
 }

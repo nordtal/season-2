@@ -410,7 +410,8 @@ vec4 wallBand(vec4 coord, vec3 view, vec2 ground, vec3 span, float gameTime) {
         }
     } else if (feet > under + WALL_FLOAT_START) {
         float floatMask = wallEase(WALL_FLOAT_START, WALL_FLOAT_FULL, feet - under)
-                        * (1.0 - wallEase(WALL_FLOAT_WIDE, WALL_FLOAT_EDGE, abs(view.x)));
+                        * (1.0 - wallEase(WALL_FLOAT_WIDE, WALL_FLOAT_EDGE, abs(view.x)))
+                        * (1.0 - sky);
         float fFromTop = feet + WALL_ABOVE - coord.y;
         float fFromBottom = coord.y - (feet - WALL_BELOW);
         if (floatMask > 0.005 && fFromTop >= 0.0 && fFromBottom >= 0.0 && length(coord.zw) <= WALL_FLOAT_FAR) {

@@ -358,17 +358,6 @@ class WallTest {
     }
 
     @Test
-    void aPlayerOnFootIsTurnedBackShortlyBeforeTheWallOnlyWhenWalkingTowardsIt() {
-        final Wall wall = new Wall(List.of(L));
-
-        assertTrue(Push.reaches(wall, 10, 0.9, 0, -0.2));
-        assertTrue(Push.reaches(wall, 10, 0.1, 0, -0.2));
-        assertFalse(Push.reaches(wall, 10, 1.2, 0, -0.2));
-        assertFalse(Push.reaches(wall, 10, 0.3, 0.2, 0));
-        assertFalse(Push.reaches(wall, 10, 0.3, 0, 0.2));
-    }
-
-    @Test
     void aPlayerJustOutsideTheOutlineIsPushedAlongTheInwardNormal() {
         final Wall wall = new Wall(List.of(L));
 

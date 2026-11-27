@@ -26,6 +26,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -37,6 +38,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityPlaceEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
+import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketEntityEvent;
@@ -50,6 +52,7 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.vehicle.VehicleDamageEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
@@ -254,6 +257,7 @@ public final class BorderWall implements Listener {
         lastInside.clear();
         outside.clear();
         drifting.clear();
+        walkPushed.clear();
         for (final Player player : online) {
             display.clear(player);
             final Entity moving = Push.root(player);
@@ -340,62 +344,69 @@ public final class BorderWall implements Listener {
     /** Refuses right-clicking an entity outside the border. */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void interactingEntity(final PlayerInteractEntityEvent event) {
-        if (blocksEntity(event.getPlayer(), event.getRightClicked())) {
-            event.setCancelled(true);
-            feedback(event.getPlayer());
-        }
+        refuseEntity(event, event.getPlayer(), event.getRightClicked());
     }
 
     /** Refuses interacting at a point on an entity outside the border. */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void interactingAtEntity(final PlayerInteractAtEntityEvent event) {
-        if (blocksEntity(event.getPlayer(), event.getRightClicked())) {
-            event.setCancelled(true);
-            feedback(event.getPlayer());
-        }
+        refuseEntity(event, event.getPlayer(), event.getRightClicked());
     }
 
     /** Refuses manipulating an armor stand outside the border. */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void manipulatingArmorStand(final PlayerArmorStandManipulateEvent event) {
-        if (blocksEntity(event.getPlayer(), event.getRightClicked())) {
-            event.setCancelled(true);
-            feedback(event.getPlayer());
-        }
+        refuseEntity(event, event.getPlayer(), event.getRightClicked());
     }
 
     /** Refuses scooping an entity into a bucket outside the border. */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void bucketingEntity(final PlayerBucketEntityEvent event) {
-        if (blocksEntity(event.getPlayer(), event.getEntity())) {
-            event.setCancelled(true);
-            feedback(event.getPlayer());
-        }
+        refuseEntity(event, event.getPlayer(), event.getEntity());
     }
 
     /** Refuses placing an entity such as a boat, minecart or armor stand outside the border. */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void placingEntity(final EntityPlaceEvent event) {
-        final @Nullable Player player = event.getPlayer();
-        if (player != null && blocksEntity(player, event.getEntity())) {
-            event.setCancelled(true);
-            feedback(player);
+        if (event.getPlayer() != null) {
+            refuseEntity(event, event.getPlayer(), event.getEntity());
+        }
+    }
+
+    /** Refuses placing a hanging entity such as an item frame or painting outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void placingHanging(final HangingPlaceEvent event) {
+        if (event.getPlayer() != null) {
+            refuseEntity(event, event.getPlayer(), event.getEntity());
         }
     }
 
     /** Refuses breaking a hanging entity such as an item frame or painting outside the border. */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void breakingHanging(final HangingBreakByEntityEvent event) {
-        if (event.getRemover() instanceof final Player player && blocksEntity(player, event.getEntity())) {
-            event.setCancelled(true);
-            feedback(player);
+        if (event.getRemover() instanceof final Player player) {
+            refuseEntity(event, player, event.getEntity());
+        }
+    }
+
+    /** Refuses a player directly attacking a vehicle such as a boat or minecart outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void damagingVehicle(final VehicleDamageEvent event) {
+        if (event.getAttacker() instanceof final Player player) {
+            refuseEntity(event, player, event.getVehicle());
         }
     }
 
     /** Refuses a player directly attacking an entity outside the border. */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void damagingEntity(final EntityDamageByEntityEvent event) {
-        if (event.getDamager() instanceof final Player player && blocksEntity(player, event.getEntity())) {
+        if (event.getDamager() instanceof final Player player) {
+            refuseEntity(event, player, event.getEntity());
+        }
+    }
+
+    private void refuseEntity(final Cancellable event, final Player player, final Entity entity) {
+        if (blocksEntity(player, entity)) {
             event.setCancelled(true);
             feedback(player);
         }
@@ -683,18 +694,14 @@ public final class BorderWall implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void teleported(final PlayerTeleportEvent event) {
         final Player player = event.getPlayer();
-        lastInside.remove(player.getUniqueId());
-        outside.remove(player.getUniqueId());
-        drifting.remove(player.getUniqueId());
+        resetState(player.getUniqueId());
         nextTick.accept(() -> refresh(player));
     }
 
     @EventHandler
     public void joined(final PlayerJoinEvent event) {
         final Player player = event.getPlayer();
-        lastInside.remove(player.getUniqueId());
-        outside.remove(player.getUniqueId());
-        drifting.remove(player.getUniqueId());
+        resetState(player.getUniqueId());
         nextTick.accept(() -> refresh(player));
     }
 
@@ -702,9 +709,7 @@ public final class BorderWall implements Listener {
     public void changedWorld(final PlayerChangedWorldEvent event) {
         final Player player = event.getPlayer();
         display.clear(player);
-        lastInside.remove(player.getUniqueId());
-        outside.remove(player.getUniqueId());
-        drifting.remove(player.getUniqueId());
+        resetState(player.getUniqueId());
         nextTick.accept(() -> refresh(player));
     }
 
@@ -713,22 +718,24 @@ public final class BorderWall implements Listener {
         final Player player = event.getPlayer();
         // A respawn in the same world keeps the client's entities, so the old panels are removed.
         display.clear(player);
-        lastInside.remove(player.getUniqueId());
-        outside.remove(player.getUniqueId());
-        drifting.remove(player.getUniqueId());
+        resetState(player.getUniqueId());
         nextTick.accept(() -> refresh(player));
     }
 
     @EventHandler
     public void quit(final PlayerQuitEvent event) {
         final UUID id = event.getPlayer().getUniqueId();
+        resetState(id);
+        bounced.remove(id);
+        display.removeViewer(id);
+        pushed.remove(id);
+    }
+
+    private void resetState(final UUID id) {
         lastInside.remove(id);
         outside.remove(id);
         drifting.remove(id);
-        bounced.remove(id);
         walkPushed.remove(id);
-        display.removeViewer(id);
-        pushed.remove(id);
     }
 
     private void refresh(final Player player) {

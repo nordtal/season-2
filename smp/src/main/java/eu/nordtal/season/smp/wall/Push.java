@@ -25,12 +25,6 @@ final class Push {
     /** How far before the wall a player on foot is turned back, in blocks, so the camera stays inside. */
     static final double CUSHION = 0.75;
 
-    /** Whether a player on foot who moves by {@code dx}, {@code dz} from {@code x}, {@code z} comes up to the wall. */
-    static boolean reaches(final Wall wall, final double x, final double z, final double dx, final double dz) {
-        final double ahead = 1 + CUSHION / Math.hypot(dx, dz);
-        return Double.isFinite(wall.exit(x, z, x + dx * ahead, z + dz * ahead));
-    }
-
     /**
      * The velocity {x, y, z} that pushes a player on foot back before the wall, or null when not approaching it.
      * Pushes along the wall's inward normal with a small upward lift so ground friction does not cause stuttering.

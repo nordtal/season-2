@@ -184,6 +184,57 @@ class WheelTurnTest {
     }
 
     @Test
+    void bothEndingsDecelerateSmoothlyWithoutAnAbruptBrakeNearTheStop() {
+        for (final int e : variants) {
+            final int split = WheelTurn.split(e);
+            final double directAfter = WheelTurn.speed(e, Ending.DIRECT, split + 1);
+            final double reboundAfter = WheelTurn.speed(e, Ending.REBOUND, split + 1);
+            assertTrue(
+                    Math.abs(reboundAfter - directAfter) <= 0.05,
+                    "variant " + e + " speed jumps at split: direct=" + directAfter + ", rebound=" + reboundAfter);
+            for (final Ending ending : Ending.values()) {
+                final double target = WheelTurn.distance(e) + (ending == Ending.REBOUND ? WheelTurn.PIN : 0.0);
+                final int end = WheelTurn.length(e, ending);
+                double maxFinalDrop = 0.0;
+                for (int t = split; t < end - 1; t++) {
+                    final double angle = WheelTurn.angle(e, ending, t);
+                    if (angle > target - 10.0 && WheelTurn.speed(e, ending, t) > 0.0) {
+                        final double drop = WheelTurn.speed(e, ending, t) - WheelTurn.speed(e, ending, t + 1);
+                        maxFinalDrop = Math.max(maxFinalDrop, drop);
+                    }
+                }
+                assertTrue(
+                        maxFinalDrop <= 0.14,
+                        "variant " + e + " " + ending + " brakes too sharply near stop: maxFinalDrop=" + maxFinalDrop);
+            }
+        }
+    }
+
+    @Test
+    void everyPegPassDeflectsThePointerAndCruiseNeverStalls() {
+        for (final int e : variants) {
+            for (final Ending ending : Ending.values()) {
+                final List<WheelTurn.Tick> ticks = WheelTurn.ticks(e, ending);
+                for (final int clickTick : WheelTurn.clicks(e, ending)) {
+                    assertFalse(
+                            ticks.get(clickTick).pointer() == WheelTurn.Pointer.REST,
+                            "variant " + e + " " + ending + " missed pointer deflection at click tick " + clickTick);
+                }
+            }
+        }
+        final List<WheelTurn.Tick> ticks = WheelTurn.ticks(0, Ending.DIRECT);
+        int restStreak = 0;
+        for (int t = WheelTurn.ACCELERATION; t < WheelTurn.ACCELERATION + WheelTurn.CRUISE; t++) {
+            if (ticks.get(t).pointer() == WheelTurn.Pointer.REST) {
+                restStreak++;
+                assertTrue(restStreak <= 2, "pointer stalled at REST during cruise at tick " + t);
+            } else {
+                restStreak = 0;
+            }
+        }
+    }
+
+    @Test
     void thePrizesPopInQuickly() {
         assertTrue(WheelTurn.OPEN_TICKS <= 25);
         assertEquals(Optional.empty(), WheelSpin.popIn(11, 0));

@@ -53,7 +53,7 @@ public final class WheelTurn {
     /** The ticks of the prizes' pop-in when the dialog opens. */
     public static final int OPEN_TICKS = (PLACES - 1) * POP_STEP + POP_HOP.size();
 
-    /** How far before the winning field the direct ending parts from the rebound approach. */
+    /** How far before the winning field the rebound ending parts from the direct approach. */
     private static final double SPLIT_BEFORE = 60.0;
 
     private static final double DIP_FROM = 120.0;
@@ -78,7 +78,7 @@ public final class WheelTurn {
     private static final double DECELERATION = DRAG_SPEED
             * DRAG_SPEED
             * -Math.log(Math.cos(Math.atan(TOP_SPEED / DRAG_SPEED)))
-            / (distance(PLACES / 2) + PIN - ACCELERATED);
+            / (distance(PLACES / 2) - ACCELERATED);
 
     private static final Map<Key, Motion> MOTIONS = new ConcurrentHashMap<>();
 
@@ -123,9 +123,12 @@ public final class WheelTurn {
     public static List<Tick> ticks(final int e, final Ending ending) {
         final int length = length(e, ending);
         final List<Tick> out = new ArrayList<>(length);
+        double previous = angle(e, ending, 0);
         for (int t = 0; t < length; t++) {
-            final double angle = snapped(angle(e, ending, t));
-            out.add(new Tick(angle, pointerAt(angle)));
+            final double raw = angle(e, ending, t);
+            final double angle = snapped(raw);
+            out.add(new Tick(angle, pointerAt(angle, t > 0 && pegPassed(previous, raw))));
+            previous = raw;
         }
         return out;
     }
@@ -172,12 +175,16 @@ public final class WheelTurn {
         return Math.floor(angle / STEP + 0.5) * STEP;
     }
 
-    /** The pixel artist's rule: the frame k mod 8 is 3 for the first bend, 4 or 5 for the second. */
-    private static Pointer pointerAt(final double angle) {
+    private static boolean pegPassed(final double previous, final double current) {
+        return Math.floor((current - 15.0) / 30.0) > Math.floor((previous - 15.0) / 30.0);
+    }
+
+    /** The pixel artist's rule, plus a deflection whenever a fast step crosses a peg between two ticks. */
+    private static Pointer pointerAt(final double angle, final boolean passed) {
         return switch (discFrame(angle) % 8) {
             case 3 -> Pointer.TICK1;
             case 4, 5 -> Pointer.TICK2;
-            default -> Pointer.REST;
+            default -> passed ? Pointer.TICK2 : Pointer.REST;
         };
     }
 
@@ -238,11 +245,11 @@ public final class WheelTurn {
 
     /** The tick where variant {@code e}'s direct and rebound endings part, both sharing every tick before it. */
     public static int split(final int e) {
-        return motion(e, Ending.DIRECT).splitTick();
+        return motion(e, Ending.REBOUND).splitTick();
     }
 
     /** Variant e's own part: times and angles from the end of the shared start onto its stopping angle. */
-    private record Motion(List<Double> times, List<Double> angles, int splitTick) {
+    private record Motion(List<Double> times, List<Double> angles, int splitTick, double scale) {
 
         double end() {
             return times.getLast();
@@ -250,61 +257,68 @@ public final class WheelTurn {
     }
 
     private static Motion motion(final int e, final Ending ending) {
-        if (ending == Ending.DIRECT) {
-            motion(e, Ending.REBOUND);
+        if (ending == Ending.REBOUND) {
+            motion(e, Ending.DIRECT);
         }
         return MOTIONS.computeIfAbsent(new Key(e, ending), WheelTurn::compute);
     }
 
     /**
      * From the end of the shared start, the wheel slows down onto its target angle.
-     * Rebound runs the full approach onto the far pin; direct shares that approach until {@link #SPLIT_BEFORE}
-     * degrees before the winning field, then slows directly onto it with no backward motion.
+     * Direct runs the full natural deceleration onto the winning field. Rebound shares that approach until
+     * {@link #SPLIT_BEFORE} degrees before the winning field, then eases gently onto the far pin.
      */
     private static Motion compute(final Key key) {
-        if (key.ending() == Ending.REBOUND) {
-            return computeFrom(SHARED, shared(SHARED), sharedSpeed(SHARED), distance(key.e()) + PIN, SHARED);
+        if (key.ending() == Ending.DIRECT) {
+            return computeFrom(SHARED, shared(SHARED), sharedSpeed(SHARED), distance(key.e()), SHARED, 1.0);
         }
-        final Motion rebound = Objects.requireNonNull(MOTIONS.get(new Key(key.e(), Ending.REBOUND)));
-        final double target = distance(key.e());
-        final double splitAngle = target - SPLIT_BEFORE;
+        final Motion direct = Objects.requireNonNull(MOTIONS.get(new Key(key.e(), Ending.DIRECT)));
+        final double winner = distance(key.e());
+        final double splitAngle = winner - SPLIT_BEFORE;
         int splitTick = SHARED;
-        while (splitTick + 1 < (int) Math.floor(rebound.end())
-                && interpolate(rebound.times(), rebound.angles(), splitTick) < splitAngle) {
+        while (splitTick + 1 < (int) Math.floor(direct.end())
+                && interpolate(direct.times(), direct.angles(), splitTick) < splitAngle) {
             splitTick++;
         }
-        final double from = interpolate(rebound.times(), rebound.angles(), splitTick);
-        final double speed = (interpolate(rebound.times(), rebound.angles(), splitTick + 0.5)
-                - interpolate(rebound.times(), rebound.angles(), splitTick - 0.5));
-        final Motion tail = computeFrom(splitTick, from, speed, target, splitTick);
+        final double from = interpolate(direct.times(), direct.angles(), splitTick);
+        final double speed = (interpolate(direct.times(), direct.angles(), splitTick + 0.5)
+                        - interpolate(direct.times(), direct.angles(), splitTick - 0.5))
+                * dip(from, winner);
+        final Motion tail = computeFrom(splitTick, from, speed, winner + PIN, splitTick, direct.scale());
         final List<Double> times = new ArrayList<>();
         final List<Double> angles = new ArrayList<>();
-        for (int i = 0; i < rebound.times().size(); i++) {
-            if (rebound.times().get(i) < splitTick) {
-                times.add(rebound.times().get(i));
-                angles.add(rebound.angles().get(i));
+        for (int i = 0; i < direct.times().size(); i++) {
+            if (direct.times().get(i) < splitTick) {
+                times.add(direct.times().get(i));
+                angles.add(direct.angles().get(i));
             }
         }
         times.addAll(tail.times());
         angles.addAll(tail.angles());
-        return new Motion(List.copyOf(times), List.copyOf(angles), splitTick);
+        return new Motion(List.copyOf(times), List.copyOf(angles), splitTick, tail.scale());
     }
 
     private static Motion computeFrom(
-            final double start, final double from, final double speed, final double target, final int splitTick) {
+            final double start,
+            final double from,
+            final double speed,
+            final double target,
+            final int splitTick,
+            final double startScale) {
         final double rest = target - from;
         double lo = 0.25;
         double hi = 4.0;
         for (int i = 0; i < 60; i++) {
             final double mid = (lo + hi) / 2;
-            final double[] xs = stop(speed, mid)[1];
+            final double[] xs = stop(speed, startScale, mid)[1];
             if (xs[xs.length - 1] > rest) {
                 lo = mid;
             } else {
                 hi = mid;
             }
         }
-        final double[][] stopped = stop(speed, (lo + hi) / 2);
+        final double endScale = (lo + hi) / 2;
+        final double[][] stopped = stop(speed, startScale, endScale);
         final double[] ts = stopped[0];
         final double[] xs = stopped[1];
         final double scale = rest / xs[xs.length - 1];
@@ -321,11 +335,11 @@ public final class WheelTurn {
             times[k] = start + warped[k];
         }
         return new Motion(
-                Arrays.stream(times).boxed().toList(), Arrays.stream(a).boxed().toList(), splitTick);
+                Arrays.stream(times).boxed().toList(), Arrays.stream(a).boxed().toList(), splitTick, endScale);
     }
 
-    /** The times and distances of a wheel at {@code speed} that slows, ramping to {@code scale} times the shared. */
-    private static double[][] stop(final double speed, final double scale) {
+    /** The times and distances of a wheel at {@code speed} that slows from {@code startScale} to {@code endScale}. */
+    private static double[][] stop(final double speed, final double startScale, final double endScale) {
         final List<Double> ts = new ArrayList<>();
         final List<Double> xs = new ArrayList<>();
         double t = 0.0;
@@ -334,7 +348,7 @@ public final class WheelTurn {
         ts.add(t);
         xs.add(x);
         while (v > 0) {
-            final double ramped = 1 + (scale - 1) * Math.min((t + DT / 2) / RAMP, 1.0);
+            final double ramped = startScale + (endScale - startScale) * Math.min((t + DT / 2) / RAMP, 1.0);
             final double d = ramped * DECELERATION * (1 + v * v / (DRAG_SPEED * DRAG_SPEED));
             if (v <= d * DT) {
                 t += v / d;

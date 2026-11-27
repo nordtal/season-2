@@ -16,9 +16,6 @@ public final class TunnelPlan {
     /** An upside-down ceiling stair to place, with its outward facing and wall/ceiling material probe positions. */
     public record StairPlacement(BlockPos pos, BlockFace facing, BlockPos sideWallProbe, BlockPos ceilingProbe) {}
 
-    /** An existing ceiling stair to rotate during a 90-degree turn. */
-    public record StairRotation(BlockPos pos, BlockFace newFacing) {}
-
     /** A hanging lantern at {@code pos} when {@code ceilingPos} is solid. */
     public record LanternPlacement(BlockPos pos, BlockPos ceilingPos) {}
 
@@ -30,22 +27,18 @@ public final class TunnelPlan {
             List<RailPlacement> rails,
             List<StairPlacement> stairs,
             List<BlockPos> removeBlocks,
-            List<StairRotation> rotateStairs,
             List<LanternPlacement> lanterns,
             List<BlockPos> slopeEditBlocks,
             boolean turn,
             TunnelFrame nextFrame) {
 
-        /** All block positions touched by carving, support placement, slope edits, or 90-degree stair edits. */
+        /** All block positions touched by carving, support placement, slope edits, or 90-degree stair removals. */
         public Set<BlockPos> protectionFootprint() {
             final Set<BlockPos> all = new LinkedHashSet<>(carveBlocks);
             for (final RailPlacement rail : rails) {
                 all.add(rail.supportPos());
             }
             all.addAll(removeBlocks);
-            for (final StairRotation rotation : rotateStairs) {
-                all.add(rotation.pos());
-            }
             all.addAll(slopeEditBlocks);
             return all;
         }
@@ -101,7 +94,6 @@ public final class TunnelPlan {
                 List.copyOf(carve),
                 List.copyOf(rails),
                 List.copyOf(stairs),
-                List.of(),
                 List.of(),
                 List.copyOf(lanterns),
                 slopeEdits,
@@ -165,25 +157,13 @@ public final class TunnelPlan {
         }
 
         final List<RailPlacement> rails = buildTurnRails(frame, oldHeading, newHeading, turnSign, turnCol);
-        final List<BlockPos> remove = List.of(frame.at(turnCol, 4, 0));
-        final List<StairRotation> rotate = List.of(new StairRotation(
-                frame.at(turnCol, 4, -1), oldHeading.opposite().blockFace()));
+        final List<BlockPos> remove = List.of(frame.at(turnCol, 4, 0), frame.at(turnCol, 4, -1));
         final List<StairPlacement> stairs = buildTurnStairs(frame, oldHeading, newHeading, turnSign, outerCol);
         final List<LanternPlacement> lanterns = buildTurnLanterns(frame, rails);
         final TunnelFrame next =
                 new TunnelFrame(frame.world(), frame.at(3 * turnSign, 0, 1), newHeading, frame.length() + 3, true);
         return new StepPlan(
-                frontFloor,
-                frontFace,
-                List.copyOf(carve),
-                rails,
-                stairs,
-                remove,
-                rotate,
-                lanterns,
-                List.of(),
-                true,
-                next);
+                frontFloor, frontFace, List.copyOf(carve), rails, stairs, remove, lanterns, List.of(), true, next);
     }
 
     private static List<BlockPos> frontFloorOf(final TunnelFrame frame) {

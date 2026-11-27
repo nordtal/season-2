@@ -119,7 +119,7 @@ services:
     # On every network a process with a database login is on; see `networks:` at the foot.
     networks: ["default", "steward", "agent-database"]
     # The version the integration tests run against.
-    image: ${POSTGRES_IMAGE:-postgres:17-alpine@sha256:526f86d93c6ea08fd3f1fe5605650cacc781b2c6013169a0ad8f42c7d3d84f32}
+    image: ${POSTGRES_IMAGE:-postgres:19-alpine@sha256:cac45fb483caee3668946088a1c0532db89d5285c28dbfeac889b4068296e06f}
     restart: unless-stopped
     # Root, because steward-agent hands the dump directory to `postgres` through exec. The entrypoint chowns
     # and chmods the data directory, which belongs to `postgres`, and switches to that account.

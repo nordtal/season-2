@@ -514,10 +514,13 @@ function StepCanvasInner({
     (connection: Connection) => {
       if (connectingRef.current?.cancelled) return
       if (!connection.source || !connection.target || connection.source === connection.target) return
+      const hasSource = dialogue.steps.some((step) => step.id === connection.source)
+      const hasTarget = dialogue.steps.some((step) => step.id === connection.target)
+      if (!hasSource || !hasTarget) return
       didConnectRef.current = true
       onLink(connection.source, parseSourcePort(connection.sourceHandle), connection.target)
     },
-    [onLink],
+    [dialogue.steps, onLink],
   )
 
   const handleConnectStart = useCallback(

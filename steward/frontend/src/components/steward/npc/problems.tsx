@@ -90,7 +90,7 @@ export function ProblemsPopover({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
-        <ScrollArea className="max-h-list">
+        <ScrollArea className="max-h-list [&_[data-slot=scroll-area-viewport]]:max-h-list">
           <div className="flex flex-col gap-3 p-3">
             {problems.length > 0 ? (
               <section className="flex flex-col gap-1">

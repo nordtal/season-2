@@ -143,4 +143,122 @@ describe("the NPC's plate and dialogue preview", () => {
     expect(texts).toContain("Very Long Answer…")
     expect(texts).not.toContain("Line 5")
   })
+
+  it("keeps the previous measurement while live edits wait for debounce and clears on empty text or page switch", () => {
+    const base = npc({})
+    const sixLines = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6"
+    const initial: Npc = {
+      ...base,
+      dialogue: {
+        ...base.dialogue,
+        steps: [
+          {
+            ...base.dialogue.steps[0],
+            pages: [
+              { en: sixLines, de: "" },
+              { en: "Second page", de: "" },
+            ],
+          },
+        ],
+      },
+    }
+    const measured = new Map<string, NpcTextMeasurement>([
+      [
+        measureKey({ text: sixLines, kind: "BODY", answers: 0 }),
+        {
+          lines: ["Line 1", "Line 2", "Line 3", "Line 4", "Line 5", "Line 6"],
+          fitted: ["Line 1", "Line 2", "Line 3", "Line 4", "Line 5", "Line 6"],
+          width: 40,
+          room: 226,
+          lineLimit: 6,
+          fits: true,
+        },
+      ],
+    ])
+    const { container, rerender } = render(
+      <DialoguePreview
+        npc={initial}
+        step={initial.dialogue.steps[0]}
+        pageIndex={0}
+        language="en"
+        measured={measured}
+      />,
+    )
+    const beforeViewBox = container.querySelector("svg[role='img']")?.getAttribute("viewBox")
+    expect(beforeViewBox).toBe("0 0 316 120")
+
+    // Simulate a keystroke before the debounced /api/npc-text/measure response arrives.
+    const edited: Npc = {
+      ...initial,
+      dialogue: {
+        ...initial.dialogue,
+        steps: [
+          {
+            ...initial.dialogue.steps[0],
+            pages: [
+              { en: `${sixLines}!`, de: "" },
+              { en: "Second page", de: "" },
+            ],
+          },
+        ],
+      },
+    }
+    rerender(
+      <DialoguePreview npc={edited} step={edited.dialogue.steps[0]} pageIndex={0} language="en" measured={measured} />,
+    )
+    expect(container.querySelector("svg[role='img']")?.getAttribute("viewBox")).toBe(beforeViewBox)
+
+    // Clearing the text resets the kept measurement immediately.
+    const cleared: Npc = {
+      ...initial,
+      dialogue: {
+        ...initial.dialogue,
+        steps: [
+          {
+            ...initial.dialogue.steps[0],
+            pages: [
+              { en: "", de: "" },
+              { en: "Second page", de: "" },
+            ],
+          },
+        ],
+      },
+    }
+    rerender(
+      <DialoguePreview
+        npc={cleared}
+        step={cleared.dialogue.steps[0]}
+        pageIndex={0}
+        language="en"
+        measured={measured}
+      />,
+    )
+    expect(container.querySelector("svg[role='img']")?.getAttribute("viewBox")).toBe("0 0 316 87")
+  })
+
+  it("clamps answer rows to MOST_ANSWERS", () => {
+    const base = npc({})
+    const shown: Npc = {
+      ...base,
+      dialogue: {
+        ...base.dialogue,
+        steps: [
+          {
+            ...base.dialogue.steps[0],
+            pages: [{ en: "Pick one", de: "" }],
+            answers: [
+              { text: { en: "One", de: "" } },
+              { text: { en: "Two", de: "" } },
+              { text: { en: "Three", de: "" } },
+              { text: { en: "Four", de: "" } },
+            ],
+          },
+        ],
+      },
+    }
+    const container = preview(shown)
+    const texts = [...container.querySelectorAll("text")].map((node) => node.textContent)
+    expect(texts).toContain("Three")
+    expect(texts).not.toContain("Four")
+  })
 })

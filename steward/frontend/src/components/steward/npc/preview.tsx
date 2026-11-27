@@ -1,8 +1,18 @@
 import { useEffect, useId, useState } from "react"
 import type { Npc, NpcStep, NpcTextMeasurement, NpcTextMeasureRequest, PlateColour, PlateIcon } from "@/lib/api"
-import type { Language } from "@/lib/npc"
+import { type Language, MOST_ANSWERS } from "@/lib/npc"
 import { artworkAddress, measureKey } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
+
+/**
+ * Answers `value`, or the last one it had under the same `key` while it has none: a text being typed keeps the
+ * measurement of the text before it until its own arrives.
+ */
+export function useKept<T>(value: T | undefined, key: string): T | undefined {
+  const [kept, setKept] = useState({ key, value })
+  if (kept.key !== key || (value !== undefined && kept.value !== value)) setKept({ key, value })
+  return kept.key === key ? (value ?? kept.value) : value
+}
 
 /**
  * A step as the game draws it: the dialogue panel's own art from the pack and the selected page of its text as Steward
@@ -395,9 +405,13 @@ export function DialoguePreview({
   const body = requests[1 + shownIndex] ?? { text: "", kind: "BODY" as const, answers: 0 }
   const answers = requests.slice(1 + step.pages.length)
   const last = shownIndex === pageCount - 1
-  const rows = last ? answers.length : 0
+  const rows = last ? Math.min(answers.length, MOST_ANSWERS) : 0
   const limit = rows === 0 ? 6 : 4
-  const lines = linesOf(measured?.get(measureKey(body)), body.text, limit)
+  const bodyMeasurement = useKept(
+    body.text === "" ? undefined : measured?.get(measureKey(body)),
+    body.text === "" ? "" : `${step.id}:${shownIndex}:${language}:${rows}`,
+  )
+  const lines = linesOf(bodyMeasurement, body.text, limit)
   const height = heightOf(lines.length, rows)
   const left = FRAME_PADDING
   const viewWidth = PANEL.width + 2 * FRAME_PADDING
@@ -410,7 +424,27 @@ export function DialoguePreview({
   // The tab takes the plate's colour and icon and fits the bold name; letters stand in until it is measured.
   const colour = PLATE_RGB[npc.plate.colour]
   const icon = npc.plate.icon === undefined ? 0 : ICON.width + ICON.gap
-  const nameMeasurement = measured?.get(measureKey(name))
+  const nameMeasurement = useKept(
+    name.text === "" ? undefined : measured?.get(measureKey(name)),
+    name.text === "" ? "" : `${npc.id}:${language}`,
+  )
+  const answer0 = answers[0]
+  const answer1 = answers[1]
+  const answer2 = answers[2]
+  const answerMeasurements = [
+    useKept(
+      rows > 0 && answer0 !== undefined && answer0.text !== "" ? measured?.get(measureKey(answer0)) : undefined,
+      rows > 0 && answer0 !== undefined && answer0.text !== "" ? `${step.id}:0:${language}:${rows}` : "",
+    ),
+    useKept(
+      rows > 1 && answer1 !== undefined && answer1.text !== "" ? measured?.get(measureKey(answer1)) : undefined,
+      rows > 1 && answer1 !== undefined && answer1.text !== "" ? `${step.id}:1:${language}:${rows}` : "",
+    ),
+    useKept(
+      rows > 2 && answer2 !== undefined && answer2.text !== "" ? measured?.get(measureKey(answer2)) : undefined,
+      rows > 2 && answer2 !== undefined && answer2.text !== "" ? `${step.id}:2:${language}:${rows}` : "",
+    ),
+  ]
   const shownName = nameMeasurement?.fitted[0] ?? name.text
   const nameWidth = Math.min(NAME_ROOM, nameMeasurement?.width ?? name.text.length * (ADVANCE + 1))
   const tab = TAB.padding + icon + nameWidth + TAB.padding
@@ -483,7 +517,7 @@ export function DialoguePreview({
       {answers.slice(0, rows).map((answer, index) => {
         const b = ANSWER.lowest + ANSWER.step * (rows - 1 - index)
         const on = index === 0
-        const label = measured?.get(measureKey(answer))?.fitted[0] ?? answer.text
+        const label = answerMeasurements[index]?.fitted[0] ?? answer.text
         return (
           <g key={index}>
             {on ? (

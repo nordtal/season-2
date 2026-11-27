@@ -7,7 +7,7 @@ import {
   TrashIcon,
   XIcon,
 } from "@/components/ui/icons"
-import { useId, useState, type KeyboardEvent, type ReactNode } from "react"
+import { useId, type KeyboardEvent, type ReactNode } from "react"
 
 import type { Npc, NpcAnswer, NpcMenu, NpcStep, NpcTextMeasurement } from "@/lib/api"
 import {
@@ -37,7 +37,8 @@ import {
 import { measureKey } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 import { cn } from "@/lib/utils"
-import { DialoguePreview } from "@/components/steward/npc/preview"
+import { DialoguePreview, useKept } from "@/components/steward/npc/preview"
+export { useKept }
 import { Hint } from "@/components/steward/status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -91,16 +92,6 @@ export function Room({ measurement }: { measurement: NpcTextMeasurement | undefi
       )}
     </>
   )
-}
-
-/**
- * Answers `value`, or the last one it had under the same `key` while it has none: a text being typed keeps the
- * measurement of the text before it until its own arrives.
- */
-export function useKept<T>(value: T | undefined, key: string): T | undefined {
-  const [kept, setKept] = useState({ key, value })
-  if (kept.key !== key || (value !== undefined && kept.value !== value)) setKept({ key, value })
-  return kept.key === key ? (value ?? kept.value) : value
 }
 
 function StepPageText({

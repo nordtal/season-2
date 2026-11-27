@@ -81,11 +81,26 @@ class GroundsTest {
     }
 
     @Test
-    void aLineOfBlocksOverheadLeavesTheFootOnTheGround() {
+    void aLineOfBlocksOverheadWithinTheCapLeavesTheFootOnTheGround() {
         // Six blocks wide, across the edge, so the surface outside is as high as inside.
-        final IntUnaryOperator line = x -> x >= 48 && x <= 53 ? 90 : 64;
+        final IntUnaryOperator line = x -> x >= 48 && x <= 53 ? 78 : 64;
 
-        assertEquals(new Band.Ground(64, 26), shaped(50, line));
+        assertEquals(new Band.Ground(64, 14), shaped(50, line));
+    }
+
+    @Test
+    void aHighFloatingBlockLineDoesNotPullTheGroundBandUp() {
+        final Panel center = new Panel(50.5, 0.03, 0f);
+        final Band.Ground ground = Grounds.shape(
+                center,
+                row(),
+                near -> {
+                    final int y = near.x() >= 48 && near.x() <= 54 ? 100 : 64;
+                    return new Grounds.Surface(y, y);
+                },
+                (near, ceiling) -> 64);
+
+        assertEquals(new Band.Ground(64, 0), ground);
     }
 
     @Test
@@ -97,19 +112,18 @@ class GroundsTest {
     }
 
     @Test
-    void highGroundKeepsItsFootWhereNothingNearbyIsLower() {
+    void highGroundKeepsItsFootWhereNothingNearbyIsLowerAndCapsItsRise() {
         final IntUnaryOperator cliff = x -> x >= 50 ? 100 : 64;
 
         assertEquals(new Band.Ground(100, 0), shaped(70, cliff));
-        assertEquals(new Band.Ground(64, 36), shaped(50, cliff));
+        assertEquals(new Band.Ground(64, Grounds.MAX_RISE), shaped(50, cliff));
     }
 
     @Test
-    void aWallHigherThanTheTintCarriesKeepsItsUpperEnd() {
+    void aTallSolidPillarCapsItsGroundBandRiseAtMaxRise() {
         final Band.Ground ground = shaped(50, x -> x == 50 ? 200 : 64);
 
-        assertEquals(Band.HIGHEST_RISE, ground.rise());
-        assertEquals(200, ground.foot() + ground.rise());
+        assertEquals(new Band.Ground(64, Grounds.MAX_RISE), ground);
     }
 
     @Test

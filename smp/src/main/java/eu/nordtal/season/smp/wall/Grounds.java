@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.IntPredicate;
+import java.util.function.ToIntBiFunction;
 import org.bukkit.HeightMap;
 import org.bukkit.Tag;
 import org.bukkit.World;
@@ -32,6 +33,9 @@ final class Grounds {
 
     static final double SPREAD = 16;
 
+    /** Maximum upward rise of the ground band above its foot, in blocks, before the floating band takes over. */
+    static final int MAX_RISE = 20;
+
     private final Map<String, Map<Panel, Read>> surfaces = new HashMap<>();
     private final Map<String, Map<Panel, Shaped>> worlds = new HashMap<>();
 
@@ -47,17 +51,21 @@ final class Grounds {
             return before.ground();
         }
         final Map<Panel, Read> reads = surfaces.computeIfAbsent(world.getName(), ignored -> new HashMap<>());
-        final Band.Ground ground = shape(panel, wall.near(panel.x(), panel.z(), SPREAD), near -> {
-            final Read read = reads.get(near);
-            if (read != null && read.fromY() == height && now - read.at() < FRESH) {
-                return read.surface();
-            }
-            final Surface surface = surfaceAt(near, (x, z) -> surface(world, x, z, fromY));
-            if (surface != null) {
-                reads.put(near, new Read(surface, height, now));
-            }
-            return surface;
-        });
+        final Band.Ground ground = shape(
+                panel,
+                wall.near(panel.x(), panel.z(), SPREAD),
+                near -> {
+                    final Read read = reads.get(near);
+                    if (read != null && read.fromY() == height && now - read.at() < FRESH) {
+                        return read.surface();
+                    }
+                    final Surface surface = surfaceAt(near, (x, z) -> surface(world, x, z, fromY));
+                    if (surface != null) {
+                        reads.put(near, new Read(surface, height, now));
+                    }
+                    return surface;
+                },
+                (near, ceiling) -> cappedHighAt(near, ceiling, world));
         if (!ground.equals(Band.Ground.UNKNOWN)) {
             shapes.put(panel, new Shaped(ground, height, now));
         }
@@ -91,10 +99,22 @@ final class Grounds {
     /**
      * The ground of {@code panel} among the panels {@code near} it, or {@link Band.Ground#UNKNOWN} without its surface.
      * The foot is the lowest surface within {@link #FOOT} blocks, and every higher surface nearby raises the wall by
-     * a bell twice as wide as that surface is high, so the wall climbs an obstacle from both sides.
+     * a bell capped at {@link #MAX_RISE} blocks above the foot.
      */
     static Band.Ground shape(
             final Panel panel, final Collection<Panel> near, final Function<Panel, @Nullable Surface> surfaces) {
+        return shape(panel, near, surfaces, (ignored, ceiling) -> ceiling);
+    }
+
+    /**
+     * Shapes {@code panel}'s ground band with a callback for surfaces above {@code foot + MAX_RISE}.
+     * Calls {@code cappedHigh} whenever a column's highest block stands above that threshold.
+     */
+    static Band.Ground shape(
+            final Panel panel,
+            final Collection<Panel> near,
+            final Function<Panel, @Nullable Surface> surfaces,
+            final ToIntBiFunction<Panel, Integer> cappedHigh) {
         final Surface own = surfaces.apply(panel);
         if (own == null) {
             return Band.Ground.UNKNOWN;
@@ -110,9 +130,11 @@ final class Grounds {
                 }
             }
         }
-        double top = own.high();
+        final int ceiling = foot + MAX_RISE;
+        double top = effectiveHigh(panel, own.high(), foot, ceiling, cappedHigh);
         for (final Map.Entry<Panel, Surface> other : known.entrySet()) {
-            final double over = other.getValue().high() - foot;
+            final int high = effectiveHigh(other.getKey(), other.getValue().high(), foot, ceiling, cappedHigh);
+            final double over = high - foot;
             final double width = Math.clamp(2 * over, NARROW, SPREAD);
             final double away =
                     panel.distance(other.getKey().x(), other.getKey().z()) / width;
@@ -121,8 +143,42 @@ final class Grounds {
             }
         }
         final int upper = (int) Math.round(top);
-        // A wall higher than the tint carries keeps its upper end, where a player on the obstacle stands.
-        return new Band.Ground(Math.max(foot, upper - Band.HIGHEST_RISE), Math.min(upper - foot, Band.HIGHEST_RISE));
+        return new Band.Ground(foot, Math.clamp(upper - foot, 0, MAX_RISE));
+    }
+
+    private static int effectiveHigh(
+            final Panel panel,
+            final int rawHigh,
+            final int foot,
+            final int ceiling,
+            final ToIntBiFunction<Panel, Integer> cappedHigh) {
+        if (rawHigh <= ceiling) {
+            return rawHigh;
+        }
+        return Math.clamp(cappedHigh.applyAsInt(panel, ceiling), foot, ceiling);
+    }
+
+    /** Highest solid surface at or below {@code ceiling} on the two inside columns of {@code panel}. */
+    private static int cappedHighAt(final Panel panel, final int ceiling, final World world) {
+        final double yaw = Math.toRadians(panel.yaw());
+        final double inwardX = -Math.sin(yaw);
+        final double inwardZ = Math.cos(yaw);
+        int best = world.getMinHeight();
+        for (final double offset : new double[] {0.5, 1.5}) {
+            final int blockX = (int) Math.floor(panel.x() + inwardX * offset);
+            final int blockZ = (int) Math.floor(panel.z() + inwardZ * offset);
+            if (!world.isChunkLoaded(blockX >> 4, blockZ >> 4)) {
+                continue;
+            }
+            best = Math.max(
+                    best,
+                    floorFrom(
+                            ceiling - 1,
+                            world.getMinHeight(),
+                            world.getMaxHeight(),
+                            y -> blocksSurface(world.getBlockAt(blockX, y, blockZ))));
+        }
+        return best;
     }
 
     /**

@@ -322,22 +322,39 @@ class WallTest {
     }
 
     @Test
-    void aPlayerOnFootIsPushedGentlyAndKeepsTheirFall() {
+    void aPlayerOnFootIsPushedCleanlyInwardWithGroundClearingLift() {
         final Wall wall = new Wall(List.of(L));
 
-        assertArrayEquals(new double[] {0, -0.08, Push.WALK}, Push.velocity(wall, 10, -0.5, false, -0.08), 1e-9);
-        assertTrue(Push.WALK < Push.REBOUND / 3);
+        assertArrayEquals(
+                new double[] {0, Push.WALK_LIFT, Push.WALK}, Push.velocity(wall, 10, -0.5, false, -0.08), 1e-9);
+        assertArrayEquals(new double[] {0, 0.42, Push.WALK}, Push.velocity(wall, 10, -0.5, false, 0.42), 1e-9);
+        assertTrue(Push.WALK < Push.REBOUND);
     }
 
     @Test
-    void aPlayerOnFootIsTurnedBackShortlyBeforeTheWallOnlyWhenWalkingTowardsIt() {
+    void aPlayerOnFootApproachingTheWallGetsInwardPushWithCooldown() {
         final Wall wall = new Wall(List.of(L));
 
-        assertTrue(Push.reaches(wall, 10, 0.9, 0, -0.2));
-        assertTrue(Push.reaches(wall, 10, 0.1, 0, -0.2));
-        assertFalse(Push.reaches(wall, 10, 1.2, 0, -0.2));
-        assertFalse(Push.reaches(wall, 10, 0.3, 0.2, 0));
-        assertFalse(Push.reaches(wall, 10, 0.3, 0, 0.2));
+        assertArrayEquals(new double[] {0, Push.WALK_LIFT, Push.WALK}, Push.walk(wall, 10, 0.9, 0, -0.2, -0.08), 1e-9);
+        // Diagonal approach still pushes cleanly along the inward normal.
+        assertArrayEquals(
+                new double[] {0, Push.WALK_LIFT, Push.WALK}, Push.walk(wall, 10, 0.7, 0.15, -0.2, -0.08), 1e-9);
+        assertArrayEquals(new double[] {0, 0.42, Push.WALK}, Push.walk(wall, 10, 0.9, 0, -0.2, 0.42), 1e-9);
+        assertNull(Push.walk(wall, 10, 1.2, 0, -0.2, 0));
+        assertNull(Push.walk(wall, 10, 0.3, 0.2, 0, 0));
+        assertNull(Push.walk(wall, 10, 0.3, 0, 0.2, 0));
+        assertFalse(Push.walkDue(1_000, 1_000 + Push.WALK_COOLDOWN - 1));
+        assertTrue(Push.walkDue(1_000, 1_000 + Push.WALK_COOLDOWN));
+    }
+
+    @Test
+    void anEntityBeyondTheBorderLineIsOutsideAndOneInsideIsNot() {
+        final Wall wall = new Wall(List.of(L));
+
+        assertFalse(BorderWall.outsideEntity(wall, 59.9, 10.0));
+        assertTrue(BorderWall.outsideEntity(wall, 60.1, 10.0));
+        assertTrue(BorderWall.outsideEntity(wall, 29.9, 20.1));
+        assertFalse(BorderWall.outsideEntity(wall, 30.1, 20.1));
     }
 
     @Test

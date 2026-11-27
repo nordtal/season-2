@@ -72,7 +72,7 @@ final class TunnelExecutor {
         final World.Environment env = world.getEnvironment();
 
         placeRails(world, plan, previousFrame, zone, dominantRock, env, skipped);
-        applyTurnStairEdits(world, plan, skipped);
+        removeTurnStairs(world, plan, skipped);
         placeStairs(world, plan, dominantRock, env, skipped);
         placeLanterns(world, plan, skipped);
     }
@@ -194,7 +194,7 @@ final class TunnelExecutor {
         return true;
     }
 
-    private static void applyTurnStairEdits(
+    private static void removeTurnStairs(
             final World world, final TunnelPlan.StepPlan plan, final Set<BlockPos> skipped) {
         for (final BlockPos pos : plan.removeBlocks()) {
             if (skipped.contains(pos)) {
@@ -203,18 +203,6 @@ final class TunnelExecutor {
             final Block block = world.getBlockAt(pos.x(), pos.y(), pos.z());
             if (Tag.STAIRS.isTagged(block.getType())) {
                 block.setType(Material.AIR, false);
-            }
-        }
-        for (final TunnelPlan.StairRotation rot : plan.rotateStairs()) {
-            if (skipped.contains(rot.pos())) {
-                continue;
-            }
-            final Block block =
-                    world.getBlockAt(rot.pos().x(), rot.pos().y(), rot.pos().z());
-            if (block.getBlockData() instanceof final Stairs stairs) {
-                stairs.setFacing(rot.newFacing());
-                stairs.setHalf(Bisected.Half.TOP);
-                block.setBlockData(stairs, true);
             }
         }
     }

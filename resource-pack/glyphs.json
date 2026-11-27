@@ -1457,10 +1457,10 @@
     {
       "font": "nordtal:ui_text_{shift}",
       "shifts": [
-        -11, -10, -9, -8, -7, -6, -5, -4, -2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 17, 22, 25, 26, 27, 28,
-        29, 30, 31, 33, 34, 35, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 61, 62,
-        65, 66, 67, 68, 69, 70, 71, 73, 79, 82, 85, 87, 88, 89, 91, 93, 97, 98, 99, 100, 106, 107, 111, 124, 125, 129,
-        134, 137
+        -11, -10, -9, -8, -7, -6, -5, -4, -2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 17, 21, 22, 25, 26, 27,
+        28, 29, 30, 31, 33, 34, 35, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 58, 61,
+        62, 63, 65, 66, 67, 68, 69, 70, 71, 73, 77, 79, 82, 85, 87, 88, 89, 91, 93, 97, 98, 99, 100, 106, 107, 111, 124,
+        125, 129, 134, 137
       ],
       "constant": "FONT_UI_TEXT",
       "letters": true,
@@ -1689,6 +1689,41 @@
               "code": "FE32A",
               "title": "People",
               "constant": "UI_SYMBOL_PEOPLE"
+            },
+            {
+              "code": "FE32B",
+              "title": "Plus",
+              "constant": "UI_SYMBOL_PLUS",
+              "status": "keep",
+              "about": "Plus sign, for zooming in on the ride map."
+            },
+            {
+              "code": "FE32C",
+              "title": "Minus",
+              "constant": "UI_SYMBOL_MINUS",
+              "status": "keep",
+              "about": "Minus sign, for zooming out on the ride map."
+            },
+            {
+              "code": "FE32D",
+              "title": "List",
+              "constant": "UI_SYMBOL_LIST",
+              "status": "keep",
+              "about": "List icon, for switching the ride map to the station list."
+            },
+            {
+              "code": "FE32E",
+              "title": "Map",
+              "constant": "UI_SYMBOL_MAP",
+              "status": "keep",
+              "about": "Folded map icon, for returning from the station list to the ride map."
+            },
+            {
+              "code": "FE32F",
+              "title": "Cart",
+              "constant": "UI_SYMBOL_CART",
+              "status": "keep",
+              "about": "Minecart silhouette, for the ride itinerary origin."
             }
           ]
         },
@@ -1754,7 +1789,7 @@
       "shifts": [
         -7, -3, -2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 17, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 34, 36, 37, 40, 41,
         42, 43, 44, 46, 47, 48, 49, 50, 51, 55, 56, 57, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 71, 75, 77, 79, 80, 82,
-        83, 84, 86, 87, 88, 91, 92, 95, 99, 101, 102, 103, 106, 107, 111, 115, 119, 120, 124
+        83, 84, 86, 87, 88, 91, 92, 95, 99, 101, 102, 103, 106, 107, 111, 115, 118, 119, 120, 124
       ],
       "constant": "FONT_UI_ART",
       "references": ["nordtal:ui_space"],
@@ -2621,6 +2656,53 @@
               "code": "FE890",
               "title": "Station bezel",
               "constant": "UI_STATION_BEZEL"
+            }
+          ]
+        },
+        {
+          "range": "FE8A0-FE8A7",
+          "title": "Ride map frame",
+          "about": "The ride map background, dark 1 px frame and panel-grey tile overflow masks.",
+          "glyphs": [
+            {
+              "code": "FE8A0",
+              "title": "Ride map background",
+              "constant": "UI_MAP_BG",
+              "texture": "nordtal:ui/kit/map_bg.png",
+              "height": 112,
+              "ascent": 7,
+              "status": "keep",
+              "about": "178 x 112 dark frame with #2B2B2B interior drawn behind terrain tiles."
+            },
+            {
+              "code": "FE8A1",
+              "title": "Ride map border",
+              "constant": "UI_MAP_BORDER",
+              "texture": "nordtal:ui/kit/map_border.png",
+              "height": 112,
+              "ascent": 7,
+              "status": "keep",
+              "about": "178 x 112 dark 1 px frame with transparent interior drawn over terrain tiles."
+            },
+            {
+              "code": "FE8A2",
+              "title": "Ride map right mask",
+              "constant": "UI_MAP_MASK_RIGHT",
+              "texture": "nordtal:ui/kit/map_mask_right.png",
+              "height": 128,
+              "ascent": 7,
+              "status": "keep",
+              "about": "80 x 128 panel-grey mask hiding terrain tile overflow right of the map frame."
+            },
+            {
+              "code": "FE8A3",
+              "title": "Ride map bottom mask",
+              "constant": "UI_MAP_MASK_BOTTOM",
+              "texture": "nordtal:ui/kit/map_mask_bottom.png",
+              "height": 18,
+              "ascent": 7,
+              "status": "keep",
+              "about": "178 x 18 panel-grey mask hiding terrain tile overflow below the map frame."
             }
           ]
         }
@@ -8066,6 +8148,162 @@
               "height": 8,
               "ascent": 7,
               "about": "A 7 x 8 mouse with its right key lit, centred on the baseline for world display entities."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "font": "nordtal:ui_small_{shift}",
+      "constant": "FONT_UI_SMALL_AT",
+      "references": ["nordtal:ui_space"],
+      "about": "The five-pixel figures and capitals lowered by shift pixels for ride map labels and itinerary rows.",
+      "shifts": [
+        7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
+        36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+        64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91,
+        92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115,
+        116
+      ],
+      "spaces": [
+        {
+          "code": "20",
+          "advance": 3
+        }
+      ],
+      "blocks": [
+        {
+          "title": "The five-pixel sheet",
+          "about": "The five-pixel sheet at ascent 8, so its five-row body sits 1 pixel below the header's capitals (window y 7).",
+          "texture": "nordtal:ui/gui/row_text.png",
+          "height": 7,
+          "ascent": 8,
+          "chars": [
+            "ABCDEFGH",
+            "IJKLMNOP",
+            "QRSTUVWX",
+            "YZ012345",
+            "6789.,:/",
+            "-+%()!?'",
+            "\"ÄÖÜß∙█░",
+            "ᵐ\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+          ]
+        }
+      ]
+    },
+    {
+      "font": "nordtal:ui_map_{shift}",
+      "constant": "FONT_UI_MAP",
+      "references": ["nordtal:ui_space"],
+      "about": "Ride map overlay pixel runs, station discs, cart badge and switch pictogram lowered by shift pixels.",
+      "shifts": [
+        6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
+        35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+        63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
+        91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114,
+        115, 116
+      ],
+      "lists": [
+        {
+          "constant": "UI_MAP_PX",
+          "about": "1 px tall horizontal runs of 1 to 128 columns for rail lines and pills."
+        }
+      ],
+      "blocks": [
+        {
+          "range": "FE900-FE90F",
+          "title": "Map runs",
+          "about": "Runs of 1 to 128 columns of 1 px white tintable pixels.",
+          "texture": "nordtal:ui/kit/rule.png",
+          "height": 1,
+          "ascent": 7,
+          "glyphs": [
+            {
+              "code": "FE900",
+              "title": "Map pixel 1 px",
+              "list": "UI_MAP_PX"
+            },
+            {
+              "code": "FE901",
+              "title": "Map pixel 2 px",
+              "list": "UI_MAP_PX"
+            },
+            {
+              "code": "FE902",
+              "title": "Map pixel 4 px",
+              "list": "UI_MAP_PX"
+            },
+            {
+              "code": "FE903",
+              "title": "Map pixel 8 px",
+              "list": "UI_MAP_PX"
+            },
+            {
+              "code": "FE904",
+              "title": "Map pixel 16 px",
+              "list": "UI_MAP_PX"
+            },
+            {
+              "code": "FE905",
+              "title": "Map pixel 32 px",
+              "list": "UI_MAP_PX"
+            },
+            {
+              "code": "FE906",
+              "title": "Map pixel 64 px",
+              "list": "UI_MAP_PX"
+            },
+            {
+              "code": "FE907",
+              "title": "Map pixel 128 px",
+              "list": "UI_MAP_PX"
+            }
+          ]
+        },
+        {
+          "range": "FE910-FE917",
+          "title": "Map markers",
+          "about": "Station discs, destination pin disc, cart badge and itinerary switch pictogram.",
+          "glyphs": [
+            {
+              "code": "FE910",
+              "title": "Map station disc",
+              "constant": "UI_MAP_DISC",
+              "texture": "nordtal:ui/kit/map_disc.png",
+              "height": 5,
+              "ascent": 7,
+              "status": "keep",
+              "about": "5 x 5 white station disc with dark outline."
+            },
+            {
+              "code": "FE911",
+              "title": "Map destination disc",
+              "constant": "UI_MAP_DISC_ACCENT",
+              "texture": "nordtal:ui/kit/map_disc_accent.png",
+              "height": 7,
+              "ascent": 7,
+              "status": "keep",
+              "about": "7 x 7 accent destination marker with white centre."
+            },
+            {
+              "code": "FE912",
+              "title": "Map cart badge",
+              "constant": "UI_MAP_CART_BADGE",
+              "texture": "nordtal:ui/kit/map_cart_badge.png",
+              "height": 9,
+              "ascent": 7,
+              "status": "keep",
+              "about": "9 x 9 dark badge showing the rider's minecart at the origin."
+            },
+            {
+              "code": "FE913",
+              "title": "Map switch pictogram",
+              "constant": "UI_MAP_SWITCH",
+              "texture": "nordtal:ui/kit/map_switch.png",
+              "height": 5,
+              "ascent": 7,
+              "status": "keep",
+              "about": "7 x 5 white tintable switch pictogram for the itinerary."
             }
           ]
         }

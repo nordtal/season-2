@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.IntSupplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -48,7 +49,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class StationMenus implements Listener {
 
-    /** Seven stations, two of them favourites, so the draft preview's ride list has a second page. */
+    /** Seven stations, two of them favourites, so the draft preview's ride map and list show a full network. */
     private static final List<RideList.Stop> EXAMPLE_STOPS = List.of(
             new RideList.Stop(new UUID(0, 1), "Harbour", 8925, true),
             new RideList.Stop(new UUID(0, 2), "Lighthouse", 12400, true),
@@ -57,6 +58,46 @@ public final class StationMenus implements Listener {
             new RideList.Stop(new UUID(0, 5), "North Gate", 860, false),
             new RideList.Stop(new UUID(0, 6), "Birch Hill", 2400, false),
             new RideList.Stop(new UUID(0, 7), "Quarry", 5120, false));
+
+    private static final RideDialog.Context EXAMPLE_RIDE_CONTEXT = exampleRideContext();
+
+    private static RideDialog.Context exampleRideContext() {
+        final RailPos origin = new RailPos(4800, 64, 4800);
+        final RailPos junction = new RailPos(5120, 64, 4800);
+        final RailPos market = new RailPos(5360, 64, 4800);
+        final RailPos harbour = new RailPos(5680, 64, 4960);
+        final RailPos lighthouse = new RailPos(5920, 64, 5120);
+        final RailPos oldMill = new RailPos(4880, 64, 4640);
+        final RailPos northGate = new RailPos(5120, 64, 4560);
+        final RailPos birchHill = new RailPos(4560, 64, 4960);
+        final RailPos quarry = new RailPos(4400, 64, 5120);
+        final List<StationRow> stations = List.of(
+                exampleStation(new UUID(0, 10), origin, "Spawn"),
+                exampleStation(new UUID(0, 1), harbour, "Harbour"),
+                exampleStation(new UUID(0, 2), lighthouse, "Lighthouse"),
+                exampleStation(new UUID(0, 3), oldMill, "Old Mill"),
+                exampleStation(new UUID(0, 4), market, "Market"),
+                exampleStation(new UUID(0, 5), northGate, "North Gate"),
+                exampleStation(new UUID(0, 6), birchHill, "Birch Hill"),
+                exampleStation(new UUID(0, 7), quarry, "Quarry"));
+        final RailGraph graph = new RailGraph(
+                List.of(origin, harbour, lighthouse, oldMill, market, northGate, birchHill, quarry),
+                List.of(junction),
+                List.of(
+                        RailEdge.of(origin, junction, List.of(new RailPos(4960, 64, 4800))),
+                        RailEdge.of(junction, market, List.of(new RailPos(5240, 64, 4800))),
+                        RailEdge.of(market, harbour, List.of(new RailPos(5520, 64, 4880))),
+                        RailEdge.of(harbour, lighthouse, List.of(new RailPos(5800, 64, 5040))),
+                        RailEdge.of(junction, northGate, List.of(new RailPos(5120, 64, 4680))),
+                        RailEdge.of(origin, oldMill, List.of(new RailPos(4840, 64, 4720))),
+                        RailEdge.of(origin, birchHill, List.of(new RailPos(4680, 64, 4880))),
+                        RailEdge.of(birchHill, quarry, List.of(new RailPos(4480, 64, 5040)))));
+        return new RideDialog.Context(graph, origin, stations, Set.of(), EXAMPLE_STOPS, "Spawn");
+    }
+
+    private static StationRow exampleStation(final UUID id, final RailPos pos, final String name) {
+        return new StationRow(id, "world", pos.x(), pos.y(), pos.z(), "EAST_WEST", UUID.randomUUID(), name, null);
+    }
 
     record Named(@Example("Spawn") String name) {}
 
@@ -90,25 +131,32 @@ public final class StationMenus implements Listener {
     // Read by a rider's click, after the constructor has set every field.
     private final RideDialog.Answers rideAnswers = new RideDialog.Answers() {
         @Override
-        public void ride(final Player player, final RideList.Stop stop, final int page) {
-            if (player.getVehicle() instanceof RideableMinecart cart && rides.drive(player, cart, stop.station())) {
+        public void ride(final Player player, final UUID station, final RideDialog.State state) {
+            if (player.getVehicle() instanceof RideableMinecart cart && rides.drive(player, cart, station)) {
                 player.closeDialog();
                 return;
             }
-            // A station no way leads to keeps the list open, so the rider can pick another.
+            // A station no way leads to keeps the dialog open, so the rider can pick another.
             sounds.play(player, Feedback.REFUSED);
-            redrawRide(player, page);
+            redrawRide(player, state);
         }
 
         @Override
-        public void star(final Player player, final RideList.Stop stop, final int page) {
-            networks.toggleFavourite(player.getUniqueId(), stop.station());
-            redrawRide(player, page);
+        public void star(final Player player, final UUID station, final RideDialog.State state) {
+            networks.toggleFavourite(player.getUniqueId(), station);
+            redrawRide(player, state);
         }
 
         @Override
-        public void page(final Player player, final int page) {
-            redrawRide(player, page);
+        public void select(final Player player, final UUID station, final RideDialog.State state) {
+            // Re-frame the viewport on the newly selected station unless it is hidden from the map.
+            final RideMapView.@Nullable Viewport nextViewport = networks.hidden(station) ? state.viewport() : null;
+            redrawRide(player, state.withSelection(station, nextViewport));
+        }
+
+        @Override
+        public void update(final Player player, final RideDialog.State state) {
+            redrawRide(player, state);
         }
     };
 
@@ -143,11 +191,12 @@ public final class StationMenus implements Listener {
     }
 
     /**
-     * Hands the draft preview the ride list and the station's placer at example states.
-     * The ride list turns its pages; every other click leaves the world as it is.
+     * Hands the draft preview the ride map and the station's placer at example states.
+     * The ride map supports pan, zoom, station selection and list toggling; every other click leaves the world alone.
      */
     public void examples(final BiConsumer<DocumentSpec<?>, Previews.Example> example) {
-        example.accept(RideDialog.DOCUMENT, (reader, drafted) -> showRideExample(reader, drafted, 0));
+        example.accept(
+                RideDialog.DOCUMENT, (reader, drafted) -> showRideExample(reader, drafted, RideDialog.State.initial()));
         example.accept(
                 StationDialog.DOCUMENT,
                 (reader, drafted) ->
@@ -166,18 +215,23 @@ public final class StationMenus implements Listener {
                 (saver, name, show) -> {}));
     }
 
-    private void showRideExample(final Player reader, final GameDocument drafted, final int page) {
-        reader.showDialog(RideDialog.of(drafted, EXAMPLE_STOPS, page, dialogs.send(), new RideDialog.Answers() {
+    private void showRideExample(final Player reader, final GameDocument drafted, final RideDialog.State state) {
+        reader.showDialog(RideDialog.of(drafted, EXAMPLE_RIDE_CONTEXT, state, dialogs.send(), new RideDialog.Answers() {
             @Override
-            public void ride(final Player player, final RideList.Stop stop, final int at) {}
+            public void ride(final Player player, final UUID station, final RideDialog.State at) {}
 
             @Override
-            public void star(final Player player, final RideList.Stop stop, final int at) {
+            public void star(final Player player, final UUID station, final RideDialog.State at) {
                 showRideExample(player, drafted, at);
             }
 
             @Override
-            public void page(final Player player, final int at) {
+            public void select(final Player player, final UUID station, final RideDialog.State at) {
+                showRideExample(player, drafted, at.withSelection(station, null));
+            }
+
+            @Override
+            public void update(final Player player, final RideDialog.State at) {
                 showRideExample(player, drafted, at);
             }
         }));
@@ -303,9 +357,9 @@ public final class StationMenus implements Listener {
         return stationDocument(locale, StationDialog.DOCUMENT).label("spawn");
     }
 
-    /** Opens the ride list for the cart {@code player} sits in, and returns whether it stands on a network. */
+    /** Opens the ride dialog for the cart {@code player} sits in, and returns whether it stands on a network. */
     boolean openRide(final Player player) {
-        final Optional<Dialog> dialog = ride(player, 0);
+        final Optional<Dialog> dialog = ride(player, RideDialog.State.initial());
         dialog.ifPresent(player::showDialog);
         return dialog.isPresent();
     }
@@ -329,29 +383,34 @@ public final class StationMenus implements Listener {
         return networks.ride(rail);
     }
 
-    /** Returns the ride list at {@code page} for the cart {@code player} sits in, when it stands on a network. */
-    private Optional<Dialog> ride(final Player player, final int page) {
+    /** Returns the ride dialog in {@code state} for the cart {@code player} sits in, when it stands on a network. */
+    private Optional<Dialog> ride(final Player player, final RideDialog.State state) {
         if (!(player.getVehicle() instanceof RideableMinecart cart)) {
             return Optional.empty();
         }
-        return networkUnder(cart)
-                .map(ride -> RideDialog.of(
-                        stationDocument(locale(player), RideDialog.DOCUMENT),
-                        RideList.of(
-                                ride.graph(),
-                                ride.at(),
-                                ride.stations(),
-                                networks.favourites(player.getUniqueId()),
-                                near.getAsInt(),
-                                spawnName(locale(player))),
-                        page,
-                        dialogs.send(),
-                        rideAnswers));
+        return networkUnder(cart).map(ride -> {
+            final String spawn = spawnName(locale(player));
+            final List<RideList.Stop> stops = RideList.of(
+                    ride.graph(),
+                    ride.at(),
+                    ride.stations(),
+                    networks.favourites(player.getUniqueId()),
+                    near.getAsInt(),
+                    spawn);
+            final Set<UUID> hiddenStations = ride.stations().stream()
+                    .map(StationRow::id)
+                    .filter(networks::hidden)
+                    .collect(Collectors.toSet());
+            final RideDialog.Context context =
+                    new RideDialog.Context(ride.graph(), ride.at(), ride.stations(), hiddenStations, stops, spawn);
+            return RideDialog.of(
+                    stationDocument(locale(player), RideDialog.DOCUMENT), context, state, dialogs.send(), rideAnswers);
+        });
     }
 
-    /** Redraws the ride list at {@code page}, or closes it when the cart left the network. */
-    private void redrawRide(final Player player, final int page) {
-        ride(player, page).ifPresentOrElse(player::showDialog, player::closeDialog);
+    /** Redraws the ride dialog in {@code state}, or closes it when the cart left the network. */
+    private void redrawRide(final Player player, final RideDialog.State state) {
+        ride(player, state).ifPresentOrElse(player::showDialog, player::closeDialog);
     }
 
     /** Tells a rider whose cart stopped before the station that it goes no further, and shows the stations left. */

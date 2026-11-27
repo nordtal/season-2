@@ -83,6 +83,138 @@
           }
         }
       ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "ride",
+      "lines": [
+        {
+          "text": {
+            "en": "Ride",
+            "de": "Fahren"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "origin-track",
+      "lines": [
+        {
+          "text": {
+            "en": "Current track",
+            "de": "Auf der Strecke"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "pan-left",
+      "lines": [
+        {
+          "text": {
+            "en": "Pan west",
+            "de": "Nach Westen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "pan-right",
+      "lines": [
+        {
+          "text": {
+            "en": "Pan east",
+            "de": "Nach Osten"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "pan-up",
+      "lines": [
+        {
+          "text": {
+            "en": "Pan north",
+            "de": "Nach Norden"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "pan-down",
+      "lines": [
+        {
+          "text": {
+            "en": "Pan south",
+            "de": "Nach Süden"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "zoom-in",
+      "lines": [
+        {
+          "text": {
+            "en": "Zoom in",
+            "de": "Hineinzoomen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "zoom-out",
+      "lines": [
+        {
+          "text": {
+            "en": "Zoom out",
+            "de": "Herauszoomen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "list",
+      "lines": [
+        {
+          "text": {
+            "en": "All {@terms.station, n=2}",
+            "de": "Alle {@terms.station, n=2}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "map",
+      "lines": [
+        {
+          "text": {
+            "en": "Map",
+            "de": "Karte"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "select-hint",
+      "lines": [
+        {
+          "text": {
+            "en": "Click to select",
+            "de": "Zum Wählen klicken"
+          }
+        }
+      ]
     }
   ]
 }

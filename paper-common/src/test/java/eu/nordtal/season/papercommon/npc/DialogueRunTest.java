@@ -20,7 +20,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** The dialogue tick by tick: opening, typing, holds, answers, the hand-off, its switch and the soft end. */
+/** The dialogue tick by tick: opening, typing, answers, the hand-off, its switch and the soft end. */
 class DialogueRunTest {
 
     private static final Feel FEEL = new Feel(30, 1.0, 0.8, 3.0, 120);
@@ -65,18 +65,22 @@ class DialogueRunTest {
     }
 
     @Test
-    void aTypedTextHoldsWithItsMarkBlinkingThenGoesOn() {
-        // "Hello" is typed 167 ms in, the fourth tick, and holds 1200 + 5 * 40 ms, 28 ticks.
+    void aTypedTextWaitsWithItsMarkBlinkingUntilAClick() {
+        // "Hello" is typed 167 ms in, the fourth tick.
         final DialogueRun run = play(speaking("start", "Hello", "two"), speaking("two", "Bye", null));
-        final List<Frame> frames = ticks(run, 40);
+        final List<Frame> frames = ticks(run, 400);
         final int typed = FIRST_TYPING_TICK + 4;
 
         assertFalse(panel(frames, typed - 1).more(), "no mark while typing");
         assertTrue(panel(frames, typed).more());
         assertFalse(panel(frames, typed + 10).more(), "the mark blinks off after 10 ticks");
         assertTrue(panel(frames, typed + 20).more());
-        assertFalse(at(frames, typed + 27).effects().contains(sound(Effect.Cue.NEXT_TEXT)));
-        assertTrue(at(frames, typed + 28).effects().contains(sound(Effect.Cue.NEXT_TEXT)));
+        assertTrue(frames.stream().noneMatch(frame -> frame.effects().contains(sound(Effect.Cue.NEXT_TEXT))));
+        assertEquals("Hello", line(frames.getLast()));
+
+        run.rightClick();
+        assertTrue(run.tick(Where.STILL).effects().contains(sound(Effect.Cue.NEXT_TEXT)));
+        assertEquals("Bye", line(ticks(run, 20).getLast()));
     }
 
     @Test
@@ -239,42 +243,54 @@ class DialogueRunTest {
     }
 
     @Test
-    void aStepThatGoesNowhereEndsAfterItsHold() {
+    void aStepThatGoesNowhereWaitsUntilAClickThenClosesSoftly() {
         final DialogueRun run = play(speaking("start", "Bye", null));
-        final List<Frame> frames = ticks(run, 60);
+        final List<Frame> waiting = ticks(run, 400);
 
-        assertTrue(frames.stream().anyMatch(frame -> frame.effects().contains(sound(Effect.Cue.CLOSE))));
+        assertTrue(waiting.stream().noneMatch(frame -> frame.effects().contains(sound(Effect.Cue.CLOSE))));
+        assertTrue(run.listening());
+        assertFalse(run.over());
+        assertEquals("Bye", line(waiting.getLast()));
+
+        run.leftClick();
+        final List<Frame> closing = ticks(run, 6);
+        assertTrue(closing.getFirst().effects().contains(sound(Effect.Cue.CLOSE)));
         assertTrue(run.over());
     }
 
     @Test
-    void aNextStepThatIsMissingEndsSoftly() {
+    void aNextStepThatIsMissingWaitsUntilAClickThenEndsSoftly() {
         final DialogueRun run = play(speaking("start", "Hello", "gone"));
-        ticks(run, 60);
+        ticks(run, 400);
 
+        assertTrue(run.listening());
+        assertFalse(run.over());
+
+        run.rightClick();
+        ticks(run, 6);
         assertTrue(run.over());
     }
 
     @Test
-    void theHandOffOpensItsMenuByItselfAfterThreeSeconds() {
-        // "Go." is typed 100 ms in and holds 3 s, 60 ticks.
+    void theHandOffWaitsUntilAClickThenOpensItsMenu() {
         final DialogueRun run = play(handOff("start", "Go."));
-        final int typed = FIRST_TYPING_TICK + 2;
-        final List<Frame> frames = ticks(run, typed + 59);
+        final List<Frame> waiting = ticks(run, 400);
 
         assertEquals(
                 List.of(new Hint(Mark.NEXT, "Open objectives")),
-                frames.getLast().hints());
+                waiting.getLast().hints());
         assertEquals(
                 new DialogueScreen.Switch("Don't show again", false),
-                frames.getLast().toggle());
-        assertTrue(frames.stream().noneMatch(DialogueRunTest::handsOff));
-        final Frame handedOff = run.tick(Where.STILL);
+                waiting.getLast().toggle());
+        assertTrue(waiting.stream().noneMatch(DialogueRunTest::handsOff));
+        assertTrue(run.listening());
+
+        run.leftClick();
+        final List<Frame> fade = ticks(run, 6);
+        final Frame handedOff = fade.getFirst();
         assertEquals(List.of(new Effect.HandOff("objectives", SkipChoice.Change.NONE)), handOffs(handedOff));
         assertEquals(0, handedOff.bars(), "the bars go on the tick the menu opens");
         assertNull(handedOff.panel());
-
-        final List<Frame> fade = ticks(run, 6);
         assertEquals(
                 List.of(3, 2, 1, 0, 0, 0), fade.stream().map(Frame::vignette).toList());
         assertTrue(fade.getLast().effects().contains(new Effect.End()));
@@ -291,7 +307,7 @@ class DialogueRunTest {
     }
 
     @Test
-    void shiftTicksTheBoxAndHoldsTheHandOffAnew() {
+    void shiftTicksTheBoxAndWaitsForAClickToHandOff() {
         final DialogueRun run = play(handOff("start", "Go."));
         ticks(run, 30);
 
@@ -299,8 +315,10 @@ class DialogueRunTest {
         final Frame ticked = run.tick(Where.STILL);
         assertTrue(ticked.effects().contains(sound(Effect.Cue.SWITCH_ON)));
         assertEquals(new DialogueScreen.Switch("Don't show again", true), ticked.toggle());
-        final List<Frame> held = ticks(run, 58);
-        assertTrue(held.stream().noneMatch(DialogueRunTest::handsOff), "the hold starts again with the press");
+        final List<Frame> held = ticks(run, 400);
+        assertTrue(held.stream().noneMatch(DialogueRunTest::handsOff), "the hand-off waits for a click");
+
+        run.rightClick();
         assertEquals(
                 List.of(new Effect.HandOff("objectives", SkipChoice.Change.SKIP)), handOffs(run.tick(Where.STILL)));
     }
@@ -326,7 +344,7 @@ class DialogueRunTest {
         run.sneak(true);
 
         assertTrue(run.tick(Where.STILL).toggle().ticked(), "the replay shows the box ticked");
-        final Frame handedOff = runUntilHandOff(run);
+        final Frame handedOff = clickToHandOff(run);
         assertEquals(List.of(new Effect.HandOff("objectives", SkipChoice.Change.NONE)), handOffs(handedOff));
     }
 
@@ -340,7 +358,7 @@ class DialogueRunTest {
 
         assertFalse(run.tick(Where.STILL).toggle().ticked());
         assertEquals(
-                List.of(new Effect.HandOff("objectives", SkipChoice.Change.UNSKIP)), handOffs(runUntilHandOff(run)));
+                List.of(new Effect.HandOff("objectives", SkipChoice.Change.UNSKIP)), handOffs(clickToHandOff(run)));
     }
 
     @Test
@@ -348,19 +366,22 @@ class DialogueRunTest {
         final DialogueRun run = play(speaking("start", "Hello", "two"), handOff("two", "Go."));
         ticks(run, 12);
         run.sneak(true);
-        final List<Frame> before = ticks(run, 30);
-
+        final List<Frame> before = ticks(run, 10);
         assertTrue(before.stream().noneMatch(frame -> frame.effects().contains(sound(Effect.Cue.SWITCH_ON))));
-        assertEquals(List.of(new Effect.HandOff("objectives", SkipChoice.Change.NONE)), handOffs(runUntilHandOff(run)));
+
+        run.rightClick();
+        ticks(run, 20);
+        assertEquals(List.of(new Effect.HandOff("objectives", SkipChoice.Change.NONE)), handOffs(clickToHandOff(run)));
     }
 
     @Test
     void aStaleSkipIsUnskippedAtTheHandOff() {
         final DialogueRun run = new DialogueRun(
                 dialogue(handOff("start", "Go.")), "Ada", Locale.ENGLISH, FEEL, LABELS, "shop", false, false);
+        ticks(run, 20);
 
         assertEquals(
-                List.of(new Effect.HandOff("objectives", SkipChoice.Change.UNSKIP)), handOffs(runUntilHandOff(run)));
+                List.of(new Effect.HandOff("objectives", SkipChoice.Change.UNSKIP)), handOffs(clickToHandOff(run)));
     }
 
     @Test
@@ -424,15 +445,25 @@ class DialogueRunTest {
     }
 
     @Test
-    void anExplicitPageTurnsByItselfAfterItsHold() {
+    void anExplicitPageWaitsUntilAClickBeforeTurning() {
         final DialogueRun run = play(multiPage("start", List.of("Page one.", "Page two."), null));
-        for (int tick = 0; tick < 400; tick++) {
-            final Frame frame = run.tick(Where.STILL);
-            if (frame.panel() != null && frame.panel().page().number() == 2) {
-                return;
-            }
-        }
-        throw new AssertionError("the first page never turned");
+        final List<Frame> firstPage = ticks(run, 400);
+
+        assertEquals(1, firstPage.getLast().panel().page().number());
+        assertTrue(firstPage.stream().noneMatch(frame -> frame.effects().contains(sound(Effect.Cue.NEXT_TEXT))));
+
+        run.rightClick();
+        final Frame turned = run.tick(Where.STILL);
+        assertEquals(2, turned.panel().page().number());
+        assertTrue(turned.effects().contains(sound(Effect.Cue.NEXT_TEXT)));
+
+        final List<Frame> secondPage = ticks(run, 400);
+        assertEquals(2, secondPage.getLast().panel().page().number());
+        assertTrue(run.listening());
+        assertFalse(run.over());
+
+        run.leftClick();
+        assertTrue(run.tick(Where.STILL).effects().contains(sound(Effect.Cue.CLOSE)));
     }
 
     @Test
@@ -497,14 +528,11 @@ class DialogueRunTest {
         return frames;
     }
 
-    private static Frame runUntilHandOff(final DialogueRun run) {
-        for (int tick = 0; tick < 400; tick++) {
-            final Frame frame = run.tick(Where.STILL);
-            if (handsOff(frame)) {
-                return frame;
-            }
-        }
-        throw new AssertionError("the dialogue never handed off");
+    private static Frame clickToHandOff(final DialogueRun run) {
+        run.rightClick();
+        final Frame frame = run.tick(Where.STILL);
+        assertTrue(handsOff(frame), "clicking on the typed hand-off opens the menu");
+        return frame;
     }
 
     private static boolean handsOff(final Frame frame) {

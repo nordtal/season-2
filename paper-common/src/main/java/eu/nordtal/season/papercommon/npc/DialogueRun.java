@@ -60,7 +60,6 @@ public final class DialogueRun {
     private long stepStart = -1;
     private int shown;
     private long typedAt = -1;
-    private long holdFrom;
     private int selected;
     private boolean answering;
 
@@ -185,7 +184,7 @@ public final class DialogueRun {
         return true;
     }
 
-    /** Shift went down or up. A press that begins on a hand-off ticks or unticks the box and holds it anew. */
+    /** Shift went down or up. A press that begins on a hand-off ticks or unticks the box. */
     public void sneak(final boolean down) {
         final boolean pressed = down && !shiftDown;
         shiftDown = down;
@@ -194,9 +193,6 @@ public final class DialogueRun {
         }
         ticked = !ticked;
         pending.add(new Effect.Sound(ticked ? Effect.Cue.SWITCH_ON : Effect.Cue.SWITCH_OFF));
-        if (typedAt >= 0) {
-            holdFrom = age;
-        }
     }
 
     /** Ends the dialogue softly: the panel goes and the bars slide out. */
@@ -248,22 +244,10 @@ public final class DialogueRun {
             if (shown >= typing.length()) {
                 typed();
             }
-        } else if (!lastPage()) {
-            if (age - holdFrom >= ticks(typing.hold())) {
-                turn();
-            }
-        } else if (!step.answers().isEmpty()) {
-            if (!answering && age - typedAt >= ANSWERS_AFTER) {
-                answering = true;
-                selected = 0;
-                pending.add(new Effect.HoldSlot());
-            }
-        } else if (step.handsOff()) {
-            if (age - holdFrom >= ticks(typing.handOffHold())) {
-                handOff();
-            }
-        } else if (age - holdFrom >= ticks(typing.hold())) {
-            goOn(step.next());
+        } else if (lastPage() && !step.answers().isEmpty() && !answering && age - typedAt >= ANSWERS_AFTER) {
+            answering = true;
+            selected = 0;
+            pending.add(new Effect.HoldSlot());
         }
     }
 
@@ -284,7 +268,6 @@ public final class DialogueRun {
 
     private void typed() {
         typedAt = age;
-        holdFrom = age;
     }
 
     private void goOn(final @Nullable String next) {
@@ -393,9 +376,5 @@ public final class DialogueRun {
             wrapped.add(DialogueScreen.fit(explicit.get(i).in(locale), limit));
         }
         return List.copyOf(wrapped);
-    }
-
-    private static long ticks(final long milliseconds) {
-        return (milliseconds + TICK - 1) / TICK;
     }
 }

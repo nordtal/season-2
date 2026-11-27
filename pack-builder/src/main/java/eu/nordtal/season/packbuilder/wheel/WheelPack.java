@@ -176,7 +176,17 @@ public final class WheelPack {
 
     private static double[] move(final int body, final int x, final int y, final double z) {
         final int[] c = WheelLayout.canvas(body);
-        return WheelMath.translate((c[0] + x) / 16.0, -(c[1] + y) / 16.0, z);
+        final double s = WheelLayout.SCALE;
+        return WheelMath.times(WheelMath.translate((c[0] + x) / 16.0, -(c[1] + y) / 16.0, z), WheelMath.scale(s, s, s));
+    }
+
+    private static double[] moveCount(final int body, final int x, final int y, final double z) {
+        final int[] c = WheelLayout.canvas(body);
+        final double s = WheelLayout.SCALE;
+        return WheelMath.times(
+                WheelMath.translate(0.5 + (c[0] + x) / 16.0, 0.5 - (c[1] + y) / 16.0, 0.5 + z),
+                WheelMath.scale(s, s, 1.0),
+                WheelMath.translate(-0.5, -0.5, -0.5));
     }
 
     private static Map<String, Object> select(
@@ -250,7 +260,13 @@ public final class WheelPack {
             cases.add(map("when", member.key(), "model", vanilla.moved(member.leaf(), m, WheelMath.identity())));
         }
         cases.add(map("when", NONE, "model", EMPTY));
-        return select(index, cases, part("unknown", at.x(), at.y(), 16, 16, body, 0.0), null);
+        final int unknownSize = (int) Math.round(16 * WheelLayout.SCALE);
+        final int inset = (16 - unknownSize) / 2;
+        return select(
+                index,
+                cases,
+                part("unknown", at.x() + inset, at.y() + inset, unknownSize, unknownSize, body, 0.0),
+                null);
     }
 
     /** The disc's texture for {@code at}: its frame. */
@@ -263,7 +279,7 @@ public final class WheelPack {
         final int size = WheelLayout.DISC;
         final List<Object> models = new ArrayList<>();
         models.add(part("shadow", 0, 0, size + 1, size + 1, body, SHADOW_Z));
-        models.add(part("stand", 0, 0, size, size + 9, body, STAND_Z));
+        models.add(part("stand", 0, 0, size, WheelLayout.STAND_HEIGHT, body, STAND_Z));
         models.add(part(discTexture(at), 0, 0, size, size, body, DISC_Z));
         if (at.mark()) {
             models.add(part("winner", 0, 0, size, size, body, WINNER_Z));
@@ -274,8 +290,14 @@ public final class WheelPack {
     private String overlayNode(final OverlayAt at) {
         final int body = WheelLayout.BASE_BODY;
         final List<Object> models = new ArrayList<>();
-        models.add(
-                part(at.pointer().texture(), WheelLayout.POINTER[0], WheelLayout.POINTER[1], 16, 16, body, OVERLAY_Z));
+        models.add(part(
+                at.pointer().texture(),
+                WheelLayout.POINTER[0],
+                WheelLayout.POINTER[1],
+                WheelLayout.POINTER_SIZE,
+                WheelLayout.POINTER_SIZE,
+                body,
+                OVERLAY_Z));
         addCounts(models, body, at.counts());
         return Json.write(map("type", "minecraft:composite", "models", models));
     }
@@ -297,7 +319,7 @@ public final class WheelPack {
                         COUNT_OFFSET + b,
                         countCases,
                         EMPTY,
-                        move(body, count.get().x(), count.get().y(), OVERLAY_Z)));
+                        moveCount(body, count.get().x(), count.get().y(), OVERLAY_Z)));
             }
         }
     }
@@ -330,7 +352,7 @@ public final class WheelPack {
             Function<K, String> node) {}
 
     /**
-     * One body's pictures for the variants {@code offsets}, chosen by the variant string at {@code index}.
+     * One body's pictures for the variants {@code offsets}, each with a direct and a rebound ending.
      * "open" plays the pop-in and waits; a variant plays the shared start, then its own ticks, and rests.
      */
     private static <K> Map<String, Object> body(final int index, final List<Integer> offsets, final Pictures<K> p) {
@@ -344,31 +366,67 @@ public final class WheelPack {
         final Map<String, Object> open =
                 range(WheelSpin.runs(popIn, p.waiting(), 0), WheelTurn.OPEN_TICKS, raw, raw.apply(p.waiting()));
         final int cooldown = WheelTurn.COOLDOWN;
-        final WheelSpin first = new WheelSpin(offsets.getFirst());
+        final WheelSpin first = new WheelSpin(offsets.getFirst(), WheelTurn.Ending.DIRECT);
         final List<K> start = new ArrayList<>();
         for (int t = 0; t < WheelTurn.SHARED; t++) {
             start.add(p.spin().apply(first, t));
         }
-        final List<Map<String, Object>> own = new ArrayList<>();
-        for (final int e : offsets) {
-            final WheelSpin s = new WheelSpin(e);
-            final List<K> pictures = new ArrayList<>();
-            for (int t = WheelTurn.SHARED; t < cooldown; t++) {
-                pictures.add(p.spin().apply(s, t));
-            }
-            final K rest = p.rest().apply(s);
-            own.add(range(WheelSpin.runs(pictures, rest, WheelTurn.SHARED), cooldown, raw, raw.apply(rest)));
-        }
         final List<Map<String, Object>> cases = new ArrayList<>();
+        final int firstOffset = offsets.getFirst();
+        final Map<String, Object> fallback = placeBranch(index, firstOffset, cooldown, p, raw);
         for (int i = 1; i < offsets.size(); i++) {
-            cases.add(map("when", String.valueOf(offsets.get(i)), "model", own.get(i)));
+            final int e = offsets.get(i);
+            cases.add(map(
+                    "when",
+                    List.of(variantKey(e, WheelTurn.Ending.DIRECT), variantKey(e, WheelTurn.Ending.REBOUND)),
+                    "model",
+                    placeBranch(index, e, cooldown, p, raw)));
         }
-        final Map<String, Object> variants = select(index, cases, own.getFirst(), null);
+        final Map<String, Object> variants = select(index, cases, fallback, null);
         return select(
                 index,
                 List.of(map("when", OPEN, "model", open)),
                 range(WheelSpin.runs(start, 0), cooldown, raw, variants),
                 null);
+    }
+
+    /** One place's shared approach from {@link WheelTurn#SHARED} to its split, then its direct or rebound tail. */
+    private static <K> Map<String, Object> placeBranch(
+            final int index, final int e, final int cooldown, final Pictures<K> p, final Function<K, Json.Raw> raw) {
+        final int split = WheelTurn.split(e);
+        final WheelSpin direct = new WheelSpin(e, WheelTurn.Ending.DIRECT);
+        final WheelSpin rebound = new WheelSpin(e, WheelTurn.Ending.REBOUND);
+        final List<K> approach = new ArrayList<>();
+        for (int t = WheelTurn.SHARED; t < split; t++) {
+            approach.add(p.spin().apply(direct, t));
+        }
+        final Map<String, Object> directTail = endingTail(direct, split, cooldown, p, raw);
+        final Map<String, Object> reboundTail = endingTail(rebound, split, cooldown, p, raw);
+        final Map<String, Object> endings = select(
+                index,
+                List.of(map("when", variantKey(e, WheelTurn.Ending.REBOUND), "model", reboundTail)),
+                directTail,
+                null);
+        return range(WheelSpin.runs(approach, WheelTurn.SHARED), cooldown, raw, endings);
+    }
+
+    private static <K> Map<String, Object> endingTail(
+            final WheelSpin spin,
+            final int from,
+            final int cooldown,
+            final Pictures<K> p,
+            final Function<K, Json.Raw> raw) {
+        final List<K> pictures = new ArrayList<>();
+        for (int t = from; t < cooldown; t++) {
+            pictures.add(p.spin().apply(spin, t));
+        }
+        final K rest = p.rest().apply(spin);
+        return range(WheelSpin.runs(pictures, rest, from), cooldown, raw, raw.apply(rest));
+    }
+
+    /** The variant string the plugin writes into custom model data for place {@code e} and {@code ending}. */
+    static String variantKey(final int e, final WheelTurn.Ending ending) {
+        return ending == WheelTurn.Ending.REBOUND ? e + "r" : String.valueOf(e);
     }
 
     private static Map<String, Object> disc(final int parity, final List<Integer> offsets) {
@@ -520,11 +578,25 @@ public final class WheelPack {
             out.append("clicks.")
                     .append(e)
                     .append('=')
-                    .append(joined(WheelTurn.clicks(e)))
+                    .append(joined(WheelTurn.clicks(e, WheelTurn.Ending.DIRECT)))
+                    .append('\n');
+            out.append("clicks.")
+                    .append(e)
+                    .append(".rebound=")
+                    .append(joined(WheelTurn.clicks(e, WheelTurn.Ending.REBOUND)))
                     .append('\n');
         }
         for (final int e : offsets) {
-            out.append("end.").append(e).append('=').append(WheelTurn.length(e)).append('\n');
+            out.append("end.")
+                    .append(e)
+                    .append('=')
+                    .append(WheelTurn.length(e, WheelTurn.Ending.DIRECT))
+                    .append('\n');
+            out.append("end.")
+                    .append(e)
+                    .append(".rebound=")
+                    .append(WheelTurn.length(e, WheelTurn.Ending.REBOUND))
+                    .append('\n');
         }
         out.append("heights=").append(joined(WheelLayout.HEIGHTS)).append('\n');
         out.append("lines=").append(WheelLayout.LINES).append('\n');

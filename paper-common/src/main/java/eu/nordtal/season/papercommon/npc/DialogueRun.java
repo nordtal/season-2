@@ -126,31 +126,50 @@ public final class DialogueRun {
         return new Frame(bars, vignette, zoom, panel(), hints(), toggle(), effects);
     }
 
-    /** A right-click: finishes the text, turns the page, goes on, or at a hand-off opens the menu at once. */
-    public void rightClick() {
-        if (!listening() || !debounced()) {
+    /** Confirms the current dialogue step: finishes typing, turns a page, takes an answer, advances or hands off. */
+    public void confirm() {
+        if (!listening()) {
             return;
         }
         if (typedAt < 0) {
+            if (!debounced()) {
+                return;
+            }
             shown = typing.length();
             typed();
         } else if (!lastPage()) {
+            if (!debounced()) {
+                return;
+            }
             turn();
+        } else if (!step.answers().isEmpty()) {
+            if (!answering || age - typedAt < ANSWERS_AFTER + CLICK_AFTER || !debounced()) {
+                return;
+            }
+            pending.add(new Effect.Sound(Effect.Cue.ANSWER));
+            release();
+            goOn(step.answers().get(selected).next());
         } else if (step.handsOff()) {
+            if (!debounced()) {
+                return;
+            }
             handOff();
-        } else if (step.answers().isEmpty()) {
+        } else {
+            if (!debounced()) {
+                return;
+            }
             goOn(step.next());
         }
     }
 
-    /** A left-click: takes the selected answer once the answers have shown for a moment. */
+    /** A right-click: confirms the current dialogue action. */
+    public void rightClick() {
+        confirm();
+    }
+
+    /** A left-click: confirms the current dialogue action. */
     public void leftClick() {
-        if (!listening() || !answering || age - typedAt < ANSWERS_AFTER + CLICK_AFTER || !debounced()) {
-            return;
-        }
-        pending.add(new Effect.Sound(Effect.Cue.ANSWER));
-        release();
-        goOn(step.answers().get(selected).next());
+        confirm();
     }
 
     /** The hotbar went to {@code slot}; returns whether the dialogue took it, so the slot stays held. */

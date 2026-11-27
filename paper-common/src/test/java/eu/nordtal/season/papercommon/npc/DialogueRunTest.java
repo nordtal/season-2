@@ -94,6 +94,70 @@ class DialogueRunTest {
     }
 
     @Test
+    void aLeftClickSkipsTypingTurnsPagesAdvancesSpeakingAndHandsOff() {
+        final DialogueRun run = play(
+                multiPage("start", List.of("First page text", "Second page text"), "hand"),
+                handOff("hand", "Opening now."));
+        ticks(run, FIRST_TYPING_TICK + 1);
+
+        run.leftClick();
+        assertEquals("First page text", line(run.tick(Where.STILL)));
+        ticks(run, DialogueRun.DEBOUNCE);
+        run.leftClick();
+        final Frame pageTwo = run.tick(Where.STILL);
+        assertEquals(2, pageTwo.panel().page().number());
+
+        ticks(run, DialogueRun.DEBOUNCE);
+        run.leftClick();
+        assertEquals("Second page text", line(run.tick(Where.STILL)));
+        ticks(run, DialogueRun.DEBOUNCE);
+        run.leftClick();
+        assertTrue(run.tick(Where.STILL).effects().contains(sound(Effect.Cue.NEXT_TEXT)));
+
+        ticks(run, DialogueRun.DEBOUNCE);
+        run.leftClick();
+        assertEquals("Opening now.", line(run.tick(Where.STILL)));
+        ticks(run, DialogueRun.DEBOUNCE);
+        run.leftClick();
+        assertTrue(handsOff(run.tick(Where.STILL)));
+    }
+
+    @Test
+    void aRightClickConfirmsTheSelectedAnswerAfterTheDelay() {
+        final DialogueRun run = play(
+                question("start", "Ok?", answer("Two", "two"), answer("Three", "three")),
+                speaking("two", "Two", null),
+                speaking("three", "Three", null));
+        final int typed = FIRST_TYPING_TICK + 2;
+        ticks(run, typed + 5);
+        assertTrue(run.answering());
+
+        run.select(1);
+        run.rightClick();
+        ticks(run, 4);
+        run.rightClick();
+        assertTrue(run.answering(), "an early right-click within 250 ms does not confirm or consume debounce");
+        run.tick(Where.STILL);
+        run.rightClick();
+        final Frame taken = run.tick(Where.STILL);
+        assertTrue(taken.effects().contains(sound(Effect.Cue.ANSWER)));
+        assertTrue(taken.effects().contains(new Effect.ReleaseSlot()));
+        assertFalse(run.answering());
+        assertEquals("Three", ticks(run, 20).getLast().panel().lines().getFirst());
+    }
+
+    @Test
+    void leftAndRightClickShareTheSameDebounce() {
+        final DialogueRun run = play(speaking("start", "A longer text", "two"), speaking("two", "Bye", null));
+        ticks(run, FIRST_TYPING_TICK + 1);
+
+        run.leftClick();
+        assertEquals("A longer text", line(run.tick(Where.STILL)));
+        run.rightClick();
+        assertEquals("A longer text", line(run.tick(Where.STILL)));
+    }
+
+    @Test
     void answersAppearAQuarterSecondAfterTheQuestionAndALeftClickCountsAQuarterSecondLater() {
         // "Ok?" is typed 100 ms in, the second tick.
         final DialogueRun run = play(

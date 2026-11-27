@@ -143,4 +143,64 @@ class WheelPlanTest {
         final int variant = first.draw(pool, List.of(0, 4, 8), new Random(1));
         assertTrue(List.of(0, 4, 8).contains(variant));
     }
+
+    @Test
+    void reboundEndingDrawsAtTwentyFivePercentAndKeepsWinnerAndAfterUnchanged() {
+        final Random random = new Random(42);
+        final int trials = 40_000;
+        int rebounds = 0;
+        for (int i = 0; i < trials; i++) {
+            if (WheelPlan.drawRebound(random)) {
+                rebounds++;
+            }
+        }
+        final double rate = rebounds / (double) trials;
+        assertTrue(rate > 0.24 && rate < 0.26, "rebound rate was " + rate);
+
+        final List<Boolean> plain = Collections.nCopies(WheelPlan.PLACES, false);
+        for (int variant = 0; variant < WheelPlan.PLACES; variant++) {
+            final WheelPlan direct = WheelPlan.turning(face, variant, false);
+            final WheelPlan rebound = WheelPlan.turning(face, variant, true);
+            assertEquals(direct.winner(), rebound.winner(), "variant " + variant);
+            assertEquals(direct.after(), rebound.after(), "variant " + variant);
+            assertEquals(String.valueOf(variant), direct.base(plain).get(2 * WheelPlan.PLACES));
+            assertEquals(variant + "r", rebound.base(plain).get(2 * WheelPlan.PLACES));
+            assertEquals(variant + "r", rebound.foil(plain).get(2 * WheelPlan.PLACES));
+        }
+    }
+
+    @Test
+    void reboundChoiceIsIndependentOfWeightedPrizeSelection() {
+        final List<WheelPrizeSpec> places = new ArrayList<>(numbered("minecraft:stone"));
+        places.set(WheelPlan.winnerBody(2), prize("minecraft:diamond", 1, 9));
+        places.set(WheelPlan.winnerBody(6), prize("minecraft:emerald", 1, 1));
+        final WheelPlan.Face weighted = new WheelPlan.Face(places, 0);
+        final Random random = new Random(123);
+        int diamondTotal = 0;
+        int diamondRebound = 0;
+        int emeraldTotal = 0;
+        int emeraldRebound = 0;
+        final int trials = 40_000;
+        for (int i = 0; i < trials; i++) {
+            final int variant = weighted.draw(places, List.of(2, 6), random);
+            final boolean rebound = WheelPlan.drawRebound(random);
+            if (variant == 2) {
+                diamondTotal++;
+                if (rebound) {
+                    diamondRebound++;
+                }
+            } else {
+                emeraldTotal++;
+                if (rebound) {
+                    emeraldRebound++;
+                }
+            }
+        }
+        final double diamondShare = diamondTotal / (double) trials;
+        final double diamondReboundRate = diamondRebound / (double) diamondTotal;
+        final double emeraldReboundRate = emeraldRebound / (double) emeraldTotal;
+        assertTrue(diamondShare > 0.89 && diamondShare < 0.91, "diamond share was " + diamondShare);
+        assertTrue(diamondReboundRate > 0.23 && diamondReboundRate < 0.27, "diamond rebound was " + diamondReboundRate);
+        assertTrue(emeraldReboundRate > 0.22 && emeraldReboundRate < 0.28, "emerald rebound was " + emeraldReboundRate);
+    }
 }

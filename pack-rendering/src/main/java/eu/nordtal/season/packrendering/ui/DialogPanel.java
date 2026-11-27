@@ -22,7 +22,7 @@ public enum DialogPanel {
     OBJECTIVES_124(262, 124, Glyphs.UI_DIALOG_OBJECTIVES_124),
     OBJECTIVES_33(262, 33, Glyphs.UI_DIALOG_OBJECTIVES_33),
     DUEL_124(206, 124, Glyphs.UI_DIALOG_DUEL_124),
-    WHEEL_197(262, 197, Glyphs.UI_DIALOG_WHEEL_197);
+    WHEEL_158(224, 158, Glyphs.UI_DIALOG_WHEEL_158);
 
     /** The widest tile the pack draws. */
     public static final int TILE = 256;

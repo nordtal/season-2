@@ -80,5 +80,14 @@ public final class Colours {
     /** A tooltip's last line when it says what a click does. */
     public static final TextColor HINT = TextColor.color(0x9DB4EE);
 
+    /** Unselected rail track on the ride map. */
+    public static final TextColor MAP_RAIL = TextColor.color(0xE8E8E8);
+
+    /** Dark casing around unselected rails on the ride map. */
+    public static final TextColor MAP_RAIL_EDGE = TextColor.color(0x202020);
+
+    /** Light casing around the selected accent route on the ride map. */
+    public static final TextColor MAP_ROUTE_EDGE = TextColor.color(0xFFFFFF);
+
     private Colours() {}
 }

@@ -16,6 +16,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -99,6 +100,83 @@ export type StepCanvasProps = {
   onUndo: () => void
   onRedo: () => void
   onLanguage: (language: Language) => void
+}
+
+function syncFlowNodes(
+  prev: StepFlowNode[],
+  dialogue: Dialogue,
+  numbers: Map<string, number>,
+  linkedMap: Map<string, boolean>,
+  tooLong: Set<string>,
+  selected: string | null,
+  language: Language,
+  menus: NpcMenu[],
+  onAddLinked: (stepId: string, port: SourcePort) => void,
+  onStartDrag: (stepId: string, event: ReactPointerEvent<HTMLDivElement>) => void,
+): StepFlowNode[] {
+  const byId = new Map(prev.map((node) => [node.id, node]))
+  let changed = prev.length !== dialogue.steps.length
+  const next: StepFlowNode[] = []
+  for (let index = 0; index < dialogue.steps.length; index++) {
+    const step = dialogue.steps[index]
+    const existing = byId.get(step.id)
+    const number = numbers.get(step.id) ?? 1
+    const isSelected = selected === step.id
+    const ariaLabel = stepOptionLabel(step, number)
+    const nextData = {
+      step,
+      number,
+      isStart: dialogue.start === step.id,
+      linked: linkedMap.get(step.id) ?? false,
+      missing: missingCount(step),
+      tooLong: tooLong.has(step.id),
+      language,
+      menus,
+      thenTargetNumber: step.next !== undefined ? numbers.get(step.next) : undefined,
+      onAddLinked,
+      onStartDrag,
+    }
+    if (existing) {
+      const samePos = existing.dragging || (existing.position.x === step.x && existing.position.y === step.y)
+      const prevData = existing.data
+      const sameData =
+        prevData.step === nextData.step &&
+        prevData.number === nextData.number &&
+        prevData.isStart === nextData.isStart &&
+        prevData.linked === nextData.linked &&
+        prevData.missing === nextData.missing &&
+        prevData.tooLong === nextData.tooLong &&
+        prevData.language === nextData.language &&
+        prevData.menus === nextData.menus &&
+        prevData.thenTargetNumber === nextData.thenTargetNumber &&
+        prevData.onAddLinked === nextData.onAddLinked &&
+        prevData.onStartDrag === nextData.onStartDrag
+      if (samePos && sameData && existing.selected === isSelected && existing.ariaLabel === ariaLabel) {
+        if (prev[index] !== existing) changed = true
+        next.push(existing)
+        continue
+      }
+      changed = true
+      next.push({
+        ...existing,
+        position: existing.dragging ? existing.position : { x: step.x, y: step.y },
+        selected: isSelected,
+        ariaLabel,
+        data: sameData ? prevData : nextData,
+      })
+      continue
+    }
+    changed = true
+    next.push({
+      id: step.id,
+      type: "step",
+      position: { x: step.x, y: step.y },
+      selected: isSelected,
+      ariaLabel,
+      data: nextData,
+    })
+  }
+  return changed ? next : prev
 }
 
 function StepCanvasInner({
@@ -215,7 +293,7 @@ function StepCanvasInner({
       if (event.button !== 0) return
       event.stopPropagation()
       event.preventDefault()
-      const container = containerRef.current
+      const container = event.currentTarget.closest<HTMLElement>(".npc-flow")
       const previousCursor = document.body.style.cursor
       document.body.style.cursor = "grabbing"
       const toLocal = (clientX: number, clientY: number) => {
@@ -225,6 +303,7 @@ function StepCanvasInner({
       setStartGhost(toLocal(event.clientX, event.clientY))
 
       let cancelled = false
+      let hovered: string | null = null
       const stop = () => {
         window.removeEventListener("pointermove", onMove)
         window.removeEventListener("pointerup", onUp)
@@ -232,12 +311,13 @@ function StepCanvasInner({
         window.removeEventListener("keydown", onKeyDown, true)
         document.body.style.cursor = previousCursor
         setStartGhost(null)
-        setHover(null)
+        setHoverTarget(null)
       }
       const onMove = (moveEvent: PointerEvent) => {
         setStartGhost(toLocal(moveEvent.clientX, moveEvent.clientY))
         const over = findStepAtPoint(moveEvent.clientX, moveEvent.clientY)
-        setHover(over && over !== stepId ? over : null)
+        hovered = over && over !== stepId ? over : null
+        setHoverTarget((prev) => (prev === hovered ? prev : hovered))
       }
       const onKeyDown = (keyEvent: KeyboardEvent) => {
         if (keyEvent.key !== "Escape") return
@@ -251,7 +331,7 @@ function StepCanvasInner({
         stop()
       }
       const onUp = (upEvent: PointerEvent) => {
-        const target = hoverTargetRef.current ?? findStepAtPoint(upEvent.clientX, upEvent.clientY)
+        const target = hovered ?? findStepAtPoint(upEvent.clientX, upEvent.clientY)
         stop()
         if (!cancelled && target && target !== stepId) onMoveStart(target)
       }
@@ -260,118 +340,27 @@ function StepCanvasInner({
       window.addEventListener("pointercancel", onCancel)
       window.addEventListener("keydown", onKeyDown, true)
     },
-    [findStepAtPoint, onMoveStart, setHover],
+    [findStepAtPoint, onMoveStart],
   )
 
   const [flowNodes, setFlowNodes] = useState<StepFlowNode[]>(() =>
-    dialogue.steps.map((step) => {
-      const number = numbers.get(step.id) ?? 1
-      return {
-        id: step.id,
-        type: "step",
-        position: { x: step.x, y: step.y },
-        selected: selected === step.id,
-        ariaLabel: stepOptionLabel(step, number),
-        data: {
-          step,
-          number,
-          isStart: dialogue.start === step.id,
-          linked: linkedMap.get(step.id) ?? false,
-          missing: missingCount(step),
-          tooLong: tooLong.has(step.id),
-          language,
-          menus,
-          thenTargetNumber: step.next !== undefined ? numbers.get(step.next) : undefined,
-          onAddLinked,
-          onStartDrag,
-        },
-      }
-    }),
+    syncFlowNodes([], dialogue, numbers, linkedMap, tooLong, selected, language, menus, onAddLinked, onStartDrag),
   )
 
   // Keep React Flow node identity and `measured` state intact across edits, selection and hover.
-  useEffect(() => {
-    setFlowNodes((prev) => {
-      const byId = new Map(prev.map((node) => [node.id, node]))
-      let changed = prev.length !== dialogue.steps.length
-      const nextNodes = dialogue.steps.map((step, index) => {
-        const existing = byId.get(step.id)
-        const number = numbers.get(step.id) ?? 1
-        const isStart = dialogue.start === step.id
-        const linked = linkedMap.get(step.id) ?? false
-        const missing = missingCount(step)
-        const stepTooLong = tooLong.has(step.id)
-        const isSelected = selected === step.id
-        const thenTargetNumber = step.next !== undefined ? numbers.get(step.next) : undefined
-        const ariaLabel = stepOptionLabel(step, number)
-
-        if (existing) {
-          const samePosition = existing.dragging || (existing.position.x === step.x && existing.position.y === step.y)
-          const prevData = existing.data
-          const sameData =
-            prevData.step === step &&
-            prevData.number === number &&
-            prevData.isStart === isStart &&
-            prevData.linked === linked &&
-            prevData.missing === missing &&
-            prevData.tooLong === stepTooLong &&
-            prevData.language === language &&
-            prevData.menus === menus &&
-            prevData.thenTargetNumber === thenTargetNumber &&
-            prevData.onAddLinked === onAddLinked &&
-            prevData.onStartDrag === onStartDrag
-          if (samePosition && sameData && existing.selected === isSelected && existing.ariaLabel === ariaLabel) {
-            if (prev[index] !== existing) changed = true
-            return existing
-          }
-          changed = true
-          return {
-            ...existing,
-            position: existing.dragging ? existing.position : { x: step.x, y: step.y },
-            selected: isSelected,
-            ariaLabel,
-            data: sameData
-              ? prevData
-              : {
-                  step,
-                  number,
-                  isStart,
-                  linked,
-                  missing,
-                  tooLong: stepTooLong,
-                  language,
-                  menus,
-                  thenTargetNumber,
-                  onAddLinked,
-                  onStartDrag,
-                },
-          }
-        }
-        changed = true
-        return {
-          id: step.id,
-          type: "step" as const,
-          position: { x: step.x, y: step.y },
-          selected: isSelected,
-          ariaLabel,
-          data: {
-            step,
-            number,
-            isStart,
-            linked,
-            missing,
-            tooLong: stepTooLong,
-            language,
-            menus,
-            thenTargetNumber,
-            onAddLinked,
-            onStartDrag,
-          },
-        }
-      })
-      return changed ? nextNodes : prev
-    })
-  }, [dialogue.start, dialogue.steps, language, linkedMap, menus, numbers, onAddLinked, onStartDrag, selected, tooLong])
+  const syncedFlowNodes = syncFlowNodes(
+    flowNodes,
+    dialogue,
+    numbers,
+    linkedMap,
+    tooLong,
+    selected,
+    language,
+    menus,
+    onAddLinked,
+    onStartDrag,
+  )
+  if (syncedFlowNodes !== flowNodes) setFlowNodes(syncedFlowNodes)
 
   const getNodeSize = useCallback((stepId: string, fallbackStep?: Dialogue["steps"][number]): NodeSize => {
     const measured = measuredSizesRef.current.get(stepId)
@@ -409,14 +398,21 @@ function StepCanvasInner({
 
   // Withhold an edge only while its node's measured handle set has not yet refreshed after a Then/Answers switch.
   const readyEdges = useMemo(() => {
-    void sourceHandleSignature
-    const { nodeLookup } = store.nodesStore.getState()
+    if (sourceHandleSignature === "") return edges
+    const handlesBySource = new Map<string, Set<string>>()
+    for (const entry of sourceHandleSignature.split("|")) {
+      const colon = entry.indexOf(":")
+      if (colon === -1) continue
+      const list = entry.slice(colon + 1)
+      if (list === "") continue
+      handlesBySource.set(entry.slice(0, colon), new Set(list.split(",")))
+    }
     return edges.filter((edge) => {
-      const bounds = nodeLookup.get(edge.source)?.internals.handleBounds?.source
-      if (!bounds || bounds.length === 0) return true
-      return bounds.some((handle) => handle.id === edge.sourceHandle)
+      const handles = handlesBySource.get(edge.source)
+      if (!handles || handles.size === 0) return true
+      return handles.has(edge.sourceHandle ?? "")
     })
-  }, [edges, sourceHandleSignature, store])
+  }, [edges, sourceHandleSignature])
 
   const fitFreeArea = useCallback(
     (animate = true) => {
@@ -459,19 +455,18 @@ function StepCanvasInner({
     [dialogue, getNodeSize, setViewport, toolbarClearance],
   )
 
-  useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      fitFreeArea(fittedOnceRef.current)
-      fittedOnceRef.current = true
-    })
-    return () => cancelAnimationFrame(id)
-    // Fit on open, after Arrange, and after version loads through fitSignal.
+  const runFit = useEffectEvent((_signal: number) => {
+    fitFreeArea(fittedOnceRef.current)
+    fittedOnceRef.current = true
+  })
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const id = requestAnimationFrame(() => runFit(fitSignal))
+    return () => cancelAnimationFrame(id)
   }, [fitSignal])
 
-  useEffect(() => {
-    if (!selected || panSignal === 0) return
+  const runPan = useEffectEvent(() => {
+    if (!selected) return
     const target = stepOf(dialogue, selected)
     const box = containerRef.current?.getBoundingClientRect()
     if (!target || !box || box.width === 0 || box.height === 0) return
@@ -502,13 +497,26 @@ function StepCanvasInner({
     }
     if (dx === 0 && dy === 0) return
     void setViewport({ x: vp.x + dx, y: vp.y + dy, zoom: vp.zoom }, { duration: prefersReducedMotion() ? 0 : 200 })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  useEffect(() => {
+    if (panSignal === 0) return
+    runPan()
   }, [panSignal])
 
-  const translateExtent = useMemo(
-    () => computeTranslateExtent(dialogue, containerSize, INSPECTOR_WIDTH, toolbarClearance, zoom, getNodeSize),
-    [containerSize, dialogue, getNodeSize, toolbarClearance, zoom],
-  )
+  const translateExtent = useMemo(() => {
+    const measuredById = new Map<string, NodeSize>()
+    for (const node of syncedFlowNodes) {
+      const width = node.measured?.width
+      const height = node.measured?.height
+      if (width !== undefined && width > 0 && height !== undefined && height > 0) {
+        measuredById.set(node.id, { width, height })
+      }
+    }
+    const sizeFor = (stepId: string, fallbackStep?: Dialogue["steps"][number]): NodeSize =>
+      measuredById.get(stepId) ?? { width: NODE_WIDTH, height: fallbackStep ? nodeHeight(fallbackStep) : 124 }
+    return computeTranslateExtent(dialogue, containerSize, INSPECTOR_WIDTH, toolbarClearance, zoom, sizeFor)
+  }, [containerSize, dialogue, syncedFlowNodes, toolbarClearance, zoom])
 
   const handleConnect = useCallback(
     (connection: Connection) => {
@@ -721,7 +729,7 @@ function StepCanvasInner({
           onFit={() => fitFreeArea(true)}
         />
         <ReactFlow
-          nodes={flowNodes}
+          nodes={syncedFlowNodes}
           edges={readyEdges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}

@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.wall;
 
+import com.destroystokyo.paper.event.player.PlayerElytraBoostEvent;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.smp.config.CustomBorderSpec;
 import java.time.Clock;
@@ -22,6 +23,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -30,10 +32,18 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityPlaceEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.hanging.HangingBreakByEntityEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
+import org.bukkit.event.player.PlayerBucketEntityEvent;
+import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
@@ -63,10 +73,10 @@ public final class BorderWall implements Listener {
     private final Map<UUID, Long> drifting = new HashMap<>();
 
     private final Map<UUID, Long> bounced = new HashMap<>();
+    private final Map<UUID, Long> walkPushed = new HashMap<>();
     private final Set<EnderPearl> pearls = new HashSet<>();
 
-    private final WallPackets packets = new WallPackets();
-    private final Grounds grounds = new Grounds();
+    private final WallDisplay display;
     private final Clock clock;
 
     /** Runs a task one tick later, after the client has cleared its entities on a respawn or a world change. */
@@ -76,7 +86,6 @@ public final class BorderWall implements Listener {
     private final Consumer<Player> pushSound;
 
     private Map<String, Walls.Drawn> walls = Map.of();
-    private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final Map<UUID, Long> pushed = new HashMap<>();
 
     /** The world whose regions open with milestones. */
@@ -112,6 +121,7 @@ public final class BorderWall implements Listener {
         this.pushSound = pushSound;
         this.overworld = overworld;
         this.speed = speed;
+        this.display = new WallDisplay(clock, nextTick);
     }
 
     /**
@@ -221,11 +231,11 @@ public final class BorderWall implements Listener {
             return;
         }
         readOverworld();
-        grounds.clear(overworld);
+        display.clearGrounds(overworld);
         for (final Player player : online) {
             final Location at = Objects.requireNonNull(player.getLocation());
             if (at.getWorld().getName().equals(overworld)) {
-                show(player, at);
+                display.show(walls, player, at);
             }
         }
     }
@@ -239,27 +249,27 @@ public final class BorderWall implements Listener {
                 pearls.addAll(world.getEntitiesByClass(EnderPearl.class));
             }
         }
-        grounds.clear();
+        display.clearGrounds();
         mounts.clear();
         lastInside.clear();
         outside.clear();
         drifting.clear();
         for (final Player player : online) {
-            clear(player);
+            display.clear(player);
             final Entity moving = Push.root(player);
             final Location at = Objects.requireNonNull(moving.getLocation());
             final Walls.Drawn drawn = walls.get(at.getWorld().getName());
             if (drawn != null && !bypass(player) && !drawn.wall().inside(at.getX(), at.getZ())) {
                 drifting.put(player.getUniqueId(), clock.millis());
             }
-            show(player, Objects.requireNonNull(player.getLocation()));
+            display.show(walls, player, Objects.requireNonNull(player.getLocation()));
         }
     }
 
     /** Takes every panel away from every player. */
     public void stop(final Collection<? extends Player> online) {
         for (final Player player : online) {
-            clear(player);
+            display.clear(player);
         }
         walls = Map.of();
     }
@@ -270,9 +280,21 @@ public final class BorderWall implements Listener {
         return drawn != null && !bypass(player) && outside(drawn.wall(), block.getX(), block.getZ());
     }
 
+    /** Returns whether {@code entity} lies outside the custom border for {@code player}. */
+    public boolean blocksEntity(final Player player, final Entity entity) {
+        final Location at = Objects.requireNonNull(entity.getLocation());
+        final Walls.Drawn drawn = walls.get(at.getWorld().getName());
+        return drawn != null && !bypass(player) && outsideEntity(drawn.wall(), at.getX(), at.getZ());
+    }
+
     /** Whether the block at {@code blockX}, {@code blockZ} lies outside {@code wall}, by its middle. */
     static boolean outside(final Wall wall, final int blockX, final int blockZ) {
         return !wall.inside(blockX + 0.5, blockZ + 0.5);
+    }
+
+    /** Whether an entity at {@code x}, {@code z} lies outside {@code wall}. */
+    static boolean outsideEntity(final Wall wall, final double x, final double z) {
+        return !wall.inside(x, z);
     }
 
     /** Refuses a block a player places outside the border, also from inside across an edge or a corner. */
@@ -288,6 +310,15 @@ public final class BorderWall implements Listener {
         }
     }
 
+    /** Refuses a block a player breaks outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void breaking(final BlockBreakEvent event) {
+        if (blocksEdit(event.getPlayer(), event.getBlock())) {
+            event.setCancelled(true);
+            feedback(event.getPlayer());
+        }
+    }
+
     /** Refuses a bucket a player empties outside the border. */
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void emptying(final PlayerBucketEmptyEvent event) {
@@ -297,48 +328,95 @@ public final class BorderWall implements Listener {
         }
     }
 
+    /** Refuses a bucket a player fills outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void filling(final PlayerBucketFillEvent event) {
+        if (blocksEdit(event.getPlayer(), event.getBlock())) {
+            event.setCancelled(true);
+            feedback(event.getPlayer());
+        }
+    }
+
+    /** Refuses right-clicking an entity outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void interactingEntity(final PlayerInteractEntityEvent event) {
+        if (blocksEntity(event.getPlayer(), event.getRightClicked())) {
+            event.setCancelled(true);
+            feedback(event.getPlayer());
+        }
+    }
+
+    /** Refuses interacting at a point on an entity outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void interactingAtEntity(final PlayerInteractAtEntityEvent event) {
+        if (blocksEntity(event.getPlayer(), event.getRightClicked())) {
+            event.setCancelled(true);
+            feedback(event.getPlayer());
+        }
+    }
+
+    /** Refuses manipulating an armor stand outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void manipulatingArmorStand(final PlayerArmorStandManipulateEvent event) {
+        if (blocksEntity(event.getPlayer(), event.getRightClicked())) {
+            event.setCancelled(true);
+            feedback(event.getPlayer());
+        }
+    }
+
+    /** Refuses scooping an entity into a bucket outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void bucketingEntity(final PlayerBucketEntityEvent event) {
+        if (blocksEntity(event.getPlayer(), event.getEntity())) {
+            event.setCancelled(true);
+            feedback(event.getPlayer());
+        }
+    }
+
+    /** Refuses placing an entity such as a boat, minecart or armor stand outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void placingEntity(final EntityPlaceEvent event) {
+        final @Nullable Player player = event.getPlayer();
+        if (player != null && blocksEntity(player, event.getEntity())) {
+            event.setCancelled(true);
+            feedback(player);
+        }
+    }
+
+    /** Refuses breaking a hanging entity such as an item frame or painting outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void breakingHanging(final HangingBreakByEntityEvent event) {
+        if (event.getRemover() instanceof final Player player && blocksEntity(player, event.getEntity())) {
+            event.setCancelled(true);
+            feedback(player);
+        }
+    }
+
+    /** Refuses a player directly attacking an entity outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void damagingEntity(final EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof final Player player && blocksEntity(player, event.getEntity())) {
+            event.setCancelled(true);
+            feedback(player);
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void blockPlaced(final BlockPlaceEvent event) {
         final Block block = event.getBlock();
-        if (changed(block)) {
-            redrawNear(block.getLocation());
+        if (display.changed(walls, block)) {
+            display.redrawNear(walls, block.getLocation());
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void blockBroken(final BlockBreakEvent event) {
         final Block block = event.getBlock();
-        if (changed(block)) {
+        if (display.changed(walls, block)) {
             // The broken block is still in the world while its event runs.
             final Location at = block.getLocation();
-            nextTick.accept(() -> redrawNear(at));
+            nextTick.accept(() -> display.redrawNear(walls, at));
         }
-    }
-
-    /** Draws the wall again for every player whose shown panels may stand on the ground at {@code at}. */
-    private void redrawNear(final Location at) {
-        final double reach = Band.reach(Look.FIELD) + Grounds.SPREAD;
-        for (final Player player : at.getWorld().getPlayers()) {
-            final Location location = Objects.requireNonNull(player.getLocation());
-            final double dx = location.getX() - at.getX();
-            final double dz = location.getZ() - at.getZ();
-            if (player.isOnline() && viewers.containsKey(player.getUniqueId()) && dx * dx + dz * dz <= reach * reach) {
-                show(player, location);
-            }
-        }
-    }
-
-    /** Forgets the grounds near a changed block beside the wall, and tells whether there were any. */
-    private boolean changed(final Block block) {
-        final Walls.Drawn drawn = walls.get(block.getWorld().getName());
-        if (drawn == null
-                || drawn.wall()
-                        .near(block.getX() + 0.5, block.getZ() + 0.5, Grounds.INVALIDATE_RADIUS)
-                        .isEmpty()) {
-            return false;
-        }
-        grounds.invalidate(block.getWorld().getName(), block.getX(), block.getZ());
-        return true;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -353,7 +431,7 @@ public final class BorderWall implements Listener {
             return;
         }
         if (event.hasChangedBlock()) {
-            show(player, to);
+            display.show(walls, player, to);
         }
     }
 
@@ -389,20 +467,50 @@ public final class BorderWall implements Listener {
             final double[] bounce = Push.glide(wall, from.getX(), from.getZ(), dx, dz);
             if (crossed) {
                 event.setCancelled(true);
+                cancelBoost(player);
             }
             if (bounce != null) {
-                player.setVelocity(new Vector(bounce[0], player.getVelocity().getY(), bounce[1]));
+                cancelBoost(player);
+                player.setVelocity(
+                        new Vector(bounce[0], Math.max(player.getVelocity().getY(), Push.LIFT), bounce[1]));
                 bounced.put(player.getUniqueId(), clock.millis());
                 feedback(player);
             }
-        } else if (Push.reaches(wall, from.getX(), from.getZ(), dx, dz)) {
-            if (crossed && wall.inside(to.getX(), to.getZ())) {
-                event.setCancelled(true);
+        } else {
+            final double[] walk = Push.walk(
+                    wall, from.getX(), from.getZ(), dx, dz, player.getVelocity().getY());
+            if (walk != null) {
+                if (crossed && wall.inside(to.getX(), to.getZ())) {
+                    event.setCancelled(true);
+                }
+                final long now = clock.millis();
+                if (crossed || Push.walkDue(walkPushed.getOrDefault(player.getUniqueId(), Long.MIN_VALUE / 2), now)) {
+                    walkPushed.put(player.getUniqueId(), now);
+                    player.setVelocity(new Vector(walk[0], walk[1], walk[2]));
+                    feedback(player);
+                }
             }
-            final double speed = Math.hypot(dx, dz);
-            player.setVelocity(
-                    new Vector(-dx / speed * Push.WALK, player.getVelocity().getY(), -dz / speed * Push.WALK));
+        }
+    }
+
+    /** Refuses starting a firework boost while outside the border. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void boosting(final PlayerElytraBoostEvent event) {
+        final Player player = event.getPlayer();
+        final Location at = Objects.requireNonNull(player.getLocation());
+        final Walls.Drawn drawn = walls.get(at.getWorld().getName());
+        if (drawn != null && !bypass(player) && !drawn.wall().inside(at.getX(), at.getZ())) {
+            event.setCancelled(true);
             feedback(player);
+        }
+    }
+
+    /** Removes any active firework rocket boosting {@code player} so it stops pulling into the wall. */
+    private static void cancelBoost(final Player player) {
+        for (final Entity nearby : player.getNearbyEntities(8, 8, 8)) {
+            if (nearby instanceof final Firework firework && player.equals(firework.getAttachedTo())) {
+                firework.remove();
+            }
         }
     }
 
@@ -477,7 +585,7 @@ public final class BorderWall implements Listener {
         }
         pearls.removeIf(pearl -> !pearl.isValid());
         pearls.forEach(this::bounce);
-        players.forEach(this::stretch);
+        players.forEach(player -> display.stretch(walls, player));
         final Set<UUID> seen = new HashSet<>();
         for (final Player player : players) {
             final Entity moving = Push.root(player);
@@ -593,7 +701,7 @@ public final class BorderWall implements Listener {
     @EventHandler
     public void changedWorld(final PlayerChangedWorldEvent event) {
         final Player player = event.getPlayer();
-        clear(player);
+        display.clear(player);
         lastInside.remove(player.getUniqueId());
         outside.remove(player.getUniqueId());
         drifting.remove(player.getUniqueId());
@@ -604,7 +712,7 @@ public final class BorderWall implements Listener {
     public void respawned(final PlayerRespawnEvent event) {
         final Player player = event.getPlayer();
         // A respawn in the same world keeps the client's entities, so the old panels are removed.
-        clear(player);
+        display.clear(player);
         lastInside.remove(player.getUniqueId());
         outside.remove(player.getUniqueId());
         drifting.remove(player.getUniqueId());
@@ -613,12 +721,14 @@ public final class BorderWall implements Listener {
 
     @EventHandler
     public void quit(final PlayerQuitEvent event) {
-        lastInside.remove(event.getPlayer().getUniqueId());
-        outside.remove(event.getPlayer().getUniqueId());
-        drifting.remove(event.getPlayer().getUniqueId());
-        bounced.remove(event.getPlayer().getUniqueId());
-        viewers.remove(event.getPlayer().getUniqueId());
-        pushed.remove(event.getPlayer().getUniqueId());
+        final UUID id = event.getPlayer().getUniqueId();
+        lastInside.remove(id);
+        outside.remove(id);
+        drifting.remove(id);
+        bounced.remove(id);
+        walkPushed.remove(id);
+        display.removeViewer(id);
+        pushed.remove(id);
     }
 
     private void refresh(final Player player) {
@@ -628,7 +738,7 @@ public final class BorderWall implements Listener {
             if (drawn != null && !bypass(player) && !drawn.wall().inside(at.getX(), at.getZ())) {
                 player.teleport(inside(at, drawn.wall().returnPoint(at.getX(), at.getZ())));
             }
-            show(player, Objects.requireNonNull(player.getLocation()));
+            display.show(walls, player, Objects.requireNonNull(player.getLocation()));
         }
     }
 
@@ -646,6 +756,9 @@ public final class BorderWall implements Listener {
         final Walls.Drawn drawn = walls.get(to.getWorld().getName());
         if (drawn == null) {
             return;
+        }
+        if (player.isGliding()) {
+            cancelBoost(player);
         }
         final double[] velocity = Push.velocity(
                 drawn.wall(),
@@ -667,125 +780,5 @@ public final class BorderWall implements Listener {
         }
         pushed.put(player.getUniqueId(), now);
         pushSound.accept(player);
-    }
-
-    /** Sends the player what changed in their part of the wall at {@code at}. */
-    private void show(final Player player, final Location at) {
-        final UUID id = player.getUniqueId();
-        final String world = at.getWorld().getName();
-        final Walls.Drawn drawn = walls.get(world);
-        final Viewer before = viewers.get(id);
-        if (before != null && !before.world().equals(world)) {
-            viewers.remove(id);
-        }
-        if (drawn == null) {
-            if (before != null && before.world().equals(world)) {
-                clear(player);
-            }
-            return;
-        }
-        final Viewer viewer = viewers.computeIfAbsent(id, ignored -> new Viewer(world));
-        final Look look = drawn.look();
-        final int eye = (int) Math.floor(at.getY() + player.getEyeHeight());
-        final long now = clock.millis();
-        final Map<Panel, Band.Seen> seen = Band.seen(
-                drawn.wall(),
-                look,
-                at.getX(),
-                at.getZ(),
-                panel -> grounds.at(at.getWorld(), drawn.wall(), panel, eye, now));
-        final Band.Change change = Band.change(viewer.seen(), seen);
-        packets.remove(id, viewer.forget(change.removed()));
-        change.remodelled().forEach((panel, after) -> packets.remodel(id, viewer.remodel(panel, after), after));
-        if (look == Look.FIELD) {
-            showField(id, viewer, change, at.getWorld());
-        } else {
-            showPixel(id, viewer, change, Band.base(at.getY()));
-        }
-    }
-
-    /** Spawns the field's new panels as far stretched as the player's others are, and lets them finish with those. */
-    private void showField(final UUID id, final Viewer viewer, final Band.Change change, final World world) {
-        if (change.added().isEmpty()) {
-            return;
-        }
-        final double y = Band.anchor(world.getMaxHeight());
-        final float viewRange = Band.viewRange(world.getMinHeight(), world.getMaxHeight());
-        final long now = clock.millis();
-        final Band.Range range = Band.range(world.getMaxHeight(), viewer.stretched(now));
-        final List<Integer> spawned = new ArrayList<>();
-        change.added().forEach((panel, seen) -> {
-            final int entity = packets.newId();
-            viewer.add(panel, entity, y, seen);
-            packets.spawnField(id, entity, panel, y, viewRange, range, seen);
-            spawned.add(entity);
-        });
-        if (viewer.left(now) > 0) {
-            settle(id, viewer, world, spawned);
-        }
-    }
-
-    /** Sends the panels the stretch's target a tick later, as the client stretches only a panel it has ticked. */
-    private void settle(final UUID id, final Viewer viewer, final World world, final Collection<Integer> panels) {
-        nextTick.accept(() -> {
-            if (viewers.get(id) == viewer) {
-                final double y = Band.anchor(world.getMaxHeight());
-                final Band.Range target = Band.range(world.getMaxHeight(), viewer.skyward() ? 1 : 0);
-                final int ticks = viewer.left(clock.millis());
-                panels.forEach(entity -> packets.stretch(id, entity, y, target, ticks));
-            }
-        });
-    }
-
-    /** Stretches the field's panels up to the build limit once the player flies, and back once they are down. */
-    private void stretch(final Player player) {
-        final Viewer viewer = viewers.get(player.getUniqueId());
-        final Walls.Drawn drawn = walls.get(player.getWorld().getName());
-        if (viewer == null || drawn == null || drawn.look() != Look.FIELD) {
-            return;
-        }
-        final World world = player.getWorld();
-        final Entity moving = Push.root(player);
-        final BoundingBox body = moving.getBoundingBox();
-        final boolean skyward = Band.skyward(
-                viewer.skyward(),
-                player.isFlying() || player.isGliding(),
-                moving.isInWater() || moving.isInLava() || player.isClimbing(),
-                free -> !world.hasCollisionsIn(new BoundingBox(
-                        body.getMinX(),
-                        body.getMinY() - free,
-                        body.getMinZ(),
-                        body.getMaxX(),
-                        body.getMinY(),
-                        body.getMaxZ())));
-        if (skyward == viewer.skyward()) {
-            return;
-        }
-        viewer.turn(skyward, clock.millis());
-        settle(
-                player.getUniqueId(),
-                viewer,
-                world,
-                viewer.shown().values().stream().map(Viewer.Shown::id).toList());
-    }
-
-    /** Moves the pixel look's panels to the player's height, and spawns the new ones. */
-    private void showPixel(final UUID id, final Viewer viewer, final Band.Change change, final double base) {
-        if (viewer.base() != base) {
-            viewer.lift(base);
-            viewer.shown().forEach((panel, shown) -> packets.move(id, shown.id(), panel, base));
-        }
-        change.added().forEach((panel, seen) -> {
-            final int entity = packets.newId();
-            viewer.add(panel, entity, base, seen);
-            packets.spawnPixel(id, entity, panel, base, seen);
-        });
-    }
-
-    private void clear(final Player player) {
-        final Viewer viewer = viewers.remove(player.getUniqueId());
-        if (viewer != null) {
-            packets.remove(player.getUniqueId(), viewer.forget(viewer.shown().keySet()));
-        }
     }
 }

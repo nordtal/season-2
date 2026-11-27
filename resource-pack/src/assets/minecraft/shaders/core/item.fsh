@@ -357,10 +357,15 @@ vec4 wallField(vec4 coord, vec3 view, float fromTop, float fromBottom, float fad
     return vec4(colour, min(alpha * (1.0 + 0.2 * close), 0.97) * reach);
 }
 
-const float WALL_OVER = 64.0;       // blocks a panel's upper end stands above the world's build limit
-const float WALL_GROUNDED = 512.0;  // blocks a panel is tall while the wall is the ground band
-const float WALL_SKYWARD = 1024.0;  // and while the wall stands up to the build limit
-const float WALL_SKY_FADE = 48.0;   // blocks below the build limit over which the standing wall fades in
+const float WALL_OVER = 64.0;        // blocks a panel's upper end stands above the world's build limit
+const float WALL_GROUNDED = 512.0;   // blocks a panel is tall while the wall is the ground band
+const float WALL_SKYWARD = 1024.0;   // and while the wall stands up to the build limit
+const float WALL_SKY_FADE = 48.0;    // blocks below the build limit over which the standing wall fades in
+const float WALL_FLOAT_START = 18.0; // blocks above ground where the floating band begins to fade in
+const float WALL_FLOAT_FULL = 22.0;  // and where it reaches full strength
+const float WALL_FLOAT_WIDE = 12.0;  // blocks to each side of the player where the floating band is full strength
+const float WALL_FLOAT_EDGE = 24.0;  // and where it fades out sideways
+const float WALL_FLOAT_FAR = 48.0;   // blocks from the camera where the floating band fades out
 
 // The wall's contour: a steady band on the ground under the panel, anchored down to under - WALL_BELOW.
 // ground: x = the ground, y = blocks the band's upper end rises over what stands on that ground.
@@ -368,7 +373,8 @@ const float WALL_SKY_FADE = 48.0;   // blocks below the build limit over which t
 // the panel's height says how far the wall's upper end has risen from the band to the build limit.
 // span: x = 1 at the panel's upper end and 0 at its lower end, y = x times the upper end's height,
 // z = 1 - x times the lower end's. Underground (feet < under - 2.0), a local band stays at the
-// player's height without stretching through rock.
+// player's height without stretching through rock. Above the rise cap (feet > under + WALL_FLOAT_START),
+// a wide floating band appears at the player's height without stretching down to the ground.
 // Returns the field's colour, or a negative alpha where nothing is drawn.
 vec4 wallBand(vec4 coord, vec3 view, vec2 ground, vec3 span, float gameTime) {
     float camera = coord.y - view.y;
@@ -393,22 +399,31 @@ vec4 wallBand(vec4 coord, vec3 view, vec2 ground, vec3 span, float gameTime) {
         field.a *= mix(1.0, wallEase(0.0, WALL_SKY_FADE, fromTop), sky);
     }
 
-    vec4 cave = vec4(0.0);
+    vec4 local = vec4(0.0);
     if (feet < under - 2.0) {
         float caveMask = wallEase(2.0, 5.0, under - feet) * (1.0 - wallEase(8.0, 18.0, abs(view.x)));
         float uFromTop = feet + WALL_ABOVE - coord.y;
         float uFromBottom = coord.y - (feet - WALL_BELOW);
         if (caveMask > 0.005 && uFromTop >= 0.0 && uFromBottom >= 0.0 && length(coord.zw) <= 25.0) {
-            cave = wallField(coord, view, uFromTop, uFromBottom, 25.0, gameTime);
-            cave.a *= caveMask;
+            local = wallField(coord, view, uFromTop, uFromBottom, 25.0, gameTime);
+            local.a *= caveMask;
+        }
+    } else if (feet > under + WALL_FLOAT_START) {
+        float floatMask = wallEase(WALL_FLOAT_START, WALL_FLOAT_FULL, feet - under)
+                        * (1.0 - wallEase(WALL_FLOAT_WIDE, WALL_FLOAT_EDGE, abs(view.x)));
+        float fFromTop = feet + WALL_ABOVE - coord.y;
+        float fFromBottom = coord.y - (feet - WALL_BELOW);
+        if (floatMask > 0.005 && fFromTop >= 0.0 && fFromBottom >= 0.0 && length(coord.zw) <= WALL_FLOAT_FAR) {
+            local = wallField(coord, view, fFromTop, fFromBottom, WALL_FLOAT_FAR, gameTime);
+            local.a *= floatMask;
         }
     }
 
-    float alpha = max(field.a, cave.a);
+    float alpha = max(field.a, local.a);
     if (alpha < 0.012) {
         return vec4(-1.0);
     }
-    vec3 rgb = (field.rgb * field.a + cave.rgb * cave.a) / max(field.a + cave.a, 0.0001);
+    vec3 rgb = (field.rgb * field.a + local.rgb * local.a) / max(field.a + local.a, 0.0001);
     return vec4(rgb, alpha);
 }
 

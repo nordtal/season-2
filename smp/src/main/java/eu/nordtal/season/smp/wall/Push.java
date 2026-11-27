@@ -7,8 +7,14 @@ import org.jspecify.annotations.Nullable;
 /** The push back inside for a player who walked through the wall. */
 final class Push {
 
-    /** The speed in blocks per tick that turns a player on foot back, a little above a sprint. */
-    static final double WALK = 0.4;
+    /** The speed in blocks per tick that turns a player on foot back cleanly by a few blocks. */
+    static final double WALK = 0.85;
+
+    /** The upward speed in blocks per tick that clears ground friction on a walking pushback. */
+    static final double WALK_LIFT = 0.32;
+
+    /** Minimum time in milliseconds between ground pushback impulses while inside the border. */
+    static final long WALK_COOLDOWN = 250;
 
     /** The speed in blocks per tick that turns a glider or a vehicle back, above the fastest glide into the wall. */
     static final double REBOUND = 1.4;
@@ -25,6 +31,30 @@ final class Push {
         return Double.isFinite(wall.exit(x, z, x + dx * ahead, z + dz * ahead));
     }
 
+    /**
+     * The velocity {x, y, z} that pushes a player on foot back before the wall, or null when not approaching it.
+     * Pushes along the wall's inward normal with a small upward lift so ground friction does not cause stuttering.
+     */
+    static double @Nullable [] walk(
+            final Wall wall, final double x, final double z, final double dx, final double dz, final double vertical) {
+        final double speed = Math.hypot(dx, dz);
+        if (speed == 0) {
+            return null;
+        }
+        final double ahead = 1 + CUSHION / speed;
+        final double hit = wall.exit(x, z, x + dx * ahead, z + dz * ahead);
+        if (!Double.isFinite(hit)) {
+            return null;
+        }
+        final double[] inward = wall.inward(x + dx * ahead * hit, z + dz * ahead * hit);
+        return new double[] {inward[0] * WALK, Math.max(vertical, WALK_LIFT), inward[1] * WALK};
+    }
+
+    /** Whether a player on foot last pushed at {@code last} may receive another impulse at {@code now}. */
+    static boolean walkDue(final long last, final long now) {
+        return now - last >= WALK_COOLDOWN;
+    }
+
     /** A player is pushed at most this often, in milliseconds. */
     static final long PAUSE = 500;
 
@@ -32,7 +62,7 @@ final class Push {
 
     /**
      * The velocity {x, y, z} that pushes a player at {@code x}, {@code z} back inside, or null while inside.
-     * A player on foot keeps the {@code vertical} speed they have and a {@code gliding} one is lifted.
+     * A player on foot clears ground friction and a {@code gliding} one is lifted.
      */
     static double @Nullable [] velocity(
             final Wall wall, final double x, final double z, final boolean gliding, final double vertical) {
@@ -41,7 +71,8 @@ final class Push {
         }
         final double[] inward = wall.inward(x, z);
         final double speed = gliding ? REBOUND : WALK;
-        return new double[] {inward[0] * speed, gliding ? LIFT : vertical, inward[1] * speed};
+        final double lift = gliding ? LIFT : Math.max(vertical, WALK_LIFT);
+        return new double[] {inward[0] * speed, lift, inward[1] * speed};
     }
 
     record Mount(boolean restore, double x, double y, double z) {}

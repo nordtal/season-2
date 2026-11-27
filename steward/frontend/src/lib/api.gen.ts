@@ -250,6 +250,7 @@ export type NpcTextMeasureRequest = {
 
 export type NpcTextMeasurement = {
   lines: string[]
+  fitted: string[]
   width: number
   room: number
   lineLimit: number

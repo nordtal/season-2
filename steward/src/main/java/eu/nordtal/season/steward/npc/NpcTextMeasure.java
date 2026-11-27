@@ -31,12 +31,14 @@ public final class NpcTextMeasure {
 
     /**
      * What the panel draws of a text, and whether it fits.
-     * These are its lines, the widest line, the room of a line, the page's line limit and whether it fits both width
-     * and line count.
+     * These are all wrapped lines, the lines fitted to the panel with ellipsis on overflow, the widest line, the room
+     * of a line, the page's line limit and whether it fits both width and line count.
      */
-    public record Measurement(List<String> lines, int width, int room, int lineLimit, boolean fits) {
+    public record Measurement(
+            List<String> lines, List<String> fitted, int width, int room, int lineLimit, boolean fits) {
         public Measurement {
             lines = List.copyOf(lines);
+            fitted = List.copyOf(fitted);
         }
     }
 
@@ -65,7 +67,12 @@ public final class NpcTextMeasure {
         final int limit = request.kind() != Kind.BODY
                 ? 1
                 : request.answers() == 0 ? DialogueRoom.SPEAK_LINES : DialogueRoom.QUESTION_LINES;
+        final List<String> fitted = switch (request.kind()) {
+            case BODY -> DialogueRoom.fit(request.text(), limit);
+            case NAME -> List.of(Letters.boldCut(request.text(), DialogueRoom.NAME));
+            case ANSWER -> List.of(Letters.boldCut(request.text(), DialogueRoom.LABEL));
+        };
         final boolean fits = width <= room && lines.size() <= limit;
-        return new Measurement(lines, width, room, limit, fits);
+        return new Measurement(lines, fitted, width, room, limit, fits);
     }
 }

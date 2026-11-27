@@ -100,13 +100,17 @@ export function ServicePage() {
     }
   }, [tabs, tab, navigate])
 
+  const editingNpc = tab === "npcs" && search.npc !== undefined
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <PageHeader title={serviceTitle(name)} actions={<ServiceActions name={name} service={service.data} />} />
-        <ActiveRunLine run={run} name={name} />
-        <ServiceOnlineLine name={name} />
-      </div>
+    <div className={cn("flex flex-col", editingNpc ? "gap-0" : "gap-6")}>
+      {editingNpc ? null : (
+        <div className="flex flex-col gap-2">
+          <PageHeader title={serviceTitle(name)} actions={<ServiceActions name={name} service={service.data} />} />
+          <ActiveRunLine run={run} name={name} />
+          <ServiceOnlineLine name={name} />
+        </div>
+      )}
 
       <Tabs
         value={tab}
@@ -122,9 +126,9 @@ export function ServicePage() {
             replace: true,
           })
         }
-        className="gap-6"
+        className={editingNpc ? "gap-0" : "gap-6"}
       >
-        {tabs ? (
+        {editingNpc ? null : tabs ? (
           tabs.length > 1 ? (
             <TabsList className="w-full sm:w-fit">
               <TabsTrigger value="console" className="sm:px-3">

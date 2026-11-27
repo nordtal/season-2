@@ -8,6 +8,7 @@ import org.bukkit.FireworkEffect;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -78,6 +79,15 @@ public final class WorldEffects implements Listener {
     /** One dust speck on an area editor's edge for {@code admin} alone, red while the shape cannot be saved. */
     public void areaEdgePoint(final Player admin, final double x, final double y, final double z, final boolean valid) {
         admin.spawnParticle(Particle.DUST, x, y, z, 1, 0, 0, 0, 0, valid ? AREA_EDGE_VALID : AREA_EDGE_INVALID);
+    }
+
+    /** Removes any active firework rocket boosting {@code player} so it stops accelerating them. */
+    public static void cancelBoost(final Player player) {
+        for (final Entity nearby : player.getNearbyEntities(8, 8, 8)) {
+            if (nearby instanceof final Firework firework && player.equals(firework.getAttachedTo())) {
+                firework.remove();
+            }
+        }
     }
 
     /**

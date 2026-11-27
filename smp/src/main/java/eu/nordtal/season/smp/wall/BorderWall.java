@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.wall;
 import com.destroystokyo.paper.event.player.PlayerElytraBoostEvent;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.smp.config.CustomBorderSpec;
+import eu.nordtal.season.smp.feedback.WorldEffects;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,7 +24,6 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EnderPearl;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Firework;
 import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
@@ -478,10 +478,10 @@ public final class BorderWall implements Listener {
             final double[] bounce = Push.glide(wall, from.getX(), from.getZ(), dx, dz);
             if (crossed) {
                 event.setCancelled(true);
-                cancelBoost(player);
+                WorldEffects.cancelBoost(player);
             }
             if (bounce != null) {
-                cancelBoost(player);
+                WorldEffects.cancelBoost(player);
                 player.setVelocity(
                         new Vector(bounce[0], Math.max(player.getVelocity().getY(), Push.LIFT), bounce[1]));
                 bounced.put(player.getUniqueId(), clock.millis());
@@ -513,15 +513,6 @@ public final class BorderWall implements Listener {
         if (drawn != null && !bypass(player) && !drawn.wall().inside(at.getX(), at.getZ())) {
             event.setCancelled(true);
             feedback(player);
-        }
-    }
-
-    /** Removes any active firework rocket boosting {@code player} so it stops pulling into the wall. */
-    private static void cancelBoost(final Player player) {
-        for (final Entity nearby : player.getNearbyEntities(8, 8, 8)) {
-            if (nearby instanceof final Firework firework && player.equals(firework.getAttachedTo())) {
-                firework.remove();
-            }
         }
     }
 
@@ -765,7 +756,7 @@ public final class BorderWall implements Listener {
             return;
         }
         if (player.isGliding()) {
-            cancelBoost(player);
+            WorldEffects.cancelBoost(player);
         }
         final double[] velocity = Push.velocity(
                 drawn.wall(),

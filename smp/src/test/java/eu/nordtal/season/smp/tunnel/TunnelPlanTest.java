@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.Rail;
@@ -107,11 +110,9 @@ class TunnelPlanTest {
         assertEquals(new BlockPos(-2, 64, -2), plan.rails().get(2).pos());
         assertEquals(Rail.Shape.EAST_WEST, plan.rails().get(2).shape());
 
-        assertEquals(1, plan.removeBlocks().size());
-        assertEquals(new BlockPos(-2, 68, -1), plan.removeBlocks().getFirst());
-        assertEquals(1, plan.rotateStairs().size());
-        assertEquals(new BlockPos(-2, 68, 0), plan.rotateStairs().getFirst().pos());
-        assertEquals(BlockFace.SOUTH, plan.rotateStairs().getFirst().newFacing());
+        assertEquals(List.of(new BlockPos(-2, 68, -1), new BlockPos(-2, 68, 0)), plan.removeBlocks());
+        assertEquals(7, plan.stairs().size());
+        assertFalse(plan.stairs().stream().anyMatch(s -> s.pos().equals(new BlockPos(-2, 68, 0))));
 
         assertEquals(TunnelHeading.WEST, plan.nextFrame().heading());
         assertEquals(new BlockPos(-3, 64, -2), plan.nextFrame().origin());
@@ -121,6 +122,68 @@ class TunnelPlanTest {
         assertTrue(footprint.contains(new BlockPos(0, 63, -2)));
         assertTrue(footprint.contains(new BlockPos(-2, 68, -1)));
         assertTrue(footprint.contains(new BlockPos(-2, 68, 0)));
+    }
+
+    @Test
+    void ninetyDegreeRightTurnRemovesOverhangingInnerCornerStairAndPlacesOuterCornerStairs() {
+        final TunnelFrame active = new TunnelFrame("nordtal", new BlockPos(0, 64, -2), TunnelHeading.NORTH, 2);
+        final TunnelPlan.StepPlan plan = TunnelPlan.planZone(active, TunnelZone.TURN_RIGHT);
+
+        assertEquals(75, plan.carveBlocks().size());
+        assertEquals(3, plan.rails().size());
+        assertEquals(new BlockPos(0, 64, -2), plan.rails().get(0).pos());
+        assertEquals(Rail.Shape.SOUTH_EAST, plan.rails().get(0).shape());
+        assertEquals(new BlockPos(1, 64, -2), plan.rails().get(1).pos());
+        assertEquals(Rail.Shape.EAST_WEST, plan.rails().get(1).shape());
+        assertEquals(new BlockPos(2, 64, -2), plan.rails().get(2).pos());
+        assertEquals(Rail.Shape.EAST_WEST, plan.rails().get(2).shape());
+
+        assertEquals(List.of(new BlockPos(2, 68, -1), new BlockPos(2, 68, 0)), plan.removeBlocks());
+        assertEquals(7, plan.stairs().size());
+        assertFalse(plan.stairs().stream().anyMatch(s -> s.pos().equals(new BlockPos(2, 68, 0))));
+
+        assertEquals(TunnelHeading.EAST, plan.nextFrame().heading());
+        assertEquals(new BlockPos(3, 64, -2), plan.nextFrame().origin());
+        assertEquals(5, plan.nextFrame().length());
+
+        final Set<BlockPos> footprint = plan.protectionFootprint();
+        assertTrue(footprint.contains(new BlockPos(0, 63, -2)));
+        assertTrue(footprint.contains(new BlockPos(2, 68, -1)));
+        assertTrue(footprint.contains(new BlockPos(2, 68, 0)));
+    }
+
+    @Test
+    void everyCeilingStairFacesUncarvedWallAcrossLeftAndRightTurnsInAllHeadings() {
+        for (final TunnelHeading heading : TunnelHeading.values()) {
+            for (final TunnelZone turn : List.of(TunnelZone.TURN_LEFT, TunnelZone.TURN_RIGHT)) {
+                final TunnelFrame start = new TunnelFrame("nordtal", new BlockPos(0, 64, 0), heading, 0);
+                final TunnelPlan.StepPlan step1 = TunnelPlan.planStart(start);
+                final TunnelPlan.StepPlan step2 = TunnelPlan.planZone(step1.nextFrame(), TunnelZone.CENTER);
+                final TunnelPlan.StepPlan turnStep = TunnelPlan.planZone(step2.nextFrame(), turn);
+                final TunnelPlan.StepPlan afterTurn = TunnelPlan.planZone(turnStep.nextFrame(), TunnelZone.CENTER);
+
+                final Set<BlockPos> carved = new HashSet<>();
+                final Map<BlockPos, BlockFace> stairs = new HashMap<>();
+                for (final TunnelPlan.StepPlan step : List.of(step1, step2, turnStep, afterTurn)) {
+                    carved.addAll(step.carveBlocks());
+                    step.removeBlocks().forEach(stairs::remove);
+                    for (final TunnelPlan.StairPlacement stair : step.stairs()) {
+                        stairs.put(stair.pos(), stair.facing());
+                    }
+                }
+                final int turnCol = turn.isTurnLeft() ? -2 : 2;
+                assertFalse(stairs.containsKey(step2.nextFrame().at(turnCol, 4, 0)));
+                assertFalse(stairs.containsKey(step2.nextFrame().at(turnCol, 4, -1)));
+                for (final Map.Entry<BlockPos, BlockFace> entry : stairs.entrySet()) {
+                    final BlockPos pos = entry.getKey();
+                    final BlockFace face = entry.getValue();
+                    final BlockPos backing = pos.offset(face.getModX(), 0, face.getModZ());
+                    assertFalse(
+                            carved.contains(backing),
+                            "Stair at " + pos + " facing " + face + " overhangs carved " + backing);
+                }
+            }
+        }
     }
 
     @Test

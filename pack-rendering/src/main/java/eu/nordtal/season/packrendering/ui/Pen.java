@@ -153,6 +153,17 @@ public final class Pen {
         return this;
     }
 
+    /** Draws {@code text} in the five-pixel font lowered {@code shift} pixels below the text row. */
+    public Pen small(final int shift, final String text, final TextColor colour) {
+        final String folded = MenuFont.fold(text);
+        final int advance = MenuFont.width(folded);
+        if (layer == Layer.ART) {
+            return move(advance);
+        }
+        put(smallFont(shift), colour, folded, advance);
+        return this;
+    }
+
     /** Draws {@code symbol} in the ui text font {@code shift} pixels below the text row, and moves 8 on. */
     public Pen symbol(final int shift, final Symbol symbol, final TextColor colour) {
         if (layer == Layer.ART) {
@@ -251,6 +262,16 @@ public final class Pen {
     /** The ui art font {@code shift} pixels below the text row. */
     public static String artFont(final int shift) {
         return font(Glyphs.FONT_UI_ART, shift, "art");
+    }
+
+    /** The five-pixel ui font {@code shift} pixels below the text row. */
+    public static String smallFont(final int shift) {
+        return font(Glyphs.FONT_UI_SMALL_AT, shift, "small");
+    }
+
+    /** The ride map overlay font {@code shift} pixels below the text row. */
+    public static String mapFont(final int shift) {
+        return font(Glyphs.FONT_UI_MAP, shift, "map");
     }
 
     private static String font(final Map<Integer, String> fonts, final int shift, final String what) {

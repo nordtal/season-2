@@ -185,6 +185,11 @@ public final class DialogCanvas {
         return place(x, y, false, line -> line.bold(text, colour));
     }
 
+    /** Places five-pixel small text at ({@code x}, {@code y}) in {@code colour}. */
+    public DialogCanvas small(final int x, final int y, final String text, final TextColor colour) {
+        return place(x, y, false, line -> line.small(text, colour));
+    }
+
     /** Places a 7 by 7 symbol at ({@code x}, {@code y}) in {@code colour}. */
     public DialogCanvas symbol(final int x, final int y, final Symbol symbol, final TextColor colour) {
         return place(x, y, false, line -> line.symbol(symbol, colour));

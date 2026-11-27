@@ -60,6 +60,8 @@ class ResourcePackTest {
                             Glyphs.FONT_UI_SILENT),
                     Glyphs.FONT_UI_TEXT.values().stream(),
                     Glyphs.FONT_UI_ART.values().stream(),
+                    Glyphs.FONT_UI_SMALL_AT.values().stream(),
+                    Glyphs.FONT_UI_MAP.values().stream(),
                     Glyphs.FONT_UI_DIALOG.values().stream(),
                     Stream.of(Glyphs.FONT_NPC),
                     Glyphs.FONT_NPC_TEXT.values().stream(),

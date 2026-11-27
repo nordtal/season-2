@@ -180,7 +180,13 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             Map.entry("0.139.0", "149"),
             Map.entry("0.140.0", "149"),
             Map.entry("0.141.0", "149"),
-            Map.entry("0.142.0", "149"));
+            Map.entry("0.142.0", "149"),
+            Map.entry("0.143.0", "151"),
+            Map.entry("0.144.0", "151"),
+            Map.entry("0.145.0", "151"),
+            Map.entry("0.146.0", "151"),
+            Map.entry("0.147.0", "151"),
+            Map.entry("0.148.0", "151"));
 
     /** The privileges a release no longer uses, with that release. A grant may go in the release after it. */
     private static final Map<String, String> NO_LONGER_USED = noLongerUsed();
@@ -335,6 +341,8 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             // The season phase, which the launch date, maintenance and the game mode replaced.
             listed(unused, "0.74.0", role, "SELECT", "season_phase", "id", "phase", "updated", "launch");
             listed(unused, "0.74.0", role, "SELECT", "season_phase", "smp_start", "fresh_start");
+            // Every name plate is a pill, so no standing service reads plate_style.
+            listed(unused, "0.133.0", role, "SELECT", "npc", "plate_style");
         }
         return Map.copyOf(unused);
     }

@@ -59,12 +59,12 @@ class MapPackTest {
     void everyGlyphOfBothImagesIsInThePackEvenWhereNoTileExists() throws IOException {
         final Map<String, byte[]> files = MapPack.files(MapRender.draw(tiles, MapArea.PLAY, MapPack.SCALES));
 
-        assertEquals(100, textures(files, 8));
-        assertEquals(25, textures(files, 16));
-        assertEquals(100, count(text(files, "assets/nordtal/font/map_8.json"), "\"type\":\"bitmap\""));
-        assertEquals(25, count(text(files, "assets/nordtal/font/map_16.json"), "\"type\":\"bitmap\""));
+        assertEquals(400, textures(files, 8));
+        assertEquals(100, textures(files, 16));
+        assertEquals(800, count(text(files, "assets/nordtal/font/map_8.json"), "\"type\":\"bitmap\""));
+        assertEquals(200, count(text(files, "assets/nordtal/font/map_16.json"), "\"type\":\"bitmap\""));
         final BufferedImage corner =
-                ImageIO.read(new ByteArrayInputStream(files.get("assets/nordtal/textures/map/8/9_9.png")));
+                ImageIO.read(new ByteArrayInputStream(files.get("assets/nordtal/textures/map/8/19_19.png")));
         assertEquals(MapPack.GLYPH, corner.getWidth());
         assertEquals(0, corner.getRGB(0, 0) >>> 24);
     }

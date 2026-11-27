@@ -11,13 +11,16 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * What an NPC says, as steps from {@code start}.
- * A step shows one text and then offers up to three answers, hands the player to a menu, or goes to its {@code next}
- * step; without a next step the dialogue ends.
+ * A step shows one or more explicit pages and then offers up to three answers, hands the player to a menu, or goes to
+ * its {@code next} step; without a next step the dialogue ends.
  */
 public record Dialogue(String start, List<Step> steps) {
 
     /** The most answers a step offers. */
     public static final int MOST_ANSWERS = 3;
+
+    /** The most explicit pages a single step holds. */
+    public static final int MOST_PAGES = 20;
 
     public Dialogue {
         Objects.requireNonNull(start, "start");
@@ -47,19 +50,19 @@ public record Dialogue(String start, List<Step> steps) {
         return List.copyOf(problems);
     }
 
-    /** One text, and what follows it. */
+    /** One or more explicit pages of text, and what follows them. */
     public record Step(
             String id,
             int x,
             int y,
-            Words text,
+            List<Words> pages,
             List<Answer> answers,
             @Nullable String next,
             @Nullable String menu) {
 
         public Step {
             Objects.requireNonNull(id, "id");
-            Objects.requireNonNull(text, "text");
+            pages = pages == null ? List.of() : List.copyOf(pages);
             answers = answers == null ? List.of() : List.copyOf(answers);
         }
 
@@ -70,11 +73,20 @@ public record Dialogue(String start, List<Step> steps) {
 
         List<String> problems(final Set<String> ids, final Set<String> menus) {
             final List<String> problems = new ArrayList<>();
-            if (text.en().isBlank()) {
-                problems.add("Step " + id + " has no English text.");
+            if (pages.isEmpty()) {
+                problems.add("Step " + id + " has no pages.");
+            } else if (pages.size() > MOST_PAGES) {
+                problems.add("Step " + id + " has " + pages.size() + " pages, at most " + MOST_PAGES + ".");
             }
-            if (text.de().isBlank()) {
-                problems.add("Step " + id + " has no German text.");
+            for (int i = 0; i < pages.size(); i++) {
+                final Words page = pages.get(i);
+                final String name = pages.size() == 1 ? "Step " + id : "Page " + (i + 1) + " of step " + id;
+                if (page.en().isBlank()) {
+                    problems.add(name + " has no English text.");
+                }
+                if (page.de().isBlank()) {
+                    problems.add(name + " has no German text.");
+                }
             }
             if (answers.size() > MOST_ANSWERS) {
                 problems.add("Step " + id + " offers " + answers.size() + " answers, at most " + MOST_ANSWERS + ".");

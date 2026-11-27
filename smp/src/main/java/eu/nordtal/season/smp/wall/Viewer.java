@@ -5,15 +5,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.jspecify.annotations.Nullable;
 
-/** The panels one player's client holds: each one's entity, height and look, and the heights they cover. */
+/** The panels one player's client holds: each one's entity, height and look, and how far they are stretched. */
 final class Viewer {
 
     private final String world;
     private final Map<Panel, Shown> shown = new HashMap<>();
     private double base = Double.NaN;
-    private Band.@Nullable Range range;
+    private boolean skyward;
+    private double stretchedFrom;
+    private long turnedAt = Long.MIN_VALUE / 2;
 
     Viewer(final String world) {
         this.world = world;
@@ -32,13 +33,27 @@ final class Viewer {
         this.base = base;
     }
 
-    /** The heights the field's panels cover, or null before the first. */
-    Band.@Nullable Range range() {
-        return range;
+    /** Whether the field's panels stretch toward the wall up to the build limit, not toward the band on the ground. */
+    boolean skyward() {
+        return skyward;
     }
 
-    void reshape(final Band.Range range) {
-        this.range = range;
+    /** Turns the stretch around at {@code now}, in milliseconds, from wherever the client has brought it. */
+    void turn(final boolean skyward, final long now) {
+        stretchedFrom = stretched(now);
+        turnedAt = now;
+        this.skyward = skyward;
+    }
+
+    /** How far the client has stretched the field's panels at {@code now}: 0 the ground band, 1 the whole wall. */
+    double stretched(final long now) {
+        final double target = skyward ? 1 : 0;
+        return stretchedFrom + (target - stretchedFrom) * (1 - left(now) / (double) Band.STRETCH_TICKS);
+    }
+
+    /** The ticks the client still takes at {@code now} to finish the stretch. */
+    int left(final long now) {
+        return (int) Math.clamp(Band.STRETCH_TICKS - (now - turnedAt) / 50, 0, Band.STRETCH_TICKS);
     }
 
     Map<Panel, Shown> shown() {

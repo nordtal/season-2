@@ -27,9 +27,9 @@ final class WheelSpin {
     private final int e;
     private final List<WheelTurn.Tick> turn;
 
-    WheelSpin(final int e) {
+    WheelSpin(final int e, final WheelTurn.Ending ending) {
         this.e = e;
-        this.turn = WheelTurn.ticks(e);
+        this.turn = WheelTurn.ticks(e, ending);
     }
 
     /** Body {@code body}'s prize at tick {@code t}, which turns with the disc. */

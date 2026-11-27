@@ -17,7 +17,7 @@ class DialogueTest {
 
     private static Step step(
             final String id, final List<Answer> answers, final @Nullable String next, final @Nullable String menu) {
-        return new Step(id, 0, 0, SAY, answers, next, menu);
+        return new Step(id, 0, 0, List.of(SAY), answers, next, menu);
     }
 
     @Test
@@ -40,7 +40,9 @@ class DialogueTest {
                         step("a", List.of(new Answer(SAY, "b")), "b", null),
                         step("a", List.of(), null, null),
                         step("b", List.of(new Answer(SAY, null)), null, "shop"),
-                        new Step("c", 0, 0, new Words("Hi", " "), List.of(), "gone", null),
+                        new Step("c", 0, 0, List.of(new Words("Hi", " ")), List.of(), "gone", null),
+                        new Step("empty", 0, 0, List.of(), List.of(), null, null),
+                        new Step("multi", 0, 0, List.of(SAY, new Words(" ", "Ok")), List.of(), null, null),
                         step(
                                 "d",
                                 List.of(
@@ -60,6 +62,8 @@ class DialogueTest {
                         "Step b opens the menu shop, which no server offers.",
                         "Step c has no German text.",
                         "Step c goes on to step gone, which does not exist.",
+                        "Step empty has no pages.",
+                        "Page 2 of step multi has no English text.",
                         "Step d offers 4 answers, at most 3."),
                 dialogue.problems(Set.of("objectives")));
     }

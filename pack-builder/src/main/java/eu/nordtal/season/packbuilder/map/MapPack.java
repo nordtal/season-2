@@ -24,10 +24,13 @@ public final class MapPack {
     public static final List<Integer> SCALES = List.of(8, 16);
 
     /** The pixels along each side of one glyph's texture. */
-    public static final int GLYPH = 128;
+    public static final int GLYPH = 64;
 
     /** The codepoint of the glyph in the north-west corner; the others follow row by row. */
     public static final int FIRST_CODEPOINT = 0xF0000;
+
+    /** Codepoint offset for the same tiles lowered by one tile height ({@code ascent = -GLYPH}). */
+    public static final int SECOND_ROW_OFFSET = 0x1000;
 
     private MapPack() {}
 
@@ -50,7 +53,9 @@ public final class MapPack {
                 for (int tx = 0; tx < columns; tx++) {
                     final String texture = "map/" + scale + "/" + tx + "_" + ty + ".png";
                     files.put("assets/nordtal/textures/" + texture, Png.png(glyph(whole, tx, ty)));
-                    providers.add(provider("nordtal:" + texture, codepoint(columns, tx, ty)));
+                    final int code = codepoint(columns, tx, ty);
+                    providers.add(provider("nordtal:" + texture, 0, code));
+                    providers.add(provider("nordtal:" + texture, -GLYPH, code + SECOND_ROW_OFFSET));
                 }
             }
             files.put("assets/nordtal/font/map_" + scale + ".json", Json.bytes(Map.of("providers", providers)));
@@ -77,11 +82,11 @@ public final class MapPack {
         return glyph;
     }
 
-    private static Map<String, Object> provider(final String file, final int codepoint) {
+    private static Map<String, Object> provider(final String file, final int ascent, final int codepoint) {
         final Map<String, Object> provider = new LinkedHashMap<>();
         provider.put("type", "bitmap");
         provider.put("file", file);
-        provider.put("ascent", 0);
+        provider.put("ascent", ascent);
         provider.put("height", GLYPH);
         provider.put("chars", List.of(Character.toString(codepoint)));
         return provider;

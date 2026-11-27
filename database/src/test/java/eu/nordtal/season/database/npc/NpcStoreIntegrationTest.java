@@ -47,13 +47,20 @@ class NpcStoreIntegrationTest {
                                         "hello",
                                         0,
                                         0,
-                                        new Words(greeting, "Moin"),
+                                        List.of(new Words(greeting, "Moin")),
                                         List.of(
                                                 new Answer(new Words("Show me", "Zeig"), "menu"),
                                                 new Answer(new Words("Bye", "Tschüss"), null)),
                                         null,
                                         null),
-                                new Step("menu", 200, 0, new Words("Here.", "Hier."), List.of(), null, "objectives"))));
+                                new Step(
+                                        "menu",
+                                        200,
+                                        0,
+                                        List.of(new Words("Here.", "Hier.")),
+                                        List.of(),
+                                        null,
+                                        "objectives"))));
     }
 
     @Test
@@ -128,7 +135,14 @@ class NpcStoreIntegrationTest {
         assertEquals(2, store.published().get(id));
         assertEquals(
                 "Hello",
-                store.npc(id).orElseThrow().dialogue().steps().getFirst().text().en());
+                store.npc(id)
+                        .orElseThrow()
+                        .dialogue()
+                        .steps()
+                        .getFirst()
+                        .pages()
+                        .getFirst()
+                        .en());
     }
 
     @Test

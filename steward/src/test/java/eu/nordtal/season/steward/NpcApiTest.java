@@ -103,6 +103,11 @@ class NpcApiTest extends WebTestSupport {
                 publication(id, "Hi.", 0).replace("\"pose\"", "\"skin\":\"" + UUID.randomUUID() + "\",\"pose\""));
         assertEquals(400, skin.statusCode(), skin.body());
 
+        final HttpResponse<String> tall = put(npcs(id), publication(id, "word ".repeat(80), 0));
+        assertEquals(400, tall.statusCode(), tall.body());
+        assertTrue(tall.body().contains("exceeds"), tall.body());
+        assertTrue(tall.body().contains("\"code\":\"NPC_REFUSED\""), tall.body());
+
         final HttpResponse<String> elsewhere = put(npcs(UUID.randomUUID()), publication(id, "Hi.", 0));
         assertEquals(400, elsewhere.statusCode(), elsewhere.body());
         assertEquals(400, put(npcs(id), "{\"npc\":").statusCode());
@@ -129,8 +134,8 @@ class NpcApiTest extends WebTestSupport {
         assertEquals(200, measured.statusCode(), measured.body());
         final JsonArray answers = GSON.fromJson(measured.body(), JsonArray.class);
         assertTrue(answers.get(0).getAsJsonObject().get("fits").getAsBoolean());
-        assertTrue(answers.get(1).getAsJsonObject().get("fits").getAsBoolean(), "a long text turns its pages");
-        assertEquals(3, answers.get(1).getAsJsonObject().get("lineLimit").getAsInt());
+        assertFalse(answers.get(1).getAsJsonObject().get("fits").getAsBoolean(), "an oversized page is refused");
+        assertEquals(4, answers.get(1).getAsJsonObject().get("lineLimit").getAsInt());
         assertEquals(
                 400,
                 post("/api/npc-text/measure", "[{\"text\":\"Hi\",\"kind\":\"BODY\",\"answers\":5}]")
@@ -256,7 +261,9 @@ class NpcApiTest extends WebTestSupport {
                 .getAsJsonArray("steps")
                 .get(0)
                 .getAsJsonObject()
-                .getAsJsonObject("text")
+                .getAsJsonArray("pages")
+                .get(0)
+                .getAsJsonObject()
                 .get("en")
                 .getAsString();
     }
@@ -309,10 +316,10 @@ class NpcApiTest extends WebTestSupport {
                 + "\"pose\":\"STAND\",\"pitch\":1.2,"
                 + "\"equipment\":{\"HAND\":{\"item\":\"minecraft:iron_sword\",\"data\":\"AAAA\"}},"
                 + "\"dialogue\":{\"start\":\"hello\",\"steps\":["
-                + "{\"id\":\"hello\",\"x\":0,\"y\":0,\"text\":{\"en\":\"" + greeting + "\",\"de\":\"[de] Hello.\"},"
+                + "{\"id\":\"hello\",\"x\":0,\"y\":0,\"pages\":[{\"en\":\"" + greeting + "\",\"de\":\"[de] Hello.\"}],"
                 + "\"answers\":[{\"text\":{\"en\":\"Show me\",\"de\":\"[de] Show me\"},\"next\":\"menu\"},"
                 + "{\"text\":{\"en\":\"Bye\",\"de\":\"[de] Bye\"}}]},"
-                + "{\"id\":\"menu\",\"x\":200,\"y\":0,\"text\":{\"en\":\"Here.\",\"de\":\"[de] Here.\"},"
+                + "{\"id\":\"menu\",\"x\":200,\"y\":0,\"pages\":[{\"en\":\"Here.\",\"de\":\"[de] Here.\"}],"
                 + "\"answers\":[],\"menu\":\"objectives\"}]}}";
     }
 

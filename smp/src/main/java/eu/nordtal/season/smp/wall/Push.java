@@ -7,21 +7,41 @@ import org.jspecify.annotations.Nullable;
 /** The push back inside for a player who walked through the wall. */
 final class Push {
 
-    static final double HORIZONTAL = 1.4;
-    static final double UP = 0.35;
+    /** The speed in blocks per tick that turns a player on foot back, a little above a sprint. */
+    static final double WALK = 0.4;
+
+    /** The speed in blocks per tick that turns a glider or a vehicle back, above the fastest glide into the wall. */
+    static final double REBOUND = 1.4;
+
+    /** The speed in blocks per tick that lifts a glider outside the wall while it turns back. */
+    static final double LIFT = 0.35;
+
+    /** How far before the wall a player on foot is turned back, in blocks, so the camera stays inside. */
+    static final double CUSHION = 0.75;
+
+    /** Whether a player on foot who moves by {@code dx}, {@code dz} from {@code x}, {@code z} comes up to the wall. */
+    static boolean reaches(final Wall wall, final double x, final double z, final double dx, final double dz) {
+        final double ahead = 1 + CUSHION / Math.hypot(dx, dz);
+        return Double.isFinite(wall.exit(x, z, x + dx * ahead, z + dz * ahead));
+    }
 
     /** A player is pushed at most this often, in milliseconds. */
     static final long PAUSE = 500;
 
     private Push() {}
 
-    /** The velocity {x, y, z} that pushes a player at {@code x}, {@code z} back inside, or null while inside. */
-    static double @Nullable [] velocity(final Wall wall, final double x, final double z) {
+    /**
+     * The velocity {x, y, z} that pushes a player at {@code x}, {@code z} back inside, or null while inside.
+     * A player on foot keeps the {@code vertical} speed they have and a {@code gliding} one is lifted.
+     */
+    static double @Nullable [] velocity(
+            final Wall wall, final double x, final double z, final boolean gliding, final double vertical) {
         if (!wall.hasOutline() || wall.inside(x, z)) {
             return null;
         }
         final double[] inward = wall.inward(x, z);
-        return new double[] {inward[0] * HORIZONTAL, UP, inward[1] * HORIZONTAL};
+        final double speed = gliding ? REBOUND : WALK;
+        return new double[] {inward[0] * speed, gliding ? LIFT : vertical, inward[1] * speed};
     }
 
     record Mount(boolean restore, double x, double y, double z) {}
@@ -46,9 +66,9 @@ final class Push {
         if (onRail) return new Mount(restore, 0, 0, 0);
         if (outside) {
             final double[] normal = wall.inward(x, z);
-            return new Mount(true, normal[0] * HORIZONTAL, vertical, normal[1] * HORIZONTAL);
+            return new Mount(true, normal[0] * REBOUND, vertical, normal[1] * REBOUND);
         }
-        return new Mount(restore, -dx / speed * HORIZONTAL, vertical, -dz / speed * HORIZONTAL);
+        return new Mount(restore, -dx / speed * REBOUND, vertical, -dz / speed * REBOUND);
     }
 
     static Entity root(final Entity entity) {
@@ -76,7 +96,7 @@ final class Push {
         if (approach >= -1e-7) {
             return null;
         }
-        final double impulse = Math.max(-approach, HORIZONTAL) - approach;
+        final double impulse = Math.max(-approach, REBOUND) - approach;
         return new double[] {dx + impulse * normal[0], dz + impulse * normal[1]};
     }
 

@@ -34,7 +34,7 @@ class TunnelMinerWheelTest {
         final List<Boolean> foil = IntStream.range(0, WheelPlan.PLACES)
                 .mapToObj(i -> i == 0 || i == 1)
                 .toList();
-        final WheelPlan plan = new WheelPlan(WheelPlan.WAITING, new WheelPlan.Face(prizes, 0));
+        final WheelPlan plan = WheelPlan.waiting(new WheelPlan.Face(prizes, 0));
         final List<String> foilSprites = plan.foil(foil);
         final List<String> plainSprites = plan.base(foil);
         assertEquals(2 * WheelPlan.PLACES + 1, foilSprites.size());

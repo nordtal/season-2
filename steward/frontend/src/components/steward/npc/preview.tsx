@@ -1,23 +1,38 @@
 import { useEffect, useId, useState } from "react"
 import type { Npc, NpcStep, NpcTextMeasurement, NpcTextMeasureRequest, PlateColour, PlateIcon } from "@/lib/api"
-import type { Language } from "@/lib/npc"
+import { type Language, MOST_ANSWERS } from "@/lib/npc"
 import { artworkAddress, measureKey } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 
 /**
- * A step as the game draws it: the dialogue panel's own art from the pack, the first page of its text as Steward
- * measured it, and the NPC behind it in its skin. Every number is a pixel of the game's interface, as `DialogueScreen`
- * places it.
+ * Answers `value`, or the last one it had under the same `key` while it has none: a text being typed keeps the
+ * measurement of the text before it until its own arrives.
+ */
+export function useKept<T>(value: T | undefined, key: string): T | undefined {
+  const [kept, setKept] = useState({ key, value })
+  if (kept.key !== key || (value !== undefined && kept.value !== value)) setKept({ key, value })
+  return kept.key === key ? (value ?? kept.value) : value
+}
+
+/**
+ * A step as the game draws it: the dialogue panel's own art from the pack and the selected page of its text as Steward
+ * measured and fitted it. Every number is a pixel of the game's interface, as `DialogueScreen` places it.
  */
 
-/** The smallest screen the game scales its interface to. */
-const SCREEN = { width: 480, height: 270 }
 /** The panel: its width, its bottom above the screen's, and where the portrait, the tab and the text stand in it. */
-const PANEL = { width: 300, bottom: 16, portrait: 7, tab: 56, text: 60, mark: 288 }
+const PANEL = { width: 300, bottom: 16, portrait: 6, tab: 56, text: 60, mark: 288 }
+/** Even padding around the cropped panel, portrait overhang and bottom input hint marks, in game pixels. */
+const FRAME_PADDING = 8
+/** How far the portrait overhangs above the panel's top edge. */
+const PORTRAIT_OVERHANG = 10
+/** Bottom row of the input hint marks above the screen's bottom (top at 11, height 8). */
+const HINT_BOTTOM = 3
+/** The dark backdrop behind the cropped panel, matching the lower game screen above the bottom band. */
+const BACKDROP = "#181a20"
 /** The width of the panel art's first piece; a second piece draws the rest of the panel. */
 const TILE = 256
 /** The answers' rows: the strip, the chevron of the selected answer, its label and its number. */
-const ANSWER = { strip: 56, chevron: 60, label: 68, numberEnd: 291, step: 12, lowest: 33 }
+const ANSWER = { strip: 56, chevron: 60, label: 68, numberEnd: 291, step: 12, lowest: 36 }
 /** The name tab: its height and the space on each side of the name. */
 const TAB = { height: 13, padding: 6 }
 /** The height of the dark band along the bottom of the screen. */
@@ -38,19 +53,16 @@ const ACCENT = "#284894"
 /** The tab icon's width and the space after it, before the name. */
 const ICON = { width: 7, gap: 4 }
 
-/** The panel heights: speaking with up to three lines or four, and a question by its lines and answers. */
+/** The panel heights: speaking up to six lines, and a question by its lines and answers. */
 function heightOf(lines: number, answers: number): number {
-  if (answers === 0) return lines > 3 ? 58 : 48
-  return 26 + 10 * (Math.max(lines, 1) - 1) + 12 * (answers - 1) + 17
+  const count = Math.max(1, Math.min(answers === 0 ? 6 : 4, lines))
+  if (answers === 0) return Math.max(48, 31 + 10 * (count - 1))
+  return Math.max(48, 46 + 10 * (count - 1) + 12 * (answers - 1))
 }
 
 /** First spoken line's top row above the screen's bottom, matching DialogueScreen.firstLineBottom. */
-function firstLineBottom(height: number, lines: number, answers: number): number {
-  const top = PANEL.bottom + height
-  const areaTop = top - 6
-  const areaBottom = answers === 0 ? PANEL.bottom + 3 : ANSWER.lowest + ANSWER.step * (answers - 1)
-  const block = 7 + 10 * (Math.max(lines, 1) - 1)
-  return areaTop - Math.floor((areaTop - areaBottom - block) / 2)
+function firstLineBottom(height: number): number {
+  return PANEL.bottom + height - 12
 }
 
 /** Returns `hex` with every channel times `factor`, or moved `factor` of the way to white when `lighter`. */
@@ -61,19 +73,23 @@ function shade(hex: string, factor: number, lighter = false): string {
   return `rgb(${moved.join(",")})`
 }
 
-/** The requests that measure one step in one language: the name, the text and each answer. */
+/** The requests that measure one step in one language: the name, each page and each answer. */
 export function requestsOf(npc: Npc, step: NpcStep, language: Language): NpcTextMeasureRequest[] {
   return [
     { text: npc.name[language], kind: "NAME", answers: 0 },
-    { text: step.text[language], kind: "BODY", answers: step.answers.length },
+    ...step.pages.map((page, index) => ({
+      text: page[language],
+      kind: "BODY" as const,
+      answers: index === step.pages.length - 1 ? step.answers.length : 0,
+    })),
     ...step.answers.map((answer) => ({ text: answer.text[language], kind: "ANSWER" as const, answers: 0 })),
   ]
 }
 
-/** The pages the panel shows a text on: the measured ones, or the text on one line until they arrive. */
-function pagesOf(measurement: NpcTextMeasurement | undefined, text: string): string[][] {
-  if (measurement === undefined || measurement.pages.length === 0) return [text === "" ? [] : [text]]
-  return measurement.pages
+/** The lines the panel shows for one page: the fitted ones from Steward, or the raw text until they arrive. */
+function linesOf(measurement: NpcTextMeasurement | undefined, text: string, limit: number): string[] {
+  if (measurement === undefined) return text === "" ? [] : [text]
+  return measurement.fitted.slice(0, limit)
 }
 
 /** A line in the game's face. It is pressed into `room` when the browser's face sets it wider than the game's does. */
@@ -255,7 +271,7 @@ function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y:
   const id = `npc-bust-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
   const figure = `${id}-figure`
   return (
-    <svg x={x} y={y} width={40} height={40} viewBox="0 0 40 40" overflow="hidden">
+    <svg x={x} y={y} width={36} height={36} viewBox="0 0 36 36" overflow="hidden">
       <defs>
         <Shade id={`${id}-right`} factor={0.78} />
         <Shade id={`${id}-left`} factor={0.7} />
@@ -268,8 +284,8 @@ function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y:
           filterUnits="userSpaceOnUse"
           x={0}
           y={0}
-          width={40}
-          height={40}
+          width={36}
+          height={36}
           colorInterpolationFilters="sRGB"
         >
           <feComponentTransfer in="SourceAlpha" result="ink">
@@ -294,27 +310,27 @@ function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y:
           </feMerge>
         </filter>
         <clipPath id={`${id}-rest`}>
-          <rect width={40} height={6} />
-          <rect y={7} width={40} height={22} />
-          <rect y={30} width={40} height={10} />
+          <rect width={36} height={2} />
+          <rect y={3} width={36} height={22} />
+          <rect y={26} width={36} height={10} />
         </clipPath>
         <clipPath id={`${id}-top`}>
-          <rect y={6} width={40} height={1} />
+          <rect y={2} width={36} height={1} />
         </clipPath>
         <clipPath id={`${id}-bottom`}>
-          <rect y={29} width={40} height={1} />
+          <rect y={25} width={36} height={1} />
         </clipPath>
         <g id={figure}>
           <g filter={`url(#${id}-right)`}>
-            <Limb skin={skin} base={[44, 20, arm, 6]} over={[44, 36, arm, 6]} x={12 - 2 * arm} y={30} scale={2} />
+            <Limb skin={skin} base={[44, 20, arm, 6]} over={[44, 36, arm, 6]} x={10 - 2 * arm} y={26} scale={2} />
           </g>
           <g filter={`url(#${id}-left)`}>
-            <Limb skin={skin} base={[36, 52, arm, 6]} over={[52, 52, arm, 6]} x={28} y={30} scale={2} />
+            <Limb skin={skin} base={[36, 52, arm, 6]} over={[52, 52, arm, 6]} x={26} y={26} scale={2} />
           </g>
           <g filter={`url(#${id}-torso)`}>
-            <Limb skin={skin} base={[20, 20, 8, 6]} over={[20, 36, 8, 6]} x={12} y={29} scale={2} />
+            <Limb skin={skin} base={[20, 20, 8, 6]} over={[20, 36, 8, 6]} x={10} y={25} scale={2} />
           </g>
-          <Limb skin={skin} base={[8, 8, 8, 8]} over={[40, 8, 8, 8]} x={8} y={6} scale={3} />
+          <Limb skin={skin} base={[8, 8, 8, 8]} over={[40, 8, 8, 8]} x={6} y={2} scale={3} />
         </g>
       </defs>
       <g filter={`url(#${id}-outline)`}>
@@ -327,23 +343,23 @@ function Bust({ skin, slim, x, y }: { skin: string; slim: boolean; x: number; y:
 }
 
 /**
- * The portrait's empty well at 40 by 40, as vanilla's slot bevel draws it under an uploaded picture or a skin's bust.
+ * The portrait's empty well at 38 by 38, as vanilla's slot bevel draws it around the 36 by 36 picture interior.
  * It hides the default bust of the pack's portrait.
  */
 function Well({ x, y }: { x: number; y: number }) {
   return (
     <g>
-      <rect x={x} y={y} width={40} height={40} fill="#8b8b8b" />
-      <rect x={x} y={y} width={39} height={1} fill="#373737" />
-      <rect x={x} y={y} width={1} height={39} fill="#373737" />
-      <rect x={x + 1} y={y + 39} width={39} height={1} fill="#ffffff" />
-      <rect x={x + 39} y={y + 1} width={1} height={39} fill="#ffffff" />
+      <rect x={x} y={y} width={38} height={38} fill="#8b8b8b" />
+      <rect x={x} y={y} width={37} height={1} fill="#373737" />
+      <rect x={x} y={y} width={1} height={37} fill="#373737" />
+      <rect x={x + 1} y={y + 37} width={37} height={1} fill="#ffffff" />
+      <rect x={x + 37} y={y + 1} width={1} height={37} fill="#ffffff" />
     </g>
   )
 }
 
 /**
- * The NPC's uploaded picture in the portrait's well at 40 by 40, as the pack draws it.
+ * The NPC's uploaded picture inside the portrait's well at 36 by 36, as the pack draws it.
  * A small picture keeps its pixels; a larger one is smoothed, closer to the pack's average of each block.
  */
 function Artwork({ id, x, y }: { id: string; x: number; y: number }) {
@@ -361,8 +377,8 @@ function Artwork({ id, x, y }: { id: string; x: number; y: number }) {
       href={address}
       x={x}
       y={y}
-      width={40}
-      height={40}
+      width={36}
+      height={36}
       preserveAspectRatio="none"
       style={{ imageRendering: small ? "pixelated" : "auto" }}
     />
@@ -372,63 +388,89 @@ function Artwork({ id, x, y }: { id: string; x: number; y: number }) {
 export function DialoguePreview({
   npc,
   step,
+  pageIndex = 0,
   language,
   measured,
 }: {
   npc: Npc
   step: NpcStep
+  pageIndex?: number
   language: Language
   measured: Map<string, NpcTextMeasurement> | undefined
 }) {
-  const [name, body, ...answers] = requestsOf(npc, step, language)
-  const pages = pagesOf(measured?.get(measureKey(body)), body.text)
-  const lines = pages[0]
-  const last = pages.length === 1
-  const rows = last ? answers.length : 0
+  const requests = requestsOf(npc, step, language)
+  const name = requests[0]
+  const pageCount = Math.max(1, step.pages.length)
+  const shownIndex = Math.max(0, Math.min(pageIndex, pageCount - 1))
+  const body = requests[1 + shownIndex] ?? { text: "", kind: "BODY" as const, answers: 0 }
+  const answers = requests.slice(1 + step.pages.length)
+  const last = shownIndex === pageCount - 1
+  const rows = last ? Math.min(answers.length, MOST_ANSWERS) : 0
+  const limit = rows === 0 ? 6 : 4
+  const bodyMeasurement = useKept(
+    body.text === "" ? undefined : measured?.get(measureKey(body)),
+    body.text === "" ? "" : `${step.id}:${shownIndex}:${language}:${rows}`,
+  )
+  const lines = linesOf(bodyMeasurement, body.text, limit)
   const height = heightOf(lines.length, rows)
-  const left = (SCREEN.width - PANEL.width) / 2
+  const left = FRAME_PADDING
+  const viewWidth = PANEL.width + 2 * FRAME_PADDING
   const top = PANEL.bottom + height
-  /** The screen's row of a row `b` above its bottom. */
-  const row = (b: number) => SCREEN.height - b
+  const topEdge = top + PORTRAIT_OVERHANG + FRAME_PADDING
+  const viewHeight = topEdge - (HINT_BOTTOM - FRAME_PADDING)
+  /** The cropped frame's row of a row `b` above the screen's bottom. */
+  const row = (b: number) => topEdge - b
   const skin = skinAddress(npc)
-  const scale = 6
   // The tab takes the plate's colour and icon and fits the bold name; letters stand in until it is measured.
   const colour = PLATE_RGB[npc.plate.colour]
   const icon = npc.plate.icon === undefined ? 0 : ICON.width + ICON.gap
-  const nameWidth = Math.min(NAME_ROOM, measured?.get(measureKey(name))?.width ?? name.text.length * (ADVANCE + 1))
+  const nameMeasurement = useKept(
+    name.text === "" ? undefined : measured?.get(measureKey(name)),
+    name.text === "" ? "" : `${npc.id}:${language}`,
+  )
+  const answer0 = answers[0]
+  const answer1 = answers[1]
+  const answer2 = answers[2]
+  const answerMeasurements = [
+    useKept(
+      rows > 0 && answer0 !== undefined && answer0.text !== "" ? measured?.get(measureKey(answer0)) : undefined,
+      rows > 0 && answer0 !== undefined && answer0.text !== "" ? `${step.id}:0:${language}:${rows}` : "",
+    ),
+    useKept(
+      rows > 1 && answer1 !== undefined && answer1.text !== "" ? measured?.get(measureKey(answer1)) : undefined,
+      rows > 1 && answer1 !== undefined && answer1.text !== "" ? `${step.id}:1:${language}:${rows}` : "",
+    ),
+    useKept(
+      rows > 2 && answer2 !== undefined && answer2.text !== "" ? measured?.get(measureKey(answer2)) : undefined,
+      rows > 2 && answer2 !== undefined && answer2.text !== "" ? `${step.id}:2:${language}:${rows}` : "",
+    ),
+  ]
+  const shownName = nameMeasurement?.fitted[0] ?? name.text
+  const nameWidth = Math.min(NAME_ROOM, nameMeasurement?.width ?? name.text.length * (ADVANCE + 1))
   const tab = TAB.padding + icon + nameWidth + TAB.padding
   return (
     <svg
-      viewBox={`0 0 ${SCREEN.width} ${SCREEN.height}`}
+      viewBox={`0 0 ${viewWidth} ${viewHeight}`}
       role="img"
       aria-label={t("steward.npcs.preview")}
       className="block w-full rounded-lg border"
     >
-      <defs>
-        <linearGradient id="npc-preview-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#6f9be0" />
-          <stop offset="1" stopColor="#c3d6f2" />
-        </linearGradient>
-      </defs>
-      <rect width={SCREEN.width} height={SCREEN.height * 0.62} fill="url(#npc-preview-sky)" />
-      <rect y={SCREEN.height * 0.62} width={SCREEN.width} height={SCREEN.height * 0.38} fill="#5d8f3f" />
-      <Figure skin={skin} slim={npc.skinModel === "SLIM"} x={SCREEN.width / 2 - 4 * scale} y={20} scale={scale} />
-      <Art name="vignette_4" x={0} y={0} width={SCREEN.width} height={SCREEN.height} />
+      <rect width={viewWidth} height={viewHeight} fill={BACKDROP} />
       {[0, TILE].map((x) => (
-        <Art key={x} name="band_4" x={x} y={row(BAND)} width={TILE} height={BAND} />
+        <Art key={x} name="band_4" x={x} y={viewHeight - BAND} width={x === 0 ? TILE + 0.5 : TILE} height={BAND} />
       ))}
-      <Art name={`panel_${height}_0`} x={left} y={row(top)} width={TILE} height={height} />
+      <Art name={`panel_${height}_0`} x={left} y={row(top)} width={TILE + 0.5} height={height} />
       <Art name={`panel_${height}_1`} x={left + TILE} y={row(top)} width={PANEL.width - TILE} height={height} />
-      <Art name="portrait" x={left + PANEL.portrait} y={row(top + 10)} width={46} height={64} />
+      <Art name="portrait" x={left + PANEL.portrait} y={row(top + 10)} width={48} height={64} />
       {npc.artwork !== undefined ? (
         <>
-          <Well x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
-          <Artwork id={npc.artwork} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+          <Well x={left + PANEL.portrait + 5} y={row(top + 10) + 5} />
+          <Artwork id={npc.artwork} x={left + PANEL.portrait + 6} y={row(top + 10) + 6} />
         </>
       ) : skin === undefined ? null : (
         <>
-          <Well x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
-          <Bust skin={skin} slim={npc.skinModel === "SLIM"} x={left + PANEL.portrait + 3} y={row(top + 10) + 3} />
+          <Well x={left + PANEL.portrait + 5} y={row(top + 10) + 5} />
+          <Bust skin={skin} slim={npc.skinModel === "SLIM"} x={left + PANEL.portrait + 6} y={row(top + 10) + 6} />
         </>
       )}
       <g>
@@ -457,24 +499,25 @@ export function DialoguePreview({
         {npc.plate.icon === undefined ? null : (
           <PlateSymbol icon={npc.plate.icon} x={left + PANEL.tab + TAB.padding} y={row(top + 4)} colour="#ffffff" />
         )}
-        <Line x={left + PANEL.tab + TAB.padding + icon} y={row(top + 4)} room={NAME_ROOM} fill="#ffffff" bold>
-          {name.text}
+        <Line
+          x={left + PANEL.tab + TAB.padding + icon}
+          y={row(top + 4)}
+          room={Math.max(1, nameWidth)}
+          fill="#ffffff"
+          bold
+        >
+          {shownName}
         </Line>
       </g>
       {lines.map((line, index) => (
-        <Line
-          key={index}
-          x={left + PANEL.text}
-          y={row(firstLineBottom(height, lines.length, rows) - 10 * index)}
-          room={226}
-          fill={INK}
-        >
+        <Line key={index} x={left + PANEL.text} y={row(firstLineBottom(height) - 10 * index)} room={226} fill={INK}>
           {line}
         </Line>
       ))}
       {answers.slice(0, rows).map((answer, index) => {
         const b = ANSWER.lowest + ANSWER.step * (rows - 1 - index)
         const on = index === 0
+        const label = answerMeasurements[index]?.fitted[0] ?? answer.text
         return (
           <g key={index}>
             {on ? (
@@ -484,7 +527,7 @@ export function DialoguePreview({
               </>
             ) : null}
             <Line x={left + ANSWER.label} y={row(b - 2)} room={213} fill={on ? ACCENT : SOFT} bold={on}>
-              {answer.text}
+              {label}
             </Line>
             <Line x={left + ANSWER.numberEnd} y={row(b - 3)} room={8} fill={on ? ACCENT : FAINT} end small>
               {String(index + 1)}
@@ -492,22 +535,22 @@ export function DialoguePreview({
           </g>
         )
       })}
-      {last ? null : (
-        <Line x={left + 284} y={row(29)} room={16} fill={FAINT} end small>
-          {`1/${pages.length}`}
+      {pageCount > 1 && rows === 0 ? (
+        <Line x={left + 284} y={row(27)} room={16} fill={FAINT} end small>
+          {`${shownIndex + 1}/${pageCount}`}
         </Line>
-      )}
-      {rows === 0 ? <Art name="more" x={left + PANEL.mark} y={row(27)} width={5} height={3} /> : null}
+      ) : null}
+      {rows === 0 ? <Art name="more" x={left + PANEL.mark} y={row(26)} width={5} height={3} /> : null}
       <HintMarks answers={rows > 0} right={left + 298} y={row(11)} />
     </svg>
   )
 }
 
-/** The marks of the inputs the game asks for under the panel: the wheel and a left-click with answers, a right-click without. */
+/** The marks of the inputs the game asks for under the panel: the wheel and a right-click with answers, a right-click without. */
 function HintMarks({ answers, right, y }: { answers: boolean; right: number; y: number }) {
   return answers ? (
     <>
-      <Art name="mouse_left" x={right - 7} y={y} width={7} height={8} />
+      <Art name="mouse_right" x={right - 7} y={y} width={7} height={8} />
       <Art name="mouse_wheel" x={right - 7 - 9 - 7} y={y} width={7} height={8} />
     </>
   ) : (

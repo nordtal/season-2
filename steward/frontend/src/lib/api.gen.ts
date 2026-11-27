@@ -250,7 +250,7 @@ export type NpcTextMeasureRequest = {
 
 export type NpcTextMeasurement = {
   lines: string[]
-  pages: string[][]
+  fitted: string[]
   width: number
   room: number
   lineLimit: number
@@ -1492,7 +1492,7 @@ export type NpcStep = {
   id: string
   x: number
   y: number
-  text: Words
+  pages: Words[]
   answers: NpcAnswer[]
   next?: string
   menu?: string

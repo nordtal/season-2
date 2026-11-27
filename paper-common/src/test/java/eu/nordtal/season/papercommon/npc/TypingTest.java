@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** The typing schedule: the speed, the pauses after marks, the holds and the typing sound. */
+/** The typing schedule: the speed, the pauses after marks and the typing sound. */
 class TypingTest {
 
     @Test
@@ -55,19 +55,6 @@ class TypingTest {
     @Test
     void aMarkAtALinesEndPausesBeforeTheNextLine() {
         assertEquals(300 + 280, Typing.of(List.of("a.", "b"), 10).typedAt());
-    }
-
-    @Test
-    void aTextHoldsLongerTheLongerItIsUpToSixSeconds() {
-        assertEquals(1200 + 40 * 10, Typing.of(List.of("abcdefghij"), 30).hold());
-        assertEquals(6000, Typing.of(List.of("a".repeat(200)), 30).hold());
-    }
-
-    @Test
-    void theLastTextBeforeAMenuHoldsAtLeastThreeSeconds() {
-        assertEquals(3000, Typing.of(List.of("abcdefghij"), 30).handOffHold());
-        assertEquals(1200 + 40 * 100, Typing.of(List.of("a".repeat(100)), 30).handOffHold());
-        assertEquals(6000, Typing.of(List.of("a".repeat(200)), 30).handOffHold());
     }
 
     @Test

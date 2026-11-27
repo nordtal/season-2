@@ -15,8 +15,8 @@ class SkipChoiceTest {
     private static final Dialogue TO_OBJECTIVES = new Dialogue(
             "hello",
             List.of(
-                    new Step("hello", 0, 0, new Words("Hello.", "Hallo."), List.of(), "go", null),
-                    new Step("go", 0, 0, new Words("Off you go.", "Los."), List.of(), null, "objectives")));
+                    new Step("hello", 0, 0, List.of(new Words("Hello.", "Hallo.")), List.of(), "go", null),
+                    new Step("go", 0, 0, List.of(new Words("Off you go.", "Los.")), List.of(), null, "objectives")));
 
     @Test
     void theMenusAreTheOnesTheStepsHandTo() {

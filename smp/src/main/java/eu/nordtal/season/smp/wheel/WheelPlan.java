@@ -7,15 +7,19 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * What the wheel shows of a player's face: waiting for the press, or turning in one variant.
+ * What the wheel shows of a player's face: waiting for the press, or turning in one variant and ending.
  * Body b shows the prize at place b, place 0 under the pointer, and a turn stops it at (b + variant) mod 12.
  *
  * @param variant the turn variant, how many places past whole turns the wheel stops, or {@link #WAITING}
+ * @param rebound whether the turn overshoots onto the far pin and rocks back instead of stopping directly
  * @param face the prizes on the wheel before this turn
  */
-record WheelPlan(int variant, Face face) {
+record WheelPlan(int variant, boolean rebound, Face face) {
 
     static final int PLACES = 12;
+
+    /** One in four spins uses the overshoot-and-rock-back ending, independent of the prize draw. */
+    static final int REBOUND_DENOMINATOR = 4;
 
     /** The variant of a wheel that waits for the press, whose prizes pop in. */
     static final int WAITING = -1;
@@ -91,16 +95,29 @@ record WheelPlan(int variant, Face face) {
         if (variant < WAITING || variant >= PLACES) {
             throw new IllegalArgumentException("the wheel has no variant " + variant);
         }
+        if (variant == WAITING && rebound) {
+            throw new IllegalArgumentException("a waiting wheel has no rebound ending");
+        }
+    }
+
+    /** Draws whether a spin uses the rebound ending, independently of prize selection, at a 25 percent chance. */
+    static boolean drawRebound(final Random random) {
+        return random.nextInt(REBOUND_DENOMINATOR) == 0;
     }
 
     /** The face waiting for the press, its prizes popping in. */
     static WheelPlan waiting(final Face face) {
-        return new WheelPlan(WAITING, face);
+        return new WheelPlan(WAITING, false, face);
     }
 
-    /** The face turning in {@code variant}. */
+    /** The face turning in {@code variant} with a direct stop. */
     static WheelPlan turning(final Face face, final int variant) {
-        return new WheelPlan(variant, face);
+        return turning(face, variant, false);
+    }
+
+    /** The face turning in {@code variant} with either a direct stop or a rebound ending. */
+    static WheelPlan turning(final Face face, final int variant, final boolean rebound) {
+        return new WheelPlan(variant, rebound, face);
     }
 
     /** The body whose prize stops under the pointer in {@code variant}. */
@@ -165,7 +182,10 @@ record WheelPlan(int variant, Face face) {
     }
 
     private String variantString() {
-        return variant == WAITING ? OPEN : String.valueOf(variant);
+        if (variant == WAITING) {
+            return OPEN;
+        }
+        return rebound ? variant + "r" : String.valueOf(variant);
     }
 
     /** The key the pack's turn selects a prize by: its item id without {@code minecraft:} and its components. */

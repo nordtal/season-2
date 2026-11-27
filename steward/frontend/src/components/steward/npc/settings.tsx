@@ -24,7 +24,6 @@ import { GameIcon } from "@/components/steward/game-icon"
 import { TakeInButton } from "@/components/steward/game-groups/take-in"
 import { FixedPlace } from "@/components/steward/game-groups/places"
 import { SettingsService } from "@/components/steward/reference-picker"
-import { German, germanKey } from "@/components/steward/npc/german"
 import { FigureCard, PLATE_ICONS, PLATE_RGB, PlateSketch, PlateSymbol } from "@/components/steward/npc/preview"
 import { Heading, Room, useKept, type Measured } from "@/components/steward/npc/step-panel"
 import { Hint } from "@/components/steward/status"
@@ -38,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
  * its skin and its portrait.
  */
 
-type Edit = (change: (npc: Npc) => Npc) => void
+type Edit = (change: (npc: Npc) => Npc, options?: { coalesce?: string }) => void
 
 const POSES: readonly Pose[] = ["STAND", "SIT", "CROUCH"]
 const SLOTS: readonly Slot[] = ["HEAD", "CHEST", "LEGS", "FEET", "HAND", "OFF_HAND"]
@@ -67,9 +66,14 @@ function Name({ npc, language, measured, edit }: { npc: Npc; language: Language;
       <Input
         id={id}
         lang={language}
+        data-focus-field={`npc-name:${language}`}
         value={text}
         maxLength={LONGEST_NAME}
-        onChange={(event) => edit((draft) => ({ ...draft, name: { ...draft.name, [language]: event.target.value } }))}
+        onChange={(event) =>
+          edit((draft) => ({ ...draft, name: { ...draft.name, [language]: event.target.value } }), {
+            coalesce: `npc-name:${language}`,
+          })
+        }
       />
       <Room measurement={measurement} />
     </Field>
@@ -606,13 +610,7 @@ export function NpcSettings({
         <section className="flex flex-col gap-3">
           <Heading>{t("steward.npcs.name")}</Heading>
           <Name npc={npc} language="en" measured={measured} edit={edit} />
-          <German
-            id={germanKey.name}
-            missing={npc.name.de.trim() === ""}
-            long={measured?.get(measureKey({ text: npc.name.de, kind: "NAME", answers: 0 }))?.fits === false}
-          >
-            <Name npc={npc} language="de" measured={measured} edit={edit} />
-          </German>
+          <Name npc={npc} language="de" measured={measured} edit={edit} />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field id={pose} label={t("steward.npcs.pose")}>
               <Select

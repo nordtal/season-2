@@ -1,6 +1,7 @@
 package eu.nordtal.season.database;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import eu.nordtal.season.database.npc.Npc;
 import eu.nordtal.season.database.npc.NpcStore;
@@ -29,6 +30,40 @@ class NpcPlateUpgradeIntegrationTest {
                         .bind("id", RUNA)
                         .mapTo(String.class)
                         .one()));
+        assertEquals(
+                new Npc.Plate(Npc.PlateColour.RED, Npc.PlateIcon.HEART),
+                NpcStore.using(database.dataSource()).npc(RUNA).orElseThrow().plate());
+    }
+
+    @Test
+    void droppingPlateStyleRemovesTheColumnAndConstraintWhileKeepingThePlate() {
+        final var database = TestDatabase.empty();
+        final var placeholders = DatabaseRole.placeholders(DatabaseRole.PREFIX);
+        database.migrate(placeholders, "149");
+        final var jdbi = Jdbi.create(database.dataSource());
+        jdbi.useHandle(handle ->
+                handle.execute("UPDATE npc SET plate_colour = 'RED', plate_icon = 'HEART' WHERE id = ?", RUNA));
+
+        database.migrate(placeholders, "150");
+
+        final boolean hasColumn = jdbi.withHandle(
+                handle -> handle.createQuery("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'npc' AND column_name = 'plate_style'
+                )
+                """).mapTo(Boolean.class).one());
+        final boolean hasConstraint = jdbi.withHandle(
+                handle -> handle.createQuery("""
+                SELECT EXISTS (
+                    SELECT 1 FROM pg_constraint c
+                    JOIN pg_class t ON t.oid = c.conrelid
+                    JOIN pg_namespace n ON n.oid = t.relnamespace
+                    WHERE n.nspname = 'public' AND t.relname = 'npc' AND c.conname = 'npc_plate_style_check'
+                )
+                """).mapTo(Boolean.class).one());
+        assertFalse(hasColumn);
+        assertFalse(hasConstraint);
         assertEquals(
                 new Npc.Plate(Npc.PlateColour.RED, Npc.PlateIcon.HEART),
                 NpcStore.using(database.dataSource()).npc(RUNA).orElseThrow().plate());

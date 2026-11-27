@@ -9,6 +9,7 @@
 #include <minecraft:fog.glsl>
 #include <minecraft:dynamictransforms.glsl>
 #include <minecraft:oit.glsl>
+#include <nordtal:wall_marker.glsl> // nordtal
 
 uniform sampler2D Sampler0;
 
@@ -31,7 +32,8 @@ layout(location = 6) in vec2 texCoordGlint;
 #endif
 layout(location = 7) in vec4 wallCoord; // nordtal, from item.vsh
 layout(location = 8) in vec3 wallView;  // nordtal, from item.vsh
-layout(location = 9) flat in float wallGround; // nordtal, from item.vsh
+layout(location = 9) flat in vec2 wallGround; // nordtal, from item.vsh
+layout(location = 10) in vec3 wallSpan; // nordtal, from item.vsh
 
 #ifndef OIT_ALPHA_ONLY
 layout(location = 0) out vec4 fragColor;
@@ -39,30 +41,21 @@ layout(location = 0) out vec4 fragColor;
 
 // BEGIN nordtal wall field
 
-// The marker: every texel of nordtal:item/border/field is this colour, #4A63D9, one step beside the
-// brand blue #4A63D8, and is not a colour drawn. No texture of Minecraft 26.3 or of the pack holds it.
-// Its alpha stays below 1, so the client draws the panel as translucent and blends the field.
-const vec3 WALL_MARKER = vec3(74.0, 99.0, 217.0) / 255.0;
-
 const float WALL_EYE = 1.62;        // blocks from the feet up to the camera, for a player standing
-const float WALL_ABOVE = 7.0;       // blocks: the band's upper end above the feet
-const float WALL_BELOW = 3.0;       // and its lower end below the ground, or below the feet when they are lower
-const float WALL_ROOM = 2.0;        // blocks at the band's upper end where only the flakes are, above the wall
+const float WALL_ABOVE = 13.0;      // blocks: the band's upper end above the ground
+const float WALL_BELOW = 3.0;       // and its lower end below the ground
+const float WALL_ROOM = 8.0;        // blocks at the band's upper end where only the flakes are, above the wall
 const float WALL_TOP = 5.0;         // blocks over which the wall fades in below its upper end
 const float WALL_BOTTOM = 1.75;     // blocks over which it fades out above the band's lower end
-const float WALL_SNOW_IN = 1.0;     // blocks below the band's upper end where a flake has come in whole: half the room
+const float WALL_SNOW_IN = 6.0;     // blocks below the band's upper end where a flake has come in whole
 const float WALL_SNOW_OUT = 0.25;   // blocks above the band's lower end where a flake starts to go
-const float WALL_FADE_START = 0.8;  // of the distance where the wall has faded out, where it starts to fade
-const float WALL_FADE_END = 30.0;   // blocks from the camera where the wall has faded out along its length, at the camera's height
-const float WALL_SLOPE = 0.75;      // blocks farther it reaches for each block it lies below the camera
-const float WALL_LEVEL = 6.0;       // blocks below the camera where it starts to reach farther
-const float WALL_DEPTH = 96.0;      // blocks below that where it reaches no farther
+const float WALL_FADE_START = 0.7;  // of the distance where the wall has faded out, where it starts to fade
+const float WALL_FADE_END = 128.0;  // blocks from the camera where the wall has faded out
+const float WALL_PALE_START = 6.0;  // blocks from the camera where the wall starts to pale
+const float WALL_PALE_END = 40.0;   // and from where it is as pale as it gets
+const float WALL_PALE = 0.4;        // how much of its strength the wall keeps there
 const float WALL_NEAR_START = 1.5;  // closer than this the wall shows its full strength
 const float WALL_NEAR_END = 6.0;    // farther than this it shows its normal one
-
-bool wallIsMarker(vec4 texel) {
-    return texel.a > 0.002 && all(lessThan(abs(texel.rgb - WALL_MARKER), vec3(0.0019)));
-}
 
 uint wallHash(uint x) {
     x ^= x >> 16u;
@@ -118,9 +111,9 @@ float wallDepth(float fromTop, float fromBottom) {
 }
 
 // How much of a flake shows at this depth below the band's upper end: none at the band's upper end,
-// all of it WALL_SNOW_IN blocks below, half way down the room above the wall, and all of it from
-// there until the last WALL_SNOW_OUT blocks of the band. So the snow fades in from the top and no
-// flake fades on its way down.
+// all of it WALL_SNOW_IN blocks below, still in the room above the wall, and all of it from there
+// until the last WALL_SNOW_OUT blocks of the band. So the snow fades in from the top and no flake
+// fades on its way down.
 float wallSnowShows(float fromTop, float fromBottom) {
     return wallEase(0.0, WALL_SNOW_IN, fromTop) * wallEase(0.0, WALL_SNOW_OUT, fromBottom);
 }
@@ -357,83 +350,47 @@ vec4 wallField(vec4 coord, vec3 view, float fromTop, float fromBottom, float fad
     colour = mix(colour, WALL_FLAKE, min(1.0, 2.0 * snow));
     alpha = mix(alpha, WALL_FLAKE_ALPHA, snow);
 
-    float reach = 1.0 - smoothstep(WALL_FADE_START * fadeEnd, fadeEnd, length(coord.zw));
+    // Strong near the camera only: the wall pales with its distance and then fades out, both softly.
+    float away = length(coord.zw);
+    float reach = mix(1.0, WALL_PALE, wallEase(WALL_PALE_START, WALL_PALE_END, away))
+                * (1.0 - wallEase(WALL_FADE_START * fadeEnd, fadeEnd, away));
     return vec4(colour, min(alpha * (1.0 + 0.2 * close), 0.97) * reach);
 }
 
-const float WALL_DOME_ALT_START = 1.5;   // altitude above ground where the flight dome starts to rise
-const float WALL_DOME_ALT_END = 4.5;     // altitude above ground where the dome reaches full apex headroom
-const float WALL_DOME_HALF_LOW = 10.0;   // dome half-width at low to mid altitude (20 blocks full width)
-const float WALL_DOME_HALF_HIGH = 30.0;  // capped dome half-width at high altitude (60 blocks full width)
-const float WALL_DOME_PROX_FULL = 10.0;  // horizontal distance where the flight dome reaches full opacity
-const float WALL_DOME_PROX_END = 30.0;   // horizontal distance where the flight dome fades out
+const float WALL_OVER = 64.0;       // blocks a panel's upper end stands above the world's build limit
+const float WALL_GROUNDED = 512.0;  // blocks a panel is tall while the wall is the ground band
+const float WALL_SKYWARD = 1024.0;  // and while the wall stands up to the build limit
+const float WALL_SKY_FADE = 48.0;   // blocks below the build limit over which the standing wall fades in
 
-// Smooth maximum of a and b with fillet width k.
-float wallSmoothMax(float a, float b, float k) {
-    float h = max(k - abs(a - b), 0.0) / k;
-    return max(a, b) + h * h * k * 0.25;
-}
-
-// Unified grounded border contour: a steady terrain-anchored band smoothly merged into an organic
-// flight dome centred on the player, anchored down to under - WALL_BELOW with no mid-air gap.
-// Underground (feet < under - 2.0), a local band stays at player height without stretching through rock.
+// The wall's contour: a steady band on the ground under the panel, anchored down to under - WALL_BELOW.
+// ground: x = the ground, y = blocks the band's upper end rises over what stands on that ground.
+// The server stretches a panel downwards while the player flies, and the client interpolates that, so
+// the panel's height says how far the wall's upper end has risen from the band to the build limit.
+// span: x = 1 at the panel's upper end and 0 at its lower end, y = x times the upper end's height,
+// z = 1 - x times the lower end's. Underground (feet < under - 2.0), a local band stays at the
+// player's height without stretching through rock.
 // Returns the field's colour, or a negative alpha where nothing is drawn.
-vec4 wallBand(vec4 coord, vec3 view, float ground, float gameTime) {
+vec4 wallBand(vec4 coord, vec3 view, vec2 ground, vec3 span, float gameTime) {
     float camera = coord.y - view.y;
     float feet = camera - WALL_EYE;
-    float under = ground > -100000.0 ? ground : feet;
+    float under = ground.x > -100000.0 ? ground.x : feet;
 
-    float groundTop = under + WALL_ABOVE;
+    float groundTop = under + WALL_ABOVE + ground.y;
     float groundBottom = under - WALL_BELOW;
-    float tFadeEnd = WALL_FADE_END + WALL_SLOPE * clamp(camera - coord.y - WALL_LEVEL, 0.0, WALL_DEPTH);
+    float fadeEnd = WALL_FADE_END;
 
-    float alt = max(0.0, feet - under);
-    float flight = wallEase(WALL_DOME_ALT_START, WALL_DOME_ALT_END, alt);
-    float domeProx = 1.0 - wallEase(WALL_DOME_PROX_FULL, WALL_DOME_PROX_END, abs(view.z));
-
-    float effectiveTop = groundTop;
-    float perimScale = 1.0;
-    float proxMask = 1.0;
-    float fadeEnd = tFadeEnd;
-
-    if (flight > 0.001 && domeProx > 0.001) {
-        float apexTop = mix(groundTop, feet + WALL_ABOVE, flight);
-        float domeRise = max(0.0, apexTop - groundTop);
-        float domeHalfWidth = mix(WALL_DOME_HALF_LOW, WALL_DOME_HALF_HIGH, smoothstep(10.0, 110.0, alt));
-
-        // Slow multi-frequency periodic waves deform the dome organically so it never reads as an ellipse.
-        float cWave1 = wallNoise(vec2(coord.x / 11.0 + gameTime * 24.0, gameTime * 36.0), vec2(24.0, 36.0), 11);
-        float cWave2 = wallNoise(vec2(coord.x / 4.5 - gameTime * 48.0, gameTime * 60.0 + 7.3), vec2(48.0, 60.0), 12);
-        float cWave3 = wallNoise(vec2(coord.x / 2.2 + gameTime * 72.0, gameTime * 90.0 + 19.1), vec2(72.0, 90.0), 13);
-        float contourNoise = (cWave1 - 0.5) * 0.55 + (cWave2 - 0.5) * 0.30 + (cWave3 - 0.5) * 0.15;
-
-        float organicHalfWidth = domeHalfWidth * (1.0 + 0.30 * contourNoise);
-        float u = abs(view.x) / organicHalfWidth;
-        float q2 = max(0.0, 1.0 - u * u);
-        float bell = pow(q2, 0.42);
-        float verticalWave = contourNoise * min(domeRise * 0.25, 5.5) * smoothstep(0.0, 0.25, bell);
-
-        float domeTop = (groundTop - 2.5) + (domeRise + 2.5) * bell + verticalWave;
-        float smoothK = 2.5 * flight;
-        float fullTop = wallSmoothMax(groundTop, domeTop, smoothK);
-        effectiveTop = mix(groundTop, fullTop, smoothstep(0.0, 0.25, domeProx));
-
-        float dBellDu = 0.84 * min(u, 1.0) * pow(max(q2, 0.02), -0.58) * (1.0 - smoothstep(0.96, 1.02, u));
-        float slope = (domeRise + 2.5) * dBellDu / organicHalfWidth;
-        perimScale = mix(1.0, inversesqrt(1.0 + slope * slope * 0.65), smoothstep(groundTop, groundTop + 3.0, coord.y));
-
-        float aboveGround = wallEase(groundTop, groundTop + 3.5, coord.y);
-        proxMask = mix(1.0, domeProx, aboveGround);
-        float domeReach = length(vec2(WALL_DOME_PROX_END, organicHalfWidth)) + 4.0;
-        fadeEnd = max(tFadeEnd, mix(tFadeEnd, domeReach, aboveGround));
-    }
+    float upperEnd = span.y / max(span.x, 0.0001);
+    float lowerEnd = span.z / max(1.0 - span.x, 0.0001);
+    float sky = wallEase(WALL_GROUNDED, WALL_SKYWARD, upperEnd - lowerEnd);
+    // The first blocks above the band fill a near view, so the top leaves the band slowly.
+    float top = mix(groundTop, max(groundTop, upperEnd - WALL_OVER), sky * sky * sky);
 
     vec4 field = vec4(0.0);
-    float fromTop = (effectiveTop - coord.y) * perimScale;
+    float fromTop = top - coord.y;
     float fromBottom = coord.y - groundBottom;
     if (fromTop >= 0.0 && fromBottom >= 0.0 && length(coord.zw) <= fadeEnd) {
         field = wallField(coord, view, fromTop, fromBottom, fadeEnd, gameTime);
-        field.a *= proxMask;
+        field.a *= mix(1.0, wallEase(0.0, WALL_SKY_FADE, fromTop), sky);
     }
 
     vec4 cave = vec4(0.0);
@@ -477,7 +434,10 @@ vec4 calculateFinalColor(vec4 color, bool wall) {
     vec4 fogColor = FogColor;
     #endif
 
-    return apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, fogColor);
+    // nordtal: a panel's vertices lie far beyond the fog, so the wall measures its distances per fragment
+    float spherical = wall ? length(wallView) : sphericalVertexDistance;
+    float cylindrical = wall ? max(length(wallView.xz), abs(wallView.y)) : cylindricalVertexDistance;
+    return apply_fog(color, spherical, cylindrical, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, fogColor);
 }
 #endif
 
@@ -491,7 +451,7 @@ void main() {
     bool wall = wallIsMarker(texel);
 
     if (wall) {
-        color = wallBand(wallCoord, wallView, wallGround, GameTime);
+        color = wallBand(wallCoord, wallView, wallGround, wallSpan, GameTime);
         color.a *= ColorModulator.a;
         if (color.a < 0.012) {
             discard;

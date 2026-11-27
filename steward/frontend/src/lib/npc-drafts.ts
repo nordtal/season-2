@@ -14,16 +14,27 @@ function file(id: string): string {
   return PREFIX + id
 }
 
+function hasPages(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || !("dialogue" in value)) return false
+  const dialogue = value.dialogue
+  if (typeof dialogue !== "object" || dialogue === null || !("steps" in dialogue) || !Array.isArray(dialogue.steps)) {
+    return false
+  }
+  return dialogue.steps.every(
+    (step: unknown) => typeof step === "object" && step !== null && "pages" in step && Array.isArray(step.pages),
+  )
+}
+
+function isDraft(value: unknown): value is NpcDraft {
+  return typeof value === "object" && value !== null && "npc" in value && "base" in value && hasPages(value.npc)
+}
+
 function isDraftRecord(value: unknown): value is Record<string, NpcDraft> {
-  return typeof value === "object" && value !== null
+  return typeof value === "object" && value !== null && (!("draft" in value) || isDraft(value.draft))
 }
 
 export function useNpcDraft(id: string): NpcDraft | undefined {
   return useDraft(file(id), isDraftRecord).draft
-}
-
-function isDraft(value: unknown): value is NpcDraft {
-  return typeof value === "object" && value !== null && "npc" in value && "base" in value
 }
 
 /** The draft as it is now, outside a render. */

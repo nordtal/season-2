@@ -4,8 +4,10 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -29,14 +31,28 @@ final class TunnelExecutor {
     private final Consumer<Block> railChanged;
     private final Predicate<Block> isStation;
     private final BiPredicate<Block, Boolean> removeStation;
+    private final DoubleSupplier dropRoll;
 
     TunnelExecutor(
             final Consumer<Block> railChanged,
             final Predicate<Block> isStation,
             final BiPredicate<Block, Boolean> removeStation) {
+        this(
+                railChanged,
+                isStation,
+                removeStation,
+                () -> ThreadLocalRandom.current().nextDouble());
+    }
+
+    TunnelExecutor(
+            final Consumer<Block> railChanged,
+            final Predicate<Block> isStation,
+            final BiPredicate<Block, Boolean> removeStation,
+            final DoubleSupplier dropRoll) {
         this.railChanged = railChanged;
         this.isStation = isStation;
         this.removeStation = removeStation;
+        this.dropRoll = dropRoll;
     }
 
     /** Executes {@code plan} for {@code player} with {@code tool} after protections have already passed. */
@@ -56,7 +72,7 @@ final class TunnelExecutor {
         final World.Environment env = world.getEnvironment();
 
         placeRails(world, plan, previousFrame, zone, dominantRock, env, skipped);
-        applyTurnStairEdits(world, plan, skipped);
+        removeTurnStairs(world, plan, skipped);
         placeStairs(world, plan, dominantRock, env, skipped);
         placeLanterns(world, plan, skipped);
     }
@@ -68,6 +84,7 @@ final class TunnelExecutor {
             final TunnelPlan.StepPlan plan,
             final Map<Material, Integer> rockCounts,
             final Set<BlockPos> skipped) {
+        final World.Environment env = world.getEnvironment();
         for (final BlockPos pos : plan.carveBlocks()) {
             final Block block = world.getBlockAt(pos.x(), pos.y(), pos.z());
             final Material type = block.getType();
@@ -89,6 +106,9 @@ final class TunnelExecutor {
                 rockCounts.merge(type, 1, Integer::sum);
             }
             if (creative) {
+                block.setType(Material.AIR, false);
+            } else if (TunnelMaterials.isReducedDropRock(type, env)
+                    && !TunnelMaterials.shouldDropInTunnel(type, env, dropRoll.getAsDouble())) {
                 block.setType(Material.AIR, false);
             } else {
                 block.breakNaturally(tool, false, true);
@@ -174,7 +194,7 @@ final class TunnelExecutor {
         return true;
     }
 
-    private static void applyTurnStairEdits(
+    private static void removeTurnStairs(
             final World world, final TunnelPlan.StepPlan plan, final Set<BlockPos> skipped) {
         for (final BlockPos pos : plan.removeBlocks()) {
             if (skipped.contains(pos)) {
@@ -183,18 +203,6 @@ final class TunnelExecutor {
             final Block block = world.getBlockAt(pos.x(), pos.y(), pos.z());
             if (Tag.STAIRS.isTagged(block.getType())) {
                 block.setType(Material.AIR, false);
-            }
-        }
-        for (final TunnelPlan.StairRotation rot : plan.rotateStairs()) {
-            if (skipped.contains(rot.pos())) {
-                continue;
-            }
-            final Block block =
-                    world.getBlockAt(rot.pos().x(), rot.pos().y(), rot.pos().z());
-            if (block.getBlockData() instanceof final Stairs stairs) {
-                stairs.setFacing(rot.newFacing());
-                stairs.setHalf(Bisected.Half.TOP);
-                block.setBlockData(stairs, true);
             }
         }
     }

@@ -36,7 +36,7 @@ class WallTest {
 
         final double[] drift = Push.drift(wall, 65, 10);
         assertArrayEquals(new double[] {-Push.DRIFT, 0}, drift, 1e-9);
-        assertTrue(Math.hypot(drift[0], drift[1]) < Push.HORIZONTAL / 4);
+        assertTrue(Math.hypot(drift[0], drift[1]) < Push.WALK);
         assertNull(Push.drift(wall, 10, 10));
         assertTrue(Push.drifts(Push.DRIFT_PATIENCE));
         assertFalse(Push.drifts(Push.DRIFT_PATIENCE + 1));
@@ -192,7 +192,7 @@ class WallTest {
     void aShallowApproachGetsAnInwardImpulseBeforeTheCameraReachesThePlane() {
         final Wall wall = new Wall(List.of(L));
         final double[] bounce = Push.glide(wall, 59.1, 10, 0.03, 1.35);
-        assertArrayEquals(new double[] {-Push.HORIZONTAL, 1.35}, bounce, 1e-9);
+        assertArrayEquals(new double[] {-Push.REBOUND, 1.35}, bounce, 1e-9);
         assertNull(Push.glide(wall, 59.1, 10, 0, 1.35));
     }
 
@@ -297,19 +297,54 @@ class WallTest {
     void thePushPointsBackInsideFromBeyondAnEdgeAndFromTheNotch() {
         final Wall wall = new Wall(List.of(L));
 
-        final double[] south = Push.velocity(wall, 10, -0.5);
-        final double[] notch = Push.velocity(wall, 20, 21);
+        final double[] south = Push.velocity(wall, 10, -0.5, true, 0);
+        final double[] notch = Push.velocity(wall, 20, 21, true, 0);
 
-        assertArrayEquals(new double[] {0, Push.UP, Push.HORIZONTAL}, south, 1e-9);
-        assertArrayEquals(new double[] {0, Push.UP, -Push.HORIZONTAL}, notch, 1e-9);
-        assertNull(Push.velocity(wall, 10, 10));
+        assertArrayEquals(new double[] {0, Push.LIFT, Push.REBOUND}, south, 1e-9);
+        assertArrayEquals(new double[] {0, Push.LIFT, -Push.REBOUND}, notch, 1e-9);
+        assertNull(Push.velocity(wall, 10, 10, true, 0));
+        assertNull(Push.velocity(wall, 10, 10, false, 0));
+    }
+
+    @Test
+    void aBlockBeyondAnEdgeOrACornerIsOutsideAndTheLastBlockBeforeItIsNot() {
+        final Wall wall = new Wall(List.of(L));
+
+        assertFalse(BorderWall.outside(wall, 59, 10));
+        assertTrue(BorderWall.outside(wall, 60, 10));
+        assertFalse(BorderWall.outside(wall, 59, 0));
+        assertTrue(BorderWall.outside(wall, 60, -1));
+        assertTrue(BorderWall.outside(wall, 59, -1));
+        // The notch of the L: diagonally across its inner corner.
+        assertFalse(BorderWall.outside(wall, 29, 19));
+        assertTrue(BorderWall.outside(wall, 29, 20));
+        assertFalse(BorderWall.outside(wall, 30, 20));
+    }
+
+    @Test
+    void aPlayerOnFootIsPushedGentlyAndKeepsTheirFall() {
+        final Wall wall = new Wall(List.of(L));
+
+        assertArrayEquals(new double[] {0, -0.08, Push.WALK}, Push.velocity(wall, 10, -0.5, false, -0.08), 1e-9);
+        assertTrue(Push.WALK < Push.REBOUND / 3);
+    }
+
+    @Test
+    void aPlayerOnFootIsTurnedBackShortlyBeforeTheWallOnlyWhenWalkingTowardsIt() {
+        final Wall wall = new Wall(List.of(L));
+
+        assertTrue(Push.reaches(wall, 10, 0.9, 0, -0.2));
+        assertTrue(Push.reaches(wall, 10, 0.1, 0, -0.2));
+        assertFalse(Push.reaches(wall, 10, 1.2, 0, -0.2));
+        assertFalse(Push.reaches(wall, 10, 0.3, 0.2, 0));
+        assertFalse(Push.reaches(wall, 10, 0.3, 0, 0.2));
     }
 
     @Test
     void aPlayerJustOutsideTheOutlineIsPushedAlongTheInwardNormal() {
         final Wall wall = new Wall(List.of(L));
 
-        assertArrayEquals(new double[] {0, Push.UP, Push.HORIZONTAL}, Push.velocity(wall, 10, -0.01), 1e-9);
+        assertArrayEquals(new double[] {0, Push.LIFT, Push.REBOUND}, Push.velocity(wall, 10, -0.01, true, 0), 1e-9);
     }
 
     @Test
@@ -335,8 +370,7 @@ class WallTest {
     void aVehiclePushKeepsItsVerticalMotion() {
         final Wall wall = new Wall(List.of(L));
 
-        assertEquals(
-                new Push.Mount(true, -Push.HORIZONTAL, -0.08, 0), Push.mount(wall, 60.5, 10, 0, 0, .5, -0.08, false));
+        assertEquals(new Push.Mount(true, -Push.REBOUND, -0.08, 0), Push.mount(wall, 60.5, 10, 0, 0, .5, -0.08, false));
     }
 
     @Test
@@ -369,11 +403,11 @@ class WallTest {
     }
 
     @Test
-    void theFieldStandsTwoBlocksHigherThanThePixelLookForItsFallingSnow() {
+    void theFieldStandsEightBlocksHigherThanThePixelLookForItsFallingSnow() {
         final double base = Band.base(64.4);
 
         assertEquals(61, base);
-        assertEquals(71, base + Look.FIELD.height());
+        assertEquals(77, base + Look.FIELD.height());
         assertEquals(69, base + Look.PIXEL.height());
     }
 
@@ -388,7 +422,7 @@ class WallTest {
 
     /** Whether a player standing at 50, 0 on the wall's ground is sent the panel at {@code x} on its edge at z 0. */
     private static boolean seenAt(final Wall wall, final Look look, final double x) {
-        return Band.seen(wall, look, 50, 0, 64 + Band.EYE, panel -> 64).keySet().stream()
+        return Band.seen(wall, look, 50, 0, panel -> new Band.Ground(64, 0)).keySet().stream()
                 .anyMatch(panel -> Math.abs(panel.z() - Wall.INSET) < 1e-9 && Math.abs(panel.x() - x) < 1e-9);
     }
 
@@ -409,7 +443,7 @@ class WallTest {
                         gone,
                         seen("border/pixel"),
                         lower,
-                        new Band.Seen("border/field", 64)),
+                        new Band.Seen("border/field", new Band.Ground(64, 0))),
                 Map.of(
                         kept,
                         seen("border/pixel"),
@@ -418,17 +452,21 @@ class WallTest {
                         added,
                         seen("border/pixel"),
                         lower,
-                        new Band.Seen("border/field", 63)));
+                        new Band.Seen("border/field", new Band.Ground(64, 1))));
 
         assertEquals(Map.of(added, seen("border/pixel")), change.added());
         assertEquals(List.of(gone), change.removed());
         assertEquals(
-                Map.of(faded, seen("border/pixel_fade_1"), lower, new Band.Seen("border/field", 63)),
+                Map.of(
+                        faded,
+                        seen("border/pixel_fade_1"),
+                        lower,
+                        new Band.Seen("border/field", new Band.Ground(64, 1))),
                 change.remodelled());
     }
 
     private static Band.Seen seen(final String model) {
-        return new Band.Seen(model, Band.UNKNOWN);
+        return new Band.Seen(model, Band.Ground.UNKNOWN);
     }
 
     @Test

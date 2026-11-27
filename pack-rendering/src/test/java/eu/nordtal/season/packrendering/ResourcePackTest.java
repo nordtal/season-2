@@ -60,6 +60,8 @@ class ResourcePackTest {
                             Glyphs.FONT_UI_SILENT),
                     Glyphs.FONT_UI_TEXT.values().stream(),
                     Glyphs.FONT_UI_ART.values().stream(),
+                    Glyphs.FONT_UI_SMALL_AT.values().stream(),
+                    Glyphs.FONT_UI_MAP.values().stream(),
                     Glyphs.FONT_UI_DIALOG.values().stream(),
                     Stream.of(Glyphs.FONT_NPC),
                     Glyphs.FONT_NPC_TEXT.values().stream(),
@@ -173,7 +175,11 @@ class ResourcePackTest {
 
     @Test
     void aRaisedNpcTextFontMovesEveryLetterAsVanillaDoes() {
-        final String font = Glyphs.FONT_NPC_TEXT.get(-35);
+        final int lowest = Glyphs.FONT_NPC_TEXT.keySet().stream()
+                .mapToInt(Integer::intValue)
+                .min()
+                .orElseThrow();
+        final String font = Glyphs.FONT_NPC_TEXT.get(lowest);
         final Map<Integer, Integer> table = PackAdvances.of(ASSETS + "/" + font.replace(":", "/font/") + ".json");
         final List<String> differ = new ArrayList<>();
         table.forEach((codePoint, advance) -> {

@@ -60,7 +60,6 @@ public final class DialogueRun {
     private long stepStart = -1;
     private int shown;
     private long typedAt = -1;
-    private long holdFrom;
     private int selected;
     private boolean answering;
 
@@ -126,31 +125,50 @@ public final class DialogueRun {
         return new Frame(bars, vignette, zoom, panel(), hints(), toggle(), effects);
     }
 
-    /** A right-click: finishes the text, turns the page, goes on, or at a hand-off opens the menu at once. */
-    public void rightClick() {
-        if (!listening() || !debounced()) {
+    /** Confirms the current dialogue step: finishes typing, turns a page, takes an answer, advances or hands off. */
+    public void confirm() {
+        if (!listening()) {
             return;
         }
         if (typedAt < 0) {
+            if (!debounced()) {
+                return;
+            }
             shown = typing.length();
             typed();
         } else if (!lastPage()) {
+            if (!debounced()) {
+                return;
+            }
             turn();
+        } else if (!step.answers().isEmpty()) {
+            if (!answering || age - typedAt < ANSWERS_AFTER + CLICK_AFTER || !debounced()) {
+                return;
+            }
+            pending.add(new Effect.Sound(Effect.Cue.ANSWER));
+            release();
+            goOn(step.answers().get(selected).next());
         } else if (step.handsOff()) {
+            if (!debounced()) {
+                return;
+            }
             handOff();
-        } else if (step.answers().isEmpty()) {
+        } else {
+            if (!debounced()) {
+                return;
+            }
             goOn(step.next());
         }
     }
 
-    /** A left-click: takes the selected answer once the answers have shown for a moment. */
+    /** A right-click: confirms the current dialogue action. */
+    public void rightClick() {
+        confirm();
+    }
+
+    /** A left-click: confirms the current dialogue action. */
     public void leftClick() {
-        if (!listening() || !answering || age - typedAt < ANSWERS_AFTER + CLICK_AFTER || !debounced()) {
-            return;
-        }
-        pending.add(new Effect.Sound(Effect.Cue.ANSWER));
-        release();
-        goOn(step.answers().get(selected).next());
+        confirm();
     }
 
     /** The hotbar went to {@code slot}; returns whether the dialogue took it, so the slot stays held. */
@@ -166,7 +184,7 @@ public final class DialogueRun {
         return true;
     }
 
-    /** Shift went down or up. A press that begins on a hand-off ticks or unticks the box and holds it anew. */
+    /** Shift went down or up. A press that begins on a hand-off ticks or unticks the box. */
     public void sneak(final boolean down) {
         final boolean pressed = down && !shiftDown;
         shiftDown = down;
@@ -175,9 +193,6 @@ public final class DialogueRun {
         }
         ticked = !ticked;
         pending.add(new Effect.Sound(ticked ? Effect.Cue.SWITCH_ON : Effect.Cue.SWITCH_OFF));
-        if (typedAt >= 0) {
-            holdFrom = age;
-        }
     }
 
     /** Ends the dialogue softly: the panel goes and the bars slide out. */
@@ -229,22 +244,10 @@ public final class DialogueRun {
             if (shown >= typing.length()) {
                 typed();
             }
-        } else if (!lastPage()) {
-            if (age - holdFrom >= ticks(typing.hold())) {
-                turn();
-            }
-        } else if (!step.answers().isEmpty()) {
-            if (!answering && age - typedAt >= ANSWERS_AFTER) {
-                answering = true;
-                selected = 0;
-                pending.add(new Effect.HoldSlot());
-            }
-        } else if (step.handsOff()) {
-            if (age - holdFrom >= ticks(typing.handOffHold())) {
-                handOff();
-            }
-        } else if (age - holdFrom >= ticks(typing.hold())) {
-            goOn(step.next());
+        } else if (lastPage() && !step.answers().isEmpty() && !answering && age - typedAt >= ANSWERS_AFTER) {
+            answering = true;
+            selected = 0;
+            pending.add(new Effect.HoldSlot());
         }
     }
 
@@ -265,7 +268,6 @@ public final class DialogueRun {
 
     private void typed() {
         typedAt = age;
-        holdFrom = age;
     }
 
     private void goOn(final @Nullable String next) {
@@ -362,11 +364,17 @@ public final class DialogueRun {
     }
 
     private List<List<String>> pages(final Step shown) {
-        final int room = shown.answers().isEmpty() ? DialogueScreen.SPEAK_LINES : DialogueScreen.QUESTION_LINES;
-        return DialogueScreen.pages(shown.text().in(locale), room);
-    }
-
-    private static long ticks(final long milliseconds) {
-        return (milliseconds + TICK - 1) / TICK;
+        final List<Dialogue.Words> explicit = shown.pages();
+        if (explicit.isEmpty()) {
+            return List.of(List.of());
+        }
+        final List<List<String>> wrapped = new ArrayList<>(explicit.size());
+        for (int i = 0; i < explicit.size(); i++) {
+            final boolean lastWithAnswers =
+                    i == explicit.size() - 1 && !shown.answers().isEmpty();
+            final int limit = lastWithAnswers ? DialogueScreen.QUESTION_LINES : DialogueScreen.SPEAK_LINES;
+            wrapped.add(DialogueScreen.fit(explicit.get(i).in(locale), limit));
+        }
+        return List.copyOf(wrapped);
     }
 }

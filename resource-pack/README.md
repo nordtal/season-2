@@ -781,17 +781,17 @@ a shift that `nordtal:ui_text_{shift}` has.
 
 ## Vanilla overrides
 
-| file                                                           | effect                                                                                                                                   |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `minecraft/textures/gui/sprites/boss_bar/white_background.png` | makes the vanilla boss bar frame invisible, so only the composed HUD shows                                                               |
-| `minecraft/textures/gui/sprites/boss_bar/white_progress.png`   | makes the progress fill invisible                                                                                                        |
-| `minecraft/lang/en_us.json`                                    | sets `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect`                                                             |
-| `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                                                                                       |
-| `minecraft/textures/gui/container/generic_54.png`              | empties the chest window, so the title draws the whole panel                                                                             |
-| `minecraft/textures/gui/sprites/dialog/warning_button*.png`    | empties the dialog's warning button in its three states                                                                                  |
-| `minecraft/textures/gui/sprites/widget/checkbox*.png`          | the four checkbox states at 17 px with the tick centred                                                                                  |
-| `minecraft/lang/en_*.json`, `de_*.json`                        | `menu.custom_screen_info.tooltip`, the Nordtal menu's tooltip, in 8 files                                                                |
-| `minecraft/shaders/core/item.vsh`, `item.fsh`                  | draw the border wall's field where a texel is the marker `#4A63D9`, standing on the ground its tint carries; every other item as vanilla |
+| file                                                           | effect                                                                                                                                                                                                     |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `minecraft/textures/gui/sprites/boss_bar/white_background.png` | makes the vanilla boss bar frame invisible, so only the composed HUD shows                                                                                                                                 |
+| `minecraft/textures/gui/sprites/boss_bar/white_progress.png`   | makes the progress fill invisible                                                                                                                                                                          |
+| `minecraft/lang/en_us.json`                                    | sets `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect`                                                                                                                               |
+| `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                                                                                                                                                         |
+| `minecraft/textures/gui/container/generic_54.png`              | empties the chest window, so the title draws the whole panel                                                                                                                                               |
+| `minecraft/textures/gui/sprites/dialog/warning_button*.png`    | empties the dialog's warning button in its three states                                                                                                                                                    |
+| `minecraft/textures/gui/sprites/widget/checkbox*.png`          | the four checkbox states at 17 px with the tick centred                                                                                                                                                    |
+| `minecraft/lang/en_*.json`, `de_*.json`                        | `menu.custom_screen_info.tooltip`, the Nordtal menu's tooltip, in 8 files                                                                                                                                  |
+| `minecraft/shaders/core/item.vsh`, `item.fsh`                  | draw the border wall's field where a texel is the marker `#4A63D9`: a band on the ground its tint carries, up to the build limit as far as the server has stretched the panel; every other item as vanilla |
 
 A vanilla override starts as a copy from the client jar of the season's Minecraft version, the version
 of `paper` in the catalog. It is the jar that Fabric Loom downloads for `:bridge-mod` once, checks

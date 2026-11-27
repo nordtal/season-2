@@ -1,39 +1,39 @@
-import {
-  ArrowLeftIcon,
-  ClockCounterClockwiseIcon,
-  LayoutIcon,
-  PlusIcon,
-  SpinnerIcon,
-  XIcon,
-} from "@/components/ui/icons"
+import { ClockCounterClockwiseIcon, SpinnerIcon, XIcon } from "@/components/ui/icons"
 import { useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate } from "@tanstack/react-router"
-import { type ReactNode, useMemo, useRef, useState } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import {
-  api,
-  ApiError,
-  errorMessage,
-  type CommandAsked,
-  type Npc,
-  type NpcTextMeasureRequest,
-  type NpcView,
-} from "@/lib/api"
+import { api, ApiError, errorMessage, type CommandAsked, type Npc, type NpcView } from "@/lib/api"
 import {
   type Language,
-  type Problem,
   LANGUAGES,
+  type NodeSizes,
   addStep,
+  addStepAt,
   arranged,
-  missingIn,
-  moveStep,
+  deleteStep,
+  ordered,
   overlapping,
+  placeStep,
   problemsOf,
   sameNpc,
+  setAnswerThen,
+  setStart,
+  setThen,
+  stepNumbers,
   stepOf,
+  warningsOf,
 } from "@/lib/npc"
 import { readNpcDraft, setNpcDraft, useNpcDraft } from "@/lib/npc-drafts"
+import {
+  everyNpcText,
+  isCanvasShortcutTarget,
+  isEditableElement,
+  useIsDesktopCanvas,
+  useNpcHistory,
+  usePreviewOpen,
+} from "@/lib/npc-history"
 import { NPCS_PATH } from "@/lib/npc-paths"
 import { finalRun } from "@/lib/queries-commands"
 import { keys } from "@/lib/query-keys"
@@ -41,57 +41,31 @@ import { measureKey, useNpc, useNpcMeasurements, useNpcMenus, usePublishNpc, use
 import { message, t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
 import { AskThenAct } from "@/components/steward/ask-then-act"
-import { StepCanvas, StepList, type TooLong } from "@/components/steward/npc/graph"
-import { GermanProvider, germanKey } from "@/components/steward/npc/german"
-import { DialoguePreview, requestsOf } from "@/components/steward/npc/preview"
+import { EditorHead } from "@/components/steward/npc/editor-head"
+import { type SourcePort, StepCanvas, type TooLong, parseEdgeId } from "@/components/steward/npc/graph"
+import { requestsOf } from "@/components/steward/npc/preview"
+import { type IssueTarget, ProblemsPopover } from "@/components/steward/npc/problems"
 import { NpcSettings } from "@/components/steward/npc/settings"
-import { Heading, StepPanel } from "@/components/steward/npc/step-panel"
+import { NarrowDialogueView } from "@/components/steward/npc/step-list"
+import { InspectorEmpty, InspectorPreview, StepPanel } from "@/components/steward/npc/step-panel"
 import { NpcVersions } from "@/components/steward/npc/versions"
 import { QueryState, Skeleton } from "@/components/steward/query-state"
-import { StatusBadge } from "@/components/steward/status"
+import { Hint, StatusBadge } from "@/components/steward/status"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 /**
- * The editor of one NPC. Every change goes into a draft the browser holds; Publish sends the whole draft against the
- * version it was read at, and a draft that equals what is published is no draft.
+ * The editor of one NPC. Every change goes into a browser draft with undo history; Publish sends the whole draft
+ * against the version it was read at, and a draft that equals what is published is no draft.
  */
 
 type Tab = "dialogue" | "settings"
 
-/** How long typing rests before the texts are measured again. */
+/** How long typing rests before texts are measured again. */
 const MEASURE_AFTER_MS = 250
-
-/** Every text of the NPC as the panel measures it: the names, and each step's text and answers, in both languages. */
-function everyText(npc: Npc): NpcTextMeasureRequest[] {
-  return LANGUAGES.flatMap((language) => [
-    { text: npc.name[language], kind: "NAME" as const, answers: 0 },
-    ...npc.dialogue.steps.flatMap((step) => requestsOf(npc, step, language).slice(1)),
-  ]).filter((request) => request.text !== "")
-}
-
-function isTooLong(value: unknown): value is [string, Language[]][] {
-  return Array.isArray(value)
-}
-
-/** The languages in which each step is too long, from the string the editor keeps them as. */
-function toTooLong(marks: string): TooLong {
-  const parsed: unknown = JSON.parse(marks)
-  return new Map(isTooLong(parsed) ? parsed : [])
-}
-
-/** The German sections that hold the text a problem lacks: the name, a step's text, or each of its answers without one. */
-function germanOf(npc: Npc, problem: Problem): string[] {
-  if (problem.problem === "name") return [germanKey.name]
-  if (problem.problem === "step-text") return [germanKey.step(problem.step)]
-  if (problem.problem !== "answer-text") return []
-  const answers = stepOf(npc.dialogue, problem.step)?.answers ?? []
-  return answers.flatMap((answer, index) =>
-    answer.text.de.trim() === "" ? [germanKey.answer(problem.step, index)] : [],
-  )
-}
 
 /** The NPC's name as the page calls it: the English one, as Steward is English. */
 export function npcTitle(npc: Npc): string {
@@ -131,38 +105,14 @@ export function NpcEditor({ id }: { id: string }) {
   )
 }
 
-/** The editor's head inside the NPCs tab: the way back to the list, the NPC's name and its actions. */
-function EditorHead({ title, actions }: { title: string; actions?: ReactNode }) {
-  return (
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div className="-ml-2 flex min-w-0 items-center gap-1">
-        <Button asChild variant="ghost" size="icon-sm">
-          <Link {...NPCS_PATH} aria-label={t("steward.npcs.back")}>
-            <ArrowLeftIcon aria-hidden />
-          </Link>
-        </Button>
-        <h2 className="truncate text-xl font-semibold font-heading tracking-tight">{title}</h2>
-      </div>
-      {actions ? <div className="flex max-w-full flex-wrap items-center justify-end gap-2">{actions}</div> : null}
-    </header>
-  )
-}
-
-/** The editor before its NPC is read: the title, the tabs, then the canvas beside the step's fields. */
+/** The editor before its NPC is read: title, tabs, then canvas placeholder. */
 function Waiting() {
   return (
-    <div className="flex flex-col gap-6" role="status" aria-busy="true">
+    <div className="flex flex-col gap-3" role="status" aria-busy="true">
       <span className="sr-only">{t("steward.failure.loading")}</span>
       <Skeleton className="h-8 w-56" />
       <Skeleton className="h-8 w-40" />
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Skeleton className="h-list xl:col-span-2" />
-        <div className="flex flex-col gap-3 max-xl:hidden">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-48" />
-        </div>
-      </div>
+      <Skeleton className="h-npc-canvas w-full" />
     </div>
   )
 }
@@ -181,102 +131,335 @@ function Editor({
 }) {
   const client = useQueryClient()
   const navigate = useNavigate()
+  const isDesktop = useIsDesktopCanvas()
   const menus = useNpcMenus()
   const publish = usePublishNpc()
   const remove = useRemoveNpc()
-  const [tab, setTab] = useState<Tab>(published === undefined ? "settings" : "dialogue")
-  const [picked, setPicked] = useState(npc.dialogue.start)
+  const [tab, setTab] = useState<Tab>("dialogue")
+  const [picked, setPicked] = useState<string | null>(npc.dialogue.start)
+  const [selectedEdge, setSelectedEdge] = useState<string | null>(null)
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false)
+  const [previewPage, setPreviewPage] = useState(0)
+  const [previewOpen, togglePreview] = usePreviewOpen(isDesktop)
   const [language, setLanguage] = useState<Language>("en")
-  const [german, setGerman] = useState<ReadonlySet<string>>(() => new Set())
-  const toggleGerman = (key: string, open: boolean) =>
-    setGerman((before) => {
-      const after = new Set(before)
-      if (open) after.add(key)
-      else after.delete(key)
-      return after
-    })
+  const [problemsOpen, setProblemsOpen] = useState(false)
   const [versions, setVersions] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [playing, setPlaying] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
+  const [fitSignal, setFitSignal] = useState(0)
+  const [panSignal, setPanSignal] = useState(0)
   const play = useRef<string | null>(null)
   const sending = useRef(false)
-  const panel = useRef<HTMLDivElement>(null)
 
-  const step = stepOf(npc.dialogue, picked) ?? stepOf(npc.dialogue, npc.dialogue.start) ?? npc.dialogue.steps[0]
+  const { edit, applyEdit, undo, redo, clearHistory, canUndo, canRedo, npcRef } = useNpcHistory({
+    npc,
+    base,
+    published,
+    sending,
+  })
+
+  const selectedStep = picked === null ? undefined : stepOf(npc.dialogue, picked)
   const title = npcTitle(npc)
 
-  /** Changes the draft as it is now, so a change that follows an answer, such as an uploaded skin, keeps what was typed meanwhile. */
-  const edit = (change: (npc: Npc) => Npc) => {
-    const held = readNpcDraft(npc.id)
-    const live = client.getQueryData<NpcView>(keys.npc(npc.id))
-    // A late answer for an NPC that was deleted meanwhile starts no new draft.
-    if (held === undefined && live === undefined && published !== undefined) return
-    const from = held ?? (live ? { npc: live.npc, base: live.version } : { npc, base })
-    const next = change(from.npc)
-    // While a publication is on its way the draft stays, even one that equals what was live: the answer decides.
-    const untouched = !sending.current && live !== undefined && from.base === live.version && sameNpc(next, live.npc)
-    setNpcDraft(npc.id, untouched ? undefined : { npc: next, base: from.base })
-  }
+  const focusField = useCallback((selectorKey: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLElement>(`[data-focus-field="${CSS.escape(selectorKey)}"]`)
+        el?.focus()
+      })
+    })
+  }, [])
+
+  const selectAndFocusStep = useCallback(
+    (stepId: string, fieldKey?: string, pan = true) => {
+      setPicked(stepId)
+      setSelectedEdge(null)
+      setPreviewPage(0)
+      if (!isDesktop) setMobileInspectorOpen(true)
+      if (pan) setPanSignal((n) => n + 1)
+      if (fieldKey) focusField(fieldKey)
+    },
+    [focusField, isDesktop],
+  )
 
   const texts = useDebounced(
-    useMemo(() => everyText(npc), [npc]),
+    useMemo(() => everyNpcText(npc), [npc]),
     MEASURE_AFTER_MS,
   )
   const measured = useNpcMeasurements(texts).data
-  const missing = useMemo(() => new Map(npc.dialogue.steps.map((each) => [each.id, missingIn(each)])), [npc])
-  // While a typed text is not measured yet the marks stay as they were, so they do not go out at every keystroke.
-  const fresh = useMemo(() => {
-    const long: [string, Language[]][] = []
+
+  // Keep the previous too-long marks while new measurements arrive.
+  const freshTooLong = useMemo(() => {
+    const ids: string[] = []
     for (const each of npc.dialogue.steps) {
-      const languages: Language[] = []
+      let over = false
       for (const code of LANGUAGES) {
         for (const request of requestsOf(npc, each, code).slice(1)) {
           if (request.text === "") continue
           const measurement = measured?.get(measureKey(request))
           if (measurement === undefined) return undefined
-          if (!measurement.fits && !languages.includes(code)) languages.push(code)
+          if (!measurement.fits) over = true
         }
       }
-      long.push([each.id, languages])
+      if (over) ids.push(each.id)
     }
-    return JSON.stringify(long)
+    return JSON.stringify(ids)
   }, [npc, measured])
-  const [marks, setMarks] = useState("[]")
-  if (fresh !== undefined && fresh !== marks) setMarks(fresh)
-  const tooLong = useMemo(() => toTooLong(marks), [marks])
+  const [tooLongJson, setTooLongJson] = useState("[]")
+  if (freshTooLong !== undefined && freshTooLong !== tooLongJson) setTooLongJson(freshTooLong)
+  const tooLong = useMemo<TooLong>(() => {
+    const parsed: unknown = JSON.parse(tooLongJson)
+    return new Set(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [])
+  }, [tooLongJson])
 
-  /** Says what keeps the draft from playing, and opens the place where it is put right. */
-  const refuse = (heading: string, problem: Problem) => {
-    toast.error(heading, {
-      description: t("steward.npcs.problem", {
-        problem: problem.problem,
-        language: "language" in problem ? problem.language : "en",
-      }),
+  const loadedMenus = menus.isSuccess ? menus.data : undefined
+  const problems = useMemo(() => problemsOf(npc, measured, loadedMenus), [npc, measured, loadedMenus])
+  const warnings = useMemo(() => warningsOf(npc, measured), [npc, measured])
+
+  const handleDeleteStep = useCallback(
+    (id: string) => {
+      const current = npcRef.current
+      if (current.dialogue.steps.length <= 1) return
+      const beforeOrder = ordered(current.dialogue).map((entry) => entry.step.id)
+      const deletedIndex = beforeOrder.indexOf(id)
+      const fallbackId = deletedIndex > 0 ? beforeOrder[deletedIndex - 1] : (beforeOrder[1] ?? null)
+      const numbersBefore = stepNumbers(current.dialogue)
+      const deletedNumber = numbersBefore.get(id) ?? 1
+      const wasStart = current.dialogue.start === id
+      edit((draft) => deleteStep(draft, id))
+      setPicked((prev) => (prev === id ? fallbackId : prev))
+      setSelectedEdge(null)
+      setMobileInspectorOpen(false)
+      setPreviewPage(0)
+      toast(
+        wasStart ? t("steward.npcs.step-deleted-start") : t("steward.npcs.step-deleted", { number: deletedNumber }),
+        {
+          action: {
+            label: t("steward.npcs.undo"),
+            onClick: () => undo(),
+          },
+        },
+      )
+    },
+    [edit, npcRef, undo],
+  )
+
+  const handleUnlinkEdge = useCallback(
+    (edgeId: string) => {
+      const parsed = parseEdgeId(edgeId)
+      if (!parsed) return
+      edit((draft) =>
+        parsed.port === "then"
+          ? setThen(draft, parsed.stepId, { to: "end" })
+          : setAnswerThen(draft, parsed.stepId, parsed.port, { to: "end" }),
+      )
+      setSelectedEdge(null)
+      toast(t("steward.npcs.link-removed"), {
+        action: {
+          label: t("steward.npcs.undo"),
+          onClick: () => undo(),
+        },
+      })
+    },
+    [edit, undo],
+  )
+
+  const handleLinkPort = useCallback(
+    (sourceId: string, port: SourcePort, targetId: string) => {
+      edit((draft) =>
+        port === "then"
+          ? setThen(draft, sourceId, { to: "step", step: targetId })
+          : setAnswerThen(draft, sourceId, port, { to: "step", step: targetId }),
+      )
+    },
+    [edit],
+  )
+
+  const handleCreateFromPort = useCallback(
+    (sourceId: string, port: SourcePort, x: number, y: number, sizes?: NodeSizes) => {
+      let createdId = ""
+      edit((draft) => {
+        const baseDraft = overlapping(draft.dialogue, sizes) ? arranged(draft, sizes) : draft
+        const added = addStepAt(baseDraft, x, y, sizes)
+        createdId = added.id
+        return port === "then"
+          ? setThen(added.npc, sourceId, { to: "step", step: added.id })
+          : setAnswerThen(added.npc, sourceId, port, { to: "step", step: added.id })
+      })
+      if (createdId) selectAndFocusStep(createdId, `step-text:${createdId}:0:en`, true)
+    },
+    [edit, selectAndFocusStep],
+  )
+
+  const handleAddLinked = useCallback(
+    (sourceId: string, port: SourcePort) => {
+      let createdId = ""
+      edit((draft) => {
+        const baseDraft = overlapping(draft.dialogue) ? arranged(draft) : draft
+        const added = addStep(baseDraft, sourceId)
+        createdId = added.id
+        return port === "then"
+          ? setThen(added.npc, sourceId, { to: "step", step: added.id })
+          : setAnswerThen(added.npc, sourceId, port, { to: "step", step: added.id })
+      })
+      if (createdId) selectAndFocusStep(createdId, `step-text:${createdId}:0:en`, true)
+    },
+    [edit, selectAndFocusStep],
+  )
+
+  const handleCreateAt = useCallback(
+    (x: number, y: number, sizes?: NodeSizes) => {
+      let createdId = ""
+      edit((draft) => {
+        const baseDraft = overlapping(draft.dialogue, sizes) ? arranged(draft, sizes) : draft
+        const added = addStepAt(baseDraft, x, y, sizes)
+        createdId = added.id
+        return added.npc
+      })
+      if (createdId) selectAndFocusStep(createdId, `step-text:${createdId}:0:en`, true)
+    },
+    [edit, selectAndFocusStep],
+  )
+
+  const handleAddStepToolbar = useCallback(() => {
+    let createdId = ""
+    edit((draft) => {
+      const baseDraft = overlapping(draft.dialogue) ? arranged(draft) : draft
+      const added = addStep(baseDraft, picked ?? baseDraft.dialogue.start)
+      createdId = added.id
+      return added.npc
     })
-    if ("step" in problem) {
-      setTab("dialogue")
-      setPicked(problem.step)
-    } else {
-      setTab("settings")
-    }
-    if ("language" in problem && problem.language === "de") {
-      for (const key of germanOf(npc, problem)) toggleGerman(key, true)
-    }
-  }
+    if (createdId) selectAndFocusStep(createdId, `step-text:${createdId}:0:en`, true)
+  }, [edit, picked, selectAndFocusStep])
 
-  const send = (version: number) => {
-    const [problem] = problemsOf(npc)
-    if (problem) {
-      refuse(t("steward.npcs.not-published-yet"), problem)
+  const handleQuickNext = useCallback(() => {
+    if (!selectedStep) return
+    if (selectedStep.answers.length > 0) {
+      const openIndex = selectedStep.answers.findIndex((answer) => answer.next === undefined)
+      if (openIndex >= 0) handleAddLinked(selectedStep.id, openIndex)
+      else handleAddStepToolbar()
       return
     }
-    // The promise takes the answer, so the draft follows the publication even after the admin left the page.
+    if (selectedStep.next === undefined && selectedStep.menu === undefined) {
+      handleAddLinked(selectedStep.id, "then")
+    } else {
+      handleAddStepToolbar()
+    }
+  }, [handleAddLinked, handleAddStepToolbar, selectedStep])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableElement(event.target)) return
+      const mod = event.metaKey || event.ctrlKey
+      if (mod && event.key.toLowerCase() === "z") {
+        event.preventDefault()
+        if (event.shiftKey) redo()
+        else undo()
+        return
+      }
+      if (mod && event.key.toLowerCase() === "y") {
+        event.preventDefault()
+        redo()
+        return
+      }
+      if (tab !== "dialogue") return
+      if (!isCanvasShortcutTarget(event.target)) return
+      if (event.key === "Escape") {
+        if (event.defaultPrevented || problemsOpen || versions || conflict) return
+        setPicked(null)
+        setSelectedEdge(null)
+        return
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (selectedEdge) {
+          event.preventDefault()
+          handleUnlinkEdge(selectedEdge)
+        } else if (picked && npcRef.current.dialogue.steps.length > 1) {
+          const focusedNode =
+            event.target instanceof Element ? event.target.closest<HTMLElement>(".react-flow__node") : null
+          if (focusedNode && focusedNode.dataset.id !== picked) return
+          event.preventDefault()
+          handleDeleteStep(picked)
+        }
+        return
+      }
+      if (event.key === "Enter" && picked) {
+        event.preventDefault()
+        focusField(`step-text:${picked}:0:en`)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [
+    conflict,
+    focusField,
+    handleDeleteStep,
+    handleUnlinkEdge,
+    npcRef,
+    picked,
+    problemsOpen,
+    redo,
+    selectedEdge,
+    tab,
+    undo,
+    versions,
+  ])
+
+  const handleSelectIssue = useCallback(
+    (target: IssueTarget) => {
+      if (target.kind === "problem") {
+        const item = target.item
+        if (item.problem === "name") {
+          setTab("settings")
+          focusField(`npc-name:${item.language}`)
+          return
+        }
+        if (item.problem === "place") {
+          setTab("settings")
+          focusField("npc-place")
+          return
+        }
+        setTab("dialogue")
+        setPicked(item.step)
+        setSelectedEdge(null)
+        if (!isDesktop) setMobileInspectorOpen(true)
+        setPanSignal((n) => n + 1)
+        if (item.problem === "step-text" || item.problem === "step-tall") {
+          setPreviewPage(item.page)
+          focusField(`step-text:${item.step}:${item.page}:${item.language}`)
+        } else if (item.problem === "answer-text") {
+          focusField(`answer-text:${item.step}:${item.answer}:${item.language}`)
+        } else {
+          focusField(`step-then:${item.step}`)
+        }
+        return
+      }
+      const item = target.item
+      setTab("dialogue")
+      setPicked(item.step)
+      setSelectedEdge(null)
+      if (!isDesktop) setMobileInspectorOpen(true)
+      setPanSignal((n) => n + 1)
+      if (item.warning === "step-wide") {
+        setPreviewPage(item.page)
+        focusField(`step-text:${item.step}:${item.page}:${item.language}`)
+      } else if (item.warning === "answer-wide") {
+        focusField(`answer-text:${item.step}:${item.answer}:${item.language}`)
+      }
+    },
+    [focusField, isDesktop],
+  )
+
+  const send = (version: number) => {
+    if (problems.length > 0) {
+      setProblemsOpen(true)
+      return
+    }
     sending.current = true
     publish.mutateAsync({ npc, version }).then(
       (view) => {
         sending.current = false
-        // What was typed while the publication was on its way stays a draft, now of the new version.
         const held = readNpcDraft(npc.id)
         setNpcDraft(npc.id, held && !sameNpc(held.npc, npc) ? { npc: held.npc, base: view.version } : undefined)
         setConflict(false)
@@ -285,9 +468,7 @@ function Editor({
       (error: unknown) => {
         sending.current = false
         if (error instanceof ApiError && error.code === "NPC_CHANGED") {
-          // The dialog names the version that is live now.
           void client.invalidateQueries({ queryKey: keys.npcs }).then(() => {
-            // An NPC that was deleted meanwhile has no version to load or to publish over.
             const read = client.getQueryState(keys.npc(npc.id))?.error
             if (read instanceof ApiError && read.status === 404) toast.error(t("steward.answer.no-npc"))
             else setConflict(true)
@@ -305,10 +486,10 @@ function Editor({
     setPlaying(null)
     return true
   }
+
   const startPlaying = async () => {
-    const [problem] = problemsOf(npc)
-    if (problem) {
-      refuse(t("steward.npcs.not-played"), problem)
+    if (problems.length > 0) {
+      setProblemsOpen(true)
       return
     }
     setStarting(true)
@@ -328,6 +509,7 @@ function Editor({
       toast.error(t("steward.npcs.not-played"), { description: errorMessage(error) })
     }
   }
+
   const cancelPlaying = () => {
     const id = playing
     if (id === null || !ended(id)) return
@@ -336,188 +518,272 @@ function Editor({
     )
   }
 
-  /** Picks a step. Below the canvas's width the step's editor is under the list, so the page moves to it. */
-  const pick = (id: string, fromList: boolean) => {
-    setPicked(id)
-    if (fromList) requestAnimationFrame(() => panel.current?.scrollIntoView({ behavior: "smooth", block: "start" }))
-  }
-
-  const graph = { dialogue: npc.dialogue, menus: menus.data ?? [], selected: step.id, tooLong, missing }
+  const displayDialogue = useMemo(() => (overlapping(npc.dialogue) ? arranged(npc).dialogue : npc.dialogue), [npc])
   const live = published?.version ?? 0
+  const selectedNumber = selectedStep ? (stepNumbers(npc.dialogue).get(selectedStep.id) ?? 1) : 1
+
+  const inspectorBody = selectedStep ? (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="px-3 py-1.5">
+          <StepPanel
+            npc={npc}
+            step={selectedStep}
+            menus={menus.data ?? []}
+            measured={measured}
+            edit={edit}
+            onSelectPage={setPreviewPage}
+            onDeleteStep={handleDeleteStep}
+            onQuickNext={handleQuickNext}
+            onCreatedStep={(id) => selectAndFocusStep(id, `step-text:${id}:0:en`, true)}
+            onFocusField={focusField}
+          />
+        </div>
+      </ScrollArea>
+      <InspectorPreview
+        npc={npc}
+        step={selectedStep}
+        pageIndex={previewPage}
+        language={language}
+        measured={measured}
+        open={previewOpen}
+        onToggle={togglePreview}
+        onSelectPage={setPreviewPage}
+      />
+    </div>
+  ) : (
+    <InspectorEmpty npc={npc} />
+  )
+
+  const statusBadge =
+    live === 0 ? (
+      <StatusBadge tone="warn">{t("steward.npcs.draft-unpublished")}</StatusBadge>
+    ) : dirty ? (
+      <StatusBadge tone="warn">{t("steward.npcs.changed")}</StatusBadge>
+    ) : (
+      <Badge variant="secondary">{t("steward.npcs.live", { version: live })}</Badge>
+    )
+
   return (
-    <GermanProvider value={{ open: german, toggle: toggleGerman }}>
-      <div className="flex flex-col gap-6">
-        <EditorHead
-          title={title}
-          actions={
-            <>
-              <Badge variant="secondary">
-                {live === 0 ? t("steward.npcs.not-published") : t("steward.npcs.live", { version: live })}
-              </Badge>
-              {dirty && live > 0 ? <StatusBadge tone="warn">{t("steward.npcs.changed")}</StatusBadge> : null}
-              {dirty ? (
-                <AskThenAct
-                  trigger={
-                    <Button type="button" variant="ghost">
-                      {t("steward.npcs.discard")}
-                    </Button>
-                  }
-                  title={t("steward.npcs.discard-ask", { name: title })}
-                  description={live > 0 ? t("steward.npcs.discard-note", { version: base }) : undefined}
-                  action={t("steward.npcs.discard")}
-                  destructive
-                  act={() => {
-                    setNpcDraft(npc.id, undefined)
-                    if (live === 0) void navigate({ ...NPCS_PATH, replace: true })
-                  }}
-                />
-              ) : null}
-              {live > 0 ? (
-                <Button type="button" variant="ghost" onClick={() => setVersions(true)}>
-                  <ClockCounterClockwiseIcon aria-hidden />
-                  {t("steward.npcs.versions")}
-                </Button>
-              ) : null}
-              {playing === null ? (
-                <Button type="button" variant="secondary" disabled={starting} onClick={() => void startPlaying()}>
-                  <TERM_ICON.start aria-hidden />
-                  {t("steward.npcs.play")}
-                </Button>
-              ) : (
-                <Button type="button" variant="destructive" onClick={cancelPlaying}>
-                  <XIcon aria-hidden />
-                  {t("steward.npcs.cancel-play")}
-                </Button>
-              )}
-              <Button type="button" disabled={!dirty || publish.isPending} onClick={() => send(base)}>
-                {publish.isPending ? <SpinnerIcon aria-hidden className="animate-spin" /> : null}
-                {publish.isPending ? t("steward.npcs.publishing") : t("steward.npcs.publish")}
-              </Button>
-            </>
-          }
-        />
-        <Tabs value={tab} onValueChange={(value) => setTab(value === "settings" ? "settings" : "dialogue")}>
-          <TabsList>
-            <TabsTrigger value="dialogue">{t("steward.npcs.tab", { tab: "dialogue" })}</TabsTrigger>
-            <TabsTrigger value="settings">{t("steward.npcs.tab", { tab: "settings" })}</TabsTrigger>
-          </TabsList>
-          <TabsContent value="dialogue" className="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <div className="flex min-w-0 flex-col gap-3 xl:col-span-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const added = addStep(npc, step.id)
-                    edit(() => added.npc)
-                    setPicked(added.id)
-                  }}
-                >
-                  <PlusIcon aria-hidden />
-                  {t("steward.npcs.add-step")}
-                </Button>
+    <div className="flex flex-col gap-2 sm:gap-3">
+      <EditorHead
+        title={title}
+        status={statusBadge}
+        actions={
+          <>
+            {dirty ? (
+              <AskThenAct
+                trigger={
+                  <Button type="button" variant="ghost" size="sm" className="shrink-0">
+                    {t("steward.npcs.discard")}
+                  </Button>
+                }
+                title={t("steward.npcs.discard-ask", { name: title })}
+                description={live > 0 ? t("steward.npcs.discard-note", { version: base }) : undefined}
+                action={t("steward.npcs.discard")}
+                destructive
+                act={() => {
+                  clearHistory()
+                  setNpcDraft(npc.id, undefined)
+                  if (live === 0) void navigate({ ...NPCS_PATH, replace: true })
+                }}
+              />
+            ) : null}
+            {live > 0 ? (
+              <Hint tip={t("steward.npcs.versions")}>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="max-xl:hidden"
-                  onClick={() => edit((draft) => arranged(draft))}
+                  aria-label={t("steward.npcs.versions")}
+                  className="shrink-0 max-sm:px-2"
+                  onClick={() => setVersions(true)}
                 >
-                  <LayoutIcon aria-hidden />
-                  {t("steward.npcs.arrange")}
+                  <ClockCounterClockwiseIcon aria-hidden />
+                  <span className="max-sm:sr-only">{t("steward.npcs.versions")}</span>
                 </Button>
-              </div>
-              <StepCanvas
-                {...graph}
-                dialogue={overlapping(npc.dialogue) ? arranged(npc).dialogue : npc.dialogue}
-                className="flex-1 max-xl:hidden"
-                onSelect={(id) => pick(id, false)}
-                onMove={(id, x, y) =>
-                  edit((draft) => moveStep(overlapping(draft.dialogue) ? arranged(draft) : draft, id, x, y))
-                }
-              />
-              <StepList {...graph} className="xl:hidden" onSelect={(id) => pick(id, true)} />
-            </div>
-            <div ref={panel} className="flex min-w-0 scroll-mt-4 flex-col gap-6">
-              <StepPanel
-                npc={npc}
-                step={step}
-                menus={menus.data ?? []}
-                measured={measured}
-                edit={edit}
-                onDeleted={() => setPicked("")}
-              />
-              <section className="flex flex-col gap-3">
-                <Heading
-                  actions={
-                    <Tabs value={language} onValueChange={(value) => setLanguage(value === "de" ? "de" : "en")}>
-                      <TabsList>
-                        {LANGUAGES.map((each) => (
-                          <TabsTrigger key={each} value={each} className="px-2.5 text-xs">
-                            {t("steward.npcs.language", { language: each })}
-                          </TabsTrigger>
-                        ))}
-                      </TabsList>
-                    </Tabs>
-                  }
-                >
-                  {t("steward.npcs.preview")}
-                </Heading>
-                <DialoguePreview npc={npc} step={step} language={language} measured={measured} />
-              </section>
-            </div>
-          </TabsContent>
-          <TabsContent value="settings" className="mt-4">
-            <NpcSettings
+              </Hint>
+            ) : null}
+            {playing === null ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={starting}
+                className="shrink-0"
+                onClick={() => void startPlaying()}
+              >
+                <TERM_ICON.start aria-hidden />
+                {t("steward.npcs.play")}
+              </Button>
+            ) : (
+              <Button type="button" variant="destructive" size="sm" className="shrink-0" onClick={cancelPlaying}>
+                <XIcon aria-hidden />
+                {t("steward.npcs.cancel-play")}
+              </Button>
+            )}
+            <ProblemsPopover
               npc={npc}
-              published={published?.npc}
-              measured={measured}
-              edit={edit}
-              onDelete={() =>
-                remove.mutateAsync(npc.id).then(() => {
-                  setNpcDraft(npc.id, undefined)
-                  toast.success(t("steward.npcs.deleted", { name: title }))
-                  return navigate({ ...NPCS_PATH, replace: true })
-                })
-              }
+              problems={problems}
+              warnings={warnings}
+              open={problemsOpen}
+              onOpenChange={setProblemsOpen}
+              onSelect={handleSelectIssue}
             />
-          </TabsContent>
-        </Tabs>
-        {live > 0 ? (
-          <NpcVersions
-            id={npc.id}
-            name={title}
-            open={versions}
-            onOpenChange={setVersions}
-            onLoad={(version) => {
-              const restored = version.npc ?? (version.dialogue ? { ...npc, dialogue: version.dialogue } : undefined)
-              if (restored === undefined) return
-              edit(() => restored)
-              setPicked(restored.dialogue.start)
-              setVersions(false)
-              toast.success(t("steward.npcs.loaded", { number: version.number }))
-            }}
+            <Button
+              type="button"
+              size="sm"
+              className="shrink-0"
+              disabled={!dirty || publish.isPending}
+              onClick={() => send(base)}
+            >
+              {publish.isPending ? <SpinnerIcon aria-hidden className="animate-spin" /> : null}
+              {publish.isPending ? t("steward.npcs.publishing") : t("steward.npcs.publish")}
+            </Button>
+          </>
+        }
+      />
+
+      <Tabs value={tab} onValueChange={(value) => setTab(value === "settings" ? "settings" : "dialogue")}>
+        <TabsList>
+          <TabsTrigger value="dialogue">{t("steward.npcs.tab", { tab: "dialogue" })}</TabsTrigger>
+          <TabsTrigger value="settings">{t("steward.npcs.tab", { tab: "settings" })}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dialogue" className="mt-2 sm:mt-3">
+          {isDesktop ? (
+            <div className="relative h-npc-canvas min-h-96 w-full overflow-hidden rounded-lg border bg-background">
+              <StepCanvas
+                dialogue={displayDialogue}
+                menus={menus.data ?? []}
+                selected={selectedStep?.id ?? null}
+                selectedEdge={selectedEdge}
+                tooLong={tooLong}
+                language={language}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                fitSignal={fitSignal}
+                panSignal={panSignal}
+                onSelect={(id) => {
+                  setPicked(id)
+                  setPreviewPage(0)
+                  if (id !== null) setPanSignal((n) => n + 1)
+                }}
+                onSelectEdge={setSelectedEdge}
+                onFocusSelectedText={(id) => focusField(`step-text:${id}:0:en`)}
+                onPlace={(id, x, y, sizes) =>
+                  edit((draft) =>
+                    placeStep(overlapping(draft.dialogue, sizes) ? arranged(draft, sizes) : draft, id, x, y, sizes),
+                  )
+                }
+                onLink={handleLinkPort}
+                onCreateFromPort={handleCreateFromPort}
+                onAddLinked={handleAddLinked}
+                onCreateAt={handleCreateAt}
+                onMoveStart={(targetId) => edit((draft) => setStart(draft, targetId))}
+                onAddStep={handleAddStepToolbar}
+                onArrange={(sizes) => {
+                  edit((draft) => arranged(draft, sizes))
+                  setFitSignal((n) => n + 1)
+                }}
+                onUndo={undo}
+                onRedo={redo}
+                onLanguage={setLanguage}
+              />
+              <aside
+                aria-label={
+                  selectedStep ? t("steward.npcs.step-number", { number: selectedNumber }) : t("steward.npcs.graph")
+                }
+                className="absolute inset-y-0 right-0 z-10 flex w-npc-inspector max-w-full flex-col border-l bg-popover text-popover-foreground shadow-lg"
+              >
+                {inspectorBody}
+              </aside>
+            </div>
+          ) : (
+            <NarrowDialogueView
+              dialogue={npc.dialogue}
+              menus={menus.data ?? []}
+              selected={selectedStep?.id ?? null}
+              selectedNumber={selectedNumber}
+              tooLong={tooLong}
+              language={language}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              inspectorOpen={mobileInspectorOpen}
+              inspectorBody={inspectorBody}
+              onSelect={(id) => {
+                setPicked(id)
+                setPreviewPage(0)
+                setMobileInspectorOpen(true)
+              }}
+              onInspectorOpenChange={setMobileInspectorOpen}
+              onAddStep={handleAddStepToolbar}
+              onUndo={undo}
+              onRedo={redo}
+              onLanguage={setLanguage}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-4">
+          <NpcSettings
+            npc={npc}
+            published={published?.npc}
+            measured={measured}
+            edit={edit}
+            onDelete={() =>
+              remove.mutateAsync(npc.id).then(() => {
+                clearHistory()
+                setNpcDraft(npc.id, undefined)
+                toast.success(t("steward.npcs.deleted", { name: title }))
+                return navigate({ ...NPCS_PATH, replace: true })
+              })
+            }
           />
-        ) : null}
-        <AskThenAct
-          open={conflict}
-          onOpenChange={setConflict}
-          title={t("steward.npcs.conflict", { name: title })}
-          description={t("steward.npcs.conflict-note", { live, read: base })}
-          action={t("steward.npcs.load-live", { live })}
-          act={() => setNpcDraft(npc.id, undefined)}
+        </TabsContent>
+      </Tabs>
+
+      {live > 0 ? (
+        <NpcVersions
+          id={npc.id}
+          name={title}
+          open={versions}
+          onOpenChange={setVersions}
+          onLoad={(version) => {
+            const restored = version.npc ?? (version.dialogue ? { ...npc, dialogue: version.dialogue } : undefined)
+            if (restored === undefined) return
+            clearHistory()
+            applyEdit(() => restored, { record: false })
+            setPicked(restored.dialogue.start)
+            setSelectedEdge(null)
+            setPreviewPage(0)
+            setVersions(false)
+            setFitSignal((n) => n + 1)
+            toast.success(t("steward.npcs.loaded", { number: version.number }))
+          }}
+        />
+      ) : null}
+
+      <AskThenAct
+        open={conflict}
+        onOpenChange={setConflict}
+        title={t("steward.npcs.conflict", { name: title })}
+        description={t("steward.npcs.conflict-note", { live, read: base })}
+        action={t("steward.npcs.load-live", { live })}
+        act={() => {
+          clearHistory()
+          setNpcDraft(npc.id, undefined)
+        }}
+      >
+        <Button
+          type="button"
+          variant="outline"
+          disabled={publish.isPending || live === base}
+          onClick={() => send(live)}
         >
-          <Button
-            type="button"
-            variant="outline"
-            disabled={publish.isPending || live === base}
-            onClick={() => send(live)}
-          >
-            {t("steward.npcs.overwrite", { live })}
-          </Button>
-        </AskThenAct>
-      </div>
-    </GermanProvider>
+          {t("steward.npcs.overwrite", { live })}
+        </Button>
+      </AskThenAct>
+    </div>
   )
 }

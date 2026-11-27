@@ -45,12 +45,14 @@ object UiPanelGeometry {
     /** Width of every NPC dialogue panel, matching `DialogueScreen.WIDTH`. */
     const val NPC_PANEL_WIDTH = 300
 
-    /** All 11 NPC dialogue panel heights declared in `glyphs.json` and `DialogueScreen.HEIGHTS`. */
-    val NPC_PANEL_HEIGHTS = listOf(43, 48, 53, 55, 58, 63, 65, 67, 75, 77, 87)
+    /** All 16 NPC dialogue panel heights declared in `glyphs.json` and `DialogueScreen.HEIGHTS`. */
+    val NPC_PANEL_HEIGHTS = listOf(48, 51, 56, 58, 61, 66, 68, 70, 71, 76, 78, 80, 81, 88, 90, 100)
 
-    /** Picture side, frame side and padded texture height of `npc/portrait.png`. */
-    const val NPC_PORTRAIT_PICTURE = 40
-    const val NPC_PORTRAIT_FRAME = 46
+    /** Picture side, outer rim, recessed slot well side, frame side and padded texture height of `npc/portrait.png`. */
+    const val NPC_PORTRAIT_PICTURE = 36
+    const val NPC_PORTRAIT_RIM = 5
+    const val NPC_PORTRAIT_WELL = NPC_PORTRAIT_PICTURE + 2
+    const val NPC_PORTRAIT_FRAME = NPC_PORTRAIT_WELL + 2 * NPC_PORTRAIT_RIM
     const val NPC_PORTRAIT_HEIGHT = 64
 
     /** All 18 dialog panel sizes declared in `glyphs.json`. */
@@ -73,14 +75,14 @@ object UiPanelGeometry {
             DialogSpec("objectives_124", 262, 124),
             DialogSpec("objectives_33", 262, 33),
             DialogSpec("duel_124", 206, 124),
-            DialogSpec("wheel_197", 262, 197),
+            DialogSpec("wheel_158", 224, 158),
         )
 }
 
 /**
  * Draws every vanilla UI and NPC panel texture into [textures] from Minecraft's `generic_54.png`.
  * Produces all 18 dialog panels, the 18 x 18 slot sprite, `ui/gui/panel_1..6` and plain variants,
- * the `ui/board` frame corners and edges, the 11 NPC dialogue panels and `npc/portrait.png`.
+ * the `ui/board` frame corners and edges, the 16 NPC dialogue panels and `npc/portrait.png`.
  */
 @CacheableTask
 abstract class DrawUiPanels : VanillaClientTask() {
@@ -185,7 +187,7 @@ abstract class DrawUiPanels : VanillaClientTask() {
             return tiles
         }
 
-        /** Draws the 46 x 64 NPC avatar frame from [vanilla] with its 40 x 40 slot well and optional [picture]. */
+        /** Draws the 48 x 64 NPC avatar frame from [vanilla] with a 5 px rim, 38 x 38 slot well and 36 x 36 [picture]. */
         fun npcPortrait(
             vanilla: BufferedImage,
             picture: BufferedImage? = null,
@@ -196,17 +198,24 @@ abstract class DrawUiPanels : VanillaClientTask() {
                     UiPanelGeometry.NPC_PORTRAIT_HEIGHT,
                     BufferedImage.TYPE_INT_ARGB,
                 )
+            val rim = UiPanelGeometry.NPC_PORTRAIT_RIM
+            val well = UiPanelGeometry.NPC_PORTRAIT_WELL
+            val pictureOffset = rim + 1
             VanillaWindow.window(vanilla, frame, 0, UiPanelGeometry.NPC_PORTRAIT_FRAME, UiPanelGeometry.NPC_PORTRAIT_FRAME)
-            VanillaWindow.slotWell(vanilla, frame, 3, 3, UiPanelGeometry.NPC_PORTRAIT_PICTURE, UiPanelGeometry.NPC_PORTRAIT_PICTURE)
+            VanillaWindow.slotWell(vanilla, frame, rim, rim, well, well)
             if (picture != null) {
-                for (y in 0 until picture.height) {
-                    for (x in 0 until picture.width) {
+                for (y in 0 until minOf(picture.height, UiPanelGeometry.NPC_PORTRAIT_PICTURE)) {
+                    for (x in 0 until minOf(picture.width, UiPanelGeometry.NPC_PORTRAIT_PICTURE)) {
                         val argb = picture.getRGB(x, y)
                         val alpha = argb ushr 24
                         if (alpha == 255) {
-                            frame.setRGB(3 + x, 3 + y, argb)
+                            frame.setRGB(pictureOffset + x, pictureOffset + y, argb)
                         } else if (alpha > 0) {
-                            frame.setRGB(3 + x, 3 + y, sourceOver(frame.getRGB(3 + x, 3 + y), argb))
+                            frame.setRGB(
+                                pictureOffset + x,
+                                pictureOffset + y,
+                                sourceOver(frame.getRGB(pictureOffset + x, pictureOffset + y), argb),
+                            )
                         }
                     }
                 }

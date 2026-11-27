@@ -28,11 +28,17 @@ import org.jspecify.annotations.Nullable;
  */
 final class NpcPack {
 
-    /** The picture's side inside the frame. */
-    static final int PICTURE = 40;
+    /** The picture's side inside the recessed slot well. */
+    static final int PICTURE = 36;
 
-    /** The frame's side: the picture and a bevel of 3 on each side. */
-    static final int FRAME = PICTURE + 6;
+    /** The outer vanilla window rim on each side before the slot well. */
+    static final int RIM = 5;
+
+    /** The recessed slot well's side: the picture and a 1 px bevel on each side. */
+    static final int WELL = PICTURE + 2;
+
+    /** The frame's side: the slot well and the 5 px vanilla rim on each side. */
+    static final int FRAME = WELL + 2 * RIM;
 
     /** The texture's height: the frame padded below, so every panel height can raise it by its ascent. */
     static final int HEIGHT = 64;
@@ -42,17 +48,22 @@ final class NpcPack {
 
     /** The portrait glyphs of {@code nordtal:npc} in resource-pack/glyphs.json, which each NPC's font replaces. */
     static final List<Portrait> PORTRAITS = List.of(
-            new Portrait(0xFE6E0, 4),
-            new Portrait(0xFE6E1, 9),
-            new Portrait(0xFE6E2, 14),
-            new Portrait(0xFE6E3, 16),
-            new Portrait(0xFE6E4, 19),
-            new Portrait(0xFE6E5, 24),
-            new Portrait(0xFE6E6, 26),
-            new Portrait(0xFE6E7, 28),
-            new Portrait(0xFE6E8, 36),
-            new Portrait(0xFE6E9, 38),
-            new Portrait(0xFE6EA, 48));
+            new Portrait(0xFE6E0, 9),
+            new Portrait(0xFE6E1, 12),
+            new Portrait(0xFE6E2, 17),
+            new Portrait(0xFE6E3, 19),
+            new Portrait(0xFE6E4, 22),
+            new Portrait(0xFE6E5, 27),
+            new Portrait(0xFE6E6, 29),
+            new Portrait(0xFE6E7, 31),
+            new Portrait(0xFE6E8, 32),
+            new Portrait(0xFE6E9, 37),
+            new Portrait(0xFE6EA, 39),
+            new Portrait(0xFE6EB, 41),
+            new Portrait(0xFE6EC, 42),
+            new Portrait(0xFE6ED, 49),
+            new Portrait(0xFE6EE, 51),
+            new Portrait(0xFE6EF, 61));
 
     private static final int SKIN = 64;
 
@@ -196,7 +207,7 @@ final class NpcPack {
         final BufferedImage left = scaled(part(skin, 36, 52, arm, 6, 52, 52), 2);
         final BufferedImage figure = blank(PICTURE, PICTURE);
         final int middle = PICTURE / 2;
-        final int body = PICTURE - 12;
+        final int body = PICTURE - 11;
         blit(figure, shaded(right, 0.78), middle - 8 - 2 * arm, body + 1);
         blit(figure, shaded(left, 0.70), middle + 8, body + 1);
         blit(figure, shaded(torso, 0.88), middle - 8, body);
@@ -215,20 +226,18 @@ final class NpcPack {
             }
         }
         blit(outlined, figure, 0, 0);
-        final BufferedImage lowered = blank(PICTURE, PICTURE);
-        blit(lowered, outlined, 0, 1);
-        return lowered;
+        return outlined;
     }
 
     /**
      * Frames a {@value #PICTURE} square picture in vanilla's window bevel and slot well, padded to {@value #HEIGHT}.
-     * The picture lies over the whole well so an uploaded artwork shows every pixel; where clear, the well shows.
+     * The picture sits inside the well's 1 px bevel so neither busts nor uploads clip the frame.
      */
     static BufferedImage portrait(final BufferedImage picture, final BufferedImage vanilla) {
         final BufferedImage frame = blank(FRAME, HEIGHT);
         vanillaWindow(vanilla, frame, FRAME, FRAME);
-        vanillaSlotWell(vanilla, frame, 3, 3, PICTURE, PICTURE);
-        blit(frame, picture, 3, 3);
+        vanillaSlotWell(vanilla, frame, RIM, RIM, WELL, WELL);
+        blit(frame, picture, RIM + 1, RIM + 1);
         return frame;
     }
 

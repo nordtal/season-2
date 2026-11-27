@@ -33,6 +33,7 @@ final class DialogueSession {
     private final Feel feel;
     private final Hud hud;
     private final DialogueSounds sounds;
+    private final DialoguePacketGuard packetGuard;
     private final NamespacedKey zoomKey;
     private final double startDistance;
     private final CameraEase camera;
@@ -55,6 +56,7 @@ final class DialogueSession {
             final Feel feel,
             final Hud hud,
             final DialogueSounds sounds,
+            final DialoguePacketGuard packetGuard,
             final NamespacedKey zoomKey) {
         this.player = player;
         this.npc = npc;
@@ -62,6 +64,7 @@ final class DialogueSession {
         this.feel = feel;
         this.hud = hud;
         this.sounds = sounds;
+        this.packetGuard = packetGuard;
         this.zoomKey = zoomKey;
         this.startDistance = horizontal(player.getEyeLocation(), figure.getLocation());
         this.camera = new CameraEase(player.getYaw(), player.getPitch());
@@ -108,7 +111,7 @@ final class DialogueSession {
             switch (effect) {
                 case Effect.Sound sound -> sounds.play(player, sound.cue(), npc.pitch() * (float) feel.tickPitch());
                 case Effect.HoldSlot _ -> holdSlot();
-                case Effect.ReleaseSlot _ -> releaseSlot();
+                case Effect.ReleaseSlot _ -> releaseSlot(true);
                 case Effect.HandOff handOff -> left.add(handOff);
                 case Effect.End end -> left.add(end);
             }
@@ -119,11 +122,10 @@ final class DialogueSession {
     /** Puts back everything the session changed, at once. */
     void stopNow() {
         player.sendActionBar(Component.empty());
-        final boolean hadVignette = vignette > 0;
         vignette = 0;
         zoom(0.0);
-        releaseSlot();
-        if (player.isOnline() && (hadVignette || handSlot >= 0)) {
+        releaseSlot(false);
+        if (player.isOnline()) {
             ViewPackets.resyncInventory(player);
         }
         handSlot = -1;
@@ -132,8 +134,9 @@ final class DialogueSession {
 
     /** Hides all hotbar slots and off hand immediately for {@code slot}, such as after a slot change. */
     void hideHandsNow(final int slot) {
-        ViewPackets.hideHands(player, slot);
         handSlot = slot;
+        packetGuard.updateVisuals(player.getUniqueId(), handSlot, vignette);
+        ViewPackets.hideHands(player, slot);
         sinceHands = 0;
     }
 
@@ -162,8 +165,12 @@ final class DialogueSession {
         drawn = frame;
         sinceVignette++;
         if (frame.vignette() != vignette || (vignette > 0 && sinceVignette >= VIGNETTE_EVERY)) {
-            ViewPackets.vignette(player, frame.vignette());
             vignette = frame.vignette();
+            packetGuard.updateVisuals(
+                    player.getUniqueId(),
+                    handSlot >= 0 ? handSlot : player.getInventory().getHeldItemSlot(),
+                    vignette);
+            ViewPackets.vignette(player, vignette);
             sinceVignette = 0;
         }
         zoom(frame.zoom());
@@ -209,13 +216,16 @@ final class DialogueSession {
         hideHandsNow(Hotbar.CHOICE_SLOT);
     }
 
-    private void releaseSlot() {
+    private void releaseSlot(final boolean keepHidden) {
         if (heldSlot < 0) {
             return;
         }
         final int back = heldSlot;
         heldSlot = -1;
         moveSlot(back);
+        if (keepHidden) {
+            hideHandsNow(back);
+        }
     }
 
     private void moveSlot(final int slot) {

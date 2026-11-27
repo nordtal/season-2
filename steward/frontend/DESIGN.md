@@ -43,6 +43,7 @@ every 4px up to 24px, every 8px up to 48px, then 64, 80, 96 and 128px. `SPACING_
   row. `rows` is the width of a table's own box from which its rows fit. A narrower box draws every row
   as a card.
 - `list` is the height of a list that scrolls inside a page, a dialog or a drawer.
+- `npc-canvas` is the height of the NPC dialogue workspace below the editor head, filling the viewport without scrolling the page. `npc-inspector` is the width of the docked inspector panel and `npc-node` is the width of a step card on the canvas.
 
 ## Surfaces
 

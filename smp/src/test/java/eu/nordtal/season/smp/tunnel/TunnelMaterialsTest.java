@@ -58,4 +58,62 @@ class TunnelMaterialsTest {
         // Very few breakable blocks never speed up past the targeted block's normal break time.
         assertEquals(1.0, TunnelMaterials.speedMultiplier(10.0, 20.0, 0.08), 1e-6);
     }
+
+    @Test
+    void baseRockClassificationMatchesWorldEnvironmentAndExcludesOresAndProcessedVariants() {
+        for (final Material rock : new Material[] {
+            Material.STONE, Material.DEEPSLATE, Material.ANDESITE, Material.DIORITE, Material.GRANITE, Material.TUFF
+        }) {
+            assertTrue(TunnelMaterials.isReducedDropRock(rock, World.Environment.NORMAL));
+            assertFalse(TunnelMaterials.isReducedDropRock(rock, World.Environment.NETHER));
+            assertFalse(TunnelMaterials.isReducedDropRock(rock, World.Environment.THE_END));
+        }
+        for (final Material rock : new Material[] {Material.NETHERRACK, Material.BLACKSTONE, Material.BASALT}) {
+            assertTrue(TunnelMaterials.isReducedDropRock(rock, World.Environment.NETHER));
+            assertFalse(TunnelMaterials.isReducedDropRock(rock, World.Environment.NORMAL));
+            assertFalse(TunnelMaterials.isReducedDropRock(rock, World.Environment.THE_END));
+        }
+        assertTrue(TunnelMaterials.isReducedDropRock(Material.END_STONE, World.Environment.THE_END));
+        assertFalse(TunnelMaterials.isReducedDropRock(Material.END_STONE, World.Environment.NORMAL));
+
+        for (final Material unchanged : new Material[] {
+            Material.COAL_ORE,
+            Material.IRON_ORE,
+            Material.GOLD_ORE,
+            Material.DIAMOND_ORE,
+            Material.DEEPSLATE_DIAMOND_ORE,
+            Material.NETHER_GOLD_ORE,
+            Material.NETHER_QUARTZ_ORE,
+            Material.ANCIENT_DEBRIS,
+            Material.COBBLESTONE,
+            Material.COBBLED_DEEPSLATE,
+            Material.STONE_BRICKS,
+            Material.POLISHED_ANDESITE,
+            Material.SMOOTH_BASALT,
+            Material.STONE_STAIRS,
+            Material.END_STONE_BRICKS,
+            Material.DIRT,
+            Material.GRAVEL
+        }) {
+            assertFalse(TunnelMaterials.isReducedDropRock(unchanged, World.Environment.NORMAL));
+            assertFalse(TunnelMaterials.isReducedDropRock(unchanged, World.Environment.NETHER));
+            assertFalse(TunnelMaterials.isReducedDropRock(unchanged, World.Environment.THE_END));
+        }
+    }
+
+    @Test
+    void baseRockRollDropsBelowHalfAndOresAlwaysDrop() {
+        assertTrue(TunnelMaterials.shouldDropInTunnel(Material.STONE, World.Environment.NORMAL, 0.0));
+        assertTrue(TunnelMaterials.shouldDropInTunnel(Material.STONE, World.Environment.NORMAL, 0.499999));
+        assertFalse(TunnelMaterials.shouldDropInTunnel(Material.STONE, World.Environment.NORMAL, 0.5));
+        assertFalse(TunnelMaterials.shouldDropInTunnel(Material.STONE, World.Environment.NORMAL, 0.999999));
+        assertFalse(TunnelMaterials.shouldDropInTunnel(Material.NETHERRACK, World.Environment.NETHER, 0.5));
+        assertFalse(TunnelMaterials.shouldDropInTunnel(Material.END_STONE, World.Environment.THE_END, 0.5));
+
+        assertTrue(TunnelMaterials.shouldDropInTunnel(Material.DIAMOND_ORE, World.Environment.NORMAL, 0.999999));
+        assertTrue(
+                TunnelMaterials.shouldDropInTunnel(Material.DEEPSLATE_DIAMOND_ORE, World.Environment.NORMAL, 0.999999));
+        assertTrue(TunnelMaterials.shouldDropInTunnel(Material.NETHER_QUARTZ_ORE, World.Environment.NETHER, 0.999999));
+        assertTrue(TunnelMaterials.shouldDropInTunnel(Material.STONE_BRICKS, World.Environment.NORMAL, 0.999999));
+    }
 }

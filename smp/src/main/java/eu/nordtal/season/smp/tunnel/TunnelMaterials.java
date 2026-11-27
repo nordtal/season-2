@@ -36,10 +36,40 @@ public final class TunnelMaterials {
             Material.CHISELED_BOOKSHELF,
             Material.DECORATED_POT);
 
+    private static final Set<Material> OVERWORLD_BASE_ROCK = EnumSet.of(
+            Material.STONE, Material.DEEPSLATE, Material.ANDESITE, Material.DIORITE, Material.GRANITE, Material.TUFF);
+
+    private static final Set<Material> NETHER_BASE_ROCK =
+            EnumSet.of(Material.NETHERRACK, Material.BLACKSTONE, Material.BASALT);
+
+    private static final Set<Material> END_BASE_ROCK = EnumSet.of(Material.END_STONE);
+
+    /** Probability that a natural base-rock block produces its normal drop during an automatic tunnel step. */
+    public static final double BASE_ROCK_DROP_CHANCE = 0.5;
+
     private static final Map<Material, Material> ROCK_TO_STAIR = buildStairMap();
     private static final Map<Material, Material> ROCK_TO_SUPPORT = buildSupportMap();
 
     private TunnelMaterials() {}
+
+    /** Returns whether {@code type} is a natural base-rock block subject to reduced drops in {@code environment}. */
+    public static boolean isReducedDropRock(final Material type, final World.Environment environment) {
+        return switch (environment) {
+            case NORMAL -> OVERWORLD_BASE_ROCK.contains(type);
+            case NETHER -> NETHER_BASE_ROCK.contains(type);
+            case THE_END -> END_BASE_ROCK.contains(type);
+            default -> false;
+        };
+    }
+
+    /** Returns whether an automatic step drops {@code type} in {@code environment} for {@code roll}. */
+    public static boolean shouldDropInTunnel(
+            final Material type, final World.Environment environment, final double roll) {
+        if (!isReducedDropRock(type, environment)) {
+            return true;
+        }
+        return roll < BASE_ROCK_DROP_CHANCE;
+    }
 
     /** Returns whether a block of {@code type} (with {@code hardness} and container flag) must be skipped. */
     public static boolean isSkipped(final Material type, final float hardness, final boolean inventoryContainer) {

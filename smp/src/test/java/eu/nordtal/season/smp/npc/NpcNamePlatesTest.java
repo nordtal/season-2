@@ -102,6 +102,12 @@ class NpcNamePlatesTest {
                 new Dialogue(
                         "hello",
                         List.of(new Step(
-                                "hello", 0, 0, new Words("Hi", "Moin"), List.of(), null, ObjectivesMenu.MENU))));
+                                "hello",
+                                0,
+                                0,
+                                List.of(new Words("Hi", "Moin")),
+                                List.of(),
+                                null,
+                                ObjectivesMenu.MENU))));
     }
 }

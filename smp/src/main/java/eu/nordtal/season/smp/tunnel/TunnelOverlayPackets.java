@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Material;
@@ -49,24 +50,25 @@ final class TunnelOverlayPackets {
         private final TunnelFrame frame;
         private final int startEntityId;
         private final Map<TunnelZone, Integer> zoneEntityIds;
-        private @Nullable TunnelZone aimedZone;
+        private final Map<TunnelZone, String> zoneModels;
 
         private Shown(final TunnelFrame frame, final int startEntityId) {
             this.startMode = true;
             this.frame = frame;
             this.startEntityId = startEntityId;
             this.zoneEntityIds = Map.of();
+            this.zoneModels = Map.of();
         }
 
         private Shown(
                 final TunnelFrame frame,
                 final Map<TunnelZone, Integer> zoneEntityIds,
-                final @Nullable TunnelZone aimedZone) {
+                final Map<TunnelZone, String> zoneModels) {
             this.startMode = false;
             this.frame = frame;
             this.startEntityId = -1;
             this.zoneEntityIds = zoneEntityIds;
-            this.aimedZone = aimedZone;
+            this.zoneModels = zoneModels;
         }
 
         boolean sameStart(final TunnelFrame candidate) {
@@ -100,37 +102,52 @@ final class TunnelOverlayPackets {
     }
 
     /** Spawns all 7 active-face zone overlays 0.02 blocks in front of the wall face. */
-    Shown spawnActive(final UUID viewer, final TunnelFrame frame, final @Nullable TunnelZone aimed) {
+    Shown spawnActive(
+            final UUID viewer,
+            final TunnelFrame frame,
+            final @Nullable TunnelZone aimed,
+            final Set<TunnelZone> disabled) {
         final Map<TunnelZone, Integer> ids = new EnumMap<>(TunnelZone.class);
+        final Map<TunnelZone, String> models = new EnumMap<>(TunnelZone.class);
         for (final TunnelZone zone : TunnelZone.values()) {
             final int id = SpigotReflectionUtil.generateEntityId();
             final Vector3d pos = panelCenter(frame, zone.colMin(), zone.rowMin(), zone.width(), zone.height());
-            final String model = zone == aimed ? zone.modelName() + "_aimed" : zone.modelName();
+            final String model = modelFor(zone, aimed, disabled);
             spawnDisplay(viewer, id, pos, frame.heading().overlayYaw(), zone.width(), zone.height(), model);
             ids.put(zone, id);
+            models.put(zone, model);
         }
-        return new Shown(frame, ids, aimed);
+        return new Shown(frame, ids, models);
     }
 
-    /** Updates only the 1 or 2 zone entities whose aimed state changed, with no respawn flicker. */
-    void updateAim(final UUID viewer, final Shown shown, final @Nullable TunnelZone nextAim) {
-        if (shown.startMode || shown.aimedZone == nextAim) {
+    /** Updates only the zone entities whose disabled or aimed model changed, with no respawn flicker. */
+    void updateActive(
+            final UUID viewer,
+            final Shown shown,
+            final @Nullable TunnelZone nextAim,
+            final Set<TunnelZone> nextDisabled) {
+        if (shown.startMode) {
             return;
         }
-        final TunnelZone previous = shown.aimedZone;
-        if (previous != null) {
-            final Integer prevId = shown.zoneEntityIds.get(previous);
-            if (prevId != null) {
-                setItem(viewer, prevId, previous.modelName());
+        for (final TunnelZone zone : TunnelZone.values()) {
+            final String nextModel = modelFor(zone, nextAim, nextDisabled);
+            if (nextModel.equals(shown.zoneModels.get(zone))) {
+                continue;
+            }
+            final Integer id = shown.zoneEntityIds.get(zone);
+            if (id != null) {
+                setItem(viewer, id, nextModel);
+                shown.zoneModels.put(zone, nextModel);
             }
         }
-        if (nextAim != null) {
-            final Integer nextId = shown.zoneEntityIds.get(nextAim);
-            if (nextId != null) {
-                setItem(viewer, nextId, nextAim.modelName() + "_aimed");
-            }
+    }
+
+    /** Selects the item model key for {@code zone}, keeping disabled zones unhighlighted. */
+    static String modelFor(final TunnelZone zone, final @Nullable TunnelZone aimed, final Set<TunnelZone> disabled) {
+        if (disabled.contains(zone)) {
+            return zone.modelName() + "_disabled";
         }
-        shown.aimedZone = nextAim;
+        return zone == aimed ? zone.modelName() + "_aimed" : zone.modelName();
     }
 
     /** Removes all overlay entities for {@code viewer}. */

@@ -6,6 +6,7 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.jspecify.annotations.Nullable;
 
@@ -181,6 +182,49 @@ public final class BodyLine {
     /** Draws {@code text} in bold on the line's label row. */
     public BodyLine bold(final String text, final TextColor colour) {
         pen.bold(Pen.textFont(textShift), text, colour);
+        return this;
+    }
+
+    /** Draws {@code text} in the five-pixel font on the line's label row. */
+    public BodyLine small(final String text, final TextColor colour) {
+        pen.small(textShift, text, colour);
+        return this;
+    }
+
+    /** Draws a single ui art glyph of {@code width} columns in the lowered art font. */
+    public BodyLine art(final String glyph, final int width) {
+        pen.art(Pen.artFont(down), glyph, width);
+        return this;
+    }
+
+    /** Draws a ride map overlay glyph of {@code width} columns in the lowered map font. */
+    public BodyLine mapArt(final String glyph, final int width) {
+        pen.art(Pen.mapFont(down), glyph, width);
+        return this;
+    }
+
+    /** Draws a ride map overlay glyph of {@code width} columns tinted in {@code colour}. */
+    public BodyLine mapArt(final String glyph, final int width, final TextColor colour) {
+        pen.art(Pen.mapFont(down), glyph, width, colour);
+        return this;
+    }
+
+    /** Draws a 1 px tall horizontal run of {@code width} columns in the lowered map font, tinted in {@code colour}. */
+    public BodyLine mapRuns(final int width, final TextColor colour) {
+        if (width > 0) {
+            pen.runs(Pen.mapFont(down), Glyphs.UI_MAP_PX, width, colour);
+        }
+        return this;
+    }
+
+    /**
+     * Draws a standalone glyph from a font that does not reference {@code nordtal:ui_space}, such as a map tile font.
+     * Flushes the pen around it so adjacent cursor moves stay in {@code nordtal:ui_space}.
+     */
+    public BodyLine externalTile(final String font, final String glyph, final int width) {
+        final Component tile =
+                Component.text(glyph).font(Key.key(font)).color(Colours.ART).shadowColor(ShadowColor.none());
+        pen.append(tile, width + 1).move(-1);
         return this;
     }
 

@@ -46,7 +46,12 @@ public enum Symbol {
     UP(Glyphs.UI_SYMBOL_UP),
     DOWN(Glyphs.UI_SYMBOL_DOWN),
     RETURN(Glyphs.UI_SYMBOL_RETURN),
-    PEOPLE(Glyphs.UI_SYMBOL_PEOPLE);
+    PEOPLE(Glyphs.UI_SYMBOL_PEOPLE),
+    PLUS(Glyphs.UI_SYMBOL_PLUS),
+    MINUS(Glyphs.UI_SYMBOL_MINUS),
+    LIST(Glyphs.UI_SYMBOL_LIST),
+    MAP(Glyphs.UI_SYMBOL_MAP),
+    CART(Glyphs.UI_SYMBOL_CART);
 
     /** The cursor advance of every symbol. */
     public static final int ADVANCE = 8;

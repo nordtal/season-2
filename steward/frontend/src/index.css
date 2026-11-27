@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@xyflow/react/dist/style.css";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/outfit";
 @import "./brand.gen.css";
@@ -177,6 +178,11 @@
   /* The height of a list that scrolls inside a page, a dialog or a drawer. */
   --spacing-list: 60svh;
 
+  /* The NPC dialogue workspace: full viewport below the editor head, docked inspector and step card widths. */
+  --spacing-npc-canvas: calc(var(--app-height) - var(--content-top, 0px) - var(--content-bottom, 1.5rem) - 8rem);
+  --spacing-npc-inspector: 25rem;
+  --spacing-npc-node: 17.5rem;
+
   /* A small label: the line under the brand, a console line on a phone, the details of a network node. */
   --text-caption: 0.6875rem;
   /* The label of a small badge, or a count drawn over an icon. */
@@ -316,12 +322,50 @@
     min-height: var(--control-min-height);
   }
 
+  /* React Flow theme overrides: Steward tokens only, no foreign colours. */
+  .npc-flow,
+  .npc-flow .react-flow {
+    --xy-background-color: var(--background);
+    --xy-background-pattern-dots-color: var(--border);
+    --xy-edge-stroke: var(--muted-foreground);
+    --xy-edge-stroke-selected: var(--primary);
+    --xy-connectionline-stroke: var(--primary);
+    --xy-connectionline-stroke-width: 2;
+    --xy-node-background-color: transparent;
+    --xy-node-border: none;
+    --xy-node-boxshadow-hover: none;
+    --xy-node-boxshadow-selected: none;
+    --xy-handle-background-color: var(--card);
+    --xy-handle-border-color: var(--muted-foreground);
+    --xy-selection-background-color: transparent;
+    --xy-selection-border: none;
+  }
+
+  .npc-flow .react-flow__node {
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .npc-flow .react-flow__handle {
+    min-width: 0;
+    min-height: 0;
+  }
+
   /*
    * While its box is narrower than `--container-rows`, a table row becomes a card, the same for every row whatever it holds.
    *
    * A cell sits on line `--phone-line`, at its start, its end or across it (`data-phone`); `action` stands beside every line,
    * `off` is left out. A `data-labelled` cell keeps its column's name before the value. `DataTable` writes these attributes.
    */
+}
+
+/* Unlayered, so it beats React Flow's unlayered `.react-flow__node:focus-visible { outline: none }`. */
+.npc-flow .react-flow__node:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-lg);
 }
 
 /* Unlayered, so it beats shadcn's utility classes on the cells that it overrides. */

@@ -15,10 +15,10 @@ enum Look {
     /**
      * The height of a panel, in blocks, from the band's base up.
      *
-     * The field stands 2 blocks taller than the pixel look: that room above the wall holds falling snow only.
+     * The field stands 8 blocks taller than the pixel look: that room above the wall holds falling snow only.
      */
     float height() {
-        return this == FIELD ? 10 : 8;
+        return this == FIELD ? 16 : 8;
     }
 
     /** The item model, in the namespace {@code nordtal}, of a panel this far from the player. */

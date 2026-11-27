@@ -56,8 +56,20 @@ class MarkerGeometryTest {
         final List<MarkerGeometry.Placement> openedFront = MarkerGeometry.forTrapdoor(
                 BlockFace.NORTH, Bisected.Half.BOTTOM, true, false, SpawnExceptionSpec.IconSide.FRONT);
         assertEquals(1, openedFront.size());
-        assertEquals(BlockFace.NORTH, openedFront.getFirst().outward());
+        assertEquals(BlockFace.SOUTH, openedFront.getFirst().outward());
         assertEquals(0.5, openedFront.getFirst().dy());
+    }
+
+    @Test
+    void trapdoorTopMarkerRotatesTowardItsHingeWhenOpened() {
+        final List<MarkerGeometry.Placement> closed = MarkerGeometry.forTrapdoor(
+                BlockFace.NORTH, Bisected.Half.BOTTOM, false, false, SpawnExceptionSpec.IconSide.FRONT);
+        final List<MarkerGeometry.Placement> opened = MarkerGeometry.forTrapdoor(
+                BlockFace.NORTH, Bisected.Half.BOTTOM, true, false, SpawnExceptionSpec.IconSide.FRONT);
+
+        assertEquals(BlockFace.UP, closed.getFirst().outward());
+        assertEquals(BlockFace.SOUTH, opened.getFirst().outward());
+        assertTrue(opened.getFirst().dz() > 1.0);
     }
 
     @Test

@@ -116,7 +116,7 @@ final class MarkerGeometry {
     /** Returns the world direction currently occupied by the trapdoor's {@code FRONT} face. */
     private static BlockFace trapdoorFrontFace(
             final BlockFace facing, final Bisected.Half half, final boolean open, final boolean defaultOpen) {
-        final BlockFace uprightOfUp = half == Bisected.Half.BOTTOM ? facing : facing.getOppositeFace();
+        final BlockFace uprightOfUp = half == Bisected.Half.BOTTOM ? facing.getOppositeFace() : facing;
         if (!defaultOpen) {
             return open ? uprightOfUp : BlockFace.UP;
         }
